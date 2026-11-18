@@ -1,5 +1,8 @@
 # Continue ARAM Oracle in a New Chat
 
+> **F1 code-head CI green:** PR #33 `fix/m3-f1-lcda-nonblocking-status`, code commit `5489f056`, [CI 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545) passed (363 Python, 1 AUD-07 xfailed, 28 JS, 4 TODO). Verify the newest documentation HEAD CI before branching F2. Continue explicit LCU Gameflow state handling as the next distinct branch/PR only after gate.
+
+
 ## Current M3 handoff — F1 ongoing, do not start F2 before green
 
 - E3 PR #28 final `659b20edb8b9457e631a5f375aa2b93563ef5f3d`, Actions [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) **success**.
