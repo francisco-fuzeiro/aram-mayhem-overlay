@@ -2,8 +2,10 @@
 
 Reviewed 2026-11-18 for the ARAM Oracle development roadmap. This is a
 **source/feature evaluation, not an approval to import code or ship assets**.
-Exact source revisions, component licenses, notices and data terms must be
-verified *again for the chosen files* before integrating anything.
+Root LICENSE files for smiteless, ez-lol-spell-tracker and mayhem-advisor were read
+through the GitHub connector on 2026-11-18. Exact source revisions, component
+licenses, notices and data terms must be verified *again for the chosen files*
+before integrating anything.
 
 ## Reuse policy
 
@@ -26,10 +28,10 @@ verified *again for the chosen files* before integrating anything.
 
 | Project | License status / evidence | Potential benefit | Decision |
 | --- | --- | --- | --- |
-| [smiteless](https://github.com/bobbyroylee/smiteless) | GitHub displays MIT and provides a repository `LICENSE` | Python live-item recommendation adapting to visible enemy builds; compact event-driven UI patterns | **Candidate for D8**, after verifying individual files and dependencies; do not copy its ranked-specific assumptions or third-party commercial datasets |
-| [ez-lol-spell-tracker](https://github.com/lucas-lima-s/ez-lol-spell-tracker) | Upstream README declares MIT / `LICENSE` | Qt/PySide6 tray/Settings patterns and headless UI test structure | **Candidate for D2**, evaluate whether small patterns are worth adapting; different Qt binding from PyQt6 |
+| [smiteless](https://github.com/bobbyroylee/smiteless) | Verified root `LICENSE`: MIT, © 2026 bobbyroylee | Python live-item recommendation adapting to visible enemy builds; compact event-driven UI patterns | **Candidate for D8**, after verifying individual files and dependencies; do not copy its ranked-specific assumptions or third-party commercial datasets |
+| [ez-lol-spell-tracker](https://github.com/lucas-lima-s/ez-lol-spell-tracker) | Verified root `LICENSE`: MIT, © 2026 Lucas de Lima | Qt/PySide6 tray/Settings patterns and headless UI test structure | **Candidate for D2**, evaluate whether small patterns are worth adapting; different Qt binding from PyQt6 |
 | [mayhem-overlay](https://github.com/zp96-cmd/mayhem-overlay) | MIT listed in package metadata in the prior project audit; verify the complete file-level and dependency notices before any further import | Mayhem OCR/client utilities and mode support | **Conditional candidate**; existing permitted adaptations already recorded in `THIRD_PARTY_NOTICES.md` |
-| [mayhem-advisor](https://github.com/ItzStorDz/mayhem-advisor) | All rights reserved in prior project audit; no general reuse grant identified | Feature reference: card OCR, reroll, manual fallback | **Reference only. Do not copy source, assets or algorithms without explicit applicable written authorization.** |
+| [mayhem-advisor](https://github.com/ItzStorDz/mayhem-advisor) | Verified root `LICENSE`: copyright © 2026 ItzStorDz, all rights reserved, explicit prohibition on copying/derivatives without permission | Feature reference: card OCR, reroll, manual fallback | **Reference only. Do not copy source, assets or algorithms without explicit applicable written authorization.** |
 | [OP.GG Desktop](https://www.op.gg/) | No source reuse license established | Desktop navigation, setting hierarchy, contextual overlay behavior | **UX reference only. No code, assets or branded visual copying.** |
 | [Ryot](https://github.com/ryanpolasky/Ryot) | License not confirmed in this review | Distinct main/overlay/champion-select window topology | **Reference only pending verification**, Electron design not directly reusable in the PyQt6 shell |
 | [ezlol](https://github.com/aarlint/ezlol) | License not confirmed in this review | Tray ownership, desktop preferences, updater lifecycle | **Reference only pending verification**; updater intentionally outside D1 |
