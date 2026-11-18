@@ -69,6 +69,11 @@ request connection rather than inventing state. Always protect `main`.
 4. Keep the PR draft, targeting its predecessor; leave `main` untouched.
 5. Conclude in PT-PT with accomplished changes, automated results, unresolved Windows validation and a ready-to-paste prompt for the next phase/chat.
 
+## Active handoff (2026-11-18) — M3/F3 → F4
+
+- F3 [draft PR #31](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/31) `fix/m3-f3-match-identity-debounced-end` stacked on F2 final green [44416684750](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44416684750). F3 red [44417070655](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417070655) and green code [44417583673](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417583673): 385 Python passed, 0 xfail, 28 JS passed, 4 TODO. Code `90f30018`.
+- **Verify F3 docs-head CI success before opening F4**. F4 only frontend clear/stale reconnect and JS TODO activation. F5 lock-safe broadcast later; no merges, OCR changes, real Windows/League or Riot acceptance claims.
+
 ## Active handoff (2026-11-18) — M3/F2 → F3
 
 - F2 [draft PR #30](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/30) `fix/m3-f2-explicit-gameflow-status` stacked on verified F1 PR #29. F2 red CI `44415699928`, green code [44416355903](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44416355903): 374 Python, 1 AUD-07 xfailed; 28 JS, 4 TODO. Code SHA `0493fad2`.

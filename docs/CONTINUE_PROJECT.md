@@ -1,5 +1,11 @@
 # Continue ARAM Oracle in a New Chat
 
+## 2026-11-18 M3/F3 code complete — F4 after final-head CI
+
+- F3 [draft PR #31](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/31), branch `fix/m3-f3-match-identity-debounced-end` on F2 PR #30. Red [44417070655](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417070655), green code [44417583673](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417583673): 385 Python, **0 xfail**, 28 JS, 4 TODO; code SHA `90f30018`.
+- **Verify F3 final documentation-head CI success before F4.** F4 only: frontend clearMatchDisplayState and WS stale/reconnecting; retire AUD-05/AUD-06 JS TODOs when passing. F5 broadcast lock separation later separate PR. No native game acceptance.
+- Keep G1/G2, G4, A-FUNC.3/V1 and Riot policy/licensing open.
+
 ## 2026-11-18 M3/F2 code complete — F3 next after docs CI
 
 - F2 [draft PR #30](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/30) `fix/m3-f2-explicit-gameflow-status` on F1 PR #29. Red [44415699928](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44415699928); green code [44416355903](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44416355903): 374 Python, 1 strict AUD-07 xfailed, 28 JS, 4 TODO. Code head `0493fad2`.
