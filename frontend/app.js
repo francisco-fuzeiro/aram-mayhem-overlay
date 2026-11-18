@@ -136,6 +136,9 @@
 
         ws.onclose = () => {
             setConnected(false);
+            clearMatchDisplayState();
+            hidePostGameFeedback();
+            showWaiting(true);
             scheduleReconnect();
         };
 
@@ -166,22 +169,27 @@
 
     function handleMessage(msg) {
         if (msg.type === "champ_select") {
+            clearMatchDisplayState();
+            hidePostGameFeedback();
             renderChampSelect(msg);
             return;
         }
 
         if (msg.type === "no_game") {
+            clearMatchDisplayState();
             hidePostGameFeedback();
             showWaiting(true);
             return;
         }
 
         if (msg.type === "game_ended") {
+            clearMatchDisplayState();
             showPostGameFeedback();
             return;
         }
 
         if (msg.type === "update") {
+            hidePostGameFeedback();
             showWaiting(false);
             lastResult = msg;
             renderUpdate(msg);
@@ -226,6 +234,45 @@
             }
             return;
         }
+    }
+
+    // Clear only match-derived data. Keep OCR availability, the saved build
+    // style and overlay preferences across matches and WebSocket reconnects.
+    function clearMatchDisplayState() {
+        lastResult = null;
+        selectedAugmentIds = [];
+        scanning = false;
+        champName.textContent = "---";
+        gameTime.textContent = "--:--";
+        goldEl.textContent = "--";
+        phaseEl.textContent = "---";
+        champSelectList.replaceChildren();
+        champSelectNote.textContent = "";
+        augmentList.replaceChildren();
+        augmentConfirm.replaceChildren();
+        augmentConfirm.classList.add("hidden");
+        augmentToast.classList.add("hidden");
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
+        augmentProgress.textContent = "0/0";
+        augmentProgress.classList.add("hidden");
+        rerollBadge.classList.add("hidden");
+        rerollBanner.classList.add("hidden");
+        rerollReason.textContent = "";
+        ocrDetected.replaceChildren();
+        ocrDetected.classList.add("hidden");
+        selectedAugments.replaceChildren();
+        searchResults.replaceChildren();
+        augmentSearch.value = "";
+        btnEvaluate.disabled = true;
+        btnEvaluate.textContent = "Evaluate (0/3)";
+        btnScan.textContent = "Scan Screen";
+        btnScan.disabled = !ocrAvailable;
+        buildList.replaceChildren();
+        buildFooter.textContent = "";
+        buildAlternatives.replaceChildren();
+        enemyList.replaceChildren();
+        updateOcrStatusBadge();
     }
 
     function showWaiting(show) {
