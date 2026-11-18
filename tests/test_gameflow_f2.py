@@ -62,7 +62,7 @@ def test_gameflow_states_are_explicit(phase, expected):
 
 
 def test_lcu_gameflow_read_is_read_only(monkeypatch):
-    session = Mock()
+    session = __import__('unittest.mock', fromlist=['MagicMock']).MagicMock()
     session.base_url = "https://127.0.0.1:1234"
     session.get.return_value = Mock(status_code=200, json=lambda: "ChampSelect")
     monkeypatch.setattr(lcu, "get_lcu_session", lambda: session)
