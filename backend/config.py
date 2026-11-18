@@ -26,6 +26,7 @@ _TYPE_SPECS: dict[str, type | tuple[type, ...]] = {
     "github_token": str,
     "github_repo": str,
     "ocr_region": list,
+    "experimental_augment_evidence": bool,
 }
 
 DEFAULTS: dict = {
@@ -49,6 +50,8 @@ DEFAULTS: dict = {
 
     # Server port
     "port": 8765,
+    # Disabled pending separate Riot review of derived augment statistics.
+    "experimental_augment_evidence": False,
 
     # GitHub bug report integration
     "github_token": "",   # personal access token (repo scope)
