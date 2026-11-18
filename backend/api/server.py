@@ -17,7 +17,8 @@ from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import get_raw_game_data, parse_game_snapshot
-from backend.collectors.lcu import read_champ_select
+from backend.collectors.lcu import read_champ_select, read_gameflow_phase
+from backend.api.match_lifecycle import classify_status
 from backend.engine.champion_select import summarize_champion_select
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
@@ -738,6 +739,7 @@ def _poll_dependencies() -> SimpleNamespace:
         get_raw_game_data=get_raw_game_data,
         parse_game_snapshot=parse_game_snapshot,
         read_champ_select_payload=_read_champ_select_payload,
+        read_gameflow_phase=read_gameflow_phase,
         ocr_available=ocr_available,
         run_watcher_check=_run_watcher_check,
         screen_watcher=screen_watcher,
@@ -766,6 +768,8 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                 raw = None
         else:
             raw = lcda_result
+        gameflow_reader = getattr(deps, "read_gameflow_phase", None)
+        gameflow = await deps.to_thread(gameflow_reader) if gameflow_reader else None
         if raw:
             _record_match_phase(state, "in_game")
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
@@ -889,17 +893,33 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                     deps.serialize_result(result, deps.static_data, snapshot)
                 )
                 await deps.broadcast(payload)
+            if gameflow_reader:
+                await deps.broadcast(json.dumps({
+                    "type": "status",
+                    "status": "in_game" if result is not None or state.pipeline is None
+                    else "champion_unresolved",
+                }))
         else:
             # Live Client API is unavailable during champion select.
             # Read the local client (read-only) off the event loop.
             champ_select = await deps.to_thread(deps.read_champ_select_payload)
-            if champ_select is not None:
+            status = classify_status(
+                gameflow, lcda_status if isinstance(lcda_result, tuple) else "error",
+                was_in_game=state.had_game_last_tick,
+            ) if gameflow_reader else None
+            if gameflow_reader:
+                await deps.broadcast(json.dumps({"type": "status", "status": status}))
+            if champ_select is not None or status == "champ_select":
                 _record_match_phase(state, "champ_select")
                 async with state.lock:
                     state.had_game_last_tick = False
                     state.post_game = False
                     state.reset()
-                await deps.broadcast(json.dumps(champ_select))
+                if champ_select is not None:
+                    await deps.broadcast(json.dumps(champ_select))
+            elif status in ("loading", "live_data_unavailable"):
+                # The missing live-data endpoint is not an end-of-match signal.
+                return
             else:
                 async with state.lock:
                     if state.had_game_last_tick:
