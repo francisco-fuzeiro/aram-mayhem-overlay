@@ -16,7 +16,7 @@ from backend.static_data.loader import StaticData
 from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
-from backend.collectors.lcda import get_raw_game_data, parse_game_snapshot
+from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
 from backend.collectors.lcu import read_champ_select
 from backend.engine.champion_select import summarize_champion_select
 from backend.collectors.screen_ocr import (
@@ -758,7 +758,13 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
     """
     clients_count = len(state.ws_clients)
     if clients_count > 0:
-        raw = deps.get_raw_game_data()
+        lcda_read = await deps.to_thread(deps.get_raw_game_data)
+        # Compatibility with deterministic M1 test doubles that return raw
+        # payloads; the production collector always returns LCDAResult.
+        if isinstance(lcda_read, LCDAResult):
+            raw = lcda_read.payload if lcda_read.status == "ok" else None
+        else:
+            raw = lcda_read
         if raw:
             _record_match_phase(state, "in_game")
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
