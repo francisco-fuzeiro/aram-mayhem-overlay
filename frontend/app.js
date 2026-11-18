@@ -75,6 +75,7 @@
         bindFeedback();
         bindHistorySync();
         bindBuildStyle();
+        bindNativeWindowControls();
     }
 
     async function fetchStaticNames() {
@@ -860,6 +861,25 @@
         const div = document.createElement("div");
         div.textContent = str || "";
         return div.innerHTML;
+    }
+
+    // -- Native Qt window controls --
+
+    function bindNativeWindowControls() {
+        // These buttons are visible only inside the Qt renderer. Native Qt
+        // handles local fragment actions; browser pages never get OS control.
+        const hide = $("btn-hide-overlay");
+        const quit = $("btn-quit-overlay");
+        if (hide) hide.addEventListener("click", () => {
+            if (document.documentElement.classList.contains("qt-native-overlay")) {
+                location.hash = "qt-hide";
+            }
+        });
+        if (quit) quit.addEventListener("click", () => {
+            if (document.documentElement.classList.contains("qt-native-overlay")) {
+                location.hash = "qt-quit";
+            }
+        });
     }
 
     // -- Overlay mode --
