@@ -32,6 +32,16 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 **Continue on `feat/dynamic-team-threats`**, unless its PR is merged and a new branch is appropriate. Follow the dependency order; never assume all stacked drafts have been merged.
 
+## Current work: PR #6 — team and enemy observation coverage
+
+- Branch `feat/team-threat-coverage`, stacked on PR #5 `feat/dynamic-team-threats`; `main` is unchanged.
+- The current champion now counts in allied role coverage (exactly once), so allied deficits include the player's own capabilities.
+- Enemy inventories are examined even when an enemy champion is not present in the catalog. `visible_items` now means the observed item count; `unknown_items` indicates IDs lacking our item metadata.
+- High threat confidence requires all visible enemy champions to be recognized and every observed item to resolve, as well as minimum roster/item coverage.
+- New deterministic tests cover partial catalog coverage, item observation without a known champion, and including the player in allied roles.
+- Validation: **not run** for this branch's new commits until the draft PR's Windows CI completes. Windows in-game sample remains outstanding.
+- Remaining risks: DataDragon tags may not correspond to verified item stats; role vectors approximate threat types; actual LCDA roster must be checked on Windows.
+
 ## Automated verification (as last observed)
 
 - Previous user-run suite on the Champion Select branch: **114 passed**.
