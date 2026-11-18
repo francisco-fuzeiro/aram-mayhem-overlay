@@ -36,8 +36,29 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#10](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/10) | `feat/qt-overlay-window-controls` | PR #9 branch | Hide/show/quit buttons, Alt+H restore, Qt system tray menu |
 | [#11](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/11) | `fix/live-augment-detection-item-duplicates` | PR #10 branch | Fix early level scan, manual augment fallback, duplicate-name builds and non-equipment trinkets |
 | [#12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) | `feat/pregame-settings-feedback` | PR #11 branch | Out-of-game Settings, persistent live build preferences, Qt tray access and local feedback |
+| [#13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13) | `feat/desktop-settings-shell` | PR #12 branch | D1 native normal PyQt6 Settings host, shared API readiness/conflict handling and headless regressions |
 
-**Active working head: `feat/pregame-settings-feedback` (draft PR #12)**, stacked on PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/desktop-settings-shell` (draft PR #13)**, stacked on PR #12 -> PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+
+## Current work: PR #13 — D1 native desktop Settings shell (2026-11-18)
+
+- Branch `feat/desktop-settings-shell`, draft [PR #13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13), based on `feat/pregame-settings-feedback` (draft PR #12); `main` unchanged.
+- New `backend/desktop/{__main__,runtime,window}.py` opens a **standard, resizable, focusable** `QMainWindow` / `QWebEngineView` hosting the unchanged `http://127.0.0.1:8765/settings` page. No overlay transparency/topmost/click-through flags are applied.
+- `python -m backend.desktop` checks for Qt before starting a server, recognizes a compatible running local ARAM Oracle API, otherwise starts the **same** FastAPI startup path as the overlay, and refuses unexpected services already bound to 127.0.0.1:8765. Readiness, missing PyQt6, startup errors, and page load failure are surfaced. This does not yet provide unified process/tray ownership (D2).
+- The existing `frontend/settings.{html,js,css}`, `GET/PUT /api/preferences`, feedback endpoint, disk persistence and WebSocket synchronization are reused without new business logic.
+- The existing `backend/overlay` files remain unchanged, including explicit `--renderer qt`, transparency, Alt+O/Alt+H, click-through, and legacy tray/browser Settings fallback.
+- **Verified Windows Actions:** [run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) at D1 code+README head `d5aff632`: **234 Python passed, 1 warning**, 4 Node Settings tests passed, both JS syntax checks passed. Nineteen new Python tests cover startup/readiness, conflict and native host/overlay contracts. Subsequent documentation-only commits require checking the latest Actions result separately.
+- **Windows manual acceptance remains open:** native window focus/resize, style preference save/restart, feedback report and pre-existing transparent in-game overlay/keyboard shortcuts. D2 will unify single-instance and tray ownership; an installer/redesign/update service is not in D1.
+- External-source register: [`docs/REUSE_CANDIDATES.md`](REUSE_CANDIDATES.md). Permissively licensed companion projects are candidates for targeted future adaptation with exact license/attribution verification; D1 imports **no** external overlay code.
+
+## Latest Windows evidence and next-chat decisions (2026-11-18)
+
+- User's PowerShell confirms checkout `feat/desktop-settings-shell` in `D:\\Overlay ARAM\\aram-oracle`, and successful `python -m backend.desktop`: the existing FastAPI server started, native Settings window opened at `http://127.0.0.1:8765/settings`, and the page loaded. Screenshot shows the normal Windows title bar, Settings sections and current `Balanced` preference loaded.
+- The user confirmed **transparent Qt overlay, Alt+O click-through toggling and Alt+H hide/restore** on their Windows machine; the terminal output includes repeated toggle/hide/show logs. The final `KeyboardInterrupt` came from stopping the Python process, not a proven application crash. The Qt DPI-awareness warning was nonfatal in the observed session.
+- **Tesseract readiness fixed on-device:** Initially the Settings page showed `OCR unavailable` and `Test-Path "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"` was `False`. The user installed `UB-Mannheim.TesseractOCR` via winget and then explicitly reported the OCR status became green. This confirms the Settings availability check is now positive, **not** that three ARAM Mayhem cards or rerolls were detected in-game. Keep OCR capture/region, name matching and reroll tests open.
+- **D1 Windows acceptance is partial:** user has not explicitly verified native window resize/focus, a changed build-style save persisting after restart, or feedback report creation. Keep `PH-D1.5` unchecked and request only these checks if still relevant. In-game OCR validation should be done without abandoning a matchmaking game; if available, use a permitted custom/test mode, otherwise capture naturally during a normally completed game. Never assume bot custom games support this mode.
+- **Cross-chat workflow decision:** one development phase per ChatGPT conversation, one stacked draft branch and one PR; GitHub documents are the canonical shared project state. Open a new chat for **D2 single-instance/API/tray lifecycle** based on draft PR #13, after reading `.agents/skills/continue-aram-oracle/SKILL.md` and the current docs. Reuse permitted external code only with verified licensing and attribution; see `docs/REUSE_CANDIDATES.md`.
+- **Last verified CI at the previous documentation head:** [Windows Actions run 44337928614](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44337928614) succeeded on `52a96563`: **234 Python passed, 1 warning; 4 Node tests passed** and JS checks passed. New documentation commits in this handoff require their own CI check; don't claim newer green results without checking.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -167,9 +188,10 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - **Approved architectural direction:** Python/FastAPI remains the sole engine, with a normal PyQt6 desktop Settings window and a separate transparent, click-through Qt game overlay; both communicate through the existing local HTTP/WebSocket API.
 - Full component boundaries, state-driven presentation, lifecycle, preference/diagnostics handling and future packaging decisions: [`docs/DESKTOP_ARCHITECTURE.md`](DESKTOP_ARCHITECTURE.md).
 - Small, gated implementation plan and acceptance tests: [`docs/IMPLEMENTATION_PHASES.md`](IMPLEMENTATION_PHASES.md); task checkboxes `PH-G0.*` and `PH-D1.*` through `PH-D11.*` in [`docs/TODO.md`](TODO.md).
-- First development phase after baseline verification: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Next draft branch proposed `feat/desktop-settings-shell` stacked on PR #12, *not main*.
+- Implemented code/CI phase: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Implemented in draft PR #13 based on PR #12; no merge to main.
+- Next planned development slice: **D2 — single-instance and tray lifecycle**, after Windows D1 smoke tests.
 - Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
-- **Current implementation remains unchanged:** existing Qt renderer, Alt+H/Alt+O, browser Settings and PR #12 are not replaced by this documentation update.
+- **Overlay implementation remains unchanged:** D1 adds a separate native Settings host while preserving the existing Qt overlay renderer, Alt+H/Alt+O and legacy browser Settings fallback.
 
 ## Desktop packaging direction (planned, not implemented)
 
@@ -187,7 +209,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. **PR #12 automated validation passed (215 Python + 4 Node).** Now check Settings browser/tray, preference persistence and live build updates on Windows, and retest PR #11 OCR/build regressions. Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.
+1. **PR #13 D1 automated code validation passed (234 Python + 4 Node at `d5aff632`).** Verify latest docs-head Actions and test the new native Settings window, preference persistence and local feedback on Windows; then revalidate PR #11 OCR/build regressions in a match. Install/locate Tesseract and recheck offered augments including manual fallback, Poro-Snax and duplicate-name item behavior.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
@@ -196,11 +218,26 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 7. Patch/version-aware data ingestion and confidence; ensure only ARAM Mayhem games are counted (verify actual queue/mode identifiers).
 8. Test champion select, augment OCR, build updates, click-through and resize live on user's Windows; keep interface polishing last.
 
+## Cross-chat session triggers (documented, not native commands)
+
+- `ARAM Oracle: preparar passagem` — in the current conversation, update
+  and verify GitHub state/TODO/log, CI and unresolved acceptance checks, then
+  return the exact prompt for a new chat. An unfinished phase rotates on its
+  existing branch and PR.
+- `ARAM Oracle: continuar` — in a freshly opened ChatGPT Overlay LoL project
+  conversation, load `.agents/skills/continue-aram-oracle/SKILL.md` and
+  `docs/CONTINUE_PROJECT.md` from GitHub, verify live branch and CI, and
+  resume the in-progress/next phase.
+- The phrases are a documented convention, **not** registered ChatGPT
+  commands or automatic creation of new chats. The user opens the next chat.
+  One new stacked branch and draft PR per new phase; no merge to `main`
+  without explicit approval.
+
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #12 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
-3. Continue from PR #12 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #13 head, its PR #12 / #11 stacked dependencies and GitHub Actions live; inspect source code before assuming this snapshot is perfectly current.
+3. Continue from PR #13 through the GitHub connector in a new stacked feature branch / draft PR for D2 after Windows smoke tests; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.

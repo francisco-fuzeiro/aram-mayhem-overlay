@@ -97,16 +97,20 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 ### G0 — Baseline (verification only)
 
-- [ ] **PH-G0.1:** Reconfirm current draft PR #12 head, its PR #11 base, unchanged main, and the latest Windows Actions results immediately before starting development.
-- [ ] **PH-G0.2:** Inspect the actual launcher/Qt/API source and record any blockers for a separate normal desktop window; preserve the tested Qt renderer as the baseline.
+- [x] **PH-G0.1:** Reconfirm current draft PR #12 head, its PR #11 base, unchanged main, and the latest Windows Actions results immediately before starting development.
+- [x] **PH-G0.2:** Inspect the actual launcher/Qt/API source and record any blockers for a separate normal desktop window; preserve the tested Qt renderer as the baseline.
 
 ### D1 — First implementation phase: native Settings shell
 
-- [ ] **PH-D1.1:** Add `backend/desktop` normal Qt window hosting the existing `/settings` page (no transparency, topmost or click-through).
-- [ ] **PH-D1.2:** Add `python -m backend.desktop` dev entrypoint and clear error handling for missing Qt, unavailable API or unexpected port conflict; use **one** local backend.
-- [ ] **PH-D1.3:** Add automated tests for launch/URL/readiness and legacy `python -m backend.overlay --renderer qt` compatibility; keep Alt+O / Alt+H unchanged.
-- [ ] **PH-D1.4:** Create a draft PR stacked on `feat/pregame-settings-feedback`, verify its Windows CI at final code head and update TODO/state/log.
+- [x] **PH-D1.1:** Add `backend/desktop` normal Qt window hosting the existing `/settings` page (no transparency, topmost or click-through).
+- [x] **PH-D1.2:** Add `python -m backend.desktop` dev entrypoint and clear error handling for missing Qt, unavailable API or unexpected port conflict; use **one** local backend.
+- [x] **PH-D1.3:** Add automated tests for launch/URL/readiness and legacy `python -m backend.overlay --renderer qt` compatibility; keep Alt+O / Alt+H unchanged.
+- [x] **PH-D1.4:** Create a draft PR stacked on `feat/pregame-settings-feedback`, verify its Windows CI at final code head and update TODO/state/log.
 - [ ] **PH-D1.5 (Windows):** Confirm actual standard Qt Settings window (focus, resize, preferences, feedback) and old transparent overlay behavior. **Never check from CI alone.**
+
+**D1 code/CI evidence (2026-11-18):** [draft PR #13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13), [Windows run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) at code head `d5aff632`: **234 Python passed, 1 warning; 4 Node tests passed and both JS syntax checks passed**. The 19 new tests cover API fingerprint, reuse, occupied port, failure, host URL and legacy overlay contract. **PH-D1.5 remains unverified on a real Windows GUI.** UX-D01 and UX-D04 are broader than this shell and remain unchecked. See [external reuse candidates](REUSE_CANDIDATES.md) for separately licensed opportunities; none imported in D1.
+
+**Windows evidence, 2026-11-18 (partial D1.5 only):** User screenshots confirm `python -m backend.desktop` opened and loaded the normal PyQt6 Settings window, with the saved `Balanced` style displayed. User explicitly confirmed that `python -m backend.overlay --renderer qt` remains transparent and that both **Alt+O** interaction and **Alt+H** hide/restore work; terminal shows both shortcut transitions. User installed the separately required UB-Mannheim Tesseract executable after the previous `OCR unavailable` warning, and explicitly confirmed the OCR status indicator turned green. **Do not mark PH-D1.5 complete:** resizing/focus, saving and persisting a changed build style across restart, and local feedback submission have not been explicitly verified. **Green OCR is only dependency readiness, not proof of three-card recognition or reroll accuracy in a Mayhem match.** No normal-match abandonment is required for a smoke test; keep in-game OCR validation open and use a permitted custom/test session if supported or observe a naturally completed match.
 
 ### D2 — Stable single instance and tray lifecycle
 
