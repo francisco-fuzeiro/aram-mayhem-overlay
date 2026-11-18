@@ -141,6 +141,7 @@ class BuildState:
     full_build: list[str] = field(default_factory=list)
     alternatives: dict[str, list[str]] = field(default_factory=dict)
     reasons: list[str] = field(default_factory=list)
+    selected_style: str = "Balanced"
 
 
 @dataclass
@@ -170,6 +171,7 @@ class GameSnapshot:
     champion_stats: dict[str, float] = field(default_factory=dict)
     ally_champion_ids: list[str] = field(default_factory=list)
     enemy_states: list[EnemyState] = field(default_factory=list)
+    build_style: str = "Balanced"
 
 
 @dataclass
