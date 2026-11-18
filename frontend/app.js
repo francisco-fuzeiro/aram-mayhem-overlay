@@ -235,11 +235,12 @@
 
             const summary = document.createElement("div");
             summary.className = "aug-details";
-            summary.textContent = candidate.tier + " · " + Number(candidate.score).toFixed(1) + "/10.0 team fit · " + candidate.role;
+            summary.textContent = candidate.tier + " · " + Number(candidate.score).toFixed(1) + "/10.0 composite · " + candidate.role;
 
             const reasons = document.createElement("div");
             reasons.className = "aug-explain";
-            reasons.textContent = (candidate.reasons || []).join(" · ");
+            reasons.textContent = (candidate.reasons || []).join(" · ") +
+                (candidate.sample_size ? " · Personal sample: " + candidate.sample_size + " games" : " · No match data yet");
 
             card.append(name, summary, reasons);
             champSelectList.appendChild(card);
