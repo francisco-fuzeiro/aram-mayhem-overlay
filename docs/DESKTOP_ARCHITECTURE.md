@@ -82,6 +82,10 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - D2 code closes Settings to tray when tray is present; without a tray, closing Settings quits rather than stranding a process. The tray's Quit stops polling, exits the Qt event loop and requests the owned uvicorn server to stop. User-device validation confirms the expected controls and no port 8765 listener after Quit; this is not a full process audit.
 - Use the existing browser `/settings` fallback until the native desktop shell is verified on the user's Windows machine.
 
+## Functional reliability checkpoint (A-FUNC, before the next interface development)
+
+A real Windows custom Mayhem test exposed misleading `Waiting for game`, wrong augment triple, one-slot reroll not auto-detected, uniform `2.1/10` for unknown contributions, and stale Neeko/game-time/gold after exiting. See [functional audit intake](FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md). **A Claude gameplay/code audit is now required before further UI work; it has not happened yet.** Record exact P0 root causes, evidence and regression fixtures. Per-card score badges are a future design option only after reliable left/center/right OCR mapping, context scores, offer invalidation and DPI/window placement. D5c remains a distinct subsequent **desktop design/UX** review.
+
 ## Desktop UI design-closure gate (D5c, before D6)
 
 The desktop interface is built progressively in D3 (navigation), D4a/D4b (validated overlay preferences and safe preview) and D5a/D5b (OCR readiness, test and diagnostics). **D5c is a new planned Claude-led UX/UI audit and bounded design refinement phase** after these capabilities exist, before D6 gameplay context logic.
