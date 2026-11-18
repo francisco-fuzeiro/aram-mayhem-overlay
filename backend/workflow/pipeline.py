@@ -3,6 +3,7 @@ from backend.static_data.loader import StaticData
 from backend.engine.ranker import rank_augments, should_reroll
 from backend.engine.build_suggester import suggest_build
 from backend.storage.db import get_all_personal_winrates
+from backend.config import config
 
 
 class Pipeline:
@@ -40,6 +41,7 @@ class Pipeline:
             all_items=all_items,
             personal_winrates=personal_wrs if personal_wrs else None,
             enemies=enemies if enemies else None,
+            use_personal_performance=bool(config.get("experimental_augment_evidence", False)),
         )
 
         reroll, reroll_reason = should_reroll(recommendations, champion, existing)
