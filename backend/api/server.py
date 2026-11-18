@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger("aram-oracle")
 
 from backend.static_data.loader import StaticData
-from backend.storage.db import init_db
+from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import get_raw_game_data, parse_game_snapshot
@@ -196,7 +196,10 @@ def _read_champ_select_payload() -> dict | None:
     if snapshot is None:
         return None
     draft, id_map = snapshot
-    return summarize_champion_select(draft, id_map, static_data.get_champion)
+    return summarize_champion_select(
+        draft, id_map, static_data.get_champion,
+        record_lookup=get_champion_record,
+    )
 
 
 @app.get("/api/champ-select/status")
