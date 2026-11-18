@@ -40,25 +40,40 @@ def _is_main_inventory_item(item: dict) -> bool:
     return not (isinstance(slot, int) and (slot < 0 or slot >= 6))
 
 
-def get_raw_game_data() -> dict | None:
-    """Return the original response contract; log only sanitized LCDA status."""
+def get_raw_game_data() -> tuple[str, dict | None]:
+    """Return (classification, payload), never a raw exception or private log."""
+    status = "error"
+    payload = None
     try:
-        r = SESSION.get(f"{LCDA_BASE}/allgamedata", timeout=1)
-        if r.status_code != 200:
-            event_log.transition("lcda", status="unavailable", error_class="http")
-            return None
-        raw = r.json()
-        event_log.transition("lcda", status="available", error_class="none")
-        return raw
+        response = SESSION.get(f"{LCDA_BASE}/allgamedata", timeout=1)
+        if response.status_code == 404:
+            status = "http_404"
+        elif response.status_code != 200:
+            status = "error"
+        else:
+            decoded = response.json()
+            if isinstance(decoded, dict):
+                status, payload = "ok", decoded
+            else:
+                status = "bad_json"
     except requests.Timeout:
-        event_log.transition("lcda", status="error", error_class="timeout")
+        status = "timeout"
     except requests.ConnectionError:
-        event_log.transition("lcda", status="error", error_class="connection")
-    except requests.RequestException:
-        event_log.transition("lcda", status="error", error_class="request")
+        status = "refused"
     except ValueError:
-        event_log.transition("lcda", status="error", error_class="parse")
-    return None
+        status = "bad_json"
+    except requests.RequestException:
+        status = "error"
+    # Only predefined classes; no URLs, player data or response bodies.
+    event_log.transition(
+        "lcda", status="available" if status == "ok" else "error",
+        error_class={
+            "ok": "none", "http_404": "http", "timeout": "timeout",
+            "refused": "connection", "bad_json": "parse", "error": "request",
+        }[status],
+        result_class=status,
+    )
+    return status, payload
 
 
 def get_active_player_name() -> str | None:
