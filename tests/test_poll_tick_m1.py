@@ -161,7 +161,6 @@ async def test_a1_watcher_disappearance_still_arms_the_separate_confirmation_pat
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="AUD-07: first transient LCDA miss sends game_ended prematurely")
 async def test_aud07_one_lcda_miss_must_not_end_existing_game():
     state, deps, events = make_harness(
         [{"tick": 1}, None], [make_snapshot()],

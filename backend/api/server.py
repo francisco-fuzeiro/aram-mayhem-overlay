@@ -74,6 +74,15 @@ class GameState:
         self.post_game: bool = False
         self.post_game_time: float = 0.0
         self.lifecycle_status: str | None = None
+        # Session identity and temporary LCDA loss are game-specific, not
+        # stored on disk or included in diagnostic events.
+        self.match_id: str | None = None
+        self._match_sequence: int = 0
+        self._last_game_time: float | None = None
+        self._last_champion_id: str | None = None
+        self._last_player_key: str | None = None
+        self.lcda_misses: int = 0
+        self.first_lcda_miss_at: float | None = None
 
     @property
     def lock(self) -> asyncio.Lock:
@@ -730,11 +739,118 @@ def _record_match_phase(state: GameState, phase: str) -> None:
 
 
 def _status_message(state: GameState, status: str) -> str:
-    """Keep status logs transition-only and messages independent of raw LCU data."""
+    """Bounded state transition diagnostics, with opaque match ID only in WS."""
     if state.lifecycle_status != status:
         state.lifecycle_status = status
         event_log.emit("game_status", state=status)
-    return json.dumps({"type": "status", "state": status})
+    message = {"type": "status", "state": status}
+    if state.match_id and status in (
+        "in_game", "champion_unresolved", "live_data_unavailable",
+    ):
+        message["match_id"] = state.match_id
+    return json.dumps(message)
+
+
+def _finish_match(state: GameState, now: float) -> None:
+    """Called under the state lock; one end transition, no 300s timeout."""
+    state.reset()
+    state.match_id = None
+    state._last_game_time = None
+    state._last_champion_id = None
+    state._last_player_key = None
+    state.lcda_misses = 0
+    state.first_lcda_miss_at = None
+    state.had_game_last_tick = False
+    state.post_game = True
+    state.post_game_time = now
+    _record_match_phase(state, "post_game")
+
+
+def _begin_or_continue_match(
+    state: GameState, snapshot: GameSnapshot, raw: dict, flow: object | None,
+) -> None:
+    """Resolve LCU match ID, else guarded champion/player + game-time fallback.
+
+    The opaque sequence distinguishes consecutive sessions without inventing
+    an authoritative League game ID. Never log the player's local identity.
+    """
+    import math
+
+    flow_id = getattr(flow, "game_id", None)
+    authoritative = (
+        f"lcu:{flow_id}"
+        if isinstance(flow_id, (str, int))
+        and str(flow_id).strip() not in ("", "0", "unknown")
+        else None
+    )
+    champion = str(getattr(snapshot, "champion_id", "") or "")
+    active = raw.get("activePlayer", {}) if isinstance(raw, dict) else {}
+    if not isinstance(active, dict):
+        active = {}
+    from backend.collectors.lcda import _riot_identity
+    player_key = _riot_identity(active) or (
+        str(active.get("summonerName")) if active.get("summonerName") else None
+    )
+    candidate_time = getattr(snapshot, "game_time", None)
+    try:
+        game_time = float(candidate_time) if candidate_time is not None else None
+        if game_time is not None and not math.isfinite(game_time):
+            game_time = None
+    except (ValueError, TypeError):
+        game_time = None
+
+    different_lcu_id = bool(
+        state.match_id and authoritative
+        and state.match_id.startswith("lcu:") and state.match_id != authoritative
+    )
+    # Minor clock jitter is not enough evidence of a new match.
+    regressed = bool(
+        game_time is not None and state._last_game_time is not None
+        and game_time < state._last_game_time - 10.0
+    )
+    different_champion = bool(
+        champion and state._last_champion_id and champion != state._last_champion_id
+    )
+    different_player = bool(
+        player_key and state._last_player_key and player_key != state._last_player_key
+    )
+    new_session = different_lcu_id or regressed or different_champion or different_player
+
+    if state.match_id is None or new_session:
+        if state.match_id is not None or state.post_game:
+            state.reset()
+        state._match_sequence += 1
+        state.match_id = (
+            authoritative if authoritative and not (
+                new_session and not different_lcu_id
+                and state.match_id == authoritative
+            ) else f"fallback:{state._match_sequence}"
+        )
+    elif authoritative and state.match_id.startswith("fallback:"):
+        # A late read-only LCU game ID resolves the same observed session.
+        state.match_id = authoritative
+
+    state._last_game_time = game_time if game_time is not None else state._last_game_time
+    state._last_champion_id = champion or state._last_champion_id
+    state._last_player_key = player_key or state._last_player_key
+    state.lcda_misses = 0
+    state.first_lcda_miss_at = None
+    state.had_game_last_tick = True
+    state.post_game = False
+
+
+def _register_lcda_miss(state: GameState, now: float) -> bool:
+    """True after three consecutive misses spanning at least six seconds."""
+    if not state.had_game_last_tick:
+        return False
+    if state.lcda_misses == 0:
+        state.first_lcda_miss_at = now
+    state.lcda_misses += 1
+    return (
+        state.lcda_misses >= 3
+        and state.first_lcda_miss_at is not None
+        and now - state.first_lcda_miss_at >= 6.0
+    )
 
 
 def _poll_dependencies() -> SimpleNamespace:
@@ -777,14 +893,23 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
         has_gameflow = hasattr(deps, "read_gameflow")
         flow = await deps.to_thread(deps.read_gameflow) if has_gameflow else None
         phase = getattr(flow, "phase", None)
+        # A confirmed Gameflow post-game phase takes precedence over stale LCDA.
+        end_phases = ("WaitingForStats", "PreEndOfGame", "EndOfGame")
+        if phase in end_phases and state.had_game_last_tick:
+            async with state.lock:
+                _finish_match(state, now)
+            await deps.broadcast(json.dumps({"type": "game_ended"}))
+            if has_gameflow:
+                await deps.broadcast(_status_message(state, "post_game"))
+            return
+
         if raw is not None:
             _record_match_phase(state, "in_game")
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
             current_level = snapshot.level
 
             async with state.lock:
-                state.had_game_last_tick = True
-                state.post_game = False
+                _begin_or_continue_match(state, snapshot, raw, flow)
                 # -- Scan window management --
                 #
                 # Augment offers may appear when the first eligible
@@ -896,10 +1021,10 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
 
             result = state.pipeline.run(snapshot) if state.pipeline else None
             if result:
-                payload = json.dumps(
-                    deps.serialize_result(result, deps.static_data, snapshot)
-                )
-                await deps.broadcast(payload)
+                update = deps.serialize_result(result, deps.static_data, snapshot)
+                if isinstance(update, dict) and state.match_id:
+                    update = {**update, "match_id": state.match_id}
+                await deps.broadcast(json.dumps(update))
             if has_gameflow:
                 status = (
                     "champion_unresolved"
@@ -908,77 +1033,73 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                 )
                 await deps.broadcast(_status_message(state, status))
         else:
-            if has_gameflow:
-                if phase == "ChampSelect":
-                    draft = await deps.to_thread(deps.read_champ_select_payload)
+            # A single LCDA error is never an end-of-match signal.
+            active_phases = ("GameStart", "InProgress", "Reconnect")
+            if state.had_game_last_tick:
+                async with state.lock:
+                    enough_misses = _register_lcda_miss(state, now)
+                if enough_misses and phase not in active_phases:
+                    async with state.lock:
+                        _finish_match(state, now)
+                    await deps.broadcast(json.dumps({"type": "game_ended"}))
+                    if has_gameflow:
+                        await deps.broadcast(_status_message(state, "post_game"))
+                    return
+                if phase != "ChampSelect":
+                    if has_gameflow:
+                        await deps.broadcast(_status_message(state, "live_data_unavailable"))
+                    return
+
+            if phase == "ChampSelect" or not has_gameflow:
+                draft = await deps.to_thread(deps.read_champ_select_payload)
+                if phase == "ChampSelect" or draft is not None:
                     _record_match_phase(state, "champ_select")
                     async with state.lock:
+                        state.reset()
+                        state.match_id = None
+                        state._last_game_time = None
+                        state._last_champion_id = None
+                        state._last_player_key = None
+                        state.lcda_misses = 0
+                        state.first_lcda_miss_at = None
                         state.had_game_last_tick = False
                         state.post_game = False
-                        state.reset()
-                    await deps.broadcast(_status_message(state, "champ_select"))
+                    if has_gameflow:
+                        await deps.broadcast(_status_message(state, "champ_select"))
                     await deps.broadcast(json.dumps(draft or {
                         "type": "champ_select", "candidates": [],
                     }))
                     return
-                if phase in ("GameStart", "InProgress", "Reconnect"):
-                    status = "live_data_unavailable" if state.had_game_last_tick else "loading"
-                    await deps.broadcast(_status_message(state, status))
-                    return
-                if phase in ("WaitingForStats", "PreEndOfGame", "EndOfGame"):
+
+            if state.post_game:
+                if phase in ("None", "Lobby", "Matchmaking", "ReadyCheck", "WaitingForGame") or not has_gameflow:
+                    async with state.lock:
+                        state.post_game = False
+                    await deps.broadcast(json.dumps({"type": "no_game"}))
+                    if has_gameflow:
+                        await deps.broadcast(_status_message(state, "client_idle"))
+                elif has_gameflow:
                     await deps.broadcast(_status_message(state, "post_game"))
-                    return
-                if phase in ("None", "Lobby", "Matchmaking", "ReadyCheck", "WaitingForGame"):
-                    if not state.had_game_last_tick:
-                        async with state.lock:
-                            state.reset()
-                        await deps.broadcast(json.dumps({"type": "no_game"}))
-                    await deps.broadcast(_status_message(state, "client_idle"))
-                    return
-                # Unknown/missing LCU phase is not proof a game ended. A3
-                # confirmed picks must survive uncertain network conditions.
-                draft = await deps.to_thread(deps.read_champ_select_payload)
-                if draft is not None:
-                    await deps.broadcast(_status_message(state, "champ_select"))
-                    await deps.broadcast(json.dumps(draft))
-                else:
-                    await deps.broadcast(_status_message(state, "live_data_unavailable"))
                 return
-            # Legacy injected P0.1 harness without Gameflow retains its
-            # original known AUD-07 behavior until F3's debounce contract.
-            # Live Client API is unavailable during champion select.
-            # Read the local client (read-only) off the event loop.
-            champ_select = await deps.to_thread(deps.read_champ_select_payload)
-            if champ_select is not None:
-                _record_match_phase(state, "champ_select")
-                async with state.lock:
-                    state.had_game_last_tick = False
-                    state.post_game = False
-                    state.reset()
-                await deps.broadcast(json.dumps(champ_select))
+
+            if has_gameflow:
+                if phase in active_phases:
+                    await deps.broadcast(_status_message(state, "loading"))
+                elif phase in end_phases:
+                    await deps.broadcast(_status_message(state, "post_game"))
+                elif phase in ("None", "Lobby", "Matchmaking", "ReadyCheck", "WaitingForGame"):
+                    async with state.lock:
+                        state.reset()
+                    await deps.broadcast(json.dumps({"type": "no_game"}))
+                    await deps.broadcast(_status_message(state, "client_idle"))
+                else:
+                    # Missing/unknown LCU phase never proves the game ended.
+                    await deps.broadcast(_status_message(state, "live_data_unavailable"))
             else:
                 async with state.lock:
-                    if state.had_game_last_tick:
-                        _record_match_phase(state, "post_game")
-                        # Game just ended — transition to post-game
-                        state.had_game_last_tick = False
-                        state.post_game = True
-                        state.post_game_time = now
-                        logger.info("Game ended — entering post-game state")
-                        await deps.broadcast(json.dumps({"type": "game_ended"}))
-                    elif state.post_game:
-                        # In post-game window — auto-reset after 5 minutes
-                        elapsed = now - state.post_game_time
-                        if elapsed > 300:
-                            logger.info("Post-game timeout — resetting state")
-                            state.post_game = False
-                            state.reset()
-                            _record_match_phase(state, "no_game")
-                            await deps.broadcast(json.dumps({"type": "no_game"}))
-                    else:
-                        state.reset()
-                        _record_match_phase(state, "no_game")
-                        await deps.broadcast(json.dumps({"type": "no_game"}))
+                    state.reset()
+                _record_match_phase(state, "no_game")
+                await deps.broadcast(json.dumps({"type": "no_game"}))
 
 
 async def _poll_game_loop(interval: float | None = None):
