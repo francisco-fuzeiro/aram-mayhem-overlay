@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-18 — M3/F2 Gameflow state machine code gate
+
+- Opened stacked draft PR #36, branch `fix/m3-f2-gameflow-status-machine` based on F1 PR #33. Added tests in `tests/test_gameflow_f2.py`, then implemented read-only LCU Gameflow phase, pure state classification, status events, missing Pipeline status, Riot ID active-player match. A test-module import issue required self-contained test harness; first implemented code CI had failures in Mock context management and historical Settings message assertions. Corrected both without weakening status contract.
+- Code [Actions 44420212177](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44420212177) **success: 374 Python passed, 1 AUD-07 xfailed, 28 JS passed, 4 TODO**. Final documentation-head CI still to verify. F3 end/identity work not performed in F2; Windows/League not tested.
+
+
 ## 2026-11-18 — M3/F1 automated code gate green
 
 - Initial tests-only [Actions 44418721047](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418721047) failed with 9 new assertions as intended. First implementation [Actions 44418797816](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418797816) had 362 passed / 1 failed legacy diagnostic assertion / 1 xfailed; corrected the legacy assertion in `tests/test_structured_events_m1.py` at `5489f056`.
