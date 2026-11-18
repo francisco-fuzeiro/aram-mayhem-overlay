@@ -288,6 +288,9 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [x] ~~**UX-C10 — GitHub Windows automated regression gate.**~~ Workflow runs Python suite, syntax checks for both JS entrypoints and 4 DOM-stub Settings interaction tests; last verified [Actions run 44331470781](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331470781) passed at `7912f471`. Later documentation-only commits require their own check.
 
 ## Immediate next execution order
+> **Historical pre-audit ordering below.** The approved project execution workflow and current detailed functional repair phases are in [FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md](FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md) and the M1–M8 checklist above. Start at **M1 P0.1**, not at the old UX step 1.
+
+
 
 1. **UX-107/108/109/110**: quick real Windows smoke test of PR #12 Settings/Qt transparency and feedback.
 2. **UX-002/003/007/004**: capture and validate 3 augment options and rerolls; preserve a safe OCR fallback.
