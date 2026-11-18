@@ -1,5 +1,13 @@
 # Overlay LoL — Development Log
 
+## 2026-11-18 — M3/F1 LCDA nonblocking work in progress
+
+- Verified E3 draft PR #28 exact HEAD `659b20edb8b9457e631a5f375aa2b93563ef5f3d` and successful final-head Actions [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780).
+- Created stacked branch `fix/m3-f1-lcda-nonblocking-status` and draft PR #33 against E3, with initial tests-first commit `a1b5ddb3` and implementation commits `80ff3a2a`, `fb7c9971`, `f4eb5ebd`.
+- F1 changes: classified LCDA `(status, payload)` with safe fallback; `poll_tick` calls blocking LCDA through injected `to_thread` to preserve deterministic harness; enum-only diagnostic result classes. Added focused requests/error, JSON and concurrency regressions in `tests/test_lcda_f1.py`.
+- **Verification at this checkpoint:** red and implementation CI runs started but outcomes not yet confirmed; no full suite result claimed. No Windows/League test. F2 must not start before final-head CI succeeds.
+
+
 Append-only timeline. Entries are factual snapshots, not future promises. For the latest task plan, read [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
 ## 2026-11-18 — Project setup and original overlay
