@@ -4,6 +4,10 @@ Status: **in progress** (D2 lifecycle and D3 Settings accepted by user on Window
 
 Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX backlog first.
 
+## Post-A-FUNC correction gates (2026-11-18)
+
+The user supplied a Claude functional audit excerpt and an execution sequence is recorded in [A_FUNC_REMEDIATION_PLAN_2026-11-18.md](A_FUNC_REMEDIATION_PLAN_2026-11-18.md): **A-FIX.0–A-FIX.6**. These are small remediation PRs that must precede new gameplay-facing cards, new shop UI and the installer. Do not confuse these phase IDs with existing `A-FUNC.3` (Windows acceptance) / `A-FUNC.4` (UI gate). The audit excerpt is truncated during AUD-11; retrieve its full text before claiming all findings triaged. Existing D5a/b diagnostic readiness tasks can be reconciled with A-FIX without implementing duplicate mechanisms. Security of localhost HTTP/WS is a release blocker.
+
 ## Delivery order
 
 | Phase | Size / purpose | Dependencies | Gate |
