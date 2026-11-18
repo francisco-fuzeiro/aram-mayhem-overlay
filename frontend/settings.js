@@ -158,8 +158,7 @@
             overlaySaving = false;
             overlayStatus.setAttribute("aria-busy", "false");
             enableOverlay(true);
-            overlaySave.disabled = !failed;
-            if (failed) overlayChanged();
+            overlaySave.disabled = !failed;  // Keep the API failure visible for retry.
         }
     }
 
