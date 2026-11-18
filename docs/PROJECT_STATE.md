@@ -42,6 +42,15 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Validation: **not run** for this branch's new commits until the draft PR's Windows CI completes. Windows in-game sample remains outstanding.
 - Remaining risks: DataDragon tags may not correspond to verified item stats; role vectors approximate threat types; actual LCDA roster must be checked on Windows.
 
+## Current work: PR #7 — selectable build paths
+
+- Branch `feat/selectable-build-paths` stacked on PR #6. The previous PRs remain drafts; `main` is untouched.
+- The player can select Balanced, Damage, Survival or Utility using the overlay. The selected style is sent over the local WebSocket, applies to later live pipeline snapshots, and is saved in frontend local storage across restarts.
+- The selected path now drives `full_build` and its affordable `next_item_id`, while all paths remain visible for comparison. A full inventory does not produce a seventh item suggestion. Unknown style values fall back to Balanced.
+- Item catalog restrictions, actual purchase path/component costs, mode-specific inventory rules and real in-game persistence still need verification. This does **not** auto-buy items.
+- Tests: new style and inventory regressions plus serialization contract; Windows GitHub Actions **not run** for this branch until PR opened. Also inherits PR #6 fix, which must pass CI.
+- Next P0: strengthen verified item availability, enemy item-stat provenance and patch-aware metadata; validate Windows LCDA and OCR.
+
 ## Automated verification (as last observed)
 
 - Previous user-run suite on the Champion Select branch: **114 passed**.
