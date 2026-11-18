@@ -8,6 +8,10 @@ Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX back
 
 The user supplied a Claude functional audit excerpt and an execution sequence is recorded in [A_FUNC_REMEDIATION_PLAN_2026-11-18.md](A_FUNC_REMEDIATION_PLAN_2026-11-18.md): **A-FIX.0–A-FIX.6**. These are small remediation PRs that must precede new gameplay-facing cards, new shop UI and the installer. Do not confuse these phase IDs with existing `A-FUNC.3` (Windows acceptance) / `A-FUNC.4` (UI gate). The audit excerpt is truncated during AUD-11; retrieve its full text before claiming all findings triaged. Existing D5a/b diagnostic readiness tasks can be reconciled with A-FIX without implementing duplicate mechanisms. Security of localhost HTTP/WS is a release blocker.
 
+## Canonical functional recovery schedule (2026-11-18)
+
+The detailed **user-supplied M1–M8 plan** is now stored in [FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md](FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md). Per-phase checkboxes are in [TODO](TODO.md) (P0.1–P0.4, A1–A3, E1–E3, F1–F5, B1–B3, C1–C4, D1–D3, V1, G1–G6 with G5a/b/c). Treat the prior A-FIX.0–A-FIX.6 phase table as **coarse archived planning**, not a competing implementation sequence. The workflow rules in `AGENTS.md` are mandatory for development sessions. First run **M1 — P0.1 poll harness**, then P0.2, P0.3; do not start D5a or game UI ahead of M7 correctness acceptance. G4 security cannot slip past public release; Mayhem catalog provenance/calibration remains a separate numerical-score trust gate.
+
 ## Delivery order
 
 | Phase | Size / purpose | Dependencies | Gate |
