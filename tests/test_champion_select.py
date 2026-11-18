@@ -70,7 +70,7 @@ def test_numeric_champion_ids_are_mapped_via_read_only_client_assets():
             assert timeout == 2
             return FakeResponse()
 
-    assert lcu.get_champion_id_map(FakeSession()) == IDS | {}
+    assert lcu.get_champion_id_map(FakeSession()) == {"99": "lux", "222": "jinx"}
 
 
 def test_api_debug_endpoint_reports_unavailable_without_lcu(monkeypatch):
