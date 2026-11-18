@@ -202,6 +202,16 @@ def _read_champ_select_payload() -> dict | None:
     )
 
 
+@app.post("/api/history/import")
+async def import_personal_history():
+    """Explicit, local-only sync of own ARAM Mayhem matches.
+
+    Called on user action only. Never returns raw match or player data.
+    """
+    from backend.storage.history_import import sync_recent_mayhem_games
+    return await asyncio.to_thread(sync_recent_mayhem_games)
+
+
 @app.get("/api/champ-select/status")
 def champ_select_status():
     """Local debug endpoint; no account IDs or client secrets are exposed."""
