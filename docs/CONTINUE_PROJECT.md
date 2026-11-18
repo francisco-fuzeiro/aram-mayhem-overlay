@@ -2,6 +2,20 @@
 
 Always read [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) through connected GitHub, plus the mandatory AGENTS/state/TODO/phases/architecture/log/reuse/handoff documents. A repository-local skill is a documented continuation procedure, not a background agent.
 
+## 2026-11-18 handoff — M2/A1 draft PR #23
+
+- Current active work is `fix/m2-a1-no-stat-change-picks`, [draft PR #23](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/23), stacked on M1/P0.3 PR #22. M1 baseline was `c2c639a93b874ed59c3a4b3f7de02278359e7878`, verified green on [Windows headless Actions 44398642390](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44398642390). `main` is untouched.
+- The complete approved M1–M8 implementation plan and original AUD-01…19 report are available **only on the separate docs-only draft PR #19**: `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md` and `docs/FUNCTIONAL_AUDIT_REPORT_2026-11-18.md` at `docs/a-func-audit-report`. Preserve PR #19 and historical A-FIX draft #18 independently. M2 exact order: **A1, A2, A3, E1, E2, E3**.
+- A1 committed the failing tests first (`31dca394`: three observed failures; remaining tests passed), then removed passive stat-delta pick inference (`c8a41921`). [Windows headless Actions 44401726776](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44401726776) passed at the code/test head: **321 Python passed, 2 xfailed, 1 warning; 24 JS passed, 4 TODO**. Recheck the final documentation-head CI. No real Windows/League gameplay validation.
+- **Next phase ONLY after A1 documentation-head CI passes: M2/A2**, new branch based on A1's final commit, one new draft PR targeting branch `fix/m2-a1-no-stat-change-picks`. Remove the `health_pct < 0.98` scan-window closure and convert strict AUD-03d xfail only once fixed. Test low HP at eligible levels and continued scanning; preserve A3's confirmation and E1–E3 scoring/catalog as separate subsequent phases. No UI, package, installer, merge or `main` change.
+- Outstanding security/data/fallback gates: G4 loopback API Host/Origin/token authorization before distribution, G1/G2 Mayhem patch/source coverage, A3 non-intrusive manual confirmation; keep bounded privacy logs and automatic screenshot saving disabled. The earlier D4b/A-FUNC content below is **historical**, not the current implementation handoff.
+
+### Next-chat prompt — M2/A2
+
+ARAM Oracle: continuar — implement M2/A2 (Scan window ignores health). GitHub repo `francisco-fuzeiro/aram-mayhem-overlay`. Read `AGENTS.md`, `.agents/skills/continue-aram-oracle/SKILL.md`, canonical docs and the complete approved plan `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md` on `docs/a-func-audit-report` (draft PR #19), not the historical A-FIX plan. Verify M2/A1 draft PR #23 `fix/m2-a1-no-stat-change-picks`, its final commit and green Windows Actions. Create a NEW stacked branch/draft PR from A1 only after the green gate. Tests first; remove the health-based OCR scan closure, confirm that damage/low HP do not erase an open offer, promote AUD-03d strict xfail only if it passes, run Python/JS and verify final Actions. Update TODO, PROJECT_STATE and DEVELOPMENT_LOG; keep `main` untouched and all PRs draft. No A3/E1–E3 implementation, UI, installer or claimed League acceptance. Preserve privacy-safe diagnostics, G4, G1/G2 and non-intrusive A3 fallback. Report in PT-PT with actual CI and next prompt.
+
+---
+
 ## 2026-11-18 handoff — D4b development finished, A-FUNC Claude code audit next
 
 - Current [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17): `feat/desktop-overlay-preview-apply-d4b`, based on [draft PR #16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) `feat/desktop-overlay-preferences-d4a`, itself based on PR #15. No merge into `main`.
