@@ -63,6 +63,7 @@
         bindKeyboard();
         bindBugReport();
         bindFeedback();
+        bindHistorySync();
     }
 
     async function fetchStaticNames() {
@@ -210,6 +211,36 @@
         const sections = ["section-augments", "section-input", "section-build", "section-enemies"];
         sections.forEach((id) => {
             $(id).classList.toggle("hidden", show);
+        });
+    }
+
+    function bindHistorySync() {
+        const button = $("btn-sync-history");
+        const status = $("history-sync-status");
+        button.addEventListener("click", async () => {
+            button.disabled = true;
+            status.textContent = "Reading your recent Mayhem games from the League client...";
+            try {
+                const response = await fetch("/api/history/import", { method: "POST" });
+                if (!response.ok) throw new Error("HTTP " + response.status);
+                const result = await response.json();
+                if (result.status === "ok") {
+                    status.textContent = "Synced " + result.imported +
+                        " new games (" + result.inspected + " recent Mayhem games checked).";
+                    const draftResponse = await fetch("/api/champ-select/status");
+                    if (draftResponse.ok) {
+                        const draft = await draftResponse.json();
+                        if (draft.type === "champ_select") renderChampSelect(draft);
+                    }
+                } else {
+                    status.textContent = "Sync unavailable: " + result.status +
+                        ". Open the League client and try again.";
+                }
+            } catch (error) {
+                status.textContent = "Sync failed. Check the League client and local server.";
+            } finally {
+                button.disabled = false;
+            }
         });
     }
 
