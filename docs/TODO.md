@@ -75,6 +75,72 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **A-FIX.6 — Real Windows gate:** 1080p/1440p, windowed/borderless, rerolls, levels/items, Alt+Tab, game end/reconnect/consecutive matches, private-fixture redaction. (A-FUNC.3)
 - [ ] **A-FUNC.COMPLETE-REPORT:** Obtain and archive full Claude audit including the missing remainder of AUD-11+; reconcile any additional findings before closing A-FUNC.1.
 
+## Functional Fix Implementation Plan — executable per-phase TODO (M1–M8, 2026-11-18)
+
+**Canonical phase details:** [FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md](FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md). This is the full proposed phase specification. **All phases below are OPEN; no source-code fix was implemented by registering this plan.** The older A-FIX.0–A-FIX.6 entries above remain high-level cross-references; the detailed P0.1–G6 IDs below control execution. Preserve existing A-FUNC.3 (real-game validation) and A-FUNC.4 (defer visual UI).
+
+**Workflow rule:** one phase / one stacked branch / one small draft PR; regression test first, full Python + JS Windows Actions on final head, then docs; distinct real Windows acceptance. Size S ≤150 lines, M ≤400 changed lines (except fixtures/tests); split above M. No merges into main without approval. See AGENTS.md. **M1 first; no UI design until V1.**
+
+### M1 — Foundations (next)
+- [ ] **P0.1 (S) — Poll-loop harness:** extract injectable `poll_tick(state, deps, now)` preserving behaviour; smoke and strict xfail regressions for AUD-03a, AUD-07 and AUD-03d. Record test evidence/PR.
+- [ ] **P0.2 (S) — Frontend message harness:** DOM-stub `handleMessage` and rendering; snapshot old behaviour and regression coverage for AUD-05 game-end/no-game stale header.
+- [ ] **P0.3 (S) — Diagnostic JSON log:** classified LCDA transitions, OCR scans/picks, bounded rotated logs in user-data directory; no private screenshots/player names, non-blocking writes. Tests and Windows log evidence.
+- [ ] **M1-WIN — Windows evidence:** one permitted custom Mayhem playtest; report redacted logs proving LCDA state transitions (AUD-01). Keep raw personal data local.
+
+### M2 — Stop false outputs
+- [ ] **A1 (S, AUD-03a) — No stat-change picks:** level-ups, purchases, death/respawn never infer an augment selection.
+- [ ] **A2 (S, AUD-03d) — No health-based close:** health changes never close a still-visible offer scan.
+- [ ] **A3 (S, AUD-03a) — Safe pick lifecycle:** no >=0.3 confidence auto-confirm; any prompt only after verified disappearance, **never require the player to interact during combat**. Track unknown if unconfirmed. Tests for ambiguous deltas.
+- [ ] **E1 (S, AUD-04b/c) — Keyword and Donation fixes:** word boundaries, corrected hints, cache schema migration with safe fallback.
+- [ ] **E2 (S, AUD-04a/e) — Coverage metadata:** modelled/provenance flags; zero-vector is unmodelled; known Mayhem-only examples unrated.
+- [ ] **E3 (M, AUD-04) — Honest unrated scores:** score None for unmodelled, distinguish negative fit from missing info, reroll only with three known/modelled slots; UI no NaN / fake 2.1.
+- [ ] **M2-WIN — Windows acceptance:** two levels + purchase while cards visible keep 0/4; no false pick or intrusive combat prompt; no unsupported 2.1/10/reroll.
+
+### M3 — Match lifecycle
+- [ ] **F1 (S, AUD-01) — LCDA off event loop:** `asyncio.to_thread` and classified errors; no WS stall.
+- [ ] **F2 (M, AUD-01) — Explicit statuses:** LCU gameflow + LCDA transition machine; champion-unresolved broadcast; riotId first.
+- [ ] **F3 (M, AUD-06/07) — Debounced end + match ID:** three LCDA misses AND six seconds, or confirmed gameflow end; reset match-specific state for new match, WIP reviewed not blindly merged.
+- [ ] **F4 (S, AUD-05) — Frontend clears/stales:** `clearMatchDisplayState`, reconnection state and post-game/next-game stale prevention.
+- [ ] **F5 (S, AUD-12) — Broadcast outside lock:** slow clients cannot stall match poll loop.
+- [ ] **M3-WIN — Windows acceptance:** custom start within two ticks of LCDA availability, intermittent outage retains picks, game-end clears header, next champ has no carry-over.
+
+### M4 — Read the right screen
+- [ ] **B1 (S, AUD-02a) — Win32 game locator:** read-only HWND/client rect/foreground; windowed/borderless/minimised/negative-origin tests.
+- [ ] **B2 (S, AUD-02a) — Foreground-only capture:** no OCR outside the League game, client-rect crop, stale marking on focus loss.
+- [ ] **B3 (S, AUD-09) — Screenshot privacy:** debug off by default, opt-in League-only card crops, retention and no full-screen manual scans.
+- [ ] **M4-WIN — Windows acceptance:** Alt+Tab to browser captures nothing; 1440p windowed/borderless and 1080p where possible.
+
+### M5 — Read the right cards
+- [ ] **P0.4 (S) — Redacted fixtures:** title-band-only fixtures + left/centre/right ground truth; no PII or full desktop screenshots.
+- [ ] **C1 (S, AUD-02b) — Card geometry:** 16:9 title-band rects calibrated on fixtures; verify offsets at 1080p/1440p.
+- [ ] **C2 (M, AUD-02b) — Strict positional OCR:** each card title `--psm 7`, unique exact or >=90 and >=8 runner-up margin, else unknown; block dialog/description matches.
+- [ ] **C3 (M, AUD-03b/c) — Per-slot rerolls:** title-band hashes, two consistent reads, bounded retries, failed slot clears stale ID.
+- [ ] **C4 (S, AUD-03a) — Offer disappearance:** consecutive focused frames with no card titles, dialog ≠ disappearance.
+- [ ] **M5-WIN — Windows acceptance:** 10 offers/30 cards each correct or unknown (zero wrong names), each slot rerolled and one repeated reroll without Alt+O; sanitized evidence.
+
+### M6 — One source of truth
+- [ ] **D1 (M, AUD-06) — Offer generation & serialized OCR:** `match_id` + monotonic `generation` + three slot states; one scan queue including manual requests.
+- [ ] **D2 (M, AUD-06) — Protocol v2:** slot-ordered offer and ratings, older generations ignored, detected list derived from authoritative offer.
+- [ ] **D3 (S, AUD-11/16) — Input validation:** catalog IDs, maximum four picks, booleans and REST scan via one executor; no watcher private state.
+- [ ] **M6-WIN — Windows acceptance:** rapid double reroll never pairs stale scores and names; no duplicate conflicting lists.
+
+### M7 — Acceptance
+- [ ] **V1 — A-FUNC.3 real Windows custom-match acceptance:** start, offers, single and repeated rerolls, level-up and purchase during offer, Alt+Tab, brief data failure, game end, second match; zero wrong names, phantom picks, stale scores or carry-over. Separate **code done** from **real device accepted**.
+- [ ] **M7-TRUST-GATE — Honest scope:** V1 can validate safe unknown behaviour, but numerical recommendation accuracy remains unapproved until Mayhem data provenance and calibration (G1/G2/G5) are sufficient. Unlock F-AUD-07 visual badges only after the applicable validity gate.
+
+### M8 — Quality, data and security
+- [ ] **G1 (S, AUD-04d/14) — Mayhem source spike:** authoritative augment source/IDs and real permitted LCDA gameMode evidence; ideally before declaring M7 scores trustworthy.
+- [ ] **G2 (M, AUD-04d/10) — Mode-specific catalog:** dedupe, reject placeholders/empty cache, patch/content-hash provenance; gate meaningful recommendations.
+- [ ] **G3 (S, AUD-14) — Game-mode gate:** run OCR/scoring only for verified permitted mode.
+- [ ] **G4 (M, AUD-08) — Local API security:** Host/Origin allow-list, per-launch token for mutating REST/WS calls; **release blocker, consider earlier execution**.
+- [ ] **G5a (M, AUD-13) — Score calibration 1:** curated Mayhem tags for common augments with clear coverage.
+- [ ] **G5b (M, AUD-13) — Score calibration 2:** per-score provenance/confidence and unbiased negative/unknown ranges.
+- [ ] **G5c (M, AUD-13) — Score calibration 3:** saturation, context range and overlap penalty calibration using valid fixtures.
+- [ ] **G6 (S, AUD-15/17/18) — Technical cleanup:** ImageStat pixel means, monotonic clocks and cached LCU lockfile path.
+- [ ] **M8-RELEASE-GATE — Security/data/policy:** G4 security, honest G1/G2/G5 accuracy, Riot/commercial restrictions and Windows acceptance before public distribution.
+
+**Known planning decisions to resolve before implementation:** reconcile original M8 scheduling of G4 with its release-blocking severity; avoid interpreting V1 safe-unknown acceptance as fully calibrated scores; refine A3 to avoid mandatory gameplay interactions. No new UI or installer is authorized by this registration.
+
 **Urgent security gate:** AUD-08 localhost cross-origin access blocks release even though source audit called it P1. Apply independently of UI schedule; do not distribute before fixing it.
 
 **WIP safety:** `fix/postgame-stale-match-state` was created during this review with preliminary unverified state-cleanup code and one test file; this branch is **unmerged, not part of PR #17, not validated and not a resolved issue**. Do not promote it silently. Review separately during the audit.
