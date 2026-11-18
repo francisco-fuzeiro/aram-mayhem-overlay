@@ -45,9 +45,13 @@ class GameState:
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
-        # Pipeline and connected clients (protected by lock)
+        # Poll ticks serialize LCDA/OCR and preserve message ordering without
+        # holding the game-state mutation lock across network I/O.
+        self.poll_lock = asyncio.Lock()
         self.pipeline: Pipeline | None = None
         self.ws_clients: set[WebSocket] = set()
+        self.ws_send_queues: dict[WebSocket, asyncio.Queue[str]] = {}
+        self.ws_send_tasks: dict[WebSocket, asyncio.Task[None]] = {}
         # Augment choices injected by overlay / OCR
         self.augment_choices: list[str] = []
         self.chosen_augments: list[str] = []  # real augments only (max 4)
@@ -647,14 +651,18 @@ async def game_ws(websocket: WebSocket):
                 if not isinstance(style, str) or style not in BUILD_STYLES:
                     await websocket.send_text(json.dumps({"error": "invalid build style"}))
                     continue
+                save_failed = False
                 async with game_state.lock:
                     try:
                         preferences.save_build_style(style)
                     except OSError:
                         logger.exception("Could not persist WS build style")
-                        await websocket.send_text(json.dumps({"error": "could not save build style"}))
-                        continue
-                    game_state.build_style = style
+                        save_failed = True
+                    else:
+                        game_state.build_style = style
+                if save_failed:
+                    await websocket.send_text(json.dumps({"error": "could not save build style"}))
+                    continue
                 await websocket.send_text(json.dumps({
                     "type": "ack", "action": "set_build_style", "style": style,
                 }))
@@ -676,6 +684,10 @@ async def game_ws(websocket: WebSocket):
     finally:
         async with game_state.lock:
             game_state.ws_clients.discard(websocket)
+        sender = game_state.ws_send_tasks.pop(websocket, None)
+        game_state.ws_send_queues.pop(websocket, None)
+        if sender is not None:
+            sender.cancel()
 
 
 # -- Polling loop --
@@ -877,11 +889,13 @@ def _poll_dependencies() -> SimpleNamespace:
 
 
 async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
-    """Perform exactly one iteration of the existing game poll state machine.
+    """Serialize individual polling transactions without locking out sockets."""
+    async with state.poll_lock:
+        await _poll_tick_once(state, deps, now)
 
-    No sleep or implicit clock access. The known lifecycle/inference defects
-    deliberately remain observable here until the later functional-fix phases.
-    """
+
+async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -> None:
+    """Perform one poll, staging messages without sending under state.lock."""
     clients_count = len(state.ws_clients)
     if clients_count > 0:
         # requests.Session.get is synchronous: never call it on the ASGI event loop.
@@ -908,6 +922,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
             current_level = snapshot.level
 
+            match_confirmation_due = False
             async with state.lock:
                 _begin_or_continue_match(state, snapshot, raw, flow)
                 # -- Scan window management --
@@ -968,9 +983,14 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                 if state.awaiting_stat_delta:
                     state.delta_wait_ticks += 1
                     if state.delta_wait_ticks >= 2:
-                        await deps.try_stat_delta_match(snapshot)
+                        match_confirmation_due = True
                         state.awaiting_stat_delta = False
                         state.delta_wait_ticks = 0
+
+            # Confirmation acquires its own short lock for a consistent offer
+            # snapshot. The injected matcher and its transport run unlocked.
+            if match_confirmation_due:
+                await deps.try_stat_delta_match(snapshot)
 
             # -- Auto OCR (only while scan window is open) --
             # Run outside the lock since OCR is blocking I/O
@@ -984,6 +1004,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                     action, ids, detected = await deps.to_thread(
                         deps.run_watcher_check
                     )
+                    ocr_message = None
                     async with state.lock:
                         if action == "detected" and detected:
                             state.augment_choices.clear()
@@ -996,7 +1017,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                                 "detected": detected,
                                 "augment_choices": list(state.augment_choices),
                             })
-                            await deps.broadcast(ocr_msg)
+                            ocr_message = ocr_msg
 
                         elif action == "disappeared":
                             # Offer vanished; which card was chosen is unverified.
@@ -1010,6 +1031,8 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                                 reason="offer_disappeared",
                                 level=state.scan_window_level,
                             )
+                    if ocr_message is not None:
+                        await deps.broadcast(ocr_message)
 
                 except Exception as e:
                     logger.warning("OCR watcher error: %s", e, exc_info=True)
@@ -1120,81 +1143,104 @@ async def _poll_game_loop(interval: float | None = None):
         await asyncio.sleep(interval)
 
 async def _broadcast(message: str) -> None:
-    """Push to WebSocket clients without re-acquiring the game-state lock.
+    """Enqueue ordered messages; no client send or network await in this path.
 
-    This coroutine is sometimes called while game_state.lock is held
-    (e.g. OCR and augment confirmation). Acquiring it here deadlocked the
-    poll loop. All WebSocket registration, removal and broadcasts run on
-    the same ASGI event loop; taking a snapshot before the first await
-    avoids simultaneous set iteration and mutation.
+    A stalled client has an independent bounded queue. If it falls behind by
+    more than 32 messages, discard the oldest pending snapshot rather than
+    delaying the game poll or permitting unbounded growth.
     """
     diagnostics.record_ws_message("outbound", message)
-    clients = tuple(game_state.ws_clients)
-    dead: list[WebSocket] = []
-    for client in clients:
-        try:
-            await client.send_text(message)
-        except Exception:
-            dead.append(client)
-    for client in dead:
-        game_state.ws_clients.discard(client)
+    state = game_state
+    for client in tuple(state.ws_clients):
+        queue = state.ws_send_queues.get(client)
+        if queue is None:
+            queue = asyncio.Queue(maxsize=32)
+            state.ws_send_queues[client] = queue
+        if queue.full():
+            queue.get_nowait()
+            queue.task_done()
+        queue.put_nowait(message)
+        task = state.ws_send_tasks.get(client)
+        if task is None or task.done():
+            state.ws_send_tasks[client] = asyncio.create_task(
+                _drain_ws_client(state, client, queue)
+            )
+
+
+async def _drain_ws_client(
+    state: GameState, client: WebSocket, queue: asyncio.Queue[str]
+) -> None:
+    """Only this client task performs its socket sends, preserving order."""
+    try:
+        while client in state.ws_clients:
+            message = await queue.get()
+            try:
+                # A socket that never drains must not pin a worker forever.
+                await asyncio.wait_for(client.send_text(message), timeout=3.0)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                state.ws_clients.discard(client)
+                break
+            finally:
+                queue.task_done()
+    finally:
+        if state.ws_send_tasks.get(client) is asyncio.current_task():
+            state.ws_send_tasks.pop(client, None)
+            state.ws_send_queues.pop(client, None)
+
 
 async def _try_stat_delta_match(snapshot: GameSnapshot) -> None:
-    """Offer only a tentative card highlight; never record a pick from stats.
+    """Prepare a guarded manual-confirmation hint under lock; send after it."""
+    async with game_state.lock:
+        if not game_state.confirmation_pending:
+            return
 
-    Must be called while holding game_state.lock, after OCR disappearance.
-    Level and inventory must be unchanged since the pre-offer snapshot.
-    """
-    if not game_state.confirmation_pending:
-        return
+        best_guess_id: str | None = None
+        confidence = 0.0
+        after_items = getattr(snapshot, "purchased_items", None)
+        observed_items = game_state.stat_snapshot_items_before
 
-    best_guess_id: str | None = None
-    confidence = 0.0
-    after_items = getattr(snapshot, "purchased_items", None)
-    observed_items = game_state.stat_snapshot_items_before
+        baseline_is_comparable = (
+            bool(game_state.stat_snapshot_before)
+            and game_state.stat_snapshot_level_before is not None
+            and getattr(snapshot, "level", None) == game_state.stat_snapshot_level_before
+            and observed_items is not None
+            and isinstance(after_items, (list, tuple))
+            and tuple(str(item) for item in after_items) == observed_items
+        )
 
-    baseline_is_comparable = (
-        bool(game_state.stat_snapshot_before)
-        and game_state.stat_snapshot_level_before is not None
-        and getattr(snapshot, "level", None) == game_state.stat_snapshot_level_before
-        and observed_items is not None
-        and isinstance(after_items, (list, tuple))
-        and tuple(str(item) for item in after_items) == observed_items
-    )
+        if baseline_is_comparable and game_state.augment_choices:
+            # Never fabricate a candidate from the catalog.
+            candidates = [
+                static_data.get_augment(aid)
+                for aid in game_state.augment_choices
+            ]
+            candidates = [aug for aug in candidates if aug is not None]
+            if candidates:
+                matched, confidence = match_augment(
+                    game_state.stat_snapshot_before,
+                    dict(snapshot.champion_stats),
+                    candidates,
+                )
+                if (
+                    matched is not None
+                    and matched.id in game_state.augment_choices
+                    and confidence >= 0.6
+                ):
+                    best_guess_id = matched.id
 
-    if baseline_is_comparable and game_state.augment_choices:
-        # Only OCR-observed cards can be suggested. Never invent a candidate
-        # from the full catalog when OCR returned no reliable card IDs.
-        candidates = [
-            static_data.get_augment(aid)
-            for aid in game_state.augment_choices
-        ]
-        candidates = [aug for aug in candidates if aug is not None]
-        if candidates:
-            matched, confidence = match_augment(
-                game_state.stat_snapshot_before,
-                dict(snapshot.champion_stats),
-                candidates,
-            )
-            # Conservative threshold for a visual "likely" hint only.
-            # The player must still explicitly confirm the selected card.
-            if (
-                matched is not None
-                and matched.id in game_state.augment_choices
-                and confidence >= 0.6
-            ):
-                best_guess_id = matched.id
-
-    event_log.emit(
-        "augment_inference",
-        result="ambiguous" if best_guess_id else "none",
-        confidence=max(0.0, min(1.0, float(confidence))),
-    )
-    await _send_augment_confirm(best_guess_id)
+        event_log.emit(
+            "augment_inference",
+            result="ambiguous" if best_guess_id else "none",
+            confidence=max(0.0, min(1.0, float(confidence))),
+        )
+        message = _augment_confirm_message(best_guess_id)
+    await _broadcast(message)
 
 
-async def _send_augment_confirm(best_guess_id: str | None) -> None:
-    """Send augment_confirm message to all clients for manual selection."""
+def _augment_confirm_message(best_guess_id: str | None) -> str:
+    """Serialize the current offer; caller protects state with its lock."""
     candidates = []
     for aid in game_state.augment_choices:
         aug = static_data.get_augment(aid)
@@ -1204,12 +1250,18 @@ async def _send_augment_confirm(best_guess_id: str | None) -> None:
                 "name": aug.name,
                 "tier": aug.tier.value,
             })
-
-    await _broadcast(json.dumps({
+    return json.dumps({
         "type": "augment_confirm",
         "candidates": candidates,
         "best_guess_id": best_guess_id,
-    }))
+    })
+
+
+async def _send_augment_confirm(best_guess_id: str | None) -> None:
+    """Compatibility entrypoint for manual-confirmation WS messages."""
+    async with game_state.lock:
+        message = _augment_confirm_message(best_guess_id)
+    await _broadcast(message)
 
 
 # -- Helpers --
