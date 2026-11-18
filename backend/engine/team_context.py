@@ -148,7 +148,8 @@ def analyze_enemies(
     if not known:
         return EnemyThreatProfile(
             enemies_visible=len(enemy_states), visible_items=items_seen,
-            unknown_items=unknown_items,
+            unknown_items=unknown_items, armor_items=armor,
+            magic_resist_items=magic_resist,
         )
 
     power_total = magic_sum + physical_sum
