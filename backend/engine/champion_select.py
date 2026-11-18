@@ -6,6 +6,7 @@ than claiming an optimal pick.
 """
 from collections import Counter
 from backend.models import ChampionMeta
+from backend.engine.composite_score import WinEvidence, composite_rating
 
 
 def _fit_score(champion: ChampionMeta, teammate_roles: list[str]) -> tuple[float, list[str]]:
@@ -46,7 +47,8 @@ def _fit_score(champion: ChampionMeta, teammate_roles: list[str]) -> tuple[float
 
 
 def summarize_champion_select(
-    draft: dict, id_to_alias: dict[str, str], get_champion
+    draft: dict, id_to_alias: dict[str, str], get_champion,
+    record_lookup=None,
 ) -> dict:
     """Return available bench + local player's current champion, not all allies.
 
@@ -97,13 +99,34 @@ def summarize_champion_select(
         if champ is None:
             skipped_ids.append(numeric_id)
             continue
-        score, notes = _fit_score(champ, teammates)
+        team_fit, notes = _fit_score(champ, teammates)
+        # Existing champion stat profile is not an observed Mayhem win rate.
+        # A kit-compatibility proxy is useful for a first-pass model, but
+        # remains explicitly heuristic until calibrated with game data.
+        profile = sorted(
+            max(0.0, min(1.0, float(v))) for v in champ.stats.to_array()
+        )
+        top_four = sum(profile[-4:]) / 4.0
+        kit_fit = round(min(10.0, 4.0 + 4.0 * top_four), 1)
+
+        record = record_lookup(champ.id) if record_lookup else None
+        evidence = WinEvidence(record[0], record[1]) if record else None
+        rating = composite_rating(
+            synergy=kit_fit, context=team_fit, evidence=evidence,
+        )
+        score = rating.score
+        notes.append("Score uses kit fit and team composition" if evidence is None
+                     else "Personal match performance contributes to the score")
         tier = "S" if score >= 7.5 else "A" if score >= 7.0 else "B" if score >= 6.5 else "C"
         candidates.append({
             "id": champ.id,
             "name": champ.name,
             "role": champ.role,
             "score": score,
+            "confidence": rating.confidence,
+            "sample_size": rating.sample_size,
+            "components": rating.as_dict()["components"],
+            "evidence_source": rating.evidence_source,
             "tier": tier,
             "reasons": notes,
             "current": numeric_id == local_id,
@@ -114,6 +137,6 @@ def summarize_champion_select(
         "type": "champ_select",
         "candidates": candidates,
         "skipped_ids": skipped_ids,
-        "method": "experimental_team_fit",
-        "notice": "Experimental 0.0–10.0 team-fit score, not a Mayhem win rate.",
+        "method": "composite_v1",
+        "notice": "Experimental composite 0.0–10.0 score (kit + team + available personal evidence), not a win rate.",
     }
