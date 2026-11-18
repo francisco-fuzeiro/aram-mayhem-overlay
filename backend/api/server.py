@@ -25,7 +25,7 @@ from backend.collectors.screen_ocr import (
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
 from backend import preferences
-from backend.engine.augment_detector import has_stats_changed, match_augment
+from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
 
