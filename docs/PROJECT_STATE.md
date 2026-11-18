@@ -31,8 +31,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#5](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/5) | `feat/dynamic-team-threats` | PR #4 branch | LCDA visible enemy/ally state, original threat profiles, shared augment/build context, Balanced + Damage/Survival/Utility build paths and tests |
 | [#6](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/6) | `feat/team-threat-coverage` | PR #5 branch | Player-inclusive ally roles, catalog coverage safeguards and visible enemy inventory fallback |
 | [#7](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/7) | `feat/selectable-build-paths` | PR #6 branch | Selectable build style, saved UI preference, inventory-safe next item, WebSocket contract |
+| [#8](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/8) | `feat/late-game-boots-replacement` | PR #7 branch | Optional full-inventory boots-to-mobility item swap with conservative stat comparison |
 
-**Active working head: `feat/selectable-build-paths` (draft PR #7)**, stacked on PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/late-game-boots-replacement` (draft PR #8)**, stacked on PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -53,7 +54,18 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Tests: Windows run `44315895591` on PR #7 **passed: 163 tests, 1 warning, JS syntax passed**. Includes the passing PR #6 fix. Real Windows in-game testing is still pending.
 - Next P0: strengthen verified item availability, enemy item-stat provenance and patch-aware metadata; validate Windows LCDA and OCR.
 
+## Current work: PR #8 — late-game boot replacement
+
+- Branch `feat/late-game-boots-replacement` (stacked on PR #7). A full 6-slot build can now show an **optional boot replacement**, as an explicit sell-then-buy alternative; ordinary `next_item_id` still remains empty to avoid recommending an impossible seventh item.
+- The candidate must be a non-boots catalog item with **listed unconditional movement speed** and a meaningful contextual-stat improvement after a mobility trade-off penalty. Rank by selected build style, champion, active augments and visible team threats; deterministic tie-breaking.
+- DataDragon item loader now collects structured flat/percent movement speed and unconditional movement stats from the `<stats>` description section, never conditional passive text. Cache schema v2 prevents silently treating stale items as fully known; legacy cached items can still support regular builds offline with boot swaps disabled.
+- The recommendation appears in the English build panel with item names, purchase cost (excluding uncertain sell value), approximate listed movement-speed change and a shop-availability disclaimer. No buying or selling is automated.
+- Missing/conditional movement effects, mode shop eligibility, unique passives, full actual movespeed/soft cap and item buy path **remain unverified**. The comparison is **heuristic** and needs real Windows/Mayhem validation.
+- Tests: [Windows GitHub Actions run 44318127647](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44318127647) **passed: 171 tests, 1 warning**, plus successful `node --check frontend/app.js`. Real Mayhem shop/Windows in-game verification remains pending.
+
 ## Automated verification (as last observed)
+
+- PR #8 Windows CI `44318127647` on feature commit `280e7659`: **171 passed, 1 warning**, JavaScript syntax check passed. Newer documentation commits require separate CI recheck.
 
 - PR #6 latest Windows CI `44315513781`: **155 passed, 1 warning**; JS syntax passed.
 - PR #7 Windows CI `44315895591` on feature commit `c4f8ba25`: **163 passed, 1 warning**; JS syntax passed. Documentation-only commits may be newer; verify head.
@@ -96,7 +108,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. Confirm the latest PR #7 CI and complete real Windows in-game verification of LCDA roster, OCR choices, persistent build style and in-game overlay behavior.
+1. Confirm the latest PR #8 CI and complete real Windows in-game verification of LCDA roster, OCR choices, persistent build style and in-game overlay behavior.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
@@ -108,8 +120,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #7 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
-3. Continue from PR #7 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #8 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
+3. Continue from PR #8 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.

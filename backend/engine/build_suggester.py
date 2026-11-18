@@ -5,13 +5,19 @@ Our contextual adjustments are small and interpretable, not measured win odds.
 """
 import logging
 
-from backend.models import ChampionMeta, AugmentData, ItemData, BuildState
+from backend.models import ChampionMeta, AugmentData, ItemData, BuildState, BootReplacement
 from backend.engine.scoring import score_item
 from backend.engine.team_context import EnemyThreatProfile, AllyTeamProfile
 
 logger = logging.getLogger("aram-oracle.engine.build")
 
 BUILD_STYLES = ("Balanced", "Damage", "Survival", "Utility")
+
+# A neutral baseline used only to compare listed flat and percentage item MS.
+# Actual champion movement speed, soft caps and active effects are not modeled.
+_LISTED_MS_BASELINE = 335.0
+_BOOT_SWAP_MIN_GAIN = 0.65
+_BOOT_SWAP_MS_COST = 0.014
 
 
 def _item_role_bonus(
@@ -113,6 +119,81 @@ def _fill_slots(
     return selected
 
 
+def _boot_replacement(
+    champion: ChampionMeta,
+    augments: list[AugmentData],
+    owned_ids: list[str],
+    item_catalog: list[ItemData],
+    enemy: EnemyThreatProfile | None,
+    allies: AllyTeamProfile | None,
+    style: str,
+    slots: int,
+) -> BootReplacement | None:
+    """Offer a swap only for a full inventory with known movement-speed stats.
+
+    The candidate must retain some *listed* movement speed and meaningfully
+    improve contextual item value after accounting for lost listed movement.
+    This is an advisory comparison, not a verified shop or actual MS prediction.
+    """
+    if len(owned_ids) < slots:
+        return None
+    by_id = {item.id: item for item in item_catalog}
+    current_boot = next(
+        (by_id[item_id] for item_id in owned_ids
+         if item_id in by_id and by_id[item_id].boots),
+        None,
+    )
+    if current_boot is None:
+        return None
+
+    def listed_ms(item: ItemData) -> float:
+        return item.move_speed_flat + _LISTED_MS_BASELINE * item.move_speed_percent
+
+    boot_ms = listed_ms(current_boot)
+    if boot_ms <= 0:
+        return None  # No trustworthy baseline for an unusual or unmapped boot.
+
+    weight = {"Balanced": 0.9, "Damage": 1.65, "Survival": 1.9, "Utility": 1.75}[style]
+
+    def contextual_value(item: ItemData) -> float:
+        return score_item(champion, item, augments) + weight * _item_role_bonus(
+            item, enemy, allies, style
+        )
+
+    boot_value = contextual_value(current_boot)
+    observed = set(owned_ids)
+    candidates: list[tuple[float, str, ItemData, float]] = []
+    for item in item_catalog:
+        if item.id in observed or item.boots or listed_ms(item) <= 0:
+            continue
+        # Larger loss of movement demands a stronger improvement elsewhere.
+        speed_change = listed_ms(item) - boot_ms
+        net_gain = (
+            contextual_value(item) - boot_value
+            - _BOOT_SWAP_MS_COST * max(0.0, -speed_change)
+        )
+        if net_gain > _BOOT_SWAP_MIN_GAIN:
+            candidates.append((net_gain, item.id, item, speed_change))
+    if not candidates:
+        return None
+
+    # Deterministic tie-breaker on item ID, not catalog order.
+    _, _, replacement, speed_change = sorted(
+        candidates, key=lambda row: (-row[0], row[1])
+    )[0]
+    return BootReplacement(
+        sell_item_id=current_boot.id,
+        buy_item_id=replacement.id,
+        buy_cost=replacement.cost,
+        listed_ms_change=round(speed_change, 1),
+        reason=(
+            "Potential late-game stat upgrade for the selected build style. "
+            "Movement-speed difference is estimated from listed item stats only; "
+            "check Mayhem shop availability, passives and sell value before swapping."
+        ),
+    )
+
+
 def suggest_build(
     champion: ChampionMeta,
     active_augments: list[AugmentData],
@@ -163,6 +244,10 @@ def suggest_build(
             gold_to_next = max(0, first.cost - current_gold)
 
     alternatives = paths
+    boot_replacement = _boot_replacement(
+        champion, active_augments, purchased, all_items,
+        enemy_profile, ally_profile, selected_style, build_size,
+    )
 
     reasons = ["Adjusted for your current champion and chosen augments"]
     if enemy_profile and enemy_profile.enemies_analyzed:
@@ -184,4 +269,5 @@ def suggest_build(
         alternatives=alternatives,
         reasons=reasons,
         selected_style=selected_style,
+        boot_replacement=boot_replacement,
     )

@@ -941,6 +941,21 @@ def _serialize_result(
             },
             "reasons": result.build_state.reasons,
             "selected_style": result.build_state.selected_style,
+            "boot_replacement": (
+                {
+                    "sell_item_id": result.build_state.boot_replacement.sell_item_id,
+                    "sell_item_name": _resolve_item_name(
+                        result.build_state.boot_replacement.sell_item_id, sd
+                    ),
+                    "buy_item_id": result.build_state.boot_replacement.buy_item_id,
+                    "buy_item_name": _resolve_item_name(
+                        result.build_state.boot_replacement.buy_item_id, sd
+                    ),
+                    "buy_cost": result.build_state.boot_replacement.buy_cost,
+                    "listed_ms_change": result.build_state.boot_replacement.listed_ms_change,
+                    "reason": result.build_state.boot_replacement.reason,
+                } if result.build_state.boot_replacement else None
+            ),
         },
     }
 

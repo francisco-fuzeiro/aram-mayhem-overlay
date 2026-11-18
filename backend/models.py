@@ -116,6 +116,9 @@ class ItemData:
     mythic: bool = False
     boots: bool = False
     tags: list[str] = field(default_factory=list)
+    # Listed unconditional movement-speed stats; percent is a fraction (0.05 = 5%).
+    move_speed_flat: float = 0.0
+    move_speed_percent: float = 0.0
 
 
 @dataclass
@@ -132,6 +135,16 @@ class AugmentRecommendation:
 
 
 @dataclass
+class BootReplacement:
+    """Optional swap for a full inventory, never an immediate seventh purchase."""
+    sell_item_id: str
+    buy_item_id: str
+    buy_cost: int
+    listed_ms_change: float
+    reason: str
+
+
+@dataclass
 class BuildState:
     champion_id: str
     chosen_augments: list[str] = field(default_factory=list)
@@ -142,6 +155,7 @@ class BuildState:
     alternatives: dict[str, list[str]] = field(default_factory=dict)
     reasons: list[str] = field(default_factory=list)
     selected_style: str = "Balanced"
+    boot_replacement: BootReplacement | None = None
 
 
 @dataclass
