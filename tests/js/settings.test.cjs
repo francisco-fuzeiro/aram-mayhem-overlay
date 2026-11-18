@@ -292,7 +292,7 @@ test("D4b Settings appearance controls have a clearly simulated preview", () => 
     for (const id of ["anchor", "offset-x", "offset-y", "opacity", "scale"])
         assert.match(html, new RegExp('id="overlay-' + id + '"'));
     assert.match(html, /SIMULATED · NOT LIVE GAME DATA/);
-    assert.match(html, /overlay-preferences\\.js/);
+    assert.match(html, /overlay-preferences[.]js/);
     assert.match(html, /id="overlay-preview-example"/);
 });
 
