@@ -136,13 +136,15 @@ class ItemData:
 class AugmentRecommendation:
     augment_id: str
     augment_name: str
-    score: float
+    score: float | None
     label: tuple[str, str]       # ("Magic", "Burst")
     core_items: list[str]        # item IDs, ordered
     explanation: str
     confidence: float = 0.0
     sample_size: int = 0
     components: dict[str, float | None] = field(default_factory=dict)
+    modelled: bool = True
+    provenance: str = "none"
 
 
 @dataclass

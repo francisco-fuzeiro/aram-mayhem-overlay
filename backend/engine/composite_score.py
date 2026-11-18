@@ -29,12 +29,12 @@ class WinEvidence:
 
 @dataclass(frozen=True)
 class CompositeRating:
-    score: float
+    score: float | None
     confidence: float
     sample_size: int
     performance: float | None
-    synergy: float
-    context: float
+    synergy: float | None
+    context: float | None
     evidence_source: str
     method: str = "composite_v1"
 

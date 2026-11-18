@@ -1,5 +1,6 @@
 """Augment ranking in a comparable 0.0–10.0 experimental score range."""
 import logging
+import math
 
 from backend.models import (
     ChampionMeta, AugmentData, ItemData, AugmentRecommendation,
@@ -38,9 +39,14 @@ def rank_augments(
             personal_record=record, allow_empirical=use_personal_performance,
             threat_profile=threat_profile,
         )
-        label = derive_label(champion, aug)
-        explanation = derive_explanation(champion, aug)
-        core_items = _suggest_core_items(champion, aug, existing, all_items)
+        if rating.score is None:
+            label = ("Not rated", "Insufficient data")
+            explanation = "Insufficient catalog contribution data."
+            core_items = []
+        else:
+            label = derive_label(champion, aug)
+            explanation = derive_explanation(champion, aug)
+            core_items = _suggest_core_items(champion, aug, existing, all_items)
 
         results.append(AugmentRecommendation(
             augment_id=aug.id,
@@ -52,9 +58,19 @@ def rank_augments(
             confidence=rating.confidence,
             sample_size=rating.sample_size,
             components=rating.as_dict()["components"],
+            modelled=aug.modelled,
+            provenance=aug.provenance,
         ))
 
-    return sorted(results, key=lambda r: (-r.score, r.augment_name))
+    # Keep valid scores high-to-low, with missing data last.
+    return sorted(
+        results,
+        key=lambda r: (
+            r.score is None,
+            -(r.score if r.score is not None else 0.0),
+            r.augment_name,
+        ),
+    )
 
 
 def should_reroll(
@@ -63,9 +79,20 @@ def should_reroll(
     existing: list[AugmentData],
 ) -> tuple[bool, str]:
     """Simple absolute-fit warning; does not estimate unseen reroll outcomes."""
-    if not recommendations:
+    # A reroll hint is unsafe unless the full, unique three-card offer is
+    # identified and every card has a genuine finite model score.
+    if (
+        len(recommendations) != 3
+        or len({rec.augment_id for rec in recommendations}) != 3
+        or any(
+            not rec.modelled
+            or rec.score is None
+            or not math.isfinite(rec.score)
+            for rec in recommendations
+        )
+    ):
         return False, ""
-    best = recommendations[0]
+    best = max(recommendations, key=lambda rec: rec.score)
     if best.score < REROLL_THRESHOLD:
         logger.debug("Weak augment offer: highest composite score %.1f/10", best.score)
         return (
