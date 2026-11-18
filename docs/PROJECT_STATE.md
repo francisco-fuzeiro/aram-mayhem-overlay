@@ -39,7 +39,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Enemy inventories are examined even when an enemy champion is not present in the catalog. `visible_items` now means the observed item count; `unknown_items` indicates IDs lacking our item metadata.
 - High threat confidence requires all visible enemy champions to be recognized and every observed item to resolve, as well as minimum roster/item coverage.
 - New deterministic tests cover partial catalog coverage, item observation without a known champion, and including the player in allied roles.
-- Validation: **not run** for this branch's new commits until the draft PR's Windows CI completes. Windows in-game sample remains outstanding.
+- Validation: Windows run `44314745431` failed (154 passed, 1 failed) because the zero-recognized-champion branch omitted observed armor/MR counts; fixed in commit `9954041`. Re-run pending; Windows in-game sample outstanding.
 - Remaining risks: DataDragon tags may not correspond to verified item stats; role vectors approximate threat types; actual LCDA roster must be checked on Windows.
 
 ## Automated verification (as last observed)
