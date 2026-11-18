@@ -72,13 +72,13 @@ def test_full_queue_drops_immediately_without_disk_io(tmp_path):
     assert not journal.emit("lcda", status="available", error_class="none")
     assert time.perf_counter() - started < 0.2
     assert journal.dropped == 1
-    assert not tmp_path.exists()
+    assert list(tmp_path.iterdir()) == []  # pytest creates tmp_path itself
 
 
 def test_logging_is_inert_until_started(tmp_path):
     journal = StructuredEventLogger(tmp_path)
     assert not journal.emit("lcda", status="available", error_class="none")
-    assert not tmp_path.exists()
+    assert list(tmp_path.iterdir()) == []  # pytest creates tmp_path itself
     assert not str(default_log_dir()).endswith("data/screenshots")
 
 
