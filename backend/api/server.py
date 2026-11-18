@@ -16,7 +16,7 @@ from backend.static_data.loader import StaticData
 from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
-from backend.collectors.lcda import get_raw_game_data, parse_game_snapshot
+from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
 from backend.collectors.lcu import read_champ_select
 from backend.engine.champion_select import summarize_champion_select
 from backend.collectors.screen_ocr import (
@@ -758,7 +758,10 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
     """
     clients_count = len(state.ws_clients)
     if clients_count > 0:
-        raw = deps.get_raw_game_data()
+        # requests.Session.get is synchronous: never call it on the ASGI event loop.
+        # Legacy injected test dependencies may still supply a dict/None.
+        lcda_result = await deps.to_thread(deps.get_raw_game_data)
+        raw = lcda_result.payload if isinstance(lcda_result, LCDAResult) else lcda_result
         if raw:
             _record_match_phase(state, "in_game")
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
