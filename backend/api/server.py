@@ -51,6 +51,7 @@ class GameState:
         self.chosen_augments: list[str] = []  # real augments only (max 4)
         self.chosen_stat_anvils: list[str] = []  # stat anvil / voucher picks
         self.build_style: str = "Balanced"  # player preference, survives match resets
+        self.overlay_preferences: dict = dict(preferences.DEFAULT_OVERLAY)  # D4a: stored only
         # OCR state
         self.ocr_enabled: bool = True
         self.ocr_last_detected: list[str] = []
@@ -135,7 +136,9 @@ async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
     # Every entrypoint (CLI, desktop overlay, and direct ASGI) needs a DB.
     init_db()
-    game_state.build_style = preferences.load_build_style()
+    saved_preferences = preferences.load_preferences()
+    game_state.build_style = saved_preferences["build_style"]
+    game_state.overlay_preferences = saved_preferences["overlay"]
     static_data.load()
     game_state.pipeline = Pipeline(static_data)
 
@@ -198,8 +201,10 @@ class BuildPreferenceRequest(BaseModel):
 async def get_preferences():
     async with game_state.lock:
         return {
+            "schema_version": preferences.PREFERENCES_SCHEMA_VERSION,
             "build_style": game_state.build_style,
             "available_styles": list(BUILD_STYLES),
+            "overlay": dict(game_state.overlay_preferences),
         }
 
 
@@ -211,6 +216,8 @@ async def update_preferences(req: BuildPreferenceRequest):
     async with game_state.lock:
         try:
             preferences.save_build_style(req.build_style)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from None
         except OSError:
             logger.exception("Could not persist build-style preference")
             raise HTTPException(
@@ -224,6 +231,38 @@ async def update_preferences(req: BuildPreferenceRequest):
     return {"build_style": req.build_style, "saved": True}
 
 
+
+@app.put("/api/preferences/overlay")
+async def update_overlay_preferences(payload: dict):
+    """D4a: validate and store full overlay layout; never apply to Qt here."""
+    try:
+        overlay = preferences.validate_overlay(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+    async with game_state.lock:
+        try:
+            preferences.save_overlay_preferences(overlay)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from None
+        except OSError:
+            logger.exception("Could not persist overlay preferences")
+            raise HTTPException(
+                status_code=500, detail="Could not save preferences"
+            ) from None
+        game_state.overlay_preferences = overlay
+        style = game_state.build_style
+    await _broadcast(json.dumps({
+        "type": "preferences_updated",
+        "build_style": style,
+        "overlay": overlay,
+        "schema_version": preferences.PREFERENCES_SCHEMA_VERSION,
+    }))
+    return {
+        "schema_version": preferences.PREFERENCES_SCHEMA_VERSION,
+        "overlay": overlay,
+        "saved": True,
+    }
 
 
 @app.get("/health")
