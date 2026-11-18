@@ -69,6 +69,13 @@ request connection rather than inventing state. Always protect `main`.
 4. Keep the PR draft, targeting its predecessor; leave `main` untouched.
 5. Conclude in PT-PT with accomplished changes, automated results, unresolved Windows validation and a ready-to-paste prompt for the next phase/chat.
 
+## Latest authoritative handoff (2026-11-18) — M2/E3 → M3
+
+- M2 automated code: E1 [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) `cc34107b`, final [CI 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703); E2 [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `a4432f69`, final [CI 44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004); E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) `fix/m2-e3-unrated-safe-rerolls`, code `5efa3628`, [CI 44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) green (354 Python passing, 1 AUD-07 xfailed, 28 JS passing, 4 TODO). **Verify E3 docs-head CI at current PR head before M3.** All stacked draft PRs unmerged; main untouched.
+- E1: whole-term keyword matches, Donation hint corrected, augment cache invalidation. E2: actual modelled/provenance/coverage. E3: honest null/unrated and complete-offer-only reroll.
+- Next approved M3 (F1–F5) as separate stacked tests-first CI-gated draft PRs. Implement: F1 LCDA off loop/classified, F2 LCU gameflow statuses, F3 match identity and debounced end, F4 stale frontend clear/reconnect, F5 no broadcasts under lock. Exact next-chat contract in `docs/CONTINUE_PROJECT.md`; full approved plan independent PR #19. Do not repeat old audit or start M4, redesign, installer.
+- Open gates: AUD-07 transient LCDA failure, four JS TODO cases, G1/G2 authoritative Mayhem source & patch, G4 Host/Origin/auth, A-FUNC.3/V1 native Windows/League and Riot/licensing. Preserve privacy-capped logs, screenshots off and experimental_augment_evidence off. Never mistake CI for native acceptance.
+
 ## Current handoff anchor (verify live GitHub and CI)
 
 - **Latest 2026-11-18: M2/A3** is [draft PR #25](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/25), branch `fix/m2-a3-confirm-not-infer-augment-picks`, stacked directly on A2 draft PR #24; A2 final head `ebaac767` verified successful [Actions 44404260509](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44404260509). No merges or `main` changes.

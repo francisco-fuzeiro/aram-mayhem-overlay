@@ -1,5 +1,32 @@
 # Continue ARAM Oracle in a New Chat
 
+## 2026-11-18 handoff — M2/E1–E3 finished in code, next M3 Match Lifecycle
+
+- Stacked draft branches, unmerged: A3 `fix/m2-a3-confirm-not-infer-augment-picks` @ `a1d5322f` → **E1** [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) `fix/m2-e1-augment-keyword-cache` @ `cc34107b` ([CI 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) passed) → **E2** [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `fix/m2-e2-augment-provenance-coverage` @ `a4432f69` ([CI 44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) passed) → **E3** [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) `fix/m2-e3-unrated-safe-rerolls`, code `5efa3628` ([CI 44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) passed: 354 Python, 1 AUD-07 xfailed; 28 JavaScript, 4 TODO). **Check E3 final documentation-head SHA and corresponding CI before M3.** The plan lives independently on `docs/a-func-audit-report` PR #19, not historical PR #18.
+- E1 word boundaries/Donation/cache, E2 modelled/provenance/coverage, E3 null/unrated/safe reroll/API/browser rendering are coded. Do not equate unit tests to in-game validation. Keep G1/G2 patch-specific Mayhem authority, G4 local API Host/Origin/auth, AUD-07, A-FUNC.3/V1, licensing and Riot review pending.
+- **Next phase M3, five separate tests-first stacked draft PRs:** F1 classified LCDA off event loop → F2 LCU gameflow and statuses → F3 debounced game end and match identity → F4 frontend cleanup and stale reconnect state → F5 broadcasts outside GameState lock. Verify the final GitHub Actions at each commit *before* the next branch. No merges, M4+ code, redesign, installer, automatic screenshots, or experimental empirical ratings.
+
+### Ready-to-paste next chat — M3/F1–F5
+
+ARAM Oracle — implement M3 Match Lifecycle autonomously in five small stages (F1–F5). Repo private: `francisco-fuzeiro/aram-mayhem-overlay`. Start from the verified final head of draft PR #28, branch `fix/m2-e3-unrated-safe-rerolls`. Verify latest head SHA and successful final-head Windows Actions. Read `AGENTS.md`, `.agents/skills/continue-aram-oracle/SKILL.md`, `docs/PROJECT_STATE.md`, `docs/TODO.md`, `docs/DEVELOPMENT_LOG.md`, `docs/CONTINUE_PROJECT.md`, `docs/IMPLEMENTATION_PHASES.md`, `docs/DESKTOP_ARCHITECTURE.md`; consult `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md` on independent draft PR #19 branch `docs/a-func-audit-report`.
+
+Maintain one new branch and one draft PR per stage, stacked F1→F2→F3→F4→F5. Tests must be written and proven failing first; then fix, run full Python and JavaScript suites, and verify green final-head GitHub Actions including documentation commits before moving on. Do not merge or change `main`, implement M4+, installer or redesign.
+
+F1: move synchronous LCDA read off event loop using `asyncio.to_thread`, return explicit status/payload classified as ok/http_404/timeout/refused/bad_json (and safe fallback), log only sanitized bounded transition classes. Test all failures, delays and WS responsiveness.
+
+F2: read-only LCU gameflow; explicit deterministic status contract: `client_idle`, `champ_select`, `loading`, `live_data_unavailable`, `in_game`, `champion_unresolved`, `post_game`. Do not turn LCDA 404 during loading into game end; always emit an explicit state when Pipeline returns None; active-player identification prefers riotId, fallback summonerName. Test champ select→loading→three 404→ok, unresolved champion, riotId/name mismatch.
+
+F3: game-end contract only if authoritative LCU phase confirms end OR at least three *consecutive* LCDA misses over >=6 seconds. A single miss retains chosen augments and live state marked unavailable; recovery resumes same match. Authoritative identity is LCU gameflow session/gameId where available; guarded fallback (riotId, champion, observed gameTime) and gameTime regression to distinguish fresh matches; a changed match id resets match-specific state immediately, even within 5 min; replace existing 300 s stale post-game timeout. Promote AUD-07 strict xfail to a passing test. Test single/two misses, threshold, real end, a new match with different champion, and time regression.
+
+F4: frontend `clearMatchDisplayState()` on `game_ended`, `no_game`, `champ_select` and new match id; clear old champion, time, gold, offers, scored lists, reroll and pending confirmation; on WebSocket loss, preserve but dim data with `Reconnecting…`, not silently present as current. On fresh update recover. Test DOM harness, new match identity, stale state, reconnect, and promote only fixed JS TODOs.
+
+F5: stage messages while holding `GameState.lock`, release it before broadcasts; no awaiting slow WS sends under lock. Test a hanging/failing fake WS client does not block next tick or state reads.
+
+Update TODO, PROJECT_STATE, DEVELOPMENT_LOG, IMPLEMENTATION_PHASES, CONTINUE_PROJECT and continuation skill per gated stage. Preserve M1/M2 regressions, capped private structured diagnostics, no automatic screenshots, `experimental_augment_evidence=false`, no invented Mayhem metrics, no game automation. Keep G1/G2 source/patch coverage, G4 local API Host/Origin/token, A-FUNC.3/V1 real Windows/League acceptance and Riot/licensing open. Deliver five PR/branch/SHA/CI links, actual test counts, limitations and the next M4 prompt.
+
+---
+
+
 ## 2026-11-18 handoff — M2/E2 draft PR #27
 
 - E2 branch `fix/m2-e2-augment-provenance-coverage`, [draft PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27), directly stacked on E1 PR #26 at `cc34107b` (final green [Actions 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703)). E2 red [Actions 44409504699](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409504699), code `b9fab4f8`, green code [44409785611](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409785611): 346 Python passed, 1 AUD-07 xfailed; 26 JS, 4 TODO. **Check E2 final documentation-head CI before continuing**.
