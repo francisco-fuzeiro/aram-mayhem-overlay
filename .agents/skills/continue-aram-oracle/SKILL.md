@@ -7,6 +7,43 @@ description: Resume ARAM Oracle development safely across ChatGPT project conver
 
 Use this repository-local skill when the user asks to continue work on the private League of Legends ARAM Mayhem companion from another ChatGPT conversation. **This file is a reusable repository instruction, not an automatically installed ChatGPT plugin/skill.** The next chat must explicitly fetch/read it from GitHub, along with the current repository files.
 
+## Trigger phrases and cross-chat rotation
+
+The following are **user-facing phrases**, not registered slash commands or
+automatically executed GitHub hooks. They provide a reliable convention for a
+ChatGPT conversation with the GitHub connector available:
+
+- **`ARAM Oracle: preparar passagem`** — In the **current** conversation,
+  finish/record the current small work unit, verify the actual draft PR/head
+  and latest available CI, update `docs/PROJECT_STATE.md`, `docs/TODO.md`,
+  `docs/DEVELOPMENT_LOG.md` and `docs/CONTINUE_PROJECT.md`. Refresh this
+  skill's handoff anchor only when the phase/PR has really changed. Separate
+  verified Windows observations from untested behaviors. Provide a compact
+  next-chat prompt naming the current PR, base branch, pending Windows checks
+  and next bounded phase. If CI is pending, state that fact rather than
+  claiming success; do not start a new phase in the old chat.
+- **`ARAM Oracle: continuar`** — In a **new conversation in the Overlay LoL
+  ChatGPT project**, first read this repository skill through GitHub, then
+  `AGENTS.md`, `docs/PROJECT_STATE.md`, `docs/TODO.md`,
+  `docs/IMPLEMENTATION_PHASES.md`, `docs/DESKTOP_ARCHITECTURE.md`,
+  `docs/DEVELOPMENT_LOG.md`, `docs/REUSE_CANDIDATES.md` and
+  `docs/CONTINUE_PROJECT.md` at the **current head**, plus the project
+  specification/UX audit when available. Check live PRs and Actions and
+  continue the next uncompleted phase described in the handoff, rather
+  than relying on chat memory or a hard-coded PR number.
+
+**One phase = one chat = one new stacked branch = one draft PR.** A rotation
+may also happen mid-phase when context becomes long: record a checkpoint on
+the *same* branch/PR and resume that unfinished phase in the next chat,
+**without creating a new phase branch prematurely**. Never mark a phase
+complete merely to rotate chats.
+
+**Limitations:** A repository-local skill is documentation, not an installed
+ChatGPT invocation, scheduled job, or new-chat creator. The user opens the new
+chat and sends the phrase; the assistant explicitly fetches this skill from
+the connected private GitHub repository. If the connector is unavailable,
+request connection rather than inventing state. Always protect `main`.
+
 ## Startup — mandatory, in order
 
 1. Locate the GitHub-connected repo `francisco-fuzeiro/aram-mayhem-overlay`; read `AGENTS.md`.
@@ -32,10 +69,11 @@ Use this repository-local skill when the user asks to continue work on the priva
 4. Keep the PR draft, targeting its predecessor; leave `main` untouched.
 5. Conclude in PT-PT with accomplished changes, automated results, unresolved Windows validation and a ready-to-paste prompt for the next phase/chat.
 
-## Current handoff anchor (verify, do not blindly trust)
+## Current handoff anchor (verify the live PR and CI)
 
-- On 2026-11-18: `feat/desktop-settings-shell` is draft PR #13 based on `feat/pregame-settings-feedback` (draft PR #12), which targets `fix/live-augment-detection-item-duplicates` (draft PR #11). The PR chain has not been merged into main.
-- D1 code and Windows CI are complete: `python -m backend.desktop` creates a normal Qt WebEngine Settings window, using the existing local FastAPI/Settings frontend and detecting compatible server reuse or port conflict. [Windows run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) passed at code/README head `d5aff632`: 234 Python tests, 1 warning; 4 Node Settings tests and syntax checks passed. Re-verify the newest documentation commit's CI.
-- D1 Windows native GUI, in-game transparency, hotkeys and persistence/feedback acceptance are still **open** (`PH-D1.5`).
-- Next proposed phase is **D2 — single instance and tray lifecycle**, in a new draft PR stacked on PR #13. No installer, updater or redesign in D2.
-- External code candidates are catalogued in `docs/REUSE_CANDIDATES.md`. Favor explicit compatible licenses and targeted adapters with source-commit attribution; Mayhem Advisor is **not** licensed for general source copying.
+- On 2026-11-18, D2 is implemented on `feat/desktop-single-instance-tray`, [draft PR #14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14) targeting `feat/desktop-settings-shell` (draft PR #13), stacked on draft PR #12 and preceding branches. `main` has not been modified.
+- D2's Python process lock, authenticated local activation, stoppable ASGI owner and unified Qt tray/Settings/overlay are implemented. Both `python -m backend.desktop` and `python -m backend.overlay --renderer qt` enter the same owner. [Windows CI 44343412427](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44343412427) passed at D2 code head `d018f0d8`: **251 Python passed, 1 warning, 4 Node tests passed** and JS syntax checks passed. Recheck at the latest documentation head, not just this known run.
+- The explicit non-Qt `--renderer webview` fallback is a separate developer path. No installer, auto-update, recommendation changes or third-party code import was made in D2.
+- **Windows acceptance is outstanding:** one tray and no duplicate API after repeat launches, Settings close-to-tray/reopen and focus/resize, overlay Show/Hide, Alt+O and Alt+H with click-through/transparency, clear stop/restart and no orphan port listener, compatible API reuse and conflicting port. Keep `PH-D2.3` and broad `UX-D04` unchecked until observed.
+- D1 Settings preference save/restart and feedback report creation remain unconfirmed (`PH-D1.5`). Green Tesseract readiness does not establish real three-card Mayhem OCR/reroll detection; these remain independent P0 tests.
+- After D2 Windows acceptance, start **D3 — Settings information architecture/navigation** in a new branch stacked on PR #14 and a new draft PR. Do not create D3 while fixing unfinished D2. See `docs/CONTINUE_PROJECT.md` for the next chat prompt.
