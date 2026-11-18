@@ -15,6 +15,14 @@ Last authored: **2026-11-18**, Europe/Lisbon. Code and product UI must remain **
 - **Next sequential gates:** P0.2 frontend DOM/message harness on a branch based on P0.1, then P0.3 bounded structured diagnostics on P0.2. One branch and draft PR per phase, no merge.
 - Record without implementing: G4 local API origin/auth security must precede public distribution; G1/G2 patch-specific Mayhem augment data coverage before M7 scoring; A3 no intrusive manual confirmation in combat (never invent picks).
 
+
+## 2026-11-18 — M1/P0.2 frontend message harness
+
+- [Draft PR #21](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/21), branch `test/m1-p02-frontend-message-harness`, stacked on P0.1 draft PR #20. `frontend/app.js` exports existing handlers/renderers only under CommonJS test mode, leaving browser/Qt boot unchanged. Added `tests/js/overlay-messages.test.cjs` with DOM/WebSocket mocks, and extended the workflow to run both JS files.
+- The test suite covers `game_ended`, `no_game`, WebSocket disconnected, stale data and game with a different champion. Current known violations are executed as Node TODO cases (AUD-05/06); frontend functional fixes F1–F5 are **not implemented**.
+- Verified at P0.2 code/workflow head `f736e14be7b6b53cb4fc59619c3408535b78af42`: [Windows headless Actions 44395754449](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44395754449) succeeded: **306 Python passed, 3 xfailed, 1 warning; 24 Node passed, 4 TODO, 0 failed**. Documentation-head CI to be checked separately. Real native Windows/League test not performed.
+- Next gated work: P0.3 safe structured transition diagnostics; branch and draft PR stacked on P0.2 only after final-head CI.
+
 ## Current goal
 
 Build a Windows companion overlay for **League of Legends — ARAM Mayhem** that responds to the actual match state instead of displaying static tier lists. Show alternative options rather than forcing decisions. The same augment can score differently depending on champion, already-picked augments, items, allies, opponents and game phase.
