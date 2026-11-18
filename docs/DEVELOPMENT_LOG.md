@@ -172,3 +172,10 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added `tests/test_overlay_window_controls.py`, with valid/invalid local action URIs and UI contract tests. Updated README with how to hide, restore, and fully close.
 - At writing: Windows Actions full suite and JS syntax check **not yet run**; actual Windows click-through and tray tests **pending**. No claim of real-game validation.
 
+## 2026-11-18 — PR #10 Windows CI verification
+
+- [Windows GitHub Actions run 44322346286](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44322346286) succeeded at PR #10 feature commit `5c0d82ed`.
+- `python -m pytest -q`: **191 passed, 1 warning**; `node --check frontend/app.js`: **passed**.
+- Added tests cover local control fragment origin, markup/JS hooks and Qt hotkey/tray lifecycle as code-level contracts. Actual Windows GUI clicks, Alt+H restore and tray actions are **not yet tested on user machine**.
+- PR #10 remains draft, stacked on PR #9; `main` unchanged.
+
