@@ -48,6 +48,7 @@ class GameState:
         self.augment_choices: list[str] = []
         self.chosen_augments: list[str] = []  # real augments only (max 4)
         self.chosen_stat_anvils: list[str] = []  # stat anvil / voucher picks
+        self.build_style: str = "Balanced"  # player preference, survives match resets
         # OCR state
         self.ocr_enabled: bool = True
         self.ocr_last_detected: list[str] = []
@@ -481,6 +482,19 @@ async def game_ws(websocket: WebSocket):
                     "augment_choices": choices_snapshot,
                 }))
 
+            elif msg_type == "set_build_style":
+                # Presentation preference only: never buys or equips items.
+                from backend.engine.build_suggester import BUILD_STYLES
+                style = msg.get("style")
+                if not isinstance(style, str) or style not in BUILD_STYLES:
+                    await websocket.send_text(json.dumps({"error": "invalid build style"}))
+                    continue
+                async with game_state.lock:
+                    game_state.build_style = style
+                await websocket.send_text(json.dumps({
+                    "type": "ack", "action": "set_build_style", "style": style,
+                }))
+
             elif msg_type == "toggle_ocr":
                 async with game_state.lock:
                     game_state.ocr_enabled = msg.get("enabled", not game_state.ocr_enabled)
@@ -691,6 +705,7 @@ async def _poll_game_loop(interval: float | None = None):
                     # Inject overlay augment state
                     snapshot.augment_choices = list(game_state.augment_choices)
                     snapshot.chosen_augments = list(game_state.chosen_augments)
+                    snapshot.build_style = game_state.build_style
 
                     result = game_state.pipeline.run(snapshot) if game_state.pipeline else None
                     if result:
@@ -860,6 +875,7 @@ def _parse_snapshot(data: dict) -> GameSnapshot:
         game_time=data.get("game_time", 0),
         enemy_champion_ids=data.get("enemy_champion_ids", []),
         rerolls_remaining=data.get("rerolls_remaining", 0),
+        build_style=data.get("build_style", "Balanced"),
     )
 
 
@@ -924,6 +940,7 @@ def _serialize_result(
                 for style, item_ids in result.build_state.alternatives.items()
             },
             "reasons": result.build_state.reasons,
+            "selected_style": result.build_state.selected_style,
         },
     }
 
