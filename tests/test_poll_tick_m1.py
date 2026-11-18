@@ -102,13 +102,15 @@ async def test_poll_tick_inactive_without_match_sends_no_game():
 @pytest.mark.xfail(strict=True, reason="AUD-03a: passive level-up stat change falsely enters augment pick inference")
 async def test_aud03a_level_up_must_not_be_treated_as_augment_pick():
     state, deps, _events = make_harness(
-        [{"tick": 1}, {"tick": 2}, {"tick": 3}],
+        [{"tick": 1}, {"tick": 2}, {"tick": 3}, {"tick": 4}],
         [make_snapshot(), make_snapshot(level=4, attack_damage=125),
+         make_snapshot(level=4, attack_damage=125),
          make_snapshot(level=4, attack_damage=125)],
     )
     await poll_tick(state, deps, 10.0)
     await poll_tick(state, deps, 12.0)
     await poll_tick(state, deps, 14.0)
+    await poll_tick(state, deps, 16.0)
     assert state.chosen_augments == []
     assert not state.awaiting_stat_delta
 
