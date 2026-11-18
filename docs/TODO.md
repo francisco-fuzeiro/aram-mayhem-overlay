@@ -31,6 +31,19 @@ Target states and *expected* presentation (**not all implemented**):
 
 If multiple contexts overlap, priority is **augment offer > shop > optional scoreboard**, and combat/visibility safety takes precedence when game context is uncertain. Until legitimate shop/scoreboard observability is confirmed, do not pretend to detect either.
 
+
+## Approved Functional Fix Plan — M1 Foundations (2026-11-18)
+
+> The user-approved M1–M8 Functional Fix Implementation Plan supersedes A-FIX as the implementation order; historical A-FUNC and A-FIX IDs remain traceability references. The full newer plan and FUNCTIONAL_AUDIT_REPORT_2026-11-18.md are not present in the GitHub baseline. Do not fabricate their missing contents. Preserve the independent [documentation draft PR #18](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/18).
+
+- [x] **M1 / P0.1 — Poll-loop test harness (code/CI only).** Extracted `poll_tick(state, deps, now)`; deterministic LCDA/LCU/OCR mocks; AUD-03a (passive level-up false pick), AUD-07 (transient LCDA game end), AUD-03d (health-based OCR close) are tracked with `xfail(strict=True)`. [Draft PR #20](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/20); [Windows Actions 44394538148](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44394538148): 306 Python passed, 3 xfailed, 18 Node passed. **Defects NOT fixed.**
+- [ ] **M1 / P0.2 — Frontend message harness.** DOM stubs for message/render paths; lifecycle, reconnect and champion-change regressions; do not implement F1–F5 fixes.
+- [ ] **M1 / P0.3 — Structured diagnostics.** Bounded, non-blocking JSON transition logs in user-data directory; no screenshots, personal data or unbounded retention.
+- [ ] **M1 / Windows acceptance.** Real League client/Windows/Qt/OCR behavior needs separate evidence; headless Actions is not a playtest.
+- [ ] **G4 security priority review:** Localhost API Host/Origin/authorization must be hardened before distribution; evaluate moving forward, without implementing in M1.
+- [ ] **G1/G2 Mayhem data source:** Validate source, patch version and augment catalog coverage before M7 scoring accuracy acceptance.
+- [ ] **A3 manual fallback:** Confirming an augment must not demand clicks during combat; design non-intrusive unresolved state without manufacturing a choice.
+
 ## P0 — Capture, state, correctness, safety
 
 - [ ] **UX-001 — Explicit context/state controller.** Replace always-visible dashboard logic with stable, debounced states (loading, champion select, combat, augment offer, shop, scoreboard, death, post-game, disconnected). Test transitions, priorities, recovery and stale-event suppression without relying on hypothetical API fields.

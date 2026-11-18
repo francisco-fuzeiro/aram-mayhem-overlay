@@ -2,6 +2,7 @@ import asyncio
 import json
 import sys
 import time
+from types import SimpleNamespace
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -678,18 +679,205 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
     return (action, [], None)
 
 
-async def _poll_game_loop(interval: float | None = None):
-    """Background task: poll Live Client Data API and push updates to all connected WS clients.
+def _poll_dependencies() -> SimpleNamespace:
+    """Capture the live integrations for one polling task.
 
-    Augment detection state machine:
-    1. Scan window opens at an eligible 3/7/11/15 level or on respawn.
-       Snapshot champion stats at this point.
-    2. ScreenWatcher detects augments on screen (OCR + hash).
-    3. ScreenWatcher reports "disappeared" when augment UI goes away.
-    4. Wait 2 ticks for stats to apply, then compare stat delta to
-       identify which augment was chosen (cosine similarity matching).
-    5. High confidence -> auto-confirm. Low confidence -> ask user.
+    Tests inject their own LCDA, LCU, OCR, clock and transport dependencies
+    into poll_tick instead of touching the local League client or desktop.
     """
+    return SimpleNamespace(
+        get_raw_game_data=get_raw_game_data,
+        parse_game_snapshot=parse_game_snapshot,
+        read_champ_select_payload=_read_champ_select_payload,
+        ocr_available=ocr_available,
+        run_watcher_check=_run_watcher_check,
+        screen_watcher=screen_watcher,
+        to_thread=asyncio.to_thread,
+        broadcast=_broadcast,
+        try_stat_delta_match=_try_stat_delta_match,
+        send_augment_confirm=_send_augment_confirm,
+        serialize_result=_serialize_result,
+        static_data=static_data,
+    )
+
+
+async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
+    """Perform exactly one iteration of the existing game poll state machine.
+
+    No sleep or implicit clock access. The known lifecycle/inference defects
+    deliberately remain observable here until the later functional-fix phases.
+    """
+    clients_count = len(state.ws_clients)
+    if clients_count > 0:
+        raw = deps.get_raw_game_data()
+        if raw:
+            snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
+            current_level = snapshot.level
+
+            async with state.lock:
+                state.had_game_last_tick = True
+                state.post_game = False
+                # -- Scan window management --
+                #
+                # Augment offers may appear when the first eligible
+                # level is reached or after a respawn. Use only the
+                # observed local level/death state; no hidden data.
+                #
+                # Track death transitions
+                previous_level = state.last_known_level
+                just_respawned = (
+                    state.was_dead and not snapshot.is_dead
+                )
+                state.was_dead = snapshot.is_dead
+                state.last_known_level = current_level
+
+                # Open when a new pick level is reached OR on respawn.
+                expected = expected_augments_for_level(current_level)
+                have = len(state.chosen_augments)
+
+                if (
+                    should_open_augment_scan(
+                        current_level, previous_level, have, just_respawned
+                    )
+                    and not state.scan_window_open
+                    and not state.awaiting_stat_delta
+                ):
+                    state.scan_window_open = True
+                    state.scan_window_level = current_level
+                    state.awaiting_stat_delta = False
+                    state.delta_wait_ticks = 0
+                    state.stat_snapshot_before = dict(
+                        snapshot.champion_stats
+                    )
+                    deps.screen_watcher.reset()
+                    logger.info(
+                        "Augment pick window OPENED at eligible level "
+                        "(level %d, have %d/%d augments)",
+                        current_level, have, expected,
+                    )
+
+                # -- Stat delta detection --
+                # Two paths trigger matching:
+                # 1. OCR "disappeared" signal (awaiting_stat_delta)
+                # 2. Passive stat change detection (no OCR needed)
+                if state.awaiting_stat_delta:
+                    state.delta_wait_ticks += 1
+                    if state.delta_wait_ticks >= 2:
+                        await deps.try_stat_delta_match(snapshot)
+                        state.awaiting_stat_delta = False
+                        state.delta_wait_ticks = 0
+
+                elif state.scan_window_open and not state.awaiting_stat_delta:
+                    # Passive detection: stats changed → augment was chosen
+                    if (
+                        state.stat_snapshot_before
+                        and has_stats_changed(
+                            state.stat_snapshot_before,
+                            dict(snapshot.champion_stats),
+                        )
+                    ):
+                        logger.info(
+                            "Stat change detected — augment chosen "
+                            "(passive detection, no OCR needed)"
+                        )
+                        state.awaiting_stat_delta = True
+                        state.delta_wait_ticks = 0
+
+                # Close window when player takes damage (left base)
+                if (
+                    state.scan_window_open
+                    and not state.awaiting_stat_delta
+                ):
+                    if snapshot.health_pct < 0.98:
+                        logger.info(
+                            "Augment pick window CLOSED (took damage, hp=%.0f%%)",
+                            snapshot.health_pct * 100,
+                        )
+                        # Player took damage without us detecting the choice
+                        if state.augment_choices:
+                            await deps.send_augment_confirm(None)
+                        state.scan_window_open = False
+
+            # -- Auto OCR (only while scan window is open) --
+            # Run outside the lock since OCR is blocking I/O
+            if (
+                state.scan_window_open
+                and not state.awaiting_stat_delta
+                and state.ocr_enabled
+                and deps.ocr_available()
+            ):
+                try:
+                    action, ids, detected = await deps.to_thread(
+                        deps.run_watcher_check
+                    )
+                    async with state.lock:
+                        if action == "detected" and detected:
+                            state.augment_choices.clear()
+                            state.augment_choices.extend(ids)
+                            state.ocr_last_detected.clear()
+                            state.ocr_last_detected.extend(ids)
+                            logger.info("OCR detected augments: %s", detected)
+                            ocr_msg = json.dumps({
+                                "type": "ocr_result",
+                                "detected": detected,
+                                "augment_choices": list(state.augment_choices),
+                            })
+                            await deps.broadcast(ocr_msg)
+
+                        elif action == "disappeared":
+                            # Augment UI went away — player made a selection
+                            logger.info("Augment UI disappeared — awaiting stat delta")
+                            state.awaiting_stat_delta = True
+                            state.delta_wait_ticks = 0
+
+                except Exception as e:
+                    logger.warning("OCR watcher error: %s", e, exc_info=True)
+
+            # Inject overlay augment state
+            snapshot.augment_choices = list(state.augment_choices)
+            snapshot.chosen_augments = list(state.chosen_augments)
+            snapshot.build_style = state.build_style
+
+            result = state.pipeline.run(snapshot) if state.pipeline else None
+            if result:
+                payload = json.dumps(
+                    deps.serialize_result(result, deps.static_data, snapshot)
+                )
+                await deps.broadcast(payload)
+        else:
+            # Live Client API is unavailable during champion select.
+            # Read the local client (read-only) off the event loop.
+            champ_select = await deps.to_thread(deps.read_champ_select_payload)
+            if champ_select is not None:
+                async with state.lock:
+                    state.had_game_last_tick = False
+                    state.post_game = False
+                    state.reset()
+                await deps.broadcast(json.dumps(champ_select))
+            else:
+                async with state.lock:
+                    if state.had_game_last_tick:
+                        # Game just ended — transition to post-game
+                        state.had_game_last_tick = False
+                        state.post_game = True
+                        state.post_game_time = now
+                        logger.info("Game ended — entering post-game state")
+                        await deps.broadcast(json.dumps({"type": "game_ended"}))
+                    elif state.post_game:
+                        # In post-game window — auto-reset after 5 minutes
+                        elapsed = now - state.post_game_time
+                        if elapsed > 300:
+                            logger.info("Post-game timeout — resetting state")
+                            state.post_game = False
+                            state.reset()
+                            await deps.broadcast(json.dumps({"type": "no_game"}))
+                    else:
+                        state.reset()
+                        await deps.broadcast(json.dumps({"type": "no_game"}))
+
+
+async def _poll_game_loop(interval: float | None = None):
+    """Run the existing live polling cadence, with injectable single ticks."""
     if interval is None:
         try:
             from backend.config import config
@@ -697,179 +885,13 @@ async def _poll_game_loop(interval: float | None = None):
         except Exception:
             interval = 2.0
     logger.info("Poll loop started (interval=%.1fs)", interval)
+    deps = _poll_dependencies()
     while True:
         try:
-            clients_count = len(game_state.ws_clients)
-            if clients_count > 0:
-                raw = get_raw_game_data()
-                if raw:
-                    snapshot = parse_game_snapshot(raw, GamePhase.IN_GAME)
-                    current_level = snapshot.level
-
-                    async with game_state.lock:
-                        game_state.had_game_last_tick = True
-                        game_state.post_game = False
-                        # -- Scan window management --
-                        #
-                        # Augment offers may appear when the first eligible
-                        # level is reached or after a respawn. Use only the
-                        # observed local level/death state; no hidden data.
-                        #
-                        # Track death transitions
-                        previous_level = game_state.last_known_level
-                        just_respawned = (
-                            game_state.was_dead and not snapshot.is_dead
-                        )
-                        game_state.was_dead = snapshot.is_dead
-                        game_state.last_known_level = current_level
-
-                        # Open when a new pick level is reached OR on respawn.
-                        expected = expected_augments_for_level(current_level)
-                        have = len(game_state.chosen_augments)
-
-                        if (
-                            should_open_augment_scan(
-                                current_level, previous_level, have, just_respawned
-                            )
-                            and not game_state.scan_window_open
-                            and not game_state.awaiting_stat_delta
-                        ):
-                            game_state.scan_window_open = True
-                            game_state.scan_window_level = current_level
-                            game_state.awaiting_stat_delta = False
-                            game_state.delta_wait_ticks = 0
-                            game_state.stat_snapshot_before = dict(
-                                snapshot.champion_stats
-                            )
-                            screen_watcher.reset()
-                            logger.info(
-                                "Augment pick window OPENED at eligible level "
-                                "(level %d, have %d/%d augments)",
-                                current_level, have, expected,
-                            )
-
-                        # -- Stat delta detection --
-                        # Two paths trigger matching:
-                        # 1. OCR "disappeared" signal (awaiting_stat_delta)
-                        # 2. Passive stat change detection (no OCR needed)
-                        if game_state.awaiting_stat_delta:
-                            game_state.delta_wait_ticks += 1
-                            if game_state.delta_wait_ticks >= 2:
-                                await _try_stat_delta_match(snapshot)
-                                game_state.awaiting_stat_delta = False
-                                game_state.delta_wait_ticks = 0
-
-                        elif game_state.scan_window_open and not game_state.awaiting_stat_delta:
-                            # Passive detection: stats changed → augment was chosen
-                            if (
-                                game_state.stat_snapshot_before
-                                and has_stats_changed(
-                                    game_state.stat_snapshot_before,
-                                    dict(snapshot.champion_stats),
-                                )
-                            ):
-                                logger.info(
-                                    "Stat change detected — augment chosen "
-                                    "(passive detection, no OCR needed)"
-                                )
-                                game_state.awaiting_stat_delta = True
-                                game_state.delta_wait_ticks = 0
-
-                        # Close window when player takes damage (left base)
-                        if (
-                            game_state.scan_window_open
-                            and not game_state.awaiting_stat_delta
-                        ):
-                            if snapshot.health_pct < 0.98:
-                                logger.info(
-                                    "Augment pick window CLOSED (took damage, hp=%.0f%%)",
-                                    snapshot.health_pct * 100,
-                                )
-                                # Player took damage without us detecting the choice
-                                if game_state.augment_choices:
-                                    await _send_augment_confirm(None)
-                                game_state.scan_window_open = False
-
-                    # -- Auto OCR (only while scan window is open) --
-                    # Run outside the lock since OCR is blocking I/O
-                    if (
-                        game_state.scan_window_open
-                        and not game_state.awaiting_stat_delta
-                        and game_state.ocr_enabled
-                        and ocr_available()
-                    ):
-                        try:
-                            action, ids, detected = await asyncio.to_thread(
-                                _run_watcher_check
-                            )
-                            async with game_state.lock:
-                                if action == "detected" and detected:
-                                    game_state.augment_choices.clear()
-                                    game_state.augment_choices.extend(ids)
-                                    game_state.ocr_last_detected.clear()
-                                    game_state.ocr_last_detected.extend(ids)
-                                    logger.info("OCR detected augments: %s", detected)
-                                    ocr_msg = json.dumps({
-                                        "type": "ocr_result",
-                                        "detected": detected,
-                                        "augment_choices": list(game_state.augment_choices),
-                                    })
-                                    await _broadcast(ocr_msg)
-
-                                elif action == "disappeared":
-                                    # Augment UI went away — player made a selection
-                                    logger.info("Augment UI disappeared — awaiting stat delta")
-                                    game_state.awaiting_stat_delta = True
-                                    game_state.delta_wait_ticks = 0
-
-                        except Exception as e:
-                            logger.warning("OCR watcher error: %s", e, exc_info=True)
-
-                    # Inject overlay augment state
-                    snapshot.augment_choices = list(game_state.augment_choices)
-                    snapshot.chosen_augments = list(game_state.chosen_augments)
-                    snapshot.build_style = game_state.build_style
-
-                    result = game_state.pipeline.run(snapshot) if game_state.pipeline else None
-                    if result:
-                        payload = json.dumps(
-                            _serialize_result(result, static_data, snapshot)
-                        )
-                        await _broadcast(payload)
-                else:
-                    # Live Client API is unavailable during champion select.
-                    # Read the local client (read-only) off the event loop.
-                    champ_select = await asyncio.to_thread(_read_champ_select_payload)
-                    if champ_select is not None:
-                        async with game_state.lock:
-                            game_state.had_game_last_tick = False
-                            game_state.post_game = False
-                            game_state.reset()
-                        await _broadcast(json.dumps(champ_select))
-                    else:
-                        async with game_state.lock:
-                            if game_state.had_game_last_tick:
-                                # Game just ended — transition to post-game
-                                game_state.had_game_last_tick = False
-                                game_state.post_game = True
-                                game_state.post_game_time = asyncio.get_event_loop().time()
-                                logger.info("Game ended — entering post-game state")
-                                await _broadcast(json.dumps({"type": "game_ended"}))
-                            elif game_state.post_game:
-                                # In post-game window — auto-reset after 5 minutes
-                                elapsed = asyncio.get_event_loop().time() - game_state.post_game_time
-                                if elapsed > 300:
-                                    logger.info("Post-game timeout — resetting state")
-                                    game_state.post_game = False
-                                    game_state.reset()
-                                    await _broadcast(json.dumps({"type": "no_game"}))
-                            else:
-                                game_state.reset()
-                                await _broadcast(json.dumps({"type": "no_game"}))
+            await poll_tick(game_state, deps, asyncio.get_running_loop().time())
         except Exception as e:
             logger.error("Poll loop error: %s", e, exc_info=True)
         await asyncio.sleep(interval)
-
 
 async def _broadcast(message: str) -> None:
     """Push to WebSocket clients without re-acquiring the game-state lock.
