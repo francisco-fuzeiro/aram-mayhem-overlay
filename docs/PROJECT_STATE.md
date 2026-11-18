@@ -1,5 +1,7 @@
 # Overlay LoL — Project State / Chat Handoff
 
+> **2026-11-18 M2/E1 checkpoint:** [draft PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26), branch `fix/m2-e1-augment-keyword-cache`, stacked on A3 draft PR #25 @ `a1d5322f`. Four tests-first failures verified on [Actions 44408360190](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408360190), then fixed via complete-token matching, removal of Donation HP hint and augment cache schema v2; code-head [Actions 44408721703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408721703) green (339 Python, 1 AUD-07 xfailed; 26 JS, 4 TODO). Verify this documentation-head CI before E2. Next E2 coverage/provenance only, then E3 in a separate PR. No native League acceptance, merges or M3 work. G1/G2, G4, AUD-07, A-FUNC.3 and Riot/licenses remain open.
+
 > **Canonical handoff for future ChatGPT project conversations.**
 > Update this document after meaningful development steps, test runs, architectural decisions, and before switching chats.
 > Log each dated change separately in `docs/DEVELOPMENT_LOG.md`.

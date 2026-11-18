@@ -1,5 +1,11 @@
 # Continue ARAM Oracle in a New Chat
 
+## 2026-11-18 handoff — M2/E1 draft PR #26
+
+- E1 branch `fix/m2-e1-augment-keyword-cache` / [draft PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26), based on A3 PR #25 @ `a1d5322f` (successful [Actions 44406909763](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44406909763)). E1 red [44408360190](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408360190), green code [44408721703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408721703) @ `8e7c215b`: 339 Python, 1 AUD-07 xfailed; 26 JS, 4 TODO. **Verify final documentation-head Windows Actions** before E2.
+- Next **M2/E2** is modelled bool, contribution provenance and coverage report; implement tests before code in NEW stacked branch/draft PR; then E3 only on verified final-head E2 green CI. No merges, M3, UI redesign or installer. Real Mayhem Windows gameplay, G1/G2 patch coverage, G4 local API security, Riot/license validation all remain open.
+
+
 Always read [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) through connected GitHub, plus the mandatory AGENTS/state/TODO/phases/architecture/log/reuse/handoff documents. A repository-local skill is a documented continuation procedure, not a background agent.
 
 ## 2026-11-18 handoff — M2/A3 draft PR #25
