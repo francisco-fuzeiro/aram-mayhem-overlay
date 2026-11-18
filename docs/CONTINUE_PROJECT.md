@@ -2,6 +2,16 @@
 
 Always read [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) through connected GitHub, plus the mandatory AGENTS/state/TODO/phases/architecture/log/reuse/handoff documents. A repository-local skill is a documented continuation procedure, not a background agent.
 
+## Current handoff override — functional fix M1 begins (2026-11-18)
+
+The full user-provided phase plan is in [FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md](FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md); all individual phase tasks and Windows gates are checked in [TODO.md](TODO.md). The project execution rules are mandatory in [AGENTS.md](../AGENTS.md). This section **supersedes the historical audit-next / D5a-next guidance below**, which is retained for context only.
+
+- Documentation-only [draft PR #18](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/18), branch `docs/afunc-recovery-plan-2026-11-18`, is stacked on D4b [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17), code baseline `9832fb0`. Do not confuse it with an implemented fix or merge it automatically. The first implementation PR should use the code baseline/head agreed for P0.1, preserving independent stacked phases and all documentation without a `main` merge.
+- **Next phase is M1 P0.1 — poll-loop test harness**. Then P0.2 — frontend message test harness; P0.3 — structured diagnostics. Each: separate branch/draft PR, test evidence and final Windows CI, state/TODO/log updates. Other phases remain pending. Do not re-run the broad audit; inspect specific contracts only when necessary.
+- Main constraints: zero unsupported gameplay ratings or picks, safe screenshot storage, no mandatory in-combat prompts, no UI redesign before M7, local API hardening before release. M7 correctness does not imply G5 numerical calibration. The complete external audit report was not stored in this doc update.
+
+**Prompt for next chat:** `ARAM Oracle: continuar — implement M1 P0.1 from docs/FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md. Read AGENTS.md, the continuation skill and TODO. Verify live PR #17/#18 and CI. Preserve main. Write test-first poll_tick harness, strict xfail regressions; one small new stacked draft PR and update state/log/TODO. Then prepare P0.2 handoff.`
+
 ## 2026-11-18 handoff — D4b development finished, A-FUNC Claude code audit next
 
 - Current [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17): `feat/desktop-overlay-preview-apply-d4b`, based on [draft PR #16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) `feat/desktop-overlay-preferences-d4a`, itself based on PR #15. No merge into `main`.
