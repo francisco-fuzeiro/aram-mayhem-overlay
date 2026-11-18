@@ -27,4 +27,4 @@ jobs:
       - name: Check overlay preferences JavaScript syntax
         run: node --check frontend/overlay-preferences.js
       - name: Exercise Settings JavaScript interactions
-        run: node --test tests/js/settings.test.cjs
+        run: node --test tests/js/settings.test.cjs tests/js/overlay-messages.test.cjs
