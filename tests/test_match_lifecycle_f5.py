@@ -250,3 +250,20 @@ async def test_slow_client_queue_has_bounded_backlog(monkeypatch):
     finally:
         slow.blocked.set()
         await stop_sender_tasks(state)
+
+
+@pytest.mark.asyncio
+async def test_sender_exits_after_draining_pending_messages(monkeypatch):
+    """No orphaned queue consumers after a connection's messages are sent."""
+    state = GameState()
+    client = RecordingSocket()
+    state.ws_clients.add(client)
+    monkeypatch.setattr(server, "game_state", state)
+    await server._broadcast("one")
+    await asyncio.wait_for(client.complete.wait(), timeout=0.6)
+    for _ in range(5):
+        if not state.ws_send_tasks:
+            break
+        await asyncio.sleep(0)
+    assert not state.ws_send_tasks
+    assert not state.ws_send_queues
