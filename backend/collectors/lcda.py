@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import requests
 import urllib3
 from backend.diagnostic_events import events as event_log
@@ -40,25 +41,36 @@ def _is_main_inventory_item(item: dict) -> bool:
     return not (isinstance(slot, int) and (slot < 0 or slot >= 6))
 
 
-def get_raw_game_data() -> dict | None:
-    """Return the original response contract; log only sanitized LCDA status."""
+@dataclass(frozen=True)
+class LCDAResult:
+    """Sanitized LCDA read result; payload exists only for valid JSON objects."""
+    status: str
+    payload: dict | None = None
+
+
+def get_raw_game_data() -> LCDAResult:
+    """Fetch LCDA synchronously; caller must run this in a worker thread."""
     try:
-        r = SESSION.get(f"{LCDA_BASE}/allgamedata", timeout=1)
-        if r.status_code != 200:
-            event_log.transition("lcda", status="unavailable", error_class="http")
-            return None
-        raw = r.json()
-        event_log.transition("lcda", status="available", error_class="none")
-        return raw
+        response = SESSION.get(f"{LCDA_BASE}/allgamedata", timeout=1)
+        if response.status_code != 200:
+            status = "http_404" if response.status_code == 404 else "http_error"
+            event_log.transition("lcda", status=status, error_class=status)
+            return LCDAResult(status)
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("LCDA response is not an object")
+        event_log.transition("lcda", status="ok", error_class="none")
+        return LCDAResult("ok", payload)
     except requests.Timeout:
-        event_log.transition("lcda", status="error", error_class="timeout")
-    except requests.ConnectionError:
-        event_log.transition("lcda", status="error", error_class="connection")
+        status = "timeout"
+    except requests.ConnectionError as exc:
+        status = "refused" if "refused" in str(exc).lower() else "connection_error"
     except requests.RequestException:
-        event_log.transition("lcda", status="error", error_class="request")
-    except ValueError:
-        event_log.transition("lcda", status="error", error_class="parse")
-    return None
+        status = "request_error"
+    except (ValueError, TypeError):
+        status = "bad_json"
+    event_log.transition("lcda", status=status, error_class=status)
+    return LCDAResult(status)
 
 
 def get_active_player_name() -> str | None:
