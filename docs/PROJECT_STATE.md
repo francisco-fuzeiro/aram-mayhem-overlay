@@ -6,6 +6,16 @@
 
 Last authored: **2026-11-18**, Europe/Lisbon. Code and product UI must remain **English**; user conversation is **European Portuguese**.
 
+## A-FUNC corrective checkpoint — 2026-11-18
+
+User supplied a **Claude A-FUNC audit report excerpt** of D4b head `9832fb0` (PR #17). No application code was changed by the audit; the complete source pasted in ChatGPT is truncated during AUD-11. Reported audit execution: 303 Python and 18 JS tests passed (Linux); WIP `fix/postgame-stale-match-state` has 1 failing + 303 passing. Actual League/Win32/Tesseract live execution **not performed** in the audit environment.
+
+The reported high-risk defects include wrong foreground window capture and private screenshots, fuzzy OCR not aligned to left/centre/right, phantom picks from passive level-ups, reroll hash misses and freeze-on-failed-OCR, invalid repeated 2.1 score with bad reroll advice, stale game and offer state, and unsafe localhost access. Treat missing data as **unrated**, not a low score. No corrections are accepted yet.
+
+**New non-code planning branch:** `docs/afunc-recovery-plan-2026-11-18` (stacked on D4b). See [A-FUNC remediation plan](A_FUNC_REMEDIATION_PLAN_2026-11-18.md) and [TODO](TODO.md). Repair phases `A-FIX.0` through `A-FIX.6` are proposed and unchecked. Existing `A-FUNC.3` remains *real Windows acceptance*, not the capture task; `A-FUNC.4` remains *defer new UI*. Prioritize one narrow safe-output PR, then safe capture, state model, OCR, catalog, local security and Windows test matrix. Claude should perform a focused dependency/contract review, **not repeat the audit**. D5/D7 cards, visual polish and packaging remain gated.
+
+**Safety:** PR #17 stays draft; `main` is unchanged by this planning work; do not merge WIP stale-state fixes without reviewing its failing regression. Windows raw screenshots contain other desktop content and must not be committed.
+
 ## Current goal
 
 Build a Windows companion overlay for **League of Legends — ARAM Mayhem** that responds to the actual match state instead of displaying static tier lists. Show alternative options rather than forcing decisions. The same augment can score differently depending on champion, already-picked augments, items, allies, opponents and game phase.
