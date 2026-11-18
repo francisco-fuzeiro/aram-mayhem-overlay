@@ -35,9 +35,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#9](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/9) | `fix/windows-overlay-transparency-fallback` | PR #8 branch | Explicit Qt fallback for Windows transparency; pywebview HWND fix |
 | [#10](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/10) | `feat/qt-overlay-window-controls` | PR #9 branch | Hide/show/quit buttons, Alt+H restore, Qt system tray menu |
 | [#11](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/11) | `fix/live-augment-detection-item-duplicates` | PR #10 branch | Fix early level scan, manual augment fallback, duplicate-name builds and non-equipment trinkets |
-| **#12 (draft pending)** | `feat/pregame-settings-feedback` | PR #11 branch | Out-of-game Settings, persistent live build preferences, Qt tray access and local feedback |
+| [#12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) | `feat/pregame-settings-feedback` | PR #11 branch | Out-of-game Settings, persistent live build preferences, Qt tray access and local feedback |
 
-**Active working head: `feat/pregame-settings-feedback` (preparing draft PR #12)**, stacked on PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/pregame-settings-feedback` (draft PR #12)**, stacked on PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -107,9 +107,11 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Removed obsolete in-game feedback submission handlers/button. The post-game overlay is now guidance to Settings; manual augment fallback is unaffected.
 - Fixed a real persistence defect: the user's feedback description was included in optional GitHub issue text but not the locally saved JSON. The report now includes `user_description`. Submission returns explicit HTTP 429 cooldown / 500 local-write errors, and failed writes do not consume the cooldown. Settings keeps entered feedback on error.
 - Added Python tests covering disk roundtrips, safe defaults, REST preference updates, live poll selection, feedback JSON/error handling and Qt/tray markup. Added Node DOM-stub interaction tests, `node --check frontend/settings.js`, and Node tests to Windows Actions. README updated.
-- **Verification at the time of this edit:** tests and PR #12 Windows CI **not yet run**. Do not mark completed until fresh Actions results are checked. Actual browser/tray usage, persistence after restart, live build recalculation and OCR still require Windows on-device validation.
+- **Verified PR #12 Windows Actions run [44331056654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331056654)** at feature head `d8dd7c5`: **215 passed, 1 warning**, `node --check frontend/app.js` and `node --check frontend/settings.js` passed, and **4 Node Settings UI tests passed**. Earlier run `44330933993` failed one newly introduced test due to an incomplete mock snapshot; fixed before the successful run. The later documentation-only head requires separate Actions verification. Actual browser/tray use, persistence after restart, live build recalculation and OCR still require Windows on-device validation.
 
 ## Automated verification (as last observed)
+
+- PR #12 Windows CI run [44331056654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331056654) on feature head `d8dd7c5`: **215 passed, 1 warning**; `node --check` passed for both frontend JS entrypoints; **4 Node Settings interaction tests passed**. Subsequent documentation-only head not yet rechecked.
 
 - PR #11 Windows CI `44325282457` on commit `df2cf1ba`: **200 passed, 1 warning**, `node --check frontend/app.js` passed. Later documentation commits require separate CI validation.
 
@@ -162,7 +164,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. **Finish PR #12 automated validation, then check Settings and live preference updates on Windows; also retest PR #11 OCR/build regressions.** Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.
+1. **PR #12 automated validation passed (215 Python + 4 Node).** Now check Settings browser/tray, preference persistence and live build updates on Windows, and retest PR #11 OCR/build regressions. Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
