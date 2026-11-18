@@ -145,3 +145,22 @@ def read_champ_select() -> tuple[dict, dict[str, str]] | None:
             return draft, get_champion_id_map(lcu)
     except requests.RequestException:
         return None
+
+
+def read_gameflow_phase() -> str | None:
+    """Read only the client's public gameflow phase, without leaking credentials.
+
+    None means the client/endpoint is unavailable, not authoritative game end.
+    """
+    session = get_lcu_session()
+    if session is None:
+        return None
+    try:
+        with session:
+            response = session.get(
+                f"{session.base_url}/lol-gameflow/v1/gameflow-phase", timeout=1,
+            )
+            phase = response.json() if response.status_code == 200 else None
+            return phase if isinstance(phase, str) else None
+    except (requests.RequestException, ValueError, OSError):
+        return None
