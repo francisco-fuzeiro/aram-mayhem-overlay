@@ -1,6 +1,6 @@
 # ARAM Oracle — Desktop and Contextual Overlay Architecture
 
-Status: **approved direction, not yet implemented**. Baseline: 2026-11-18, draft PR #12 stacked on draft PR #11. This document records the architecture decision and implementation boundaries; see [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md) for small delivery slices and [TODO.md](TODO.md) for live task status.
+Status: **approved architecture; D1 desktop Settings shell implemented in draft PR #13, with real Windows acceptance pending**. Baseline: 2026-11-18, draft PR #13 stacked on draft PR #12 and #11. This document records the architecture decision and implementation boundaries; see [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md) for small delivery slices and [TODO.md](TODO.md) for live task status.
 
 ## Design principles
 
@@ -36,7 +36,7 @@ preferences   collectors/OCR     scoring/pipeline
 disk + API    (permitted input)   + diagnostics
 ```
 
-The first development slice introduces the Settings Qt shell **without** launching a second overlay or introducing a new backend. Later slices unify lifecycle and tray ownership. Treat `localhost` web routes as local UI, but keep authorization, validation and privacy boundaries explicit before public distribution.
+D1 introduced the Settings Qt shell **without** launching a second overlay or introducing a new backend. It reuses an already healthy API when available. A unified instance/tray owner and cross-launch concurrency handling remain D2. Later slices unify lifecycle and tray ownership. Treat `localhost` web routes as local UI, but keep authorization, validation and privacy boundaries explicit before public distribution.
 
 ## Components and ownership
 
@@ -46,7 +46,7 @@ The first development slice introduces the Settings Qt shell **without** launchi
 | `backend.preferences` | Atomic `~/.aram-oracle/preferences.json` build style | Versioned validated preferences as UI configuration grows; no secrets |
 | `backend.overlay.window` | Transparent PyQt6 overlay, hotkeys and tray | Only the in-game decision surface; do not change transparency while building desktop shell |
 | `backend.overlay.__main__` | Dev launcher and loopback ASGI thread | Keep backward-compatible developer entrypoint |
-| `backend.desktop` (planned) | Not present | Normal, resizable Settings window; separate launcher/host and later one-app lifecycle |
+| `backend.desktop` (D1 implementation) | Normal QMainWindow / QWebEngineView shell, API readiness/reuse and error paths | Standard resizable Settings host; unify one-app/tray lifecycle in D2 |
 | `frontend/settings.*` | Existing browser Settings for build style and feedback | Reuse as desktop control center; add modules incrementally, no second JS framework initially |
 | `frontend/index.html` + `app.js` | Current multipanel overlay | Future event-driven contextual surfaces with strict data confidence |
 | `backend.collectors.*` | LCDA and Tesseract watcher | Explicit observable offer/shop state only after tested capture/data-source validation |
@@ -82,6 +82,13 @@ The first development slice introduces the Settings Qt shell **without** launchi
 - An on-device Windows test must confirm that the desktop Qt window opens Settings independently, does not affect the transparent in-game overlay, and survives hide/restore/restart.
 - At 1080p and 1440p, confirm focus, scaling, click-through and borderless League behavior before marking UX acceptance complete.
 - OCR/shop contextual detection and Riot policy remain distinct release gates; passing a desktop or packaging CI run **does not** validate gameplay accuracy.
+
+## D1 evidence and remaining on-device gate
+
+- [Draft PR #13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13) implements the normal Settings Qt shell and API reuse checks while leaving transparent overlay files unchanged.
+- [Windows Actions run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) passed at D1 code head `d5aff632`: 234 Python tests, 1 warning; 4 Node Settings tests and JS syntax checks passed.
+- Real Windows Settings resize/focus, preference saving, feedback, overlays and Alt+O/Alt+H are not yet observed for this branch; do not infer them from CI.
+- [External reuse candidates](REUSE_CANDIDATES.md) are scoped to later phases, with verification of licenses, notices and permitted data sources before code import.
 
 ## Non-goals for the first desktop phase
 
