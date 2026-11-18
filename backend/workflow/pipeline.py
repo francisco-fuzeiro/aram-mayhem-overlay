@@ -1,7 +1,8 @@
-from backend.models import GameSnapshot, GamePhase, PipelineResult
+from backend.models import GameSnapshot, GamePhase, PipelineResult, EnemyState
 from backend.static_data.loader import StaticData
 from backend.engine.ranker import rank_augments, should_reroll
 from backend.engine.build_suggester import suggest_build
+from backend.engine.team_context import analyze_enemies, analyze_allies
 from backend.storage.db import get_all_personal_winrates
 from backend.config import config
 
@@ -31,6 +32,18 @@ class Pipeline:
         ]
         enemies = [e for e in enemies if e is not None]
 
+        # One shared enemy/ally snapshot drives both augment and item choices.
+        enemy_states = snapshot.enemy_states or [
+            EnemyState(champion_id=cid) for cid in snapshot.enemy_champion_ids
+        ]
+        enemy_profile = analyze_enemies(
+            enemy_states, self.data.get_champion, self.data.get_item,
+        )
+        allies = [
+            self.data.get_champion(cid) for cid in snapshot.ally_champion_ids
+        ]
+        ally_profile = analyze_allies([ally for ally in allies if ally is not None])
+
         personal_wrs = get_all_personal_winrates(champion.id)
         all_items = self.data.all_items()
 
@@ -41,6 +54,7 @@ class Pipeline:
             all_items=all_items,
             personal_winrates=personal_wrs if personal_wrs else None,
             enemies=enemies if enemies else None,
+            threat_profile=enemy_profile,
             use_personal_performance=bool(config.get("experimental_augment_evidence", False)),
         )
 
@@ -52,6 +66,8 @@ class Pipeline:
             purchased_items=snapshot.purchased_items,
             current_gold=snapshot.current_gold,
             all_items=all_items,
+            enemy_profile=enemy_profile,
+            ally_profile=ally_profile,
         )
 
         return PipelineResult(
@@ -60,4 +76,6 @@ class Pipeline:
             build_state=build_state,
             suggest_reroll=reroll,
             reroll_reason=reroll_reason,
+            enemy_analysis={**enemy_profile.as_dict(), "notes": enemy_profile.notes()},
+            ally_analysis={**ally_profile.as_dict(), "notes": ally_profile.notes()},
         )
