@@ -78,7 +78,7 @@ def _is_connection_refused(error: BaseException) -> bool:
             continue
         visited.add(id(current))
         if isinstance(current, OSError) and getattr(current, "errno", None) in (
-            errno.ECONNREFUSED, 10061,
+            errno.ECONNREFUSED, 10061, 111,
         ):
             return True
         for value in (
