@@ -38,8 +38,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - PR #3: **138 passed** on GitHub Actions Windows (one earlier transient failure was a badly specified assertion, fixed).
 - PR #4: **145 passed**, 1 warning, on GitHub Actions Windows.
 - PR #5: Windows Actions run **44312454589 passed** for commit `dc96f3647cbd85e471ef4dd1090a788f415c84cf` (before adding `tests/test_dynamic_team_pipeline.py`).
-- Latest known PR #5 head at handoff-writing start: `8c8109838c9de03076078a90a480462427accbce`; run **44312737054** was **in progress**. Recheck before claiming the latest branch passed.
+- **Verified:** PR #5 commit `8c8109838c9de03076078a90a480462427accbce` passed GitHub Actions Windows run **44312737054** with **153 passed, 1 warning**, including `node --check frontend/app.js`.
 - Workflow `.github/workflows/python-tests.yml`: Windows `pytest -q` and `node --check frontend/app.js`.
+- Documentation-only commits subsequently created `docs/PROJECT_STATE.md`, `docs/DEVELOPMENT_LOG.md` and root `AGENTS.md`; their own later CI runs may still be running when this snapshot is read. Check the newest branch head before claiming its CI status.
 - No real-match end-to-end validation of PR #5 has been observed. Only previous screenshots showed the desktop overlay opening; aesthetics remain secondary.
 
 ## Architecture and key files
@@ -58,6 +59,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - `backend/api/server.py`: FastAPI/WebSocket serialization, local status and history endpoints.
 - `frontend/index.html`, `frontend/app.js`: minimal English overlay, contextual enemies, build paths, scores.
 - `tests/`: mock/simulation regressions; add targeted tests for every new rule.
+- `AGENTS.md`, `docs/PROJECT_STATE.md`, `docs/DEVELOPMENT_LOG.md`: mandatory future-session read/update protocol and persistent handoff.
 
 ## Source licensing / Riot safety
 
