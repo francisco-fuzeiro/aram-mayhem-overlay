@@ -83,6 +83,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Full suite for this follow-up commit: **not run** at time of entry; awaiting new Windows Actions result.
 - No actual Windows in-game LCDA evidence yet.
 
+
+## 2026-11-18 — PR #6 final automated validation
+
+- Windows GitHub Actions run [44315513781](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44315513781) completed successfully at head `1c7da85`.
+- `python -m pytest -q`: **155 passed, 1 warning**.
+- `node --check frontend/app.js`: **passed**.
+- In-game LCDA capture, actual enemy items and Riot policy: **not run / not resolved**. Keep the PR draft.
+
 ## 2026-11-18 — Selectable build paths (PR #7)
 
 - Branch `feat/selectable-build-paths` stacked on `feat/team-threat-coverage` (draft PR #6).
@@ -95,10 +103,10 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Decision: style selection changes recommendations only; it never buys/equips items. Player preferences can influence ordering but must not replace the contextual rules.
 
 
-## 2026-11-18 — Inherited PR #6 validation follow-up
+## 2026-11-18 — PR #7 automated validation
 
-- Run [44314745431](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44314745431) failed (154 passed, 1 failed, 1 warning) on an uncovered zero-recognized-champion item case.
-- The missing armor/MR counts were restored in `backend/engine/team_context.py` on both stacked branches.
-- Follow-up functional commit `9954041` passed GitHub Actions run [44315389814](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44315389814) on Windows. This does not validate a live League match.
-- PR #7 adds further build style tests; its own CI must pass separately.
+- Windows GitHub Actions run [44315895591](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44315895591) **succeeded** on feature merge commit `c4f8ba25`.
+- `python -m pytest -q`: **163 passed, 1 warning**; `node --check frontend/app.js`: **passed**.
+- The branch was reconciled with PR #6's fix without modifying `main`; the development log remains append-only.
+- Outstanding: Mayhem shop eligibility, purchased-component paths, item exclusivity and real in-game player preference check on Windows.
 
