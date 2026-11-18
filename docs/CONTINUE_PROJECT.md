@@ -2,6 +2,19 @@
 
 Always read [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) through connected GitHub, plus the mandatory AGENTS/state/TODO/phases/architecture/log/reuse/handoff documents. A repository-local skill is a documented continuation procedure, not a background agent.
 
+## 2026-11-18 handoff — M2/A2 draft PR #24
+
+- Current active branch: `fix/m2-a2-health-independent-ocr-window`, [draft PR #24](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/24), based on `fix/m2-a1-no-stat-change-picks` (draft PR #23), which was finally accepted by headless [Actions 44402650250](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44402650250). Preserve `main` and all stacked drafts; no merges.
+- The authoritative approved M1–M8 plan is on independent docs-only draft PR #19: `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md` at branch `docs/a-func-audit-report`. The historical A-FIX draft PR #18 is not the current execution plan. M2 order remains A1, A2, A3, E1, E2, E3.
+- A2 code/test head `c42625c9` removes only health-driven OCR scan closure. Tests first `d88f472c` and `b1b60e91`, failure proof [Actions 44403425459](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44403425459), then successful [Windows headless code Actions 44403646160](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44403646160): **325 Python passed, 1 xfailed (AUD-07), 24 JS passed, 4 TODO**. Check **final documentation-head CI** before starting A3. No real Windows/League run.
+- **Next: M2/A3 only**, a new draft PR stacked directly on A2's final green head. Do not silently start E1, E2, E3, M3 or any UI/installer work. Preserve structured diagnostic privacy and storage limits; no automatic screenshots. G4 local API security, G1/G2 source/coverage and A3 non-intrusive manual fallback remain open. Full user-device acceptance of A1–A3 stays pending.
+
+### Ready-to-paste next-phase prompt — A3
+
+ARAM Oracle: continuar — M2/A3 Confirm picks instead of guessing. Work through connected GitHub `francisco-fuzeiro/aram-mayhem-overlay`, using `.agents/skills/continue-aram-oracle/SKILL.md`, `AGENTS.md`, canonical state/TODO/log/phase docs, and the full approved plan `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md` from independent draft PR #19. Verify draft PR #24 branch `fix/m2-a2-health-independent-ocr-window`, its final commit and **green final-head Windows Actions**; create one NEW stacked branch and one draft PR based on A2 only after its gate passes. Test before code: after verified OCR disappearance, level-up/item changes must never auto-confirm or highlight a misleading card; a clean stat delta may at most highlight a guarded 'likely' option; no automatic pick is allowed even with high confidence. Change only A3 behavior in `backend/api/server.py` and relevant test fixtures, not UI redesign, installer, OCR recognition, scores, E1–E3 or M3. Non-intrusive fallback, G4, G1/G2, privacy-safe diagnostics and no automatic screenshots remain mandatory. Run Python/JS, verify final Actions, update TODO/PROJECT_STATE/DEVELOPMENT_LOG and the cross-chat handoff; all PRs draft, no merge or main changes, no claims of real game tests without evidence. Finish with exact status and next E1 prompt in PT-PT.
+
+---
+
 ## 2026-11-18 handoff — M2/A1 draft PR #23
 
 - Current active work is `fix/m2-a1-no-stat-change-picks`, [draft PR #23](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/23), stacked on M1/P0.3 PR #22. M1 baseline was `c2c639a93b874ed59c3a4b3f7de02278359e7878`, verified green on [Windows headless Actions 44398642390](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44398642390). `main` is untouched.
