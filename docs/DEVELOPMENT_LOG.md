@@ -75,3 +75,15 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Tests: `python -m pytest -q` and `node --check frontend/app.js` **not run** at the time of this entry; Windows GitHub Actions is required.
 - Next: verify CI, then tackle item feasibility and purchase recommendations separately. Real LCDA samples and Riot policy review remain open.
 
+
+## 2026-11-18 — Selectable build paths (PR #7)
+
+- Branch `feat/selectable-build-paths` stacked on `feat/team-threat-coverage` (draft PR #6).
+- Changed `backend/engine/build_suggester.py`, `backend/models.py`, `backend/workflow/pipeline.py`: four selected build styles are recomputed from chosen augments, visible teams and owned items; next affordable item is constrained to the selected path and an inventory of six items does not suggest a seventh.
+- Changed `backend/api/server.py`: validated local WebSocket build-style selection, live snapshot propagation and serialization; no purchase automation.
+- Changed `frontend/index.html` and `frontend/app.js`: lightweight style selector with local browser preference persistence and path alternatives. This is functional UI, not a cosmetic overhaul.
+- Added style, inventory, next-item and protocol tests in `tests/test_build_suggester.py` and `tests/test_build_style_contract.py`.
+- Includes the PR #6 zero-champion observed resistance fix in the stacked branch.
+- Validation: `python -m pytest -q` and `node --check frontend/app.js` **not run** at time of entry; CI must verify. Local Windows in-game choice synchronization and item purchase availability remain untested.
+- Decision: style selection changes recommendations only; it never buys/equips items. Player preferences can influence ordering but must not replace the contextual rules.
+
