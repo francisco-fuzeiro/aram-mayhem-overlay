@@ -13,6 +13,14 @@
     let searchDebounce = null;
     let ocrAvailable = false;
     let scanning = false;
+    const buildStyles = ["Balanced", "Damage", "Survival", "Utility"];
+    let selectedBuildStyle = "Balanced";
+    try {
+        const stored = localStorage.getItem("mayhem_build_style");
+        if (buildStyles.includes(stored)) selectedBuildStyle = stored;
+    } catch (e) {
+        // Some embedded browsers disable persistent local storage.
+    }
 
     // -- DOM refs --
     const $ = (id) => document.getElementById(id);
@@ -32,6 +40,7 @@
     const buildList = $("build-list");
     const buildFooter = $("build-footer");
     const buildAlternatives = $("build-alternatives");
+    const buildStyleSelect = $("build-style");
     const enemyList = $("enemy-list");
     const augmentSearch = $("augment-search");
     const tierFilter = $("tier-filter");
@@ -65,6 +74,7 @@
         bindBugReport();
         bindFeedback();
         bindHistorySync();
+        bindBuildStyle();
     }
 
     async function fetchStaticNames() {
@@ -111,6 +121,7 @@
         ws.onopen = () => {
             reconnectDelay = 1000;
             setConnected(true);
+            wsSend({ type: "set_build_style", style: selectedBuildStyle });
         };
 
         ws.onmessage = (event) => {
@@ -468,7 +479,24 @@
         }
     }
 
+    function bindBuildStyle() {
+        buildStyleSelect.value = selectedBuildStyle;
+        buildStyleSelect.addEventListener("change", () => {
+            if (!buildStyles.includes(buildStyleSelect.value)) return;
+            selectedBuildStyle = buildStyleSelect.value;
+            try {
+                localStorage.setItem("mayhem_build_style", selectedBuildStyle);
+            } catch (e) {
+                // The current session still supports path selection.
+            }
+            wsSend({ type: "set_build_style", style: selectedBuildStyle });
+        });
+    }
+
     function renderBuild(bs) {
+        if (bs && buildStyles.includes(bs.selected_style)) {
+            buildStyleSelect.value = bs.selected_style;
+        }
         if (!bs || !bs.full_build || bs.full_build.length === 0) {
             buildList.innerHTML = '<div style="color:var(--text-dim);padding:8px;">No build data</div>';
             buildFooter.textContent = "";
@@ -518,11 +546,11 @@
         }
         buildAlternatives.replaceChildren();
         const alt = bs.alternatives || {};
-        const paths = ["Damage", "Survival", "Utility"];
+        const paths = ["Balanced", "Damage", "Survival", "Utility"].filter(name => name !== bs.selected_style);
         if (paths.some(name => Array.isArray(alt[name]) && alt[name].length)) {
             const header = document.createElement("div");
             header.className = "waiting-sub";
-            header.textContent = "Alternative paths (estimated):";
+            header.textContent = "Other paths (estimated, not purchase-validated):";
             buildAlternatives.appendChild(header);
         }
         for (const name of paths) {
