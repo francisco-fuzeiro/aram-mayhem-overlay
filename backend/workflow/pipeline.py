@@ -42,7 +42,14 @@ class Pipeline:
         allies = [
             self.data.get_champion(cid) for cid in snapshot.ally_champion_ids
         ]
-        ally_profile = analyze_allies([ally for ally in allies if ally is not None])
+        # The player's own champion is part of the allied composition.
+        # Count it exactly once even if an upstream collector repeats its ID.
+        ally_profile = analyze_allies(
+            [champion] + [
+                ally for ally in allies
+                if ally is not None and ally.id != champion.id
+            ]
+        )
 
         personal_wrs = get_all_personal_winrates(champion.id)
         all_items = self.data.all_items()
