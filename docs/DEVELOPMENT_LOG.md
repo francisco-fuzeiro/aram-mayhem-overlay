@@ -110,3 +110,15 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - The branch was reconciled with PR #6's fix without modifying `main`; the development log remains append-only.
 - Outstanding: Mayhem shop eligibility, purchased-component paths, item exclusivity and real in-game player preference check on Windows.
 
+
+## 2026-11-18 — PR #8 optional late-game boot replacement
+
+- Branch `feat/late-game-boots-replacement`, stacked on PR #7. All PRs remain draft and `main` is untouched.
+- Updated `backend/models.py` with optional item movement speed metadata and a separate boot replacement advice model.
+- Updated `backend/static_data/loader.py` to extract unconditional movement speed from structured item stats and the DataDragon `<stats>` description; conditional passives are intentionally ignored. Movement-aware cache v2 requires refreshed item data; legacy cache fallback retains regular offline builds.
+- Updated `backend/engine/build_suggester.py` to identify a positive-value, non-boot replacement when six slots are occupied and boots are recognized. Item value responds to selected style, champion, augments and the observed team context. It factors in an estimated lost-mobility penalty.
+- Updated `backend/api/server.py` and `frontend/app.js` to show a dedicated **optional swap** with a caution about approximate movement and unverified Mayhem shop availability; not a seventh purchase or automated action.
+- Added deterministic tests in `tests/test_boot_replacement.py` for a full inventory, style, catalog confidence, fallback safety, move-speed extraction, repeatability and API serialization.
+- Validation at entry: `python -m pytest -q` **not run**; `node --check frontend/app.js` **not run**; Windows Actions pending PR creation.
+- Pending: sample actual item records and Mayhem shop eligibility, special augments that modify boots, active movement effects, purchases/components and Windows in-game checks.
+
