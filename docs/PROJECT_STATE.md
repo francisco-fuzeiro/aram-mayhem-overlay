@@ -16,6 +16,14 @@ The reported high-risk defects include wrong foreground window capture and priva
 
 **Safety:** PR #17 stays draft; `main` is unchanged by this planning work; do not merge WIP stale-state fixes without reviewing its failing regression. Windows raw screenshots contain other desktop content and must not be committed.
 
+## Current canonical phase plan and agent policy (2026-11-18)
+
+The user supplied the **full M1–M8 Functional Fix Implementation Plan**, now preserved in [FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md](FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md) with **42 open phase/acceptance checkboxes** in [TODO](TODO.md). The M1–M8 phase IDs (P0.1–P0.4, A1–A3, E1–E3, F1–F5, B1–B3, C1–C4, D1–D3, V1, G1–G6 with G5a/b/c) are the implementation tracking authority; A-FIX.0–A-FIX.6 remains a coarse earlier outline, not a competing sequence.
+
+**Permanent agent execution rules:** [AGENTS.md](../AGENTS.md) mandates one phase / branch / draft PR, tests-first, small diffs, real final-head Windows CI, distinct on-device acceptance, documentation per phase, no `main` merges without approval, privacy, non-intrusive gameplay and release security gating. [.agents continuation skill](../.agents/skills/continue-aram-oracle/SKILL.md) now points at this plan. Technical proposals can be refined with recorded rationale; rules apply now. First requested implementation phase: **M1 P0.1 poll-loop harness**, then P0.2 and P0.3. The current [PR #18](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/18) is *documentation only*, based on D4b PR #17; no gameplay fixes, real Windows validation or merges occurred as a result of registering the plan.
+
+**Open scheduling questions:** G4 local API security must precede any release; G1/G2 and G5 Mayhem catalog/calibration may need earlier completion before accepting ratings as accurate; A3 must never force an in-combat confirmation. M7 V1 can validate identity/lifecycle fail-safe behaviour without falsely approving statistical rating quality. The complete underlying Claude audit report needs storage/verification when available; the earlier report excerpt was truncated during AUD-11.
+
 ## Current goal
 
 Build a Windows companion overlay for **League of Legends — ARAM Mayhem** that responds to the actual match state instead of displaying static tier lists. Show alternative options rather than forcing decisions. The same augment can score differently depending on champion, already-picked augments, items, allies, opponents and game phase.
