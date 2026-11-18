@@ -71,19 +71,33 @@ pip install -e ".[webview-overlay]"
 python -m backend.overlay
 ```
 
-## Champion Select — experimental team-fit panel
+## Champion Select — experimental composite rating
 
 During ARAM champion select, the app reads the local League Client API
 (read-only). It displays your current champion and the visible ARAM bench,
 together with explanations of how they complement allied team roles.
 It never changes your selection.
 
-**Important:** The 0–100 score and S/A/B/C labels are *experimental team-role
-fit heuristics*, **not ARAM Mayhem win rates or verified champion strength**.
-No augment win rates are displayed.
+**Important:** The 0.0–10.0 score and S/A/B/C labels represent an
+*experimental composite rating*, not a win-rate percentage, prediction of
+winning, or verified champion-strength ranking. It combines champion kit
+compatibility (35%), allied team fit (25%), and empirical personal match
+performance (up to 40% when sufficient samples exist). Statistical confidence
+gradually increases the weight of match evidence. Missing evidence is excluded,
+not replaced by invented data. No augment win rates are displayed.
 
 Champion IDs are resolved using a local read-only champion-summary asset.
 If the client data are unavailable, the app does not invent ratings.
+
+When the Champion Select panel is visible, **Sync my Mayhem matches** reads
+up to 40 recent games from the local League client, with an explicit click.
+The read-only importer identifies only the logged-in player's participant
+record and stores outcomes, augments, and final items in local SQLite.
+It never returns PUUIDs or opponent player IDs to the overlay.
+
+No automatic external match uploads occur as part of the importer. The sample
+size is shown alongside the composite rating, and the 0.0–10.0 rating is not
+equivalent to an empirical win percentage.
 
 If the overlay remains on "Waiting for game..." during champion select, open
 http://127.0.0.1:8765/api/champ-select/status to check detection (no account
