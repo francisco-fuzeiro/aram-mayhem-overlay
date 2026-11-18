@@ -1,5 +1,12 @@
 # Continue ARAM Oracle in a New Chat
 
+## Current M3 handoff — F1 ongoing, do not start F2 before green
+
+- E3 PR #28 final `659b20edb8b9457e631a5f375aa2b93563ef5f3d`, Actions [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) **success**.
+- F1 branch `fix/m3-f1-lcda-nonblocking-status`, [draft PR #33](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/33) stacked on E3. Initial test commit `a1b5ddb3`, implementation through `f4eb5ebd`. **Check current PR HEAD CI; fix any errors; only then proceed to new stacked F2 branch/PR.**
+- F1 code now classifies LCDA `ok/http_404/timeout/refused/bad_json/error`, exposes explicit `(status, payload)`, reads using `deps.to_thread` and preserves injected legacy mock compatibility. Final CI not yet verified at this checkpoint. Remaining F2–F5, AUD-07, Windows/League, G1/G2, G4 and Riot/legal gates remain open.
+
+
 ## 2026-11-18 handoff — M2/E1–E3 finished in code, next M3 Match Lifecycle
 
 - Stacked draft branches, unmerged: A3 `fix/m2-a3-confirm-not-infer-augment-picks` @ `a1d5322f` → **E1** [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) `fix/m2-e1-augment-keyword-cache` @ `cc34107b` ([CI 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) passed) → **E2** [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `fix/m2-e2-augment-provenance-coverage` @ `a4432f69` ([CI 44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) passed) → **E3** [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) `fix/m2-e3-unrated-safe-rerolls`, code `5efa3628` ([CI 44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) passed: 354 Python, 1 AUD-07 xfailed; 28 JavaScript, 4 TODO). **Check E3 final documentation-head SHA and corresponding CI before M3.** The plan lives independently on `docs/a-func-audit-report` PR #19, not historical PR #18.
