@@ -218,6 +218,21 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 7. Patch/version-aware data ingestion and confidence; ensure only ARAM Mayhem games are counted (verify actual queue/mode identifiers).
 8. Test champion select, augment OCR, build updates, click-through and resize live on user's Windows; keep interface polishing last.
 
+## Cross-chat session triggers (documented, not native commands)
+
+- `ARAM Oracle: preparar passagem` — in the current conversation, update
+  and verify GitHub state/TODO/log, CI and unresolved acceptance checks, then
+  return the exact prompt for a new chat. An unfinished phase rotates on its
+  existing branch and PR.
+- `ARAM Oracle: continuar` — in a freshly opened ChatGPT Overlay LoL project
+  conversation, load `.agents/skills/continue-aram-oracle/SKILL.md` and
+  `docs/CONTINUE_PROJECT.md` from GitHub, verify live branch and CI, and
+  resume the in-progress/next phase.
+- The phrases are a documented convention, **not** registered ChatGPT
+  commands or automatic creation of new chats. The user opens the next chat.
+  One new stacked branch and draft PR per new phase; no merge to `main`
+  without explicit approval.
+
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
