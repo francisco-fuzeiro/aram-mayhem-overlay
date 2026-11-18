@@ -213,3 +213,76 @@ test("OCR readiness is dependency-only and refresh errors are visible", async ()
     assert.match(h.element("ocr-summary").textContent, /OCR service unavailable/);
     assert.equal(h.element("refresh-ocr").disabled, false);
 });
+
+
+const overlayModel = require("../../frontend/overlay-preferences.js");
+
+test("D4a JavaScript model migrates legacy v0 preferences without changing build style", () => {
+    const result = overlayModel.fromApi({build_style: "Survival"});
+    assert.equal(result.schema_version, 1);
+    assert.equal(result.build_style, "Survival");
+    assert.deepEqual(result.overlay, {...overlayModel.DEFAULT_OVERLAY});
+});
+
+test("D4a JavaScript model preserves valid fields while sanitizing invalid saved values", () => {
+    const result = overlayModel.fromApi({
+        schema_version: 1, build_style: "Damage",
+        overlay: {anchor: "center", offset_x: -80, offset_y: true,
+                  opacity: 0.7, scale: "lots"},
+    });
+    assert.equal(result.build_style, "Damage");
+    assert.deepEqual(result.overlay, {
+        ...overlayModel.DEFAULT_OVERLAY, offset_x: -80, opacity: 0.7,
+    });
+    assert.equal(overlayModel.fromApi({schema_version: 9}).build_style, "Balanced");
+});
+
+test("D4a JavaScript model rejects malformed and unsafe overlay writes", () => {
+    const invalid = [
+        {anchor: "middle"}, {offset_x: -501}, {offset_y: 501},
+        {offset_x: 1.2}, {offset_y: true}, {opacity: -1},
+        {opacity: Infinity}, {opacity: NaN}, {opacity: "0.8"},
+        {scale: 0.74}, {scale: 1.51}, {scale: null}, {extra: 1},
+    ];
+    for (const patch of invalid) {
+        assert.throws(() => overlayModel.validateOverlay({
+            ...overlayModel.DEFAULT_OVERLAY, ...patch,
+        }));
+    }
+    assert.throws(() => overlayModel.validateOverlay({anchor: "top_right"}));
+    assert.throws(() => overlayModel.validateOverlay(null));
+});
+
+test("D4a JavaScript schema survives a serialized API restart round-trip", () => {
+    const overlay = overlayModel.validateOverlay({
+        anchor: "bottom_left", offset_x: -120, offset_y: 100,
+        opacity: 0.6, scale: 1.25,
+    });
+    const apiResponseAfterRestart = JSON.parse(JSON.stringify({
+        schema_version: 1, build_style: "Utility", overlay,
+    }));
+    assert.deepEqual(overlayModel.fromApi(apiResponseAfterRestart), apiResponseAfterRestart);
+});
+
+test("D3 Settings remains compatible with versioned GET and legacy style-only PUT", async () => {
+    const h = harness((url, options) => {
+        if (url === "/api/preferences" && options.method === "PUT") {
+            return {body: {build_style: JSON.parse(options.body).build_style, saved: true}};
+        }
+        if (url === "/api/preferences") {
+            return {body: {
+                schema_version: 1, build_style: "Survival",
+                overlay: {...overlayModel.DEFAULT_OVERLAY},
+            }};
+        }
+        return successful(url, options);
+    });
+    await ready();
+    assert.equal(h.element("preferred-build").value, "Survival");
+    h.element("preferred-build").value = "Damage";
+    h.element("preferred-build").handlers.change();
+    await h.element("save-preferences").handlers.click();
+    const writes = h.calls.filter((entry) => entry.options.method === "PUT");
+    assert.equal(writes.length, 1);
+    assert.deepEqual(JSON.parse(writes[0].options.body), {build_style: "Damage"});
+});
