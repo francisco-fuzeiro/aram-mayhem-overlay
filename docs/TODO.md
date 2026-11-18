@@ -1,5 +1,15 @@
 # ARAM Oracle — Product and UX TODO
 
+## M3 Match lifecycle — active gate (2026-11-18)
+
+- [ ] **M3/F1** Classified LCDA read off event loop, F1 draft PR #33. Implementation committed, full final-head CI not yet confirmed; no completion claim.
+- [ ] **M3/F2** Explicit read-only LCU Gameflow state machine and status messages; blocked until F1 final-head green.
+- [ ] **M3/F3** Debounced end + new match identity; AUD-07 xfail promotion after tested.
+- [ ] **M3/F4** Frontend match state clear and reconnection freshness handling.
+- [ ] **M3/F5** Broadcast outside GameState.lock; slow-socket concurrency regression.
+- [ ] **M3 Windows/League acceptance** Verify lifecycle and consecutive real Mayhem matches on user PC.
+
+
 > Canonical, persistent backlog for this repository. Created 2026-11-18 (Europe/Lisbon).
 > Incorporates the **"Auditoria UX — ARAM Oracle"** discussion in the ChatGPT Overlay LoL project, the user-supplied `funcionalidades.md` specification, the first real in-game Jinx screenshot, and the current stacked PR history.
 > The UX audit was recovered from the cross-chat discussion summary; this is an actionable synthesis, **not** a verbatim export of that conversation.
