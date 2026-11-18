@@ -5,6 +5,7 @@ from backend.models import (
     ChampionMeta, AugmentData, ItemData, AugmentRecommendation,
 )
 from backend.engine.augment_rating import rate_augment
+from backend.engine.team_context import EnemyThreatProfile
 from backend.engine.scoring import score_item
 from backend.engine.label import derive_label, derive_explanation
 
@@ -22,6 +23,7 @@ def rank_augments(
     personal_winrates: dict[str, tuple[int, int]] | None = None,
     enemies: list[ChampionMeta] | None = None,
     use_personal_performance: bool = False,
+    threat_profile: EnemyThreatProfile | None = None,
 ) -> list[AugmentRecommendation]:
     """Rank cards by composite score, independent of offer-best normalization.
 
@@ -34,6 +36,7 @@ def rank_augments(
         rating = rate_augment(
             champion, aug, existing, enemies=enemies,
             personal_record=record, allow_empirical=use_personal_performance,
+            threat_profile=threat_profile,
         )
         label = derive_label(champion, aug)
         explanation = derive_explanation(champion, aug)
