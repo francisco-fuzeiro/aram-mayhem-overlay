@@ -71,6 +71,12 @@ request connection rather than inventing state. Always protect `main`.
 
 ## Current handoff anchor (verify live GitHub and CI)
 
+- **Latest 2026-11-18 checkpoint: M2/A2** is [draft PR #24](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/24), branch `fix/m2-a2-health-independent-ocr-window`, stacked on A1 draft PR #23, which had final green [Actions 44402650250](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44402650250). `main` untouched and no merges.
+- A2 tests-first commits `d88f472c`, `b1b60e91` reproduced AUD-03d; fix `c42625c9` removed only the health-triggered OCR window closure and inadvertent confirmation/log event. Green code [Windows headless Actions 44403646160](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44403646160): **325 Python passed, 1 strict xfailed (AUD-07), 24 JS passed, 4 TODO**. Verify **final documentation-head CI** before any next phase; no native League/Windows game acceptance.
+- **Next: M2/A3 only**, one new stacked branch/draft PR, following exact contract in full plan on separate docs-only draft PR #19 and next prompt in `docs/CONTINUE_PROJECT.md`. Preserve historical A-FIX PR #18; G4 security, G1/G2 Mayhem data and A3 non-intrusive fallback still open. E1/E2/E3, M3 and UI are not A2 work.
+- Older A1 and D4b entries below are historical handoff anchors.
+
+
 - **Newer 2026-11-18 checkpoint:** M2/A1 is the active [draft PR #23](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/23), branch `fix/m2-a1-no-stat-change-picks`, stacked on M1/P0.3 draft PR #22; `main` stays untouched. M1 final `c2c639a` passed [Actions 44398642390](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44398642390).
 - Full M1–M8 approved implementation order exists on **independent docs draft PR #19** at `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md`. Do not confuse this with the historical A-FIX plan on PR #18. M2 order: A1 then A2, A3, E1, E2, E3; each new phase gets its own stacked draft branch and CI gate.
 - A1 tests-first commit `31dca394` recorded failures from passive stat changes. Fix commit `c8a41921` removes this path; [Actions 44401726776](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44401726776) passed (321 Python, 2 xfailed; 24 JavaScript, 4 TODO). **Check final documentation-head CI before A2.** Native League/Windows acceptance remains open.
