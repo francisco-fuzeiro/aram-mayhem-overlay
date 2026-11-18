@@ -18,8 +18,8 @@ from pathlib import Path
 # Values are strict enums or bounded numeric types. Never log arbitrary strings.
 SCHEMA: dict[str, dict[str, object]] = {
     "lcda": {
-        "status": frozenset(("available", "unavailable", "error")),
-        "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse")),
+        "status": frozenset(("available", "unavailable", "error", "ok", "http_404", "http_error", "timeout", "refused", "connection_error", "request_error", "bad_json")),
+        "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse", "http_404", "http_error", "refused", "connection_error", "request_error", "bad_json")),
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
