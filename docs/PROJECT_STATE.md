@@ -33,8 +33,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#7](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/7) | `feat/selectable-build-paths` | PR #6 branch | Selectable build style, saved UI preference, inventory-safe next item, WebSocket contract |
 | [#8](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/8) | `feat/late-game-boots-replacement` | PR #7 branch | Optional full-inventory boots-to-mobility item swap with conservative stat comparison |
 | [#9](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/9) | `fix/windows-overlay-transparency-fallback` | PR #8 branch | Explicit Qt fallback for Windows transparency; pywebview HWND fix |
+| [#10](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/10) | `feat/qt-overlay-window-controls` | PR #9 branch | Hide/show/quit buttons, Alt+H restore, Qt system tray menu |
 
-**Active working head: `fix/windows-overlay-transparency-fallback` (draft PR #9)**, stacked on PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/qt-overlay-window-controls` (draft PR #10)**, stacked on PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -73,6 +74,16 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - `backend/overlay/window.py` now supports an Alt+O click-through toggle using a Qt timer that observes the global key chord, maintaining access to build style and other UI controls when Qt is used.
 - Added `tests/test_overlay_renderer.py` and a Windows troubleshooting section in README. [Windows CI 44319789943](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44319789943) **passed: 178 tests, 1 warning; JavaScript syntax passed**. On-device Qt/WebView2 comparison **not yet run**.
 - **User Windows desktop validation confirmed on 2026-11-18:** the user ran `python -m backend.overlay --renderer qt`; the screenshot shows fully transparent unused window regions with legible panels, and terminal logs `Using PyQt6 transparent overlay`, `Overlay window started` and `Click-through enabled (HWND=...)`. Their local pytest run reported **178 passed, 2 warnings**. This resolves the reported white-background symptom **on that desktop**. The actual in-game render, Alt+O interactivity and LCDA/OCR remain unverified. The default `auto` renderer still chooses pywebview; Qt must be requested explicitly.
+
+## Current work: PR #10 — Qt overlay window visibility controls
+
+- User identified the next UI blocker: the frameless Qt overlay had **no built-in button to hide or quit**, and no direct recovery route after hiding. The existing Alt+O shortcut only toggled click-through.
+- Branch `feat/qt-overlay-window-controls`, stacked on the tested transparency PR #9; `main` remains untouched.
+- The Qt-only header now has small **− Hide** and **× Quit** buttons (requires Alt+O to make the overlay clickable). These buttons issue local same-page URL-fragment actions, interpreted only by the Qt window on `localhost:8765/overlay?mode=overlay`; remote origins and malformed actions do not control the native window.
+- **Alt+H** globally toggles visibility even while hidden. A Windows notification-area tray icon provides Show/Hide, Toggle interaction, and Quit; a double-click also toggles visibility. When the tray is unavailable, Alt+H still works. Hiding preserves the Python process; quitting exits the app.
+- Added local-action parser tests, native UI presence guards and explicit README instructions.
+- **Validation pending**: Windows Actions `pytest -q` and JS check, and real Windows Qt button/hotkey/tray behavior. The previously observed 178 Windows tests belong to PR #9, not this branch.
+- Next user verification: `python -m backend.overlay --renderer qt`, Alt+O then click − and restore with Alt+H, finally test × and tray restore.
 
 ## Automated verification (as last observed)
 
@@ -123,7 +134,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. **Windows desktop transparency has been validated with `--renderer qt`**. Next verify Qt overlay over League in borderless mode, Alt+O interaction, champion-select/LCDA roster, OCR choices, persistent build style and real item updates.
+1. **Qt desktop transparency is validated.** Verify PR #10 native hide/show/quit, Alt+H recovery and tray on Windows; then verify over League in borderless mode, champion select, LCDA, OCR and build updates.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
@@ -135,8 +146,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #9 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
-3. Continue from PR #9 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #10 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
+3. Continue from PR #10 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.
