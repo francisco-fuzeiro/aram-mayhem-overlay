@@ -41,6 +41,13 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 **Active working head: `feat/desktop-single-instance-tray` (draft PR #14)**, stacked on PR #13 -> PR #12 -> PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
+## Approved interface-design checkpoint — D5c (planned, 2026-11-18)
+
+- The user requested a **Claude-led UX/UI audit after D3 Settings navigation, D4a/D4b overlay preferences/preview, and D5a/D5b OCR/onboarding**, before starting D6. This adds **D5c — Claude UX/UI audit and desktop design closure**; it does not replace existing D6–D11 phases.
+- **D5c scope:** audit the real Windows desktop Settings interface, navigation, hierarchy, consistency, accessibility, saved/error/loading states, preview and OCR setup. Persist an actual evidence-backed Claude report with P0/P1/P2 findings, apply bounded priority design fixes, add UI regressions and verify on Windows. A report has **not** been produced and none of D5c's new tasks are completed.
+- **Out of scope:** claiming real augment or shop in-game panels are validated (D7/D8), rewriting OCR/scoring, duplicating the engine, or using protected competitor UI/assets. Maintain Riot/privacy safeguards. See `PH-D5c.1`–`PH-D5c.3` and `UX-D11` in `docs/TODO.md`, and gates in `docs/IMPLEMENTATION_PHASES.md`.
+- Existing order continues: **D3 -> D4a -> D4b -> D5a -> D5b -> D5c -> D6 context -> D7 augment -> D8 shop -> D9 Windows package -> D10 installer -> D11 release quality**. Each phase remains a small stacked draft PR when executed; `main` stays untouched.
+
 ## Current work: PR #14 — D2 single instance and tray lifecycle (2026-11-18)
 
 - Branch `feat/desktop-single-instance-tray`, [draft PR #14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14), targeting `feat/desktop-settings-shell` (draft PR #13). The earlier drafts and `main` are not merged.
