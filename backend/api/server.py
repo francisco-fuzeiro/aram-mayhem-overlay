@@ -3,7 +3,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from contextlib import asynccontextmanager
@@ -22,6 +22,8 @@ from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
 from backend.models import GamePhase, GameSnapshot, PipelineResult
+from backend.engine.build_suggester import BUILD_STYLES
+from backend import preferences
 from backend.engine.augment_detector import has_stats_changed, match_augment
 from backend.diagnostics import collector as diagnostics
 
@@ -133,6 +135,7 @@ async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
     # Every entrypoint (CLI, desktop overlay, and direct ASGI) needs a DB.
     init_db()
+    game_state.build_style = preferences.load_build_style()
     static_data.load()
     game_state.pipeline = Pipeline(static_data)
 
@@ -168,11 +171,59 @@ def serve_overlay():
     return {"error": "frontend/index.html not found"}
 
 
+@app.get("/settings")
+def serve_settings():
+    """Full interactive pre-game settings page, outside the click-through UI."""
+    page = FRONTEND_DIR / "settings.html"
+    if page.exists():
+        return FileResponse(page)
+    return {"error": "frontend/settings.html not found"}
+
+
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
 
 # -- REST --
+
+
+from pydantic import BaseModel
+
+
+class BuildPreferenceRequest(BaseModel):
+    build_style: str
+
+
+@app.get("/api/preferences")
+async def get_preferences():
+    async with game_state.lock:
+        return {
+            "build_style": game_state.build_style,
+            "available_styles": list(BUILD_STYLES),
+        }
+
+
+@app.put("/api/preferences")
+async def update_preferences(req: BuildPreferenceRequest):
+    """Save a user's default build direction for all future and live updates."""
+    if req.build_style not in BUILD_STYLES:
+        raise HTTPException(status_code=422, detail="invalid build style")
+    async with game_state.lock:
+        try:
+            preferences.save_build_style(req.build_style)
+        except OSError:
+            logger.exception("Could not persist build-style preference")
+            raise HTTPException(
+                status_code=500, detail="Could not save preferences"
+            ) from None
+        game_state.build_style = req.build_style
+    await _broadcast(json.dumps({
+        "type": "preferences_updated",
+        "build_style": req.build_style,
+    }))
+    return {"build_style": req.build_style, "saved": True}
+
+
 
 
 @app.get("/health")
@@ -330,9 +381,6 @@ def search_augments(
         })
     results.sort(key=lambda a: a["name"])
     return results[:50]
-
-
-from pydantic import BaseModel
 
 
 class BugReportRequest(BaseModel):
@@ -502,13 +550,18 @@ async def game_ws(websocket: WebSocket):
                 }))
 
             elif msg_type == "set_build_style":
-                # Presentation preference only: never buys or equips items.
-                from backend.engine.build_suggester import BUILD_STYLES
+                # Backward-compatible preference action for older overlay clients.
                 style = msg.get("style")
                 if not isinstance(style, str) or style not in BUILD_STYLES:
                     await websocket.send_text(json.dumps({"error": "invalid build style"}))
                     continue
                 async with game_state.lock:
+                    try:
+                        preferences.save_build_style(style)
+                    except OSError:
+                        logger.exception("Could not persist WS build style")
+                        await websocket.send_text(json.dumps({"error": "could not save build style"}))
+                        continue
                     game_state.build_style = style
                 await websocket.send_text(json.dumps({
                     "type": "ack", "action": "set_build_style", "style": style,
