@@ -22,7 +22,9 @@ def test_preferences_round_trip_and_survive_new_state(tmp_path):
     assert preferences.load_build_style(path) == "Balanced"
     preferences.save_build_style("Survival", path)
     assert json.loads(path.read_text(encoding="utf-8")) == {
+        "schema_version": 1,
         "build_style": "Survival",
+        "overlay": dict(preferences.DEFAULT_OVERLAY),
     }
     assert preferences.load_build_style(path) == "Survival"
     assert not path.with_name("preferences.json.tmp").exists()
