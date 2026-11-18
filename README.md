@@ -137,6 +137,32 @@ Only enable it after the app's live recommendation behavior has been reviewed
 against Riot's current requirements. This private prototype is not a claim
 of Riot approval, and it does not show raw augment win rates.
 
+## Dynamic enemy and allied-team context (experimental)
+
+The shared game-state pipeline now considers known allied champion roles and
+the opponent champions, items, and kill/death figures that League's local
+Live Client API already exposes to the player. Unknown or hidden champions
+and items are **never guessed**.
+
+- Enemy Threat Profile: tank-like frontline, CC, burst, sustain, shields,
+  visible armor/magic resistance items, and high-kill opponents.
+- Ally Profile: known frontline, magic damage roles, physical damage roles,
+  and utility role coverage.
+- The **same profiles** influence augment context and the item build planner.
+  The build panel presents Balanced (default), Damage, Survival, and Utility
+  routes, while preserving items you already own.
+- Estimated pressure values are **kit-based heuristics, not observed damage
+  percentages**. Known enemy items are counted only when matched in the
+  local item catalogue. The scores still require calibration with Mayhem
+  gameplay data; no win chances are asserted.
+- The normal item catalogue currently cannot prove every Mayhem shop or
+  quest constraint. Strict item-buyability, component paths, and conditional
+  augment requirements remain follow-up validation tasks.
+
+All new code was independently implemented from our own product specification.
+Mayhem Advisor was examined only as a **functionality reference**. Its
+all-rights-reserved source, assets, algorithms, and wording were not copied.
+
 ## Architecture
 
 ```
