@@ -543,11 +543,11 @@ async def game_ws(websocket: WebSocket):
                 msg = json.loads(raw)
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning("Invalid JSON from WS client: %s", e)
-                await websocket.send_text(json.dumps({"error": "invalid json"}))
+                await _send_ws_message(websocket, json.dumps({"error": "invalid json"}))
                 continue
 
             if not isinstance(msg, dict):
-                await websocket.send_text(json.dumps({"error": "expected JSON object"}))
+                await _send_ws_message(websocket, json.dumps({"error": "expected JSON object"}))
                 continue
 
             msg_type = msg.get("type", "")
@@ -555,24 +555,24 @@ async def game_ws(websocket: WebSocket):
             if msg_type == "snapshot":
                 data = msg.get("data")
                 if not isinstance(data, dict):
-                    await websocket.send_text(json.dumps({"error": "snapshot requires 'data' object"}))
+                    await _send_ws_message(websocket, json.dumps({"error": "snapshot requires 'data' object"}))
                     continue
                 snapshot = _parse_snapshot(data)
                 result = game_state.pipeline.run(snapshot) if game_state.pipeline else None
                 if result:
-                    await websocket.send_text(json.dumps(
+                    await _send_ws_message(websocket, json.dumps(
                         _serialize_result(result, static_data)
                     ))
 
             elif msg_type == "set_augment_choices":
                 augment_ids = msg.get("augment_ids", [])
                 if not isinstance(augment_ids, list):
-                    await websocket.send_text(json.dumps({"error": "'augment_ids' must be a list"}))
+                    await _send_ws_message(websocket, json.dumps({"error": "'augment_ids' must be a list"}))
                     continue
                 async with game_state.lock:
                     game_state.augment_choices.clear()
                     game_state.augment_choices.extend(augment_ids)
-                await websocket.send_text(json.dumps({
+                await _send_ws_message(websocket, json.dumps({
                     "type": "ack",
                     "action": "set_augment_choices",
                     "augment_ids": list(game_state.augment_choices),
@@ -606,7 +606,7 @@ async def game_ws(websocket: WebSocket):
                             "augment_confirmation", method="manual",
                             kind="anvil" if is_stat_anvil else "augment",
                         )
-                await websocket.send_text(json.dumps({
+                await _send_ws_message(websocket, json.dumps({
                     "type": "ack",
                     "action": "choose_augment",
                     "chosen_augments": list(game_state.chosen_augments),
@@ -623,7 +623,7 @@ async def game_ws(websocket: WebSocket):
                     game_state.stat_snapshot_before.clear()
                     game_state.stat_snapshot_level_before = None
                     game_state.stat_snapshot_items_before = None
-                await websocket.send_text(json.dumps({
+                await _send_ws_message(websocket, json.dumps({
                     "type": "ack",
                     "action": "clear_augments",
                 }))
@@ -639,7 +639,7 @@ async def game_ws(websocket: WebSocket):
                         game_state.ocr_last_detected.extend(ids)
                         screen_watcher._frozen_hash = None
                     choices_snapshot = list(game_state.augment_choices)
-                await websocket.send_text(json.dumps({
+                await _send_ws_message(websocket, json.dumps({
                     "type": "ocr_result",
                     "detected": detected,
                     "augment_choices": choices_snapshot,
@@ -649,7 +649,7 @@ async def game_ws(websocket: WebSocket):
                 # Backward-compatible preference action for older overlay clients.
                 style = msg.get("style")
                 if not isinstance(style, str) or style not in BUILD_STYLES:
-                    await websocket.send_text(json.dumps({"error": "invalid build style"}))
+                    await _send_ws_message(websocket, json.dumps({"error": "invalid build style"}))
                     continue
                 save_failed = False
                 async with game_state.lock:
@@ -661,23 +661,23 @@ async def game_ws(websocket: WebSocket):
                     else:
                         game_state.build_style = style
                 if save_failed:
-                    await websocket.send_text(json.dumps({"error": "could not save build style"}))
+                    await _send_ws_message(websocket, json.dumps({"error": "could not save build style"}))
                     continue
-                await websocket.send_text(json.dumps({
+                await _send_ws_message(websocket, json.dumps({
                     "type": "ack", "action": "set_build_style", "style": style,
                 }))
 
             elif msg_type == "toggle_ocr":
                 async with game_state.lock:
                     game_state.ocr_enabled = msg.get("enabled", not game_state.ocr_enabled)
-                await websocket.send_text(json.dumps({
+                await _send_ws_message(websocket, json.dumps({
                     "type": "ack",
                     "action": "toggle_ocr",
                     "enabled": game_state.ocr_enabled,
                 }))
 
             else:
-                await websocket.send_text(json.dumps({"error": "unknown message type"}))
+                await _send_ws_message(websocket, json.dumps({"error": "unknown message type"}))
 
     except WebSocketDisconnect:
         pass
@@ -1142,29 +1142,41 @@ async def _poll_game_loop(interval: float | None = None):
             logger.error("Poll loop error: %s", e, exc_info=True)
         await asyncio.sleep(interval)
 
-async def _broadcast(message: str) -> None:
-    """Enqueue ordered messages; no client send or network await in this path.
+def _queue_ws_message(state: GameState, client: WebSocket, message: str) -> None:
+    """Route every outgoing message through one ordered, bounded client queue."""
+    if client not in state.ws_clients:
+        return
+    queue = state.ws_send_queues.get(client)
+    if queue is None:
+        queue = asyncio.Queue(maxsize=32)
+        state.ws_send_queues[client] = queue
+    if queue.full():
+        queue.get_nowait()
+        queue.task_done()
+    queue.put_nowait(message)
+    task = state.ws_send_tasks.get(client)
+    if task is None or task.done():
+        state.ws_send_tasks[client] = asyncio.create_task(
+            _drain_ws_client(state, client, queue)
+        )
 
-    A stalled client has an independent bounded queue. If it falls behind by
-    more than 32 messages, discard the oldest pending snapshot rather than
-    delaying the game poll or permitting unbounded growth.
+
+async def _send_ws_message(client: WebSocket, message: str) -> None:
+    """Enqueue ACKs/errors without racing the per-client broadcast sender."""
+    diagnostics.record_ws_message("outbound", message)
+    _queue_ws_message(game_state, client, message)
+
+
+async def _broadcast(message: str) -> None:
+    """Enqueue ordered messages; never await a socket or hold the state lock.
+
+    A stalled client has an independent bounded queue. Once full, its oldest
+    pending message is replaced by newer state rather than blocking polling.
     """
     diagnostics.record_ws_message("outbound", message)
     state = game_state
     for client in tuple(state.ws_clients):
-        queue = state.ws_send_queues.get(client)
-        if queue is None:
-            queue = asyncio.Queue(maxsize=32)
-            state.ws_send_queues[client] = queue
-        if queue.full():
-            queue.get_nowait()
-            queue.task_done()
-        queue.put_nowait(message)
-        task = state.ws_send_tasks.get(client)
-        if task is None or task.done():
-            state.ws_send_tasks[client] = asyncio.create_task(
-                _drain_ws_client(state, client, queue)
-            )
+        _queue_ws_message(state, client, message)
 
 
 async def _drain_ws_client(
