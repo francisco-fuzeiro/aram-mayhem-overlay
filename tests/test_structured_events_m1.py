@@ -161,19 +161,22 @@ async def test_live_poll_tick_keeps_scan_open_after_damage_without_raw_data(monk
 
 
 @pytest.mark.asyncio
-async def test_auto_inference_emits_confirmation_metadata_without_augment_name(monkeypatch):
+async def test_disappearance_inference_never_logs_automatic_confirmation(monkeypatch):
     emitted = []
     class Sink:
         def emit(self, event, **kw):
             emitted.append((event, kw))
     monkeypatch.setattr(server, "event_log", Sink())
     state = server.GameState()
-    state.scan_window_open = True
+    state.confirmation_pending = True
+    state.scan_window_open = False
     state.scan_window_level = 3
     state.stat_snapshot_before = {"attackDamage": 100.0}
+    state.stat_snapshot_level_before = 3
+    state.stat_snapshot_items_before = ()
     state.augment_choices = ["private-id"]
     monkeypatch.setattr(server, "game_state", state)
-    candidate = SimpleNamespace(id="private-id", name="private-augment-name")
+    candidate = SimpleNamespace(id="private-id", name="private-augment-name", tier=SimpleNamespace(value=2))
     fake_static = SimpleNamespace(
         get_augment=lambda _id: candidate,
         get_stat_anvil=lambda _id: None,
@@ -181,16 +184,23 @@ async def test_auto_inference_emits_confirmation_metadata_without_augment_name(m
     monkeypatch.setattr(server, "static_data", fake_static)
     monkeypatch.setattr(server, "match_augment", lambda *_: (candidate, 0.93))
     monkeypatch.setattr(server, "screen_watcher", SimpleNamespace(reset=Mock()))
-    monkeypatch.setattr(server, "_broadcast", AsyncMock())
+    sent = AsyncMock()
+    monkeypatch.setattr(server, "_broadcast", sent)
     await server._try_stat_delta_match(
-        SimpleNamespace(champion_stats={"attackDamage": 130.0})
+        SimpleNamespace(level=3, purchased_items=[],
+                        champion_stats={"attackDamage": 130.0})
     )
-    assert ("augment_inference", {"result": "auto", "confidence": 0.93}) in emitted
-    assert ("augment_confirmation", {"method": "automatic", "kind": "augment"}) in emitted
-    assert ("ocr_window", {"state": "closed", "reason": "confirmed", "level": 3}) in emitted
+    assert ("augment_inference", {"result": "ambiguous", "confidence": 0.93}) in emitted
+    assert not any(event == "augment_confirmation" and fields.get("method") == "automatic"
+                   for event, fields in emitted)
+    assert not any(event == "ocr_window" and fields.get("reason") == "confirmed"
+                   for event, fields in emitted)
+    payload = json.loads(sent.await_args.args[0])
+    assert payload["type"] == "augment_confirm"
+    assert payload["best_guess_id"] == "private-id"
+    assert state.chosen_augments == []
     assert "private-id" not in str(emitted)
     assert "private-augment-name" not in str(emitted)
-
 
 def test_ocr_screenshot_defaults_are_opt_in_not_automatic():
     from backend.collectors.screen_ocr import ScreenWatcher, detect_augments

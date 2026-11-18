@@ -62,10 +62,13 @@ class GameState:
         self.scan_window_open: bool = False
         self.scan_window_level: int = 0
         self.was_dead: bool = False  # track death transitions
-        # Stat delta matching
+        # Stat deltas may at most suggest a likely card after OCR disappearance.
         self.stat_snapshot_before: dict[str, float] = {}
+        self.stat_snapshot_level_before: int | None = None
+        self.stat_snapshot_items_before: tuple[str, ...] | None = None
         self.awaiting_stat_delta: bool = False
         self.delta_wait_ticks: int = 0
+        self.confirmation_pending: bool = False
         # Post-game detection
         self.had_game_last_tick: bool = False
         self.post_game: bool = False
@@ -91,8 +94,11 @@ class GameState:
         self.scan_window_level = 0
         self.was_dead = False
         self.stat_snapshot_before.clear()
+        self.stat_snapshot_level_before = None
+        self.stat_snapshot_items_before = None
         self.awaiting_stat_delta = False
         self.delta_wait_ticks = 0
+        self.confirmation_pending = False
 
     def get_augment_state(self) -> dict:
         """Current augment tracking state for the frontend."""
@@ -574,6 +580,12 @@ async def game_ws(websocket: WebSocket):
                         event_log.emit("ocr_window", state="closed", reason="manual_choice",
                                        level=game_state.scan_window_level)
                     game_state.scan_window_open = False
+                    game_state.confirmation_pending = False
+                    game_state.awaiting_stat_delta = False
+                    game_state.delta_wait_ticks = 0
+                    game_state.stat_snapshot_before.clear()
+                    game_state.stat_snapshot_level_before = None
+                    game_state.stat_snapshot_items_before = None
                     screen_watcher.reset()
                     if aug_id:
                         event_log.emit(
@@ -591,6 +603,12 @@ async def game_ws(websocket: WebSocket):
                     game_state.augment_choices.clear()
                     game_state.chosen_augments.clear()
                     game_state.chosen_stat_anvils.clear()
+                    game_state.confirmation_pending = False
+                    game_state.awaiting_stat_delta = False
+                    game_state.delta_wait_ticks = 0
+                    game_state.stat_snapshot_before.clear()
+                    game_state.stat_snapshot_level_before = None
+                    game_state.stat_snapshot_items_before = None
                 await websocket.send_text(json.dumps({
                     "type": "ack",
                     "action": "clear_augments",
@@ -773,6 +791,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                     )
                     and not state.scan_window_open
                     and not state.awaiting_stat_delta
+                    and not state.confirmation_pending
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
@@ -784,6 +803,13 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                     state.delta_wait_ticks = 0
                     state.stat_snapshot_before = dict(
                         snapshot.champion_stats
+                    )
+                    state.stat_snapshot_level_before = current_level
+                    observed_items = getattr(snapshot, "purchased_items", None)
+                    state.stat_snapshot_items_before = (
+                        tuple(str(item) for item in observed_items)
+                        if isinstance(observed_items, (list, tuple))
+                        else None
                     )
                     deps.screen_watcher.reset()
                     logger.info(
@@ -830,10 +856,17 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                             await deps.broadcast(ocr_msg)
 
                         elif action == "disappeared":
-                            # Augment UI went away — player made a selection
-                            logger.info("Augment UI disappeared — awaiting stat delta")
+                            # Offer vanished; which card was chosen is unverified.
+                            logger.info("Augment offer disappeared — confirmation pending")
+                            state.scan_window_open = False
+                            state.confirmation_pending = True
                             state.awaiting_stat_delta = True
                             state.delta_wait_ticks = 0
+                            event_log.emit(
+                                "ocr_window", state="closed",
+                                reason="offer_disappeared",
+                                level=state.scan_window_level,
+                            )
 
                 except Exception as e:
                     logger.warning("OCR watcher error: %s", e, exc_info=True)
@@ -923,92 +956,57 @@ async def _broadcast(message: str) -> None:
         game_state.ws_clients.discard(client)
 
 async def _try_stat_delta_match(snapshot: GameSnapshot) -> None:
-    """Compare champion stats before/after to identify chosen augment.
+    """Offer only a tentative card highlight; never record a pick from stats.
 
-    Must be called while holding game_state.lock.
+    Must be called while holding game_state.lock, after OCR disappearance.
+    Level and inventory must be unchanged since the pre-offer snapshot.
     """
-    if not game_state.stat_snapshot_before:
-        await _send_augment_confirm(None)
-        game_state.scan_window_open = False
+    if not game_state.confirmation_pending:
         return
 
-    # Build candidate list: prefer OCR-detected choices, fall back to all augments
-    if game_state.augment_choices:
+    best_guess_id: str | None = None
+    confidence = 0.0
+    after_items = getattr(snapshot, "purchased_items", None)
+    observed_items = game_state.stat_snapshot_items_before
+
+    baseline_is_comparable = (
+        bool(game_state.stat_snapshot_before)
+        and game_state.stat_snapshot_level_before is not None
+        and getattr(snapshot, "level", None) == game_state.stat_snapshot_level_before
+        and observed_items is not None
+        and isinstance(after_items, (list, tuple))
+        and tuple(str(item) for item in after_items) == observed_items
+    )
+
+    if baseline_is_comparable and game_state.augment_choices:
+        # Only OCR-observed cards can be suggested. Never invent a candidate
+        # from the full catalog when OCR returned no reliable card IDs.
         candidates = [
             static_data.get_augment(aid)
             for aid in game_state.augment_choices
         ]
-        candidates = [c for c in candidates if c is not None]
-    else:
-        # No OCR data — match against all augments (wider search)
-        candidates = static_data.all_augments()
-        logger.info(
-            "No OCR augment choices — matching against all %d augments",
-            len(candidates),
-        )
-
-    if not candidates:
-        await _send_augment_confirm(None)
-        game_state.scan_window_open = False
-        return
-
-    after_stats = dict(snapshot.champion_stats)
-    matched, confidence = match_augment(game_state.stat_snapshot_before, after_stats, candidates)
-
-    if matched and confidence >= 0.3:
-        # High confidence — auto-confirm
-        # Classify by data: if matched ID is in stat_anvils dict, it's a stat pick
-        is_stat_anvil = static_data.get_stat_anvil(matched.id) is not None
-        if is_stat_anvil:
-            logger.info(
-                "Auto-detected stat anvil: %s (confidence=%.2f)", matched.name, confidence
+        candidates = [aug for aug in candidates if aug is not None]
+        if candidates:
+            matched, confidence = match_augment(
+                game_state.stat_snapshot_before,
+                dict(snapshot.champion_stats),
+                candidates,
             )
-            game_state.chosen_stat_anvils.append(matched.id)
-        else:
-            logger.info(
-                "Auto-detected augment: %s (confidence=%.2f)", matched.name, confidence
-            )
-            game_state.chosen_augments.append(matched.id)
-        game_state.augment_choices.clear()
-        game_state.ocr_last_detected.clear()
-        event_log.emit(
-            "augment_inference", result="auto",
-            confidence=max(0.0, min(1.0, float(confidence))),
-        )
-        event_log.emit(
-            "augment_confirmation", method="automatic",
-            kind="anvil" if is_stat_anvil else "augment",
-        )
-        event_log.emit(
-            "ocr_window", state="closed", reason="confirmed",
-            level=game_state.scan_window_level,
-        )
-        game_state.scan_window_open = False
-        screen_watcher.reset()
+            # Conservative threshold for a visual "likely" hint only.
+            # The player must still explicitly confirm the selected card.
+            if (
+                matched is not None
+                and matched.id in game_state.augment_choices
+                and confidence >= 0.6
+            ):
+                best_guess_id = matched.id
 
-        await _broadcast(json.dumps({
-            "type": "augment_auto_chosen",
-            "augment_id": matched.id,
-            "augment_name": matched.name,
-            "confidence": round(confidence, 2),
-            "augment_state": game_state.get_augment_state(),
-        }))
-    else:
-        # Low confidence — ask user to confirm
-        logger.info(
-            "Augment match ambiguous (best=%.2f) — requesting user confirmation",
-            confidence,
-        )
-        event_log.emit(
-            "augment_inference", result="ambiguous",
-            confidence=max(0.0, min(1.0, float(confidence))),
-        )
-        best_guess_id = matched.id if matched else None
-        await _send_augment_confirm(best_guess_id)
-        # Keep scan_window_open = True so OCR can detect new choices
-        # if the user hasn't confirmed yet. The choose_augment handler
-        # will close it when the user manually picks.
-        game_state.awaiting_stat_delta = False
+    event_log.emit(
+        "augment_inference",
+        result="ambiguous" if best_guess_id else "none",
+        confidence=max(0.0, min(1.0, float(confidence))),
+    )
+    await _send_augment_confirm(best_guess_id)
 
 
 async def _send_augment_confirm(best_guess_id: str | None) -> None:

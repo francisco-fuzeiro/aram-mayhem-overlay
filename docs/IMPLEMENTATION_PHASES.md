@@ -1,5 +1,8 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **Latest 2026-11-18 execution checkpoint:** M2/A3 is implemented on [draft PR #25](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/25), stacked on verified A2 draft PR #24; its core backend [Windows Actions 44406157335](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44406157335) passed (334 Python, 1 xfailed; 24 JS, 4 TODO), deferred UI [44406383857](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44406383857) passed (334 Python, 1 xfailed; 26 JS, 4 TODO). Verify final documentation-head CI before advancing. **Next M2/E1 only**; E2, E3 and M3 are later separate phases. Full approved execution plan is still independent docs-only PR #19; no real Windows/League acceptance or G4/G1/G2 clearance implied.
+
+
 > **Latest 2026-11-18 M2 checkpoint:** A1 final-head CI [44402650250](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44402650250) is green. **A2 (AUD-03d)** now implemented on [draft PR #24](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/24), code-head [Windows Actions 44403646160](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44403646160) green (325 Python passed, 1 xfailed, 24 JavaScript passed, 4 TODO). Final A2 docs-head CI must be checked; then **M2/A3** is next, on a separate stacked branch/draft PR. Full M1–M8 plan remains authoritative on independent docs-only draft PR #19; historical A-FIX PR #18 is not the execution order. No UI/installer until later phases, no real-game acceptance implied.
 
 

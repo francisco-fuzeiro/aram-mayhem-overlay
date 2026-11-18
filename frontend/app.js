@@ -390,14 +390,22 @@
     }
 
     function showConfirmPanel(msg) {
+        // Keep the existing section state: no forced combat-time expansion
+        // or input. Players can confirm later when it is safe.
         augmentConfirm.classList.remove("hidden");
         augmentConfirm.innerHTML = "";
-        $("section-augments").classList.remove("collapsed");
 
         const title = document.createElement("div");
         title.className = "confirm-title";
-        title.textContent = "Which augment did you pick?";
+        title.textContent = "Augment pending — confirm when safe";
         augmentConfirm.appendChild(title);
+
+        if (!msg.candidates || msg.candidates.length === 0) {
+            const note = document.createElement("div");
+            note.className = "aug-explain";
+            note.textContent = "No reliable card names detected. Use Scan Screen or manual entry when safe.";
+            augmentConfirm.appendChild(note);
+        }
 
         (msg.candidates || []).forEach((c) => {
             const btn = document.createElement("button");
