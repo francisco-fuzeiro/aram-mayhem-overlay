@@ -21,8 +21,15 @@
             cache: "no-store",
             ...options,
         });
-        const payload = await response.json();
-        if (!response.ok || payload.error) {
+        let payload;
+        try {
+            payload = await response.json();
+        } catch (_error) {
+            throw new Error(
+                "Invalid server response. Check that ARAM Oracle is still running."
+            );
+        }
+        if (!payload || !response.ok || payload.error) {
             throw new Error(
                 typeof payload.detail === "string" ? payload.detail :
                 typeof payload.error === "string" ? payload.error :
