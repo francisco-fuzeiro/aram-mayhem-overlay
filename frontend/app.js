@@ -14,13 +14,6 @@
     let ocrAvailable = false;
     let scanning = false;
     const buildStyles = ["Balanced", "Damage", "Survival", "Utility"];
-    let selectedBuildStyle = "Balanced";
-    try {
-        const stored = localStorage.getItem("mayhem_build_style");
-        if (buildStyles.includes(stored)) selectedBuildStyle = stored;
-    } catch (e) {
-        // Some embedded browsers disable persistent local storage.
-    }
 
     // -- DOM refs --
     const $ = (id) => document.getElementById(id);
@@ -40,7 +33,7 @@
     const buildList = $("build-list");
     const buildFooter = $("build-footer");
     const buildAlternatives = $("build-alternatives");
-    const buildStyleSelect = $("build-style");
+    const buildStyleCurrent = $("build-style-current");
     const enemyList = $("enemy-list");
     const augmentSearch = $("augment-search");
     const tierFilter = $("tier-filter");
@@ -74,7 +67,7 @@
         bindBugReport();
         bindFeedback();
         bindHistorySync();
-        bindBuildStyle();
+        await loadBuildPreference();
         bindNativeWindowControls();
     }
 
@@ -84,6 +77,19 @@
             staticNames = await res.json();
         } catch (e) {
             console.warn("Failed to fetch static names:", e);
+        }
+    }
+
+    async function loadBuildPreference() {
+        try {
+            const response = await fetch("/api/preferences", { cache: "no-store" });
+            if (!response.ok) return;
+            const preferences = await response.json();
+            if (buildStyles.includes(preferences.build_style)) {
+                buildStyleCurrent.textContent = preferences.build_style;
+            }
+        } catch (error) {
+            // Live updates also provide the selected style once the game starts.
         }
     }
 
@@ -124,7 +130,8 @@
         ws.onopen = () => {
             reconnectDelay = 1000;
             setConnected(true);
-            wsSend({ type: "set_build_style", style: selectedBuildStyle });
+            // The server owns the persisted pre-game preference. Do not overwrite
+            // it with a stale per-WebView localStorage value on reconnect.
         };
 
         ws.onmessage = (event) => {
@@ -208,6 +215,13 @@
 
         if (msg.type === "augment_confirm") {
             showConfirmPanel(msg);
+            return;
+        }
+
+        if (msg.type === "preferences_updated") {
+            if (buildStyles.includes(msg.build_style)) {
+                buildStyleCurrent.textContent = msg.build_style;
+            }
             return;
         }
 
@@ -482,23 +496,9 @@
         }
     }
 
-    function bindBuildStyle() {
-        buildStyleSelect.value = selectedBuildStyle;
-        buildStyleSelect.addEventListener("change", () => {
-            if (!buildStyles.includes(buildStyleSelect.value)) return;
-            selectedBuildStyle = buildStyleSelect.value;
-            try {
-                localStorage.setItem("mayhem_build_style", selectedBuildStyle);
-            } catch (e) {
-                // The current session still supports path selection.
-            }
-            wsSend({ type: "set_build_style", style: selectedBuildStyle });
-        });
-    }
-
     function renderBuild(bs) {
         if (bs && buildStyles.includes(bs.selected_style)) {
-            buildStyleSelect.value = bs.selected_style;
+            buildStyleCurrent.textContent = bs.selected_style;
         }
         if (!bs || !bs.full_build || bs.full_build.length === 0) {
             buildList.innerHTML = '<div style="color:var(--text-dim);padding:8px;">No build data</div>';
