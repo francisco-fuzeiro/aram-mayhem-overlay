@@ -29,6 +29,8 @@ def test_reads_bench_and_current_champion_without_player_identifiers():
     }
     result = summarize_champion_select(draft, IDS, get_champion)
     assert result["type"] == "champ_select"
+    assert all(isinstance(c["score"], float) and 0.0 <= c["score"] <= 10.0 for c in result["candidates"])
+    assert all(round(c["score"], 1) == c["score"] for c in result["candidates"])
     assert {x["name"] for x in result["candidates"]} == {"Lux", "Alistar"}
     assert next(x for x in result["candidates"] if x["name"] == "Lux")["current"]
     assert next(x for x in result["candidates"] if x["name"] == "Alistar")["score"] > \
@@ -87,3 +89,22 @@ def test_api_debug_endpoint_uses_team_fit(monkeypatch):
         response = server.champ_select_status()
     assert response["candidates"][0]["name"] == "Lux"
     assert response["method"] == "experimental_team_fit"
+
+
+def test_role_fit_tiers_use_ten_point_scale():
+    draft = {
+        "localPlayerCellId": 1,
+        "myTeam": [
+            {"cellId": 1, "championId": 99},
+            {"cellId": 2, "championId": 222},
+        ],
+        "benchChampions": [{"championId": 12}],
+    }
+    result = summarize_champion_select(draft, IDS, get_champion)
+    for candidate in result["candidates"]:
+        score = candidate["score"]
+        tier = candidate["tier"]
+        assert 0 <= score <= 10
+        expected = "S" if score >= 7.5 else "A" if score >= 7.0 else "B" if score >= 6.5 else "C"
+        assert tier == expected
+    assert "0.0" in result["notice"] and "10.0" in result["notice"]
