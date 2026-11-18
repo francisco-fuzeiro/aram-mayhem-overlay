@@ -91,3 +91,22 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - `node --check frontend/app.js`: **passed**.
 - In-game LCDA capture, actual enemy items and Riot policy: **not run / not resolved**. Keep the PR draft.
 
+## 2026-11-18 — Selectable build paths (PR #7)
+
+- Branch `feat/selectable-build-paths` stacked on `feat/team-threat-coverage` (draft PR #6).
+- Changed `backend/engine/build_suggester.py`, `backend/models.py`, `backend/workflow/pipeline.py`: four selected build styles are recomputed from chosen augments, visible teams and owned items; next affordable item is constrained to the selected path and an inventory of six items does not suggest a seventh.
+- Changed `backend/api/server.py`: validated local WebSocket build-style selection, live snapshot propagation and serialization; no purchase automation.
+- Changed `frontend/index.html` and `frontend/app.js`: lightweight style selector with local browser preference persistence and path alternatives. This is functional UI, not a cosmetic overhaul.
+- Added style, inventory, next-item and protocol tests in `tests/test_build_suggester.py` and `tests/test_build_style_contract.py`.
+- Includes the PR #6 zero-champion observed resistance fix in the stacked branch.
+- Validation: `python -m pytest -q` and `node --check frontend/app.js` **not run** at time of entry; CI must verify. Local Windows in-game choice synchronization and item purchase availability remain untested.
+- Decision: style selection changes recommendations only; it never buys/equips items. Player preferences can influence ordering but must not replace the contextual rules.
+
+
+## 2026-11-18 — PR #7 automated validation
+
+- Windows GitHub Actions run [44315895591](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44315895591) **succeeded** on feature merge commit `c4f8ba25`.
+- `python -m pytest -q`: **163 passed, 1 warning**; `node --check frontend/app.js`: **passed**.
+- The branch was reconciled with PR #6's fix without modifying `main`; the development log remains append-only.
+- Outstanding: Mayhem shop eligibility, purchased-component paths, item exclusivity and real in-game player preference check on Windows.
+

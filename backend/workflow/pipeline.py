@@ -75,6 +75,7 @@ class Pipeline:
             all_items=all_items,
             enemy_profile=enemy_profile,
             ally_profile=ally_profile,
+            build_style=snapshot.build_style,
         )
 
         return PipelineResult(

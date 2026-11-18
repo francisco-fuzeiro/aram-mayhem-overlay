@@ -68,3 +68,52 @@ def test_gold_to_next_calculated():
     items = [_make_item("expensive", cost=3000, ap=0.8)]
     build = suggest_build(lux, [], [], 1000, items)
     assert build.gold_to_next == 2000
+
+
+def test_full_inventory_never_recommends_a_seventh_item():
+    mage = _make_champion("mage", ap=0.9)
+    items = [_make_item(f"i{i}", cost=1000, ap=0.5) for i in range(7)]
+    result = suggest_build(
+        mage, [], [f"i{i}" for i in range(6)], 5000, items,
+    )
+    assert result.full_build == [f"i{i}" for i in range(6)]
+    assert result.next_item_id is None
+    assert result.gold_to_next == 0
+    assert all(len(path) == 6 for path in result.alternatives.values())
+
+
+def test_selected_style_changes_the_build_and_next_purchase():
+    mage = _make_champion("mage", ap=0.9, hp=0.4)
+    offense = _make_item("offense", cost=1000, ap=1.0)
+    defense = _make_item("defense", cost=1000, hp=1.0)
+    items = [offense, defense]
+    damage = suggest_build(mage, [], [], 1100, items, build_style="Damage")
+    survival = suggest_build(mage, [], [], 1100, items, build_style="Survival")
+    assert damage.selected_style == "Damage"
+    assert survival.selected_style == "Survival"
+    assert damage.next_item_id == damage.full_build[0]
+    assert survival.next_item_id == survival.full_build[0]
+    assert damage.next_item_id == "offense"
+    assert survival.next_item_id == "defense"
+    assert survival.alternatives["Damage"] == damage.full_build
+    assert damage.alternatives["Survival"] == survival.full_build
+
+
+def test_next_purchase_is_always_in_selected_build_path():
+    mage = _make_champion("mage", ap=0.9)
+    items = [
+        _make_item("expensive", cost=3000, ap=1.0),
+        _make_item("cheap", cost=1000, ap=0.7),
+        _make_item("offpath", cost=300, ap=0.1),
+    ]
+    result = suggest_build(mage, [], [], 1000, items, build_size=2)
+    assert result.next_item_id in result.full_build
+    assert "offpath" not in result.full_build
+
+
+def test_invalid_external_style_falls_back_to_balanced():
+    mage = _make_champion("mage", ap=0.9)
+    item = _make_item("staff", cost=1000, ap=0.8)
+    result = suggest_build(mage, [], [], 1000, [item], build_style="NotAStyle")
+    assert result.selected_style == "Balanced"
+    assert result.next_item_id == "staff"
