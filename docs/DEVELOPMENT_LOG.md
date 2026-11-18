@@ -179,3 +179,13 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added tests cover local control fragment origin, markup/JS hooks and Qt hotkey/tray lifecycle as code-level contracts. Actual Windows GUI clicks, Alt+H restore and tray actions are **not yet tested on user machine**.
 - PR #10 remains draft, stacked on PR #9; `main` unchanged.
 
+## 2026-11-18 — PR #11: first real ARAM Mayhem screenshot regressions
+
+- The user shared a level-4 in-game Jinx screenshot showing three offered augments, `NO OCR`, an unscored AUGMENT PICK panel, an incorrectly owned Poro-Snax, a twice-recommended Phantom Dancer, and unscored visible enemy items. The champion/roster/gold read path is at least partially functional.
+- The client Live Client Data API represents equipped items with a `slot`; slot 6 is for trinkets such as Poro-Snax (item ID 2052). `backend/collectors/lcda.py` now ignores those items in both own equipment planning and enemy equipment coverage; this does not assert unseen item data.
+- `backend/engine/build_suggester.py` now excludes duplicate catalog names even when IDs differ (same item/mode variants) and does not suggest a same-named already-owned item as a late-game boot swap.
+- `backend/api/server.py` now also starts scan windows on newly observed eligible levels, not exclusively on respawn. A separate pure decision helper prevents repeated same-level reopening. Per-game reset clears manually entered augments even with OCR missing.
+- `frontend/app.js` no longer permanently hides manual augment entry in overlay mode. During eligible picks it opens the augment/manual panel and does not show "SCANNING" when OCR is unavailable; `frontend/index.html` has clear manual fallback text.
+- Added regression suite `tests/test_live_mayhem_regressions.py` and install/troubleshooting instructions to README. Prior PR #10 tests were **191 passed** on Windows; this PR's modified tests have **not run yet**.
+- Remaining: install/locate Tesseract on the actual user PC, confirm 3-card OCR results and positional cropping with another live image; validate Mayhem item metadata and real shop buyability, since current builds remain heuristic.
+
