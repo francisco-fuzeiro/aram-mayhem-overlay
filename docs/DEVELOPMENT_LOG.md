@@ -218,3 +218,12 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Second Windows Actions run [44331056654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331056654) **succeeded** on feature commit `d8dd7c5`. Results: **215 Python tests passed, 1 warning**, `node --check frontend/app.js` **passed**, `node --check frontend/settings.js` **passed**, and `node --test tests/js/settings.test.cjs` **4 passed, 0 failed**.
 - These are automated Windows-runner results, not evidence of actual Qt tray/browsers, saved preferences after a user's reboot, live in-match build changes, local Tesseract/OCR or Mayhem shop eligibility.
 - Next: recheck Actions at this later documentation-only head, keep PR #12 draft, then ask the user only for necessary on-device checks.
+
+
+## 2026-11-18 Europe/Lisbon — UX audit backlog recovered and persisted
+
+- User requested importing conclusions from the separate **Auditoria UX — ARAM Oracle** project conversation into a permanent checklist and crossing off completed items. The recovered conversation summary describes a contextual/event-driven companion (augment offers > verified shop > optional scoreboard), quiet combat UI, compact choices and validation at 1080p/1440p.
+- Created `docs/TODO.md` with stable UX task IDs, P0/P1/P2 priorities, explicit criteria, known UI-state proposals, existing completed **code-level** milestones, and a separate Windows/live-validation backlog. This is a synthesis of the conversation summary, not a verbatim transcript.
+- Cross-checked historical completion claims against PRs #9–#12 and [Windows Actions run 44331470781](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331470781) (**215 Python passed, 1 warning; 4 Node tests passed; both JS syntax checks passed**). None of this proves live UX outside the already confirmed Qt desktop transparency and visible LCDA screenshot fields.
+- Updated `AGENTS.md` session startup and end-of-work instructions and `docs/PROJECT_STATE.md` to make this backlog mandatory for future development continuity.
+- This commit changes **documentation only**; no Python or JavaScript tests were run locally for these edits. Check the latest Windows CI triggered by the updated PR #12 head. The branch and PR remain draft; `main` is untouched.

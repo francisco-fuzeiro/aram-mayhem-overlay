@@ -162,6 +162,13 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Third-party datasets (e.g. AramHex CC BY-NC 4.0) have **separate licenses**; do not import without validating provenance and permitted use.
 - User reports separately researching Riot's third-party policy. Avoid definitive claims that converting augment win rates into a 0–10 number makes live recommendations permissible. **Do not expose raw augment win rates**; keep empirically derived augment scoring behind `experimental_augment_evidence=False` until resolved. Use player-visible permitted interfaces; no hidden information, memory injection, or automatic augment/item selection.
 
+## Canonical product / UX backlog
+
+- [`docs/TODO.md`](TODO.md) contains the persistent, prioritized checklist derived from the **Auditoria UX — ARAM Oracle** discussion plus the current product specification, real match findings and code audit.
+- **Decision:** the target is an event-driven, unobtrusive companion, not a permanent dashboard. Primary states: augment offer (highest priority), verified shop, optional scoreboard; stay quiet in combat. Never claim unknown shop/scoreboard state is observable.
+- Completed **implementation** tasks are explicitly separated from pending **real Windows/League validation**. Each future meaningful feature must update the checklist and include evidence before checking a task off.
+- UX audit created in the existing draft PR #12 branch; no merge to `main`.
+
 ## Highest-priority remaining work
 
 1. **PR #12 automated validation passed (215 Python + 4 Node).** Now check Settings browser/tray, preference persistence and live build updates on Windows, and retest PR #11 OCR/build regressions. Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.

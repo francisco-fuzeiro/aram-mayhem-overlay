@@ -5,8 +5,9 @@
 Before changing code, read:
 
 1. `docs/PROJECT_STATE.md` — current architecture, branches, PR dependencies, validation status and open risks.
-2. `docs/DEVELOPMENT_LOG.md` — chronological work record.
-3. The product specification `funcionalidades.md` when provided in the ChatGPT Overlay LoL project; it is **not automatically assumed to exist in this Git repository**.
+2. `docs/TODO.md` — canonical product/UX backlog with task IDs, completion criteria, and evidence.
+3. `docs/DEVELOPMENT_LOG.md` — chronological work record.
+4. The product specification `funcionalidades.md` when provided in the ChatGPT Overlay LoL project; it is **not automatically assumed to exist in this Git repository**.
 
 Work from the current feature branch and inspect open stacked draft PRs before merges. Protect `main`. Confirm live GitHub Actions results rather than trusting old documentation.
 
@@ -30,6 +31,7 @@ Work from the current feature branch and inspect open stacked draft PRs before m
 1. Add tests and report verified results (`passed`, `failed`, or `not run`).
 2. Update `docs/PROJECT_STATE.md` to reflect the latest actual state.
 3. Append a dated factual entry to `docs/DEVELOPMENT_LOG.md` with branch/PR, code changed, tests and next steps.
-4. Keep pull requests as drafts until validated, including Windows in-game tests where necessary.
+4. Update `docs/TODO.md`: check off only narrow items supported by code/test or Windows evidence; keep separate user-device validation items unchecked until verified, preserving task IDs.
+5. Keep pull requests as drafts until validated, including Windows in-game tests where necessary.
 
 These files are a **handoff**, not background execution or an automatic logging service. Update them explicitly whenever you work on this repository.
