@@ -75,3 +75,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Tests: `python -m pytest -q` and `node --check frontend/app.js` **not run** at the time of this entry; Windows GitHub Actions is required.
 - Next: verify CI, then tackle item feasibility and purchase recommendations separately. Real LCDA samples and Riot policy review remain open.
 
+
+## 2026-11-18 — PR #6 CI regression and fix
+
+- Windows GitHub Actions run [44314745431](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44314745431) **failed**: 154 passed, 1 failed, 1 warning. The failure proved that observed armor metadata was discarded when no enemy champion was recognized.
+- Fixed `backend/engine/team_context.py` zero-champion return to preserve recognized armor and magic-resist item counts in commit `9954041`.
+- Full suite for this follow-up commit: **not run** at time of entry; awaiting new Windows Actions result.
+- No actual Windows in-game LCDA evidence yet.
+
