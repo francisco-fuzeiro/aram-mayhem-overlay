@@ -118,7 +118,7 @@ def test_lcda_timeout_emits_only_the_error_class(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_live_poll_tick_records_match_and_ocr_open_close_without_raw_data(monkeypatch):
+async def test_live_poll_tick_keeps_scan_open_after_damage_without_raw_data(monkeypatch):
     emitted = []
     class Sink:
         def emit(self, event, **kw):
@@ -152,10 +152,11 @@ async def test_live_poll_tick_records_match_and_ocr_open_close_without_raw_data(
     await server.poll_tick(state, deps, 1.0)
     assert state.scan_window_open
     await server.poll_tick(state, deps, 3.0)
-    assert not state.scan_window_open
+    assert state.scan_window_open
     assert ("match_transition", {"from_state": "no_game", "to_state": "in_game"}) in emitted
     assert ("ocr_window", {"state": "opened", "reason": "level_due", "level": 3}) in emitted
-    assert ("ocr_window", {"state": "closed", "reason": "damage", "level": 3}) in emitted
+    assert not any(event == "ocr_window" and fields.get("reason") == "damage"
+                   for event, fields in emitted)
     assert "attackDamage" not in str(emitted)
 
 
