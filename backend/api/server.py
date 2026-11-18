@@ -1202,7 +1202,12 @@ async def _drain_ws_client(
     """One sender per client, with optional delivery receipts for direct ACKs."""
     try:
         while client in state.ws_clients:
-            message, delivered = await queue.get()
+            # Drain the available batch then exit. An idle sender must not
+            # leave a task waiting on queue.get() across ASGI shutdown/tests.
+            try:
+                message, delivered = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
             try:
                 await asyncio.wait_for(client.send_text(message), timeout=3.0)
                 if delivered is not None and not delivered.done():
