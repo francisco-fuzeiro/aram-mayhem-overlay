@@ -13,6 +13,15 @@ logger = logging.getLogger("aram-oracle.engine.build")
 
 BUILD_STYLES = ("Balanced", "Damage", "Survival", "Utility")
 
+def _item_name_key(item: ItemData) -> str:
+    """Treat catalog variants with the same display name as one build choice.
+
+    DataDragon may include map/mode-specific IDs for the same item. We don't
+    claim those variants are mutually purchasable or different upgrades.
+    """
+    return " ".join(item.name.casefold().split())
+
+
 # A neutral baseline used only to compare listed flat and percentage item MS.
 # Actual champion movement speed, soft caps and active effects are not modeled.
 _LISTED_MS_BASELINE = 335.0
@@ -106,14 +115,22 @@ def _fill_slots(
     by_id = {item.id: item for item in all_items}
     selected = list(owned)
     seen = set(owned)
+    # Avoid recommending two IDs with the same name ("Phantom Dancer" was
+    # duplicated in the first actual Windows Mayhem screenshot).
+    named = {
+        _item_name_key(by_id[item_id])
+        for item_id in owned if item_id in by_id
+    }
     boots_taken = any(by_id.get(item_id) and by_id[item_id].boots for item_id in owned)
     for item in ranked:
         if len(selected) >= size:
             break
-        if item.id in seen or (item.boots and boots_taken):
+        name_key = _item_name_key(item)
+        if item.id in seen or name_key in named or (item.boots and boots_taken):
             continue
         selected.append(item.id)
         seen.add(item.id)
+        named.add(name_key)
         if item.boots:
             boots_taken = True
     return selected
@@ -162,9 +179,16 @@ def _boot_replacement(
 
     boot_value = contextual_value(current_boot)
     observed = set(owned_ids)
+    owned_names = {
+        _item_name_key(by_id[item_id])
+        for item_id in owned_ids if item_id in by_id
+    }
     candidates: list[tuple[float, str, ItemData, float]] = []
     for item in item_catalog:
-        if item.id in observed or item.boots or listed_ms(item) <= 0:
+        if (
+            item.id in observed or _item_name_key(item) in owned_names
+            or item.boots or listed_ms(item) <= 0
+        ):
             continue
         # Larger loss of movement demands a stronger improvement elsewhere.
         speed_change = listed_ms(item) - boot_ms
