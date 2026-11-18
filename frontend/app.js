@@ -49,9 +49,6 @@
     const augmentToast = $("augment-toast");
     const augmentProgress = $("augment-progress");
     const feedbackSection = $("section-feedback");
-    const feedbackText = $("feedback-text");
-    const btnSubmitFeedback = $("btn-submit-feedback");
-    const btnDismissFeedback = $("btn-dismiss-feedback");
     let toastTimeout = null;
 
     // -- Init --
@@ -64,8 +61,6 @@
         bindAugmentInput();
         bindOcrControls();
         bindKeyboard();
-        bindBugReport();
-        bindFeedback();
         bindHistorySync();
         await loadBuildPreference();
         bindNativeWindowControls();
@@ -762,9 +757,7 @@
         });
     }
 
-    // -- Bug Report --
-
-    // -- Post-game feedback --
+    // -- Post-game guidance (feedback lives in pre-game Settings) --
 
     function showPostGameFeedback() {
         showWaiting(false);
@@ -778,88 +771,6 @@
 
     function hidePostGameFeedback() {
         feedbackSection.classList.add("hidden");
-        if (feedbackText) feedbackText.value = "";
-    }
-
-    function bindFeedback() {
-        if (!btnSubmitFeedback || !btnDismissFeedback) return;
-
-        btnSubmitFeedback.addEventListener("click", async () => {
-            btnSubmitFeedback.disabled = true;
-            btnSubmitFeedback.textContent = "Submitting...";
-            const description = feedbackText.value.trim();
-            try {
-                const res = await fetch("/api/bug-report", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ description }),
-                });
-                const data = await res.json();
-                if (data.github_url) {
-                    showBugReportToast(data.github_url, true);
-                } else {
-                    showBugReportToast(data.path, false);
-                }
-                hidePostGameFeedback();
-            } catch (e) {
-                console.error("Feedback submission failed:", e);
-                showBugReportToast("Failed to submit — saved locally", false);
-            } finally {
-                btnSubmitFeedback.disabled = false;
-                btnSubmitFeedback.textContent = "Submit Report";
-            }
-        });
-
-        btnDismissFeedback.addEventListener("click", () => {
-            hidePostGameFeedback();
-        });
-    }
-
-    // -- Bug Report --
-
-    function bindBugReport() {
-        const btn = $("btn-bug-report");
-        if (!btn) return;
-
-        btn.addEventListener("click", async () => {
-            btn.disabled = true;
-            btn.textContent = "...";
-            try {
-                const res = await fetch("/api/bug-report", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ description: "" }),
-                });
-                const data = await res.json();
-                if (data.github_url) {
-                    showBugReportToast(data.github_url, true);
-                } else {
-                    showBugReportToast(data.path, false);
-                }
-            } catch (e) {
-                console.error("Bug report failed:", e);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = "\u{1F41B}";
-            }
-        });
-    }
-
-    function showBugReportToast(message, isUrl) {
-        augmentToast.classList.remove("hidden");
-        augmentToast.innerHTML = isUrl
-            ? `<div class="toast-inner toast-bug">
-                <span class="toast-icon">&#128027;</span>
-                <span class="toast-text">Bug report filed!<br><a href="${esc(message)}" target="_blank" style="color:var(--cyan);font-size:10px;">${esc(message)}</a></span>
-               </div>`
-            : `<div class="toast-inner toast-bug">
-                <span class="toast-icon">&#128027;</span>
-                <span class="toast-text">Bug report saved:<br><code>${esc(message)}</code></span>
-               </div>`;
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            augmentToast.classList.add("hidden");
-        }, 8000);
     }
 
     // -- Utilities --
