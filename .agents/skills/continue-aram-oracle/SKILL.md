@@ -74,6 +74,9 @@ The current functional repair sequence is the [full M1–M8 implementation plan]
 5. Conclude in PT-PT with accomplished changes, automated results, unresolved Windows validation and a ready-to-paste prompt for the next phase/chat.
 
 ## Current handoff anchor (verify live GitHub and CI)
+**Important 2026-11-18 update:** The historical handoff bullets below describe the state *before* the Claude functional audit proposal was supplied. The full user-supplied M1–M8 plan is now in `docs/FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md`; the active next phase is **M1 P0.1**. See `docs/CONTINUE_PROJECT.md` for the current prompt. The audit-next and D5a-next statements below are **superseded**; do not treat them as current instructions.
+
+
 
 - As of 2026-11-18, D4b [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17), branch `feat/desktop-overlay-preview-apply-d4b`, is stacked on D4a [draft PR #16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) (`feat/desktop-overlay-preferences-d4a`), based on D3 PR #15. No `main` merge. Always verify live status on resume.
 - D4a final [Windows Actions 44356926105](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44356926105) at `0bc9535a` succeeded: 292 Python and 13 Node tests, JavaScript syntax checks. D4b code-head [Windows Actions 44361461870](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44361461870) passed at `9520057c`: **303 Python (1 warning), 18 JavaScript (0 failures)** and syntax checks. Earlier tiny-screen/JS test-fixture regressions were corrected. Recheck any later documentation-head CI.
