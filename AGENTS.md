@@ -13,6 +13,18 @@ Before changing code, read:
 
 Work from the current feature branch and inspect open stacked draft PRs before merges. Protect `main`. Confirm live GitHub Actions results rather than trusting old documentation.
 
+## Cross-chat trigger convention
+
+When the user says **`ARAM Oracle: preparar passagem`**, run the
+documentation/checkpoint/CI handoff in
+`.agents/skills/continue-aram-oracle/SKILL.md` and return a next-chat
+prompt. When a new ChatGPT project conversation starts with
+**`ARAM Oracle: continuar`**, fetch that skill and the current GitHub
+state before proceeding. These phrases are **not** built-in slash commands,
+a scheduler, or a way to create the next chat automatically.
+For a mid-phase rotation, continue on the same branch/PR; create a new
+stacked branch/PR only when beginning the next phase.
+
 ## Language and priorities
 
 - All application copy, source code comments, commit messages and documentation must be in English.
