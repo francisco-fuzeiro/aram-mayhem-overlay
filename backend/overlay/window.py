@@ -55,10 +55,16 @@ VK_H = 0x48
 def _window_action_for_url(value: str) -> str | None:
     """Accept only deliberate control fragments on our local overlay page."""
     url = urlsplit(value)
+    try:
+        trusted_origin = (
+            url.scheme == "http"
+            and url.hostname in {"localhost", "127.0.0.1"}
+            and url.port == 8765
+        )
+    except ValueError:
+        return None
     if (
-        url.scheme != "http"
-        or url.hostname not in {"localhost", "127.0.0.1"}
-        or url.port != 8765
+        not trusted_origin
         or url.path != "/overlay"
         or parse_qs(url.query).get("mode") != ["overlay"]
     ):
