@@ -1,5 +1,8 @@
 # Continue ARAM Oracle in a New Chat
 
+> **Current M3 checkpoint (2026-11-18):** E3 PR #28 head `659b20ed`, final CI [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) successful. M3/F1 [draft PR #35](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/35), branch `fix/m3-f1-lcda-classified-nonblocking`, in progress. LCDAResult and off-thread call implemented, test migration underway; verify CI for the *latest* SHA, resolve failures and only then begin a separate stacked F2 PR. F3–F5 remain unstarted; no Windows/League acceptance.
+
+
 ## 2026-11-18 handoff — M2/E1–E3 finished in code, next M3 Match Lifecycle
 
 - Stacked draft branches, unmerged: A3 `fix/m2-a3-confirm-not-infer-augment-picks` @ `a1d5322f` → **E1** [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) `fix/m2-e1-augment-keyword-cache` @ `cc34107b` ([CI 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) passed) → **E2** [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `fix/m2-e2-augment-provenance-coverage` @ `a4432f69` ([CI 44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) passed) → **E3** [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) `fix/m2-e3-unrated-safe-rerolls`, code `5efa3628` ([CI 44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) passed: 354 Python, 1 AUD-07 xfailed; 28 JavaScript, 4 TODO). **Check E3 final documentation-head SHA and corresponding CI before M3.** The plan lives independently on `docs/a-func-audit-report` PR #19, not historical PR #18.
