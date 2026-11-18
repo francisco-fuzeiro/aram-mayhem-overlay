@@ -179,8 +179,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - **Approved architectural direction:** Python/FastAPI remains the sole engine, with a normal PyQt6 desktop Settings window and a separate transparent, click-through Qt game overlay; both communicate through the existing local HTTP/WebSocket API.
 - Full component boundaries, state-driven presentation, lifecycle, preference/diagnostics handling and future packaging decisions: [`docs/DESKTOP_ARCHITECTURE.md`](DESKTOP_ARCHITECTURE.md).
 - Small, gated implementation plan and acceptance tests: [`docs/IMPLEMENTATION_PHASES.md`](IMPLEMENTATION_PHASES.md); task checkboxes `PH-G0.*` and `PH-D1.*` through `PH-D11.*` in [`docs/TODO.md`](TODO.md).
-- Implemented code/CI phase: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Next draft branch proposed `feat/desktop-settings-shell` stacked on PR #12, *not main*.
-- Next planned development slice: **D2 — single-instance and tray lifecycle**, after Windows D1 smoke tests.\n- Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
+- Implemented code/CI phase: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Implemented in draft PR #13 based on PR #12; no merge to main.
+- Next planned development slice: **D2 — single-instance and tray lifecycle**, after Windows D1 smoke tests.
+- Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
 - **Current implementation remains unchanged:** existing Qt renderer, Alt+H/Alt+O, browser Settings and PR #12 are not replaced by this documentation update.
 
 ## Desktop packaging direction (planned, not implemented)
