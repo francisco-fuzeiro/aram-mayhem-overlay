@@ -70,9 +70,11 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "exhaust": "soft_cc",
     "shield": "shield",
     "damage reduction": "shield",
-    "invulnerab": "shield",
+    "invulnerable": "shield",
+    "invulnerability": "shield",
     "armor": "shield",
     "resist": "shield",
+    "resistance": "shield",
     "adaptive force": "ap",
     "on-hit": "attack_speed",
     # Movement speed maps to hp: tanky/bruiser champions that stack HP also
@@ -124,7 +126,6 @@ NAME_STAT_HINTS: dict[str, dict[str, float]] = {
     "adamant": {"shield": 0.4, "hard_cc": 0.3},
     "ice cold": {"soft_cc": 0.5},
     "flashy": {"cdr": 0.3},
-    "donation": {"hp": 0.3},
     "get excited": {"attack_speed": 0.4, "ad": 0.3},
     "firebrand": {"ap": 0.3, "attack_speed": 0.3},
     "infernal conduit": {"ap": 0.4, "cdr": 0.3},
@@ -157,6 +158,8 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 # Cache schema v2 stores listed movement-speed bonuses. Old caches cannot
 # support a safe boot-swap comparison, so require a new item cache.
 _ITEM_CACHE_SCHEMA = 2
+# Version in the filename prevents reuse of contributions parsed by older rules.
+_AUGMENT_CACHE_SCHEMA = 2
 
 
 def _listed_movement_speed(stats: dict, description: str) -> tuple[float, float]:
@@ -368,7 +371,7 @@ def _load_augments() -> dict[str, AugmentData]:
     except (requests.RequestException, ValueError):
         version = "unknown"
 
-    cache_file = CACHE_DIR / f"augments_{version}.json"
+    cache_file = CACHE_DIR / f"augments_v{_AUGMENT_CACHE_SCHEMA}_{version}.json"
     if cache_file.exists():
         cached = json.loads(cache_file.read_text(encoding="utf-8"))
         return _parse_augment_cache(cached)
@@ -440,6 +443,11 @@ def _load_augments() -> dict[str, AugmentData]:
     return result
 
 
+def _contains_catalog_keyword(text: str, keyword: str) -> bool:
+    """Match complete terms only (e.g. AD cannot match Upgrade)."""
+    return re.search(rf"(?<!\w){re.escape(keyword.lower())}(?!\w)", text) is not None
+
+
 def _parse_description_to_stats(description: str, name: str = "") -> StatVector:
     stats = {f: 0.0 for f in StatVector.fields()}
 
@@ -455,13 +463,13 @@ def _parse_description_to_stats(description: str, name: str = "") -> StatVector:
     if description:
         desc_lower = description.lower()
         for keyword, stat in DESCRIPTION_KEYWORDS.items():
-            if keyword.lower() in desc_lower:
+            if _contains_catalog_keyword(desc_lower, keyword):
                 stats[stat] = min(stats[stat] + 0.3, 1.0)
 
     # 3. If still all zeros, try matching keywords against the name itself
     if all(v == 0.0 for v in stats.values()) and name:
         for keyword, stat in DESCRIPTION_KEYWORDS.items():
-            if keyword.lower() in name_lower:
+            if _contains_catalog_keyword(name_lower, keyword):
                 stats[stat] = min(stats[stat] + 0.3, 1.0)
 
     return StatVector(**stats)

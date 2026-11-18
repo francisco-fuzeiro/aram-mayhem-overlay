@@ -1,6 +1,8 @@
 import requests
 from pathlib import Path
-from backend.static_data.loader import StaticData, DD_BASE_URL, CACHE_DIR
+from backend.static_data.loader import (
+    StaticData, DD_BASE_URL, CACHE_DIR, _AUGMENT_CACHE_SCHEMA, _ITEM_CACHE_SCHEMA,
+)
 
 
 def check_and_update(static_data: StaticData) -> bool:
@@ -13,8 +15,8 @@ def check_and_update(static_data: StaticData) -> bool:
         return False
 
     # Check if cache exists for current version
-    aug_cache = CACHE_DIR / f"augments_{current_version}.json"
-    item_cache = CACHE_DIR / f"items_{current_version}.json"
+    aug_cache = CACHE_DIR / f"augments_v{_AUGMENT_CACHE_SCHEMA}_{current_version}.json"
+    item_cache = CACHE_DIR / f"items_v{_ITEM_CACHE_SCHEMA}_{current_version}.json"
 
     if aug_cache.exists() and item_cache.exists():
         return False
