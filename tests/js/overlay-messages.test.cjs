@@ -196,3 +196,44 @@ test("M2/A3 missing OCR candidates show an honest manual fallback", () => {
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     assert.match(panel.children[1].textContent, /No reliable card names/i);
 });
+
+
+test("M2/E3 null scores render honest insufficient-data labels with reroll hidden", () => {
+    const h = harness();
+    h.api.renderRecommendations({
+        recommendations: ["Impassable", "Tooth Fairy", "Shark Bait"].map((name, i) => ({
+            augment_id: String(i), augment_name: name, score: null,
+            label: ["Unknown", "Unknown"], core_items_names: [],
+            explanation: "", sample_size: 0,
+        })),
+        suggest_reroll: true, reroll_reason: "Unsafe stale reroll advice",
+    });
+    const cards = h.element("augment-list").children;
+    assert.equal(cards.length, 3);
+    for (const card of cards) {
+        assert.match(card.innerHTML, /Not rated — insufficient data/);
+        assert.doesNotMatch(card.innerHTML, /NaN|0\\.0\\/10|2\\.1\\/10|null\\/10/);
+    }
+    assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
+    assert.equal(h.element("reroll-badge").classList.contains("hidden"), true);
+});
+
+test("M2/E3 rated offers render numeric scores without losing sort semantics", () => {
+    const h = harness();
+    h.api.renderRecommendations({
+        recommendations: [
+            {augment_id: "great", augment_name: "Great", score: 7.2,
+                label: ["Magic", "Burst"], core_items_names: [],
+                explanation: "Modelled", sample_size: 0},
+            {augment_id: "weak", augment_name: "Weak", score: 3.1,
+                label: ["Magic", "Burst"], core_items_names: [],
+                explanation: "Modelled", sample_size: 0},
+        ],
+        suggest_reroll: false,
+    });
+    const cards = h.element("augment-list").children;
+    assert.equal(cards.length, 2);
+    assert.match(cards[0].innerHTML, /7\\.2\\/10/);
+    assert.match(cards[1].innerHTML, /3\\.1\\/10/);
+    assert.doesNotMatch(cards.map(card => card.innerHTML).join(" "), /NaN/);
+});
