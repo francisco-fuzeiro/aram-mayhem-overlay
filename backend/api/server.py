@@ -72,12 +72,13 @@ class GameState:
 
     def reset(self) -> None:
         """Reset all game-specific state (called when no game is detected)."""
-        if self.ocr_last_detected or screen_watcher.has_detection:
-            self.ocr_last_detected.clear()
-            self.augment_choices.clear()
-            self.chosen_augments.clear()
-            self.chosen_stat_anvils.clear()
-            screen_watcher.reset()
+        # Clear manually entered picks too. An OCR-less match must not
+        # leak augment choices into the next match.
+        self.ocr_last_detected.clear()
+        self.augment_choices.clear()
+        self.chosen_augments.clear()
+        self.chosen_stat_anvils.clear()
+        screen_watcher.reset()
         self.last_known_level = 0
         self.scan_window_open = False
         self.scan_window_level = 0
@@ -607,10 +608,9 @@ async def _poll_game_loop(interval: float | None = None):
                         game_state.post_game = False
                         # -- Scan window management --
                         #
-                        # In ARAM Mayhem, augment selection appears on RESPAWN
-                        # (after dying), not at level-up. The trigger is:
-                        #   was_dead=True → is_dead=False (respawn)
-                        #   AND player has fewer augments than expected for level
+                        # Augment offers may appear when the first eligible
+                        # level is reached or after a respawn. Use only the
+                        # observed local level/death state; no hidden data.
                         #
                         # Track death transitions
                         previous_level = game_state.last_known_level
