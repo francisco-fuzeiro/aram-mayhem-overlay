@@ -34,6 +34,8 @@ Use this repository-local skill when the user asks to continue work on the priva
 
 ## Current handoff anchor (verify, do not blindly trust)
 
-- At this skill's creation: `feat/pregame-settings-feedback` is draft PR #12 based on `fix/live-augment-detection-item-duplicates` (draft PR #11).
-- The next **development phase is D1 — native desktop Settings shell**, described in `docs/IMPLEMENTATION_PHASES.md`. Proposed feature branch: `feat/desktop-settings-shell`, stacked on PR #12; GitHub decides the new PR number.
-- Prior automated Windows CI passed for PR #12, but native Settings window and the installer are **not implemented yet**. Real Windows in-game OCR and item/shop feasibility still need user testing.
+- On 2026-11-18: `feat/desktop-settings-shell` is draft PR #13 based on `feat/pregame-settings-feedback` (draft PR #12), which targets `fix/live-augment-detection-item-duplicates` (draft PR #11). The PR chain has not been merged into main.
+- D1 code and Windows CI are complete: `python -m backend.desktop` creates a normal Qt WebEngine Settings window, using the existing local FastAPI/Settings frontend and detecting compatible server reuse or port conflict. [Windows run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) passed at code/README head `d5aff632`: 234 Python tests, 1 warning; 4 Node Settings tests and syntax checks passed. Re-verify the newest documentation commit's CI.
+- D1 Windows native GUI, in-game transparency, hotkeys and persistence/feedback acceptance are still **open** (`PH-D1.5`).
+- Next proposed phase is **D2 — single instance and tray lifecycle**, in a new draft PR stacked on PR #13. No installer, updater or redesign in D2.
+- External code candidates are catalogued in `docs/REUSE_CANDIDATES.md`. Favor explicit compatible licenses and targeted adapters with source-commit attribution; Mayhem Advisor is **not** licensed for general source copying.
