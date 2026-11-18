@@ -95,10 +95,12 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - `backend/engine/build_suggester.py` deduplicates candidate names (casefold + whitespace normalization) across items already owned, planned paths and proposed boot swaps. This avoids listing two different mode-specific catalog IDs with the same name as separate items.
 - `backend/api/server.py` starts OCR scans when an augment becomes due at a newly observed 3/7/11/15 level, including the first in-game snapshot, or on respawn with outstanding offers; avoids repeatedly reopening the same-level scan. Reset clears manual augment state without requiring previous OCR detection.
 - `frontend/app.js` leaves **DETECT AUGMENTS** accessible in overlay mode, opens manual input when a pick is due and OCR is unavailable, does not falsely report SCANNING without OCR. `frontend/index.html` shows install/manual instructions; README provides the Tesseract command and fallback steps.
-- `tests/test_live_mayhem_regressions.py` covers duplicate names, owned aliases, active and enemy trinket filtering, scan triggers, hidden fallback and per-game reset. **Windows Actions not run at document authoring time.** Actual in-game OCR recognition and shop eligibility still require user verification.
+- `tests/test_live_mayhem_regressions.py` covers duplicate names, owned aliases, active and enemy trinket filtering, scan triggers, hidden fallback and per-game reset. **Verified Windows Actions run `44325282457`: 200 passed, 1 warning; JavaScript syntax check passed**, at feature+documentation head `df2cf1ba`. Actual in-game OCR recognition and shop eligibility still require user verification.
 - **Immediate user dependency:** install Windows Tesseract OCR (Python `pytesseract` alone is insufficient), restart Qt overlay, and test. Manual three-choice search works without Tesseract. Avoid inferring augment effectiveness from the screenshot alone.
 
 ## Automated verification (as last observed)
+
+- PR #11 Windows CI `44325282457` on commit `df2cf1ba`: **200 passed, 1 warning**, `node --check frontend/app.js` passed. Later documentation commits require separate CI validation.
 
 - PR #10 Windows CI `44322346286` on feature commit `5c0d82ed`: **191 passed, 1 warning**, JavaScript syntax check passed. Later documentation-only commits need separate CI confirmation.
 
