@@ -187,7 +187,7 @@ if FRONTEND_DIR.exists():
 # -- REST --
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BuildPreferenceRequest(BaseModel):
@@ -384,7 +384,7 @@ def search_augments(
 
 
 class BugReportRequest(BaseModel):
-    description: str = ""
+    description: str = Field(default="", max_length=2000)
 
 
 _last_bug_report_time: float = 0.0
@@ -400,15 +400,19 @@ async def create_bug_report(req: BugReportRequest | None = None):
     Rate-limited to one report per 30 seconds.
     """
     global _last_bug_report_time
-    now = time.monotonic()
-    if now - _last_bug_report_time < _BUG_REPORT_COOLDOWN:
-        remaining = int(_BUG_REPORT_COOLDOWN - (now - _last_bug_report_time))
-        return {"error": f"Please wait {remaining}s before submitting another report"}
-    _last_bug_report_time = now
-
     user_description = req.description if req else ""
 
+    # Serialize the cooldown check and local write so concurrent submissions
+    # cannot both be accepted. A failed disk write must not consume cooldown.
     async with game_state.lock:
+        now = time.monotonic()
+        if now - _last_bug_report_time < _BUG_REPORT_COOLDOWN:
+            remaining = max(1, int(_BUG_REPORT_COOLDOWN - (now - _last_bug_report_time)))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Please wait {remaining}s before submitting another report",
+            )
+
         state_dict = {
             "augment_choices": list(game_state.augment_choices),
             "chosen_augments": list(game_state.chosen_augments),
@@ -418,9 +422,16 @@ async def create_bug_report(req: BugReportRequest | None = None):
             "awaiting_stat_delta": game_state.awaiting_stat_delta,
             "ocr_enabled": game_state.ocr_enabled,
         }
-
-    # Always save local JSON backup
-    report_path = diagnostics.generate_report(game_state_dict=state_dict)
+        try:
+            report_path = diagnostics.generate_report(
+                game_state_dict=state_dict, user_description=user_description,
+            )
+        except OSError:
+            logger.exception("Unable to save the local diagnostic report")
+            raise HTTPException(
+                status_code=500, detail="Could not save local diagnostic report",
+            ) from None
+        _last_bug_report_time = now
 
     # Attempt GitHub issue creation
     github_url = None
