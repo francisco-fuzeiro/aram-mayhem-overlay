@@ -161,7 +161,8 @@ async def test_runtime_pipeline_uses_updated_style_on_next_poll(monkeypatch):
         with pytest.raises(StopPolling):
             await server._poll_game_loop(interval=0.01)
     assert styles == ["Balanced", "Damage"]
-    assert [msg["build_style"] for msg in outgoing] == styles
+    assert [msg["build_style"] for msg in outgoing if msg["type"] == "update"] == styles
+    assert all(msg.get("state") == "in_game" for msg in outgoing if msg["type"] == "status")
 
 
 @pytest.mark.asyncio
