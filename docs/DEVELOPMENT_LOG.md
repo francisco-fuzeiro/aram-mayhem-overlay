@@ -349,3 +349,10 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added `tests/test_overlay_layout_d4b.py` and five JavaScript Settings tests for form, sample preview, invalid values, retry and persisted API payload. No actual Qt/League instance was launched in this connected GitHub session. Initial Actions [44360223711](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44360223711) was **in progress** when this entry was written; a final-head check is required and will be recorded separately.
 - On-device acceptance remains open: `PH-D4b.2`, `UX-D09` (1080p/1440p, DPI 100/125/150%, multi-monitor, click-through/transparency, Alt+Tab and League borderless). Real augment detection/rerolls remain D5b/D7; OCR and scoring were not modified. Next phase D5a is dependency-readiness guidance only.
 
+
+## 2026-11-18 Europe/Lisbon — D4b automated Windows CI succeeded
+
+- Repaired the initial tiny-screen geometry test failure by ensuring a usable minimum content-height target before clamping the overlay to the available display; corrected a malformed JavaScript regression-test regex and retained API-save error messages in the form. The final code/test-head [Windows Actions run 44361461870](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44361461870) **succeeded** at `9520057c6da6228c4ff7772ec43310060e736d37`: **303 Python passed, 1 warning; 18 JavaScript passed, 0 failed; syntax checks passed**.
+- `PH-D4b.1` completed based on implemented controls/preview/Qt apply and successful headless regression tests. **No native Windows Qt, game, display-DPI or Alt+Tab validation performed here**. Leave `PH-D4b.2` and `UX-D09` unchecked, plus separate OCR three-card/reroll and shop detection requirements. PR #17 remains draft, based on #16, with `main` untouched.
+- This entry is documentation-only; after this commit, check latest CI again to validate the final documentation head. Next scoped work is D5a OCR executable/path readiness and first-run guidance (a different draft PR).
+
