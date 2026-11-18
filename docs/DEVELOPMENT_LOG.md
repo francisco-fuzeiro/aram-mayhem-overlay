@@ -143,3 +143,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Verification: full Windows CI **not run yet** at this entry; user's **163 passed** are for earlier code, not proof of this fix. On-device Qt transparency **not yet tested**.
 - Next: verify CI then request Windows screenshot of `--renderer qt`; if necessary inspect pywebview runtime version and GPU rendering issues.
 
+## 2026-11-18 — PR #9 automated validation
+
+- [Windows Actions run 44319789943](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44319789943) completed successfully at code/docs head `e93aad6b`.
+- `python -m pytest -q`: **178 passed, 1 warning**. Includes 7 focused native handle and renderer tests.
+- `node --check frontend/app.js`: **passed**.
+- Transparency over Windows desktop/League and the Qt global Alt+O hotkey are **not yet verified in-game**. Only user-on-device visual feedback can confirm the compositor workaround.
+- Recommended user command after fetching PR #9 branch: `python -m pip install -e ".[overlay]"` then `python -m backend.overlay --renderer qt` (stop the old overlay first). Do not merge draft PRs into `main` yet.
+
