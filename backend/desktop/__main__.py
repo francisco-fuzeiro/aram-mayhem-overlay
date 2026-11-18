@@ -13,6 +13,10 @@ from backend.desktop.runtime import DesktopStartupError
 from backend.desktop.lifecycle import run_application
 from backend.desktop.window import is_available
 
+# Align desktop-launched overlay capture coordinates with the legacy Qt entrypoint.
+# Importing the existing launcher sets Windows DPI awareness before QApplication.
+from backend.overlay import __main__ as _overlay_dpi_bootstrap
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(message)s",
