@@ -27,6 +27,7 @@ from backend.engine.build_suggester import BUILD_STYLES
 from backend import preferences
 from backend.engine.augment_detector import has_stats_changed, match_augment
 from backend.diagnostics import collector as diagnostics
+from backend.diagnostic_events import events as event_log
 
 static_data = StaticData()
 
@@ -78,6 +79,8 @@ class GameState:
         """Reset all game-specific state (called when no game is detected)."""
         # Clear manually entered picks too. An OCR-less match must not
         # leak augment choices into the next match.
+        if self.scan_window_open:
+            event_log.emit("ocr_window", state="closed", reason="reset", level=self.scan_window_level)
         self.ocr_last_detected.clear()
         self.augment_choices.clear()
         self.chosen_augments.clear()
@@ -135,6 +138,7 @@ def should_open_augment_scan(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
+    event_log.start()  # nonblocking event queue; writer owns all disk I/O
     # Every entrypoint (CLI, desktop overlay, and direct ASGI) needs a DB.
     init_db()
     saved_preferences = preferences.load_preferences()
@@ -150,6 +154,7 @@ async def lifespan(app: FastAPI):
         await poll_task
     except asyncio.CancelledError:
         pass
+    event_log.stop()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -565,8 +570,16 @@ async def game_ws(websocket: WebSocket):
                             game_state.chosen_augments.append(aug_id)
                     game_state.augment_choices.clear()
                     game_state.ocr_last_detected.clear()
+                    if game_state.scan_window_open:
+                        event_log.emit("ocr_window", state="closed", reason="manual_choice",
+                                       level=game_state.scan_window_level)
                     game_state.scan_window_open = False
                     screen_watcher.reset()
+                    if aug_id:
+                        event_log.emit(
+                            "augment_confirmation", method="manual",
+                            kind="anvil" if is_stat_anvil else "augment",
+                        )
                 await websocket.send_text(json.dumps({
                     "type": "ack",
                     "action": "choose_augment",
@@ -648,7 +661,12 @@ def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
     """
     augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
     augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    matches = detect_augments(augment_names, save=True)
+    matches = detect_augments(augment_names, save=False)
+    event_log.emit(
+        "ocr_recognition", outcome="manual_detected" if matches else "manual_empty",
+        count=len(matches or []),
+        confidence=float(max((m[2] for m in matches), default=0)),
+    )
 
     ids = [m[0] for m in matches] if matches else []
     detected = [
@@ -666,7 +684,12 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
     """
     augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
     augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    action, matches = screen_watcher.check(augment_names, save=True)
+    action, matches = screen_watcher.check(augment_names, save=False)
+    if action != "unchanged":
+        event_log.emit(
+            "ocr_recognition", outcome=action, count=len(matches or []),
+            confidence=float(max((m[2] for m in matches or []), default=0)),
+        )
 
     if action == "detected" and matches:
         ids = [m[0] for m in matches]
@@ -677,6 +700,14 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
         return (action, ids, detected)
 
     return (action, [], None)
+
+
+def _record_match_phase(state: GameState, phase: str) -> None:
+    """Diagnostic-only phase tracker: no effect on gameplay decisions."""
+    previous = getattr(state, "_diagnostic_phase", "no_game")
+    if previous != phase:
+        event_log.emit("match_transition", from_state=previous, to_state=phase)
+        state._diagnostic_phase = phase
 
 
 def _poll_dependencies() -> SimpleNamespace:
@@ -711,6 +742,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
     if clients_count > 0:
         raw = deps.get_raw_game_data()
         if raw:
+            _record_match_phase(state, "in_game")
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
             current_level = snapshot.level
 
@@ -744,6 +776,10 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
+                    event_log.emit(
+                        "ocr_window", state="opened", reason="level_due",
+                        level=current_level,
+                    )
                     state.awaiting_stat_delta = False
                     state.delta_wait_ticks = 0
                     state.stat_snapshot_before = dict(
@@ -782,6 +818,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                         )
                         state.awaiting_stat_delta = True
                         state.delta_wait_ticks = 0
+                        event_log.emit("augment_inference", result="pending", confidence=0.0)
 
                 # Close window when player takes damage (left base)
                 if (
@@ -797,6 +834,10 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                         if state.augment_choices:
                             await deps.send_augment_confirm(None)
                         state.scan_window_open = False
+                        event_log.emit(
+                            "ocr_window", state="closed", reason="damage",
+                            level=current_level,
+                        )
 
             # -- Auto OCR (only while scan window is open) --
             # Run outside the lock since OCR is blocking I/O
@@ -849,6 +890,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
             # Read the local client (read-only) off the event loop.
             champ_select = await deps.to_thread(deps.read_champ_select_payload)
             if champ_select is not None:
+                _record_match_phase(state, "champ_select")
                 async with state.lock:
                     state.had_game_last_tick = False
                     state.post_game = False
@@ -857,6 +899,7 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
             else:
                 async with state.lock:
                     if state.had_game_last_tick:
+                        _record_match_phase(state, "post_game")
                         # Game just ended — transition to post-game
                         state.had_game_last_tick = False
                         state.post_game = True
@@ -870,9 +913,11 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                             logger.info("Post-game timeout — resetting state")
                             state.post_game = False
                             state.reset()
+                            _record_match_phase(state, "no_game")
                             await deps.broadcast(json.dumps({"type": "no_game"}))
                     else:
                         state.reset()
+                        _record_match_phase(state, "no_game")
                         await deps.broadcast(json.dumps({"type": "no_game"}))
 
 
@@ -962,6 +1007,18 @@ async def _try_stat_delta_match(snapshot: GameSnapshot) -> None:
             game_state.chosen_augments.append(matched.id)
         game_state.augment_choices.clear()
         game_state.ocr_last_detected.clear()
+        event_log.emit(
+            "augment_inference", result="auto",
+            confidence=max(0.0, min(1.0, float(confidence))),
+        )
+        event_log.emit(
+            "augment_confirmation", method="automatic",
+            kind="anvil" if is_stat_anvil else "augment",
+        )
+        event_log.emit(
+            "ocr_window", state="closed", reason="confirmed",
+            level=game_state.scan_window_level,
+        )
         game_state.scan_window_open = False
         screen_watcher.reset()
 
@@ -977,6 +1034,10 @@ async def _try_stat_delta_match(snapshot: GameSnapshot) -> None:
         logger.info(
             "Augment match ambiguous (best=%.2f) — requesting user confirmation",
             confidence,
+        )
+        event_log.emit(
+            "augment_inference", result="ambiguous",
+            confidence=max(0.0, min(1.0, float(confidence))),
         )
         best_guess_id = matched.id if matched else None
         await _send_augment_confirm(best_guess_id)
