@@ -1,5 +1,8 @@
 # ARAM Oracle — Product and UX TODO
 
+> **M3/F1 code evidence (2026-11-18):** 363 Python passing / 1 AUD-07 xfailed, 28 JS passing / 4 TODO, green code [CI 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545), PR #33. Check final documentation-head CI before marking phase gate complete and starting F2.
+
+
 ## M3 Match lifecycle — active gate (2026-11-18)
 
 - [ ] **M3/F1** Classified LCDA read off event loop, F1 draft PR #33. Implementation committed, full final-head CI not yet confirmed; no completion claim.
