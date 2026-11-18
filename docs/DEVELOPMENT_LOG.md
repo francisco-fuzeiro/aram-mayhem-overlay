@@ -189,3 +189,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added regression suite `tests/test_live_mayhem_regressions.py` and install/troubleshooting instructions to README. Prior PR #10 tests were **191 passed** on Windows; this PR's modified tests have **not run yet**.
 - Remaining: install/locate Tesseract on the actual user PC, confirm 3-card OCR results and positional cropping with another live image; validate Mayhem item metadata and real shop buyability, since current builds remain heuristic.
 
+## 2026-11-18 — PR #11 Windows CI verification
+
+- Verified [Windows Actions run 44325282457](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44325282457) **success**, at feature head `df2cf1ba`.
+- `python -m pytest -q`: **200 passed, 1 warning**, zero failed; `node --check frontend/app.js`: **passed**.
+- Includes nine new focused regression tests from the first actual Mayhem screenshot, plus the pre-existing 191. This is CI evidence, **not proof** of automatic three-card OCR, real shop item availability or live equip behavior.
+- Required Windows follow-up: verify `Test-Path 'C:\Program Files\Tesseract-OCR\tesseract.exe'`, install via `winget install --id UB-Mannheim.TesseractOCR --exact` if needed, fetch PR #11 branch, restart `python -m backend.overlay --renderer qt`, inspect AUGMENT PICK and DETECT AUGMENTS in a match, confirm Poro-Snax does not occupy a build slot and Phantom Dancer is not repeated.
+- Remaining Mayhem-specific considerations: actual augment name variants, OC R region calibration, eligible levels, item patch/mode availability and enemy catalog provenance.
+
