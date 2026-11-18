@@ -199,19 +199,18 @@ def test_missing_pyqt6_produces_actionable_error(monkeypatch):
 def test_launcher_does_not_start_server_without_qt(monkeypatch):
     monkeypatch.setattr(desktop_main, "is_available", lambda: False)
     monkeypatch.setattr(
-        desktop_main, "ensure_api_available",
-        lambda: pytest.fail("Must check Qt before launching the API"),
+        desktop_main, "run_application",
+        lambda _view: pytest.fail("Must check Qt before launching the app"),
     )
     assert desktop_main.main([]) == 2
 
 
-def test_launcher_passes_local_settings_url_to_native_window(monkeypatch):
+def test_launcher_passes_settings_view_to_unified_runtime(monkeypatch):
     monkeypatch.setattr(desktop_main, "is_available", lambda: True)
-    monkeypatch.setattr(desktop_main, "ensure_api_available", lambda: "reused")
     seen = []
-    monkeypatch.setattr(desktop_main, "run_desktop", lambda url: seen.append(url) or 0)
+    monkeypatch.setattr(desktop_main, "run_application", lambda view: seen.append(view) or 0)
     assert desktop_main.main([]) == 0
-    assert seen == [runtime.SETTINGS_URL]
+    assert seen == ["settings"]
 
 
 def test_launcher_fails_cleanly_on_conflict(monkeypatch):
@@ -220,11 +219,7 @@ def test_launcher_fails_cleanly_on_conflict(monkeypatch):
     def fail():
         raise runtime.DesktopStartupError("Port 8765 conflict")
 
-    monkeypatch.setattr(desktop_main, "ensure_api_available", fail)
-    monkeypatch.setattr(
-        desktop_main, "run_desktop",
-        lambda _url: pytest.fail("Must not show a foreign page"),
-    )
+    monkeypatch.setattr(desktop_main, "run_application", lambda _view: fail())
     assert desktop_main.main([]) == 1
 
 

@@ -123,6 +123,16 @@ def main(argv: list[str] | None = None):
         help="Select the window engine; Qt can avoid WebView2 transparency problems.",
     )
     args = parser.parse_args(argv)
+    # Share the same desktop lifecycle for Qt launches and repeated activation.
+    # The explicit webview renderer remains a legacy developer fallback.
+    if args.renderer == "qt":
+        from backend.desktop.__main__ import main as desktop_main
+        return desktop_main([], initial_view="overlay")
+    if args.renderer == "auto":
+        from backend.overlay.window import is_available as qt_ok
+        if qt_ok():
+            from backend.desktop.__main__ import main as desktop_main
+            return desktop_main([], initial_view="overlay")
     from backend.config import config
     config.load()
     logger.info("Starting ARAM Oracle with overlay...")
@@ -137,7 +147,8 @@ def main(argv: list[str] | None = None):
 
     # Launch the overlay (blocks until window is closed)
     _launch_overlay(renderer=args.renderer)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

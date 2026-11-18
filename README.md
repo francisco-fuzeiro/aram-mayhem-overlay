@@ -96,42 +96,53 @@ be sent there. An unavailable disk or a 30-second submission cooldown is
 shown as an error and **must not** be presented as a successful save.
 
 Qt **Alt+O** still toggles interaction, **Alt+H** still shows/hides the
-overlay, and clicking through remains the normal in-game mode. The system
-tray action only opens a standard browser tab; it does not alter the
+overlay, and clicking through remains the normal in-game mode. In the managed Qt app, the system tray opens the native Settings window;
+the browser `/settings` URL remains a fallback. Neither route changes the
 overlay's transparency or mouse handling.
 
-### Native desktop Settings (D1 prototype)
+### Desktop and overlay application (D2 prototype)
 
-Install the existing optional Qt/WebEngine dependency and launch Settings
-in a **regular, resizable Windows window**, independently of the game overlay:
+Install the Qt/WebEngine dependency, then start the unified desktop host:
 
 ```powershell
 python -m pip install -e ".[overlay]"
 python -m backend.desktop
 ```
 
-This hosts the existing `/settings` page and its same-origin
-`/api/preferences` and `/api/bug-report` requests; it does not duplicate
-the frontend, the preference store or the recommendation pipeline.
-If an existing compatible ARAM Oracle API is listening on
-`127.0.0.1:8765`, the desktop window reuses it. Otherwise this command
-starts the existing FastAPI server in its own background thread.
-A missing PyQt6 WebEngine installation, an incompatible process occupying
-port 8765, or an API that cannot become ready produces an error in the
-terminal rather than an empty Settings page.
+This opens a normal, resizable Settings window and starts the existing
+FastAPI engine on loopback if no compatible API is already available.
+The separate transparent Qt overlay can be shown from the single ARAM Oracle
+notification-area icon. Settings uses the existing `/settings`, preference,
+feedback and WebSocket endpoints; there is no additional engine or settings
+store. Closing Settings hides it to the tray when available. **Quit ARAM
+Oracle** in that menu stops the owned API and closes the Qt application.
+With no system tray, closing Settings quits instead of stranding a process.
 
-The previous in-game overlay entrypoint is **unchanged**:
+The tested transparent overlay launcher remains available:
 
 ```powershell
 python -m backend.overlay --renderer qt
 ```
 
-D1 is a development-only window, **not** a packaged application. A unified
-single-instance / tray lifecycle, installer and updater are later phases.
-For now the overlay's **Open Settings** tray action still opens the
-browser fallback. If launching the two developer commands independently,
-keep their server-owning terminal open while using the shared Settings/API;
-lifecycle coordination is part of D2.
+It now starts the same managed Qt application with the overlay shown. A
+second invocation of either command activates the corresponding window of
+the already running instance; it does not create a second API or tray. The
+main launcher chooses Qt when available. The explicit
+`--renderer webview` path remains an un-managed developer fallback.
+Alt+H still shows/hides the overlay; Alt+O still toggles click-through.
+Do not use the interaction toggle while actively fighting.
+
+Startup refuses unrelated services on port 8765, or reports an unresponsive
+existing ARAM Oracle owner rather than taking over its lock. If the primary
+process crashes, the OS releases its per-user lock automatically, so a
+subsequent launch may reclaim ownership. A pre-existing compatible API may
+be reused; **Quit** never terminates an API owned by another process.
+
+D2 is a developer prototype, **not** a packaged application or installer.
+Real Windows tray, repeated launch, close/reopen, port conflict and shutdown
+behavior still require on-device acceptance. Browser `/settings` remains
+available as a fallback when the local API is running. Tesseract availability
+does not validate recognition of three Mayhem augments or rerolls.
 
 ### In-game augment options or build items are missing?
 

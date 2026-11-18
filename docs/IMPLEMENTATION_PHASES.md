@@ -12,14 +12,19 @@ Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX back
 | **D1 — Desktop Settings shell (first development phase)** | Small: native normal Qt window hosting `/settings` | G0 | Standalone Settings window with reliable startup/error state and tests |
 | D2 — Single-instance and lifecycle | Small: reuse existing server, Quit/close behavior | D1 | One API server and one tray owner, graceful exit/reopen |
 | D3 — Desktop navigation | Small: General + Build + Feedback/Diagnostics sections | D2 | No duplicate settings backend and accessible navigation |
-| D4 — Overlay controls and preview | Small: persisted scale/anchor/opacity + non-game preview | D3 | Changes validated and reflected safely in Qt, without transparency regression |
-| D5 — OCR first-run diagnostics | Small: detection/setup/test capture UI | D3 | Missing OCR readable; reliable manual route, no false auto-detection |
-| D6 — Game context state machine | Small: pure deterministic state reducer + transitions | P0 OCR readiness | Minimal overlay in combat, explicit unknown states, regression tests |
+| D4a — Overlay preferences | Small: validated scale/anchor/offset/opacity model and persistence | D3 | Migration, error handling and safe defaults tested |
+| D4b — Overlay preview and apply | Small: Settings preview and safe Qt position/scale/opacity apply | D4a | No transparency, hotkey or click-through regressions |
+| D5a — OCR readiness | Small: Tesseract detection and setup guidance | D3 | Missing OCR clearly reported, no silent install |
+| D5b — OCR test and diagnostics | Small: manual capture/recognition test with confidence and privacy-safe report | D5a | Failure and manual fallback tested; real screen calibration pending until observed |
+| **D5c — Claude UX/UI audit and desktop design closure** | **Small, evidence-based audit of completed desktop Settings/preview/OCR workflows, then prioritized design fixes** | **D3 + D4a + D4b + D5a + D5b** | **Claude audit findings recorded, P0/P1 UX defects resolved or explicitly tracked, desktop Windows recheck before D6** |
+| D6 — Game context state machine | Small: pure deterministic state reducer + transitions | D5c + P0 OCR readiness | Minimal overlay in combat, explicit unknown states, regression tests |
 | D7 — Augment micro-advice | Small: align 3 scores to 3 **verified** offers | D6 + live OCR fixtures | Hide when cards vanish; rerolls and uncertain detection handled |
 | D8 — Shop-context micro-advice | Small: shop detector + feasible next item | D6 + verified shop source and item catalog | No shop = no shop advice; real purchase eligibility validated |
-| D9 — App package smoke | Small: unsigned local onedir Windows package | D2–D5 + core P0 readiness | Starts on clean Windows without Python; assets bundled |
+| D9 — App package smoke | Small: unsigned local onedir Windows package | D2–D5c + core P0 readiness | Starts on clean Windows without Python; assets bundled |
 | D10 — Installer and uninstall | Small: Inno Setup or evaluated equivalent | D9 | Installs, launches, repairs/uninstalls, preserves data only by choice |
 | D11 — Release quality | Separate later PRs: privacy, license, updater, signing | D10 | Explicit release gates; no misleading trust/compliance claims |
+
+D5c closes the **desktop Settings interface design pass** before core gameplay panels begin. It does not certify the later D7/D8 in-game augment/shop micro-panels; those need their own contextual Windows/League validation when implemented.
 
 D6–D8 are **product core work**, not prerequisites for prototyping the Settings shell. They **are prerequisites for marketing or releasing a reliable in-game assistant**. Keep installer work behind verified lifecycle and P0 game-data tests.
 
@@ -70,6 +75,22 @@ D6–D8 are **product core work**, not prerequisites for prototyping the Setting
 - **D5a:** local Tesseract executable detection; explicit status and guided install path, no hidden installation.
 - **D5b:** manual capture/test recognition with confidence and safe fallback; save sanitized diagnostics only.
 - Tests: installed/missing OCR, failed extraction and privacy/errors; user Windows screenshot calibration required.
+
+## D5c — Claude-led UX/UI audit and desktop design closure (new phase)
+
+**Goal:** once D3 navigation, D4a/D4b settings and preview, and D5a/D5b OCR/onboarding are implemented, review the **complete desktop interface** with Claude, then close its highest-priority design and usability findings before D6. This is a **planned external audit**, not a completed Claude review or an instruction to access a Claude account automatically.
+
+**Audit inputs:** current runnable Windows desktop app, screenshots of General/Overlay/Build/OCR/Diagnostics/Feedback/About, interactive states (first run, loading, saved, invalid input, missing Tesseract, preview, errors), implementation/docs, and 1080p/1440p or relevant DPI captures where available. Avoid private League data or credentials in shared screenshots/reports.
+
+**Audit rubric:** navigation/information architecture, clarity of action hierarchy, visual consistency (typography/spacing/contrast), error/preference feedback, accessibility/keyboard, focus/resizing and system-tray expectations, onboarding, performance/perceived latency, and legibility of the non-game overlay preview. Respect the event-driven overlay design and Riot/privacy constraints.
+
+**Deliverables and acceptance:**
+
+1. Obtain an actual Claude audit (user-provided or performed with an explicitly available authorized Claude workflow), stored as a review artifact with annotated evidence; rank issues P0/P1/P2 with reproduction, impact and suggested change. **Never claim Claude reviewed the app without its real output.**
+2. Implement and test **bounded P0/P1 desktop UX/design corrections** from the review, preserving existing APIs, semantics, Qt transparency, click-through, Alt+H/Alt+O and single-instance ownership. Record anything larger as separate TODO work, not an open-ended redesign.
+3. Run automated frontend/desktop tests and recheck actual Windows Settings navigation, resize, focus, save/error states, OCR failure/manual path and overlay preview. Document accepted findings, deferred polish and evidence; no fabricated Windows or game tests.
+
+**Not in scope:** rewriting the engine, changing recommendation scores/OCR recognition algorithms, copying OP.GG visuals/assets, claiming League in-game panels are complete, installer/release packaging. D7/D8 contextual panels receive their own in-game UX checks later. Start D6 only after D5c's desktop review gate is resolved or explicitly carried forward with rationale.
 
 ## D6 — Context controller (separate from new UI look)
 

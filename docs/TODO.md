@@ -81,15 +81,16 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **UX-D01 — Native desktop control center (P1).** Open a normal, resizable Qt desktop window from the tray/Start menu, reusing the existing local Settings page. Keep the transparent overlay as a separate, lightweight Qt window backed by the same local engine; avoid introducing a second backend.
 - [ ] **UX-D02 — Clear Settings navigation (P1).** Organize General, Overlay, Build Preferences, Augment Detection/OCR, Diagnostics, Feedback, and About into a consistent desktop navigation. Persist settings with validation, helpful errors, and clear 'Saved' states; no in-game forms.
 - [ ] **UX-D03 — Overlay customization with preview (P1).** Configure anchor/corner, offsets, opacity, scale, compact vs expanded mode, visibility and safe click-through from the desktop app, with a simulated preview. Never use fake game-state detection in a real match.
-- [ ] **UX-D04 — One-engine lifecycle and tray behavior (P1).** Enforce single instance, no duplicate port 8765 servers, reliable Open Settings/Show Overlay/Quit actions, explicit background-vs-exit behavior, no elevation needed for ordinary use. Preserve Alt+O and Alt+H.
+- [x] **UX-D04 — One-engine lifecycle and tray behavior (P1).** Enforce single instance, no duplicate port 8765 servers, reliable Open Settings/Show Overlay/Quit actions, explicit background-vs-exit behavior, no elevation needed for ordinary use. Preserve Alt+O and Alt+H.
 - [ ] **UX-D05 — Windows installer and uninstaller (P1 after core validation).** Produce a reproducible installer (evaluate PyInstaller onedir + Inno Setup first) with Start menu/desktop shortcuts, sensible install path, clean uninstall and optional user-data retention. User should never need Python, pip or PowerShell.
 - [ ] **UX-D06 — First-run onboarding / OCR readiness (P1).** Detect Tesseract and required executables, explain installation or legally compatible bundling with notices, let the user test OCR, and provide manual fallback. Do not silently download or install third-party packages.
 - [ ] **UX-D07 — Distribution safeguards (P2).** Validate clean Windows install/uninstall/upgrade, antivirus false positives, packaging of local frontend/static assets, process shutdown, minimum permissions, and code signing/SmartScreen strategy before public distribution.
 - [ ] **UX-D08 — Updates and rollback (P2).** Design a versioned, opt-in update path with integrity verification, visible release notes, no disruptive update mid-match and rollback/recovery. Do not introduce auto-updates before a reliable package exists.
 - [ ] **UX-D09 — Desktop/overlay smoke matrix (P1).** Test app launch, minimize to tray, Settings persistence, reopening an overlay, switching modes, exit and restart on real Windows at 1080p/1440p, including League borderless and Alt+Tab. Attach evidence to each item.
 - [ ] **UX-D10 — Branding and licensing (P2).** Build original ARAM Oracle icon, typography, layout and visual hierarchy; use OP.GG only as an interaction reference, check Riot requirements and every bundled dependency's license/attribution.
+- [ ] **UX-D11 — Claude UX/UI audit after desktop interface completion (P1).** After D3, D4a/D4b and D5a/D5b, commission/document an actual Claude review of the real Windows Settings, onboarding, preview and feedback flows. Triage concrete accessibility, consistency and usability findings and implement bounded P0/P1 design fixes before D6. Keep future D7/D8 live gameplay panels separately validated; no pretend audit or copied OP.GG designs.
 
-**Delivery order:** finish current PR #12 Windows checks and P0 augment detection first; then implement the native desktop window and settings structure; package the installer once app start/stop, OCR and contextual overlay are reliable. Do not treat a pretty installer as evidence that live recommendations work.
+**Delivery order (desktop roadmap):** D1–D2 lifecycle, D3 navigation, D4a preferences, D4b preview, D5a OCR readiness, D5b diagnostics, **D5c Claude UI/UX audit + bounded design closure**, then D6–D8 contextual in-game engine/panels, then D9–D11 packaging/release when core behavior is dependable. Historical PR #12 follow-ups remain independently tracked. Do not treat a pretty installer as evidence that live recommendations work. Do not treat a pretty installer as evidence that live recommendations work.
 
 ## Small desktop development phases — implementation checklist
 
@@ -114,9 +115,13 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 ### D2 — Stable single instance and tray lifecycle
 
-- [ ] **PH-D2.1:** Reuse one ASGI server and one tray owner; prevent duplicate instances and conflicting port starts.
-- [ ] **PH-D2.2:** Implement reliable Open Settings, Show/Hide Overlay, Close/Minimize and Quit behavior without orphaned processes; test failures and recovery.
-- [ ] **PH-D2.3 (Windows):** Validate startup, repeat launch, taskbar/tray, close/reopen and keyboard shortcuts.
+- [x] **PH-D2.1:** Reuse one ASGI server and one tray owner; prevent duplicate instances and conflicting port starts.
+- [x] **PH-D2.2:** Implement reliable Open Settings, Show/Hide Overlay, Close/Minimize and Quit behavior without orphaned processes; test failures and recovery.
+- [x] **PH-D2.3 (Windows):** Validate startup, repeat launch, taskbar/tray, close/reopen and keyboard shortcuts.
+
+**D2 automated implementation evidence (2026-11-18):** [draft PR #14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14), [Windows CI 44345555542](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44345555542) at D2 code head `0b4a563b`: **253 Python passed, 1 warning; 4 Node tests passed; JavaScript syntax checks passed**. New headless tests cover OS-held lock, local activation, duplicates, error/stop paths and Qt launcher contract; they do **not** prove real tray, focus, close/hide or no orphan processes on the user's Windows machine. At this historical automated-test checkpoint the Windows validation was pending; later user-device evidence below confirms **PH-D2.3 and UX-D04**. **UX-D09 and PH-D1.5 remain unchecked**. The explicit legacy `--renderer webview` fallback is not part of the unified Qt tray lifecycle.
+
+**D2 on-device tray acceptance, 2026-11-18 (completed for lifecycle/tray):** The user launched the D2 branch on Windows. The first process logged `Settings hidden to notification area`, and the user confirmed the tray icon remains in the Windows `^` notification area rather than in the taskbar. They confirmed all three right-click actions: **Open Settings**, **Show/Hide Overlay**, and **Quit** (full app exit). A second `python -m backend.desktop` logged `Activated existing ARAM Oracle settings window`; a deliberate foreign `python -m http.server 8765 --bind 127.0.0.1` listener was correctly rejected as incompatible when the overlay launcher was attempted. An earlier `KeyboardInterrupt` reflects manually interrupting the Python process, not proof of a tray regression. **Follow-up Windows screenshot and logs:** the D2 Qt launcher logged `Qt overlay hidden (Alt+H or tray to restore)`, `Qt click-through OFF` and `Qt overlay shown`, confirming Alt+H hide/restore and Alt+O interaction switching. After the user exited with Quit, `Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue` produced no listener rows. This validates the expected lifecycle and release of the managed API port; it does not prove every process/thread is absent. **PH-D2.3 and UX-D04 accepted.** Keep `UX-D09` (broader Windows/display matrix), `PH-D1.5` (focus/resize, preference save/restart and feedback), real borderless League transparency, OCR three-card/reroll accuracy and shop detection open.
 
 ### D3 — Desktop Settings information architecture
 
@@ -136,6 +141,12 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **PH-D5a.1:** Detect Tesseract availability/path and show helpful first-run status; no silent installation.
 - [ ] **PH-D5b.1:** Add a user-triggered OCR diagnostic/preview with confidence and safe manual fallback.
 - [ ] **PH-D5b.2 (Windows):** Confirm three real Mayhem cards and rerolls at the actual user's HUD scaling.
+
+### D5c — Claude UX/UI audit and design closure (after D3 + D4a/b + D5a/b)
+
+- [ ] **PH-D5c.1:** Obtain and record the actual Claude audit of implemented Windows Settings/OCR/preview flows, with screenshots or reproducible evidence, severity (P0/P1/P2), accessibility/visual hierarchy/usability checks and privacy-safe inputs; do not mark complete without the review artifact.
+- [ ] **PH-D5c.2:** Triage the audit; fix and regression-test bounded P0/P1 desktop navigation, layout, states and feedback issues while preserving existing backend, Qt lifecycle, transparency, hotkeys and preferences. Defer larger suggestions with tracked IDs and reasons.
+- [ ] **PH-D5c.3 (Windows):** Confirm the resulting desktop design at real display scaling with keyboard navigation, resize, saved/error/OCR states and preview; log pass/fail evidence. This gate closes **desktop** UI structure/design only; live overlay augment/shop cards await D7/D8.
 
 ### D6–D8 — Contextual overlay engine (separate small PRs)
 
