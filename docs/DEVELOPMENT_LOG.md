@@ -209,3 +209,12 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added `tests/test_pregame_settings.py`, `tests/js/settings.test.cjs`, and Windows Actions checks for `frontend/settings.js` syntax and browserless Settings interactions. Updated README.
 - Validation: `python -m pytest -q`, `node --check frontend/app.js`, `node --check frontend/settings.js`, `node --test tests/js/settings.test.cjs` **not run at entry**; new PR/CI to be checked. No Windows on-device Settings/feedback/OCR test yet.
 - Pending: create draft PR #12 targeting PR #11 branch, verify Actions and fix failures; afterwards request only necessary real Windows tests.
+
+
+## 2026-11-18 15:04 Europe/Lisbon — PR #12 Windows CI validation
+
+- Opened [draft PR #12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) with head `feat/pregame-settings-feedback`, targeting PR #11 branch `fix/live-augment-detection-item-duplicates`. No merge to `main`.
+- First Windows Actions run [44330933993](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44330933993) **failed**: **214 passed, 1 failed, 1 warning**. The sole failure was in the newly created `test_runtime_pipeline_uses_updated_style_on_next_poll`: its mocked `GameSnapshot` omitted six mandatory constructor fields. Fixed the test fixture at commit `d8dd7c5`; application code was not implicated by this failure.
+- Second Windows Actions run [44331056654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331056654) **succeeded** on feature commit `d8dd7c5`. Results: **215 Python tests passed, 1 warning**, `node --check frontend/app.js` **passed**, `node --check frontend/settings.js` **passed**, and `node --test tests/js/settings.test.cjs` **4 passed, 0 failed**.
+- These are automated Windows-runner results, not evidence of actual Qt tray/browsers, saved preferences after a user's reboot, live in-match build changes, local Tesseract/OCR or Mayhem shop eligibility.
+- Next: recheck Actions at this later documentation-only head, keep PR #12 draft, then ask the user only for necessary on-device checks.
