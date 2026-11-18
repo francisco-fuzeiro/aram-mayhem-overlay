@@ -1,6 +1,6 @@
 """M3/F2 read-only Gameflow state and LCDA active-player regression tests."""
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 
@@ -62,7 +62,7 @@ def test_gameflow_states_are_explicit(phase, expected):
 
 
 def test_lcu_gameflow_read_is_read_only(monkeypatch):
-    session = __import__('unittest.mock', fromlist=['MagicMock']).MagicMock()
+    session = MagicMock()
     session.base_url = "https://127.0.0.1:1234"
     session.get.return_value = Mock(status_code=200, json=lambda: "ChampSelect")
     monkeypatch.setattr(lcu, "get_lcu_session", lambda: session)
