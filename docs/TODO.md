@@ -79,7 +79,7 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 > Added after reviewing the user-provided OP.GG Settings and overlay screenshots (2026-11-18). This is a **proposed product direction**, not a claim that the desktop app or installer already exists. Use familiar Windows UX patterns; do not copy OP.GG assets, protected artwork, code, or distinctive UI.
 
 - [ ] **UX-D01 — Native desktop control center (P1).** Open a normal, resizable Qt desktop window from the tray/Start menu, reusing the existing local Settings page. Keep the transparent overlay as a separate, lightweight Qt window backed by the same local engine; avoid introducing a second backend.
-- [ ] **UX-D02 — Clear Settings navigation (P1).** Organize General, Overlay, Build Preferences, Augment Detection/OCR, Diagnostics, Feedback, and About into a consistent desktop navigation. Persist settings with validation, helpful errors, and clear 'Saved' states; no in-game forms.
+- [x] **UX-D02 — Clear Settings navigation (P1).** Organize General, Overlay, Build Preferences, Augment Detection/OCR, Diagnostics, Feedback, and About into a consistent desktop navigation. Persist settings with validation, helpful errors, and clear 'Saved' states; no in-game forms.
 - [ ] **UX-D03 — Overlay customization with preview (P1).** Configure anchor/corner, offsets, opacity, scale, compact vs expanded mode, visibility and safe click-through from the desktop app, with a simulated preview. Never use fake game-state detection in a real match.
 - [x] **UX-D04 — One-engine lifecycle and tray behavior (P1).** Enforce single instance, no duplicate port 8765 servers, reliable Open Settings/Show Overlay/Quit actions, explicit background-vs-exit behavior, no elevation needed for ordinary use. Preserve Alt+O and Alt+H.
 - [ ] **UX-D05 — Windows installer and uninstaller (P1 after core validation).** Produce a reproducible installer (evaluate PyInstaller onedir + Inno Setup first) with Start menu/desktop shortcuts, sensible install path, clean uninstall and optional user-data retention. User should never need Python, pip or PowerShell.
@@ -107,7 +107,7 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [x] **PH-D1.2:** Add `python -m backend.desktop` dev entrypoint and clear error handling for missing Qt, unavailable API or unexpected port conflict; use **one** local backend.
 - [x] **PH-D1.3:** Add automated tests for launch/URL/readiness and legacy `python -m backend.overlay --renderer qt` compatibility; keep Alt+O / Alt+H unchanged.
 - [x] **PH-D1.4:** Create a draft PR stacked on `feat/pregame-settings-feedback`, verify its Windows CI at final code head and update TODO/state/log.
-- [ ] **PH-D1.5 (Windows):** Confirm actual standard Qt Settings window (focus, resize, preferences, feedback) and old transparent overlay behavior. **Never check from CI alone.**
+- [x] **PH-D1.5 (Windows):** Confirm actual standard Qt Settings window (focus, resize, preferences, feedback) and old transparent overlay behavior. **Never check from CI alone.**
 
 **D1 code/CI evidence (2026-11-18):** [draft PR #13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13), [Windows run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) at code head `d5aff632`: **234 Python passed, 1 warning; 4 Node tests passed and both JS syntax checks passed**. The 19 new tests cover API fingerprint, reuse, occupied port, failure, host URL and legacy overlay contract. **PH-D1.5 remains unverified on a real Windows GUI.** UX-D01 and UX-D04 are broader than this shell and remain unchecked. See [external reuse candidates](REUSE_CANDIDATES.md) for separately licensed opportunities; none imported in D1.
 
@@ -125,9 +125,13 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 ### D3 — Desktop Settings information architecture
 
-- [ ] **PH-D3.1:** Group General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About as focused navigable areas using current Settings implementation.
-- [ ] **PH-D3.2:** Add keyboard/ARIA navigation and clear loading/save/error feedback; do not expose inaccessible features as functional.
-- [ ] **PH-D3.3:** Run UI interaction tests and validate real Windows navigation/resize.
+- [x] **PH-D3.1:** Group General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About as focused navigable areas using current Settings implementation.
+- [x] **PH-D3.2:** Add keyboard/ARIA navigation and clear loading/save/error feedback; do not expose inaccessible features as functional.
+- [x] **PH-D3.3:** Run UI interaction tests and validate real Windows navigation/resize.
+
+**D3 code/test evidence (2026-11-18):** [draft PR #15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15), [Windows CI run 44352298709](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44352298709) at code head `346998a8`: **255 Python passed, 1 warning; 8 Node passed; both JS syntax checks passed**. Seven Settings sections, accessible keyboard tabs, existing API save/error/retry states and truthful OCR status are implemented. **PH-D3.3 remains unchecked** until real Windows GUI/navigation/resize and save/feedback acceptance; `PH-D1.5`, broad `UX-D02` and `UX-D09` are also open.
+
+**D3 real Windows acceptance (user confirmation, 2026-11-18):** User reported testing the D3 checklist with everything functioning except actual in-game OCR validation; screenshot of the D3 OCR page shows the seven-section navigation, **Local API reachable**, and **Tesseract detected** after Recheck. The report covers the requested non-OCR Settings walkthrough (keyboard/mouse navigation, focus/resize, build preference save/restart, feedback and preserved D2 lifecycle). Accept `PH-D3.3`, `PH-D1.5`, and `UX-D02` on the user's explicit overall confirmation; this does **not** constitute independently captured screenshots or measured results for every subtest. If a specific subtest was not in fact performed, reopen its checkbox. Keep `UX-D09` (1080p/1440p, League borderless, Alt+Tab game smoke) and real **three-card/reroll OCR** detection, shop-state/score validation unchecked. The Recheck button only tests Tesseract availability, not in-game recognition. [D3 final Windows Actions run 44353064467](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44353064467) passed at documentation head `1748d6e4` (255 Python + 8 JS on preceding D3 code run).
 
 ### D4 — Overlay customization, split into two PRs
 

@@ -38,8 +38,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) | `feat/pregame-settings-feedback` | PR #11 branch | Out-of-game Settings, persistent live build preferences, Qt tray access and local feedback |
 | [#13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13) | `feat/desktop-settings-shell` | PR #12 branch | D1 native normal PyQt6 Settings host, shared API readiness/conflict handling and headless regressions |
 | [#14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14) | `feat/desktop-single-instance-tray` | PR #13 branch | D2 exclusive process lock, repeat-launch IPC, single Qt tray owner and managed API shutdown (Windows acceptance pending) |
+| [#15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15) | `feat/desktop-settings-navigation` | PR #14 branch | D3 accessible seven-section Settings; reported Windows navigation acceptance recorded 2026-11-18; real in-game OCR remains pending |
 
-**Active working head: `feat/desktop-single-instance-tray` (draft PR #14)**, stacked on PR #13 -> PR #12 -> PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/desktop-settings-navigation` (draft PR #15)**, based on draft PR #14 (`feat/desktop-single-instance-tray`) and earlier drafts. No merge into `main`.
 
 ## Approved interface-design checkpoint — D5c (planned, 2026-11-18)
 
@@ -48,7 +49,17 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - **Out of scope:** claiming real augment or shop in-game panels are validated (D7/D8), rewriting OCR/scoring, duplicating the engine, or using protected competitor UI/assets. Maintain Riot/privacy safeguards. See `PH-D5c.1`–`PH-D5c.3` and `UX-D11` in `docs/TODO.md`, and gates in `docs/IMPLEMENTATION_PHASES.md`.
 - Existing order continues: **D3 -> D4a -> D4b -> D5a -> D5b -> D5c -> D6 context -> D7 augment -> D8 shop -> D9 Windows package -> D10 installer -> D11 release quality**. Each phase remains a small stacked draft PR when executed; `main` stays untouched.
 
-## Current work: PR #14 — D2 single instance and tray lifecycle (2026-11-18)
+## Current work: PR #15 — D3 desktop Settings navigation (2026-11-18)
+
+- Draft [PR #15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15) targets `feat/desktop-single-instance-tray` (draft PR #14), preserving the latest D2 documentation commits. `main` is untouched.
+- `frontend/settings.html`, `settings.js` and `settings.css` now organize General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About. Keyboard/ARIA tabs use roving focus with arrows/Home/End; preference read/write and feedback have clear loading/saving/error states and explicit retry when the initial preference load fails.
+- Reuses exactly the existing `GET/PUT /api/preferences`, `GET /api/ocr/status` and `POST /api/bug-report` contracts. Diagnostics reflect actual endpoint responses; future appearance controls, diagnostic export and OCR capture/testing are labelled unavailable. Tesseract detection is **not** real three-card or reroll recognition.
+- D3 changes no FastAPI, Qt, transparent overlay, tray, single-instance owner, Alt+H/Alt+O, game detection or scoring code. Added Python and JavaScript regression tests.
+- **Verified Windows Actions at D3 code head `346998a8`:** [run 44352298709](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44352298709) succeeded — **255 Python passed, 1 warning; 8 Node passed, 0 failed; both JavaScript syntax checks passed.** [Final documentation-head Windows Actions run 44353064467](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44353064467) succeeded at `1748d6e4`; this later acceptance-only documentation commit requires an independent CI check.
+- **D3 Windows acceptance reported by user, 2026-11-18:** In the D3 Settings screenshot, the OCR page shows seven-section navigation, a reachable local API and Tesseract detected on Recheck. The user said they had tested everything else in the D3 walkthrough; this is accepted as user-reported keyboard/navigation, focus/resize, preference save/restart, feedback and D2 regression confirmation. `PH-D3.3`, `PH-D1.5`, `UX-D02` are checked based on that report (not independent per-step screenshots). If any individual check was not actually performed, reopen it. **Still pending:** `UX-D09` complete device/game matrix, real League borderless, three visible Mayhem augment names/rerolls and verified shop context. Green Tesseract is dependency availability only.
+- **D4a handoff caution:** User reports D4a is underway in another conversation; at this checkpoint no D4a branch or PR is visible on GitHub. That absence does not mean the work is not happening. Do not create a duplicate D4a branch without checking live state first.
+
+## Previous work: PR #14 — D2 single instance and tray lifecycle (2026-11-18)
 
 - Branch `feat/desktop-single-instance-tray`, [draft PR #14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14), targeting `feat/desktop-settings-shell` (draft PR #13). The earlier drafts and `main` are not merged.
 - New `backend/desktop/instance.py` holds a per-user OS process lock through application lifetime and publishes an authenticated loopback activation channel. Second desktop launches request Settings activation; repeated Qt overlay launches request overlay restoration, without starting a second managed backend or tray. A crashed owner releases the OS lock; stale metadata is replaced on restart. An unresponsive owner is reported, not stolen.

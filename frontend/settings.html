@@ -11,103 +11,215 @@
         <header class="settings-header">
             <div class="identity">
                 <div class="brand">ARAM <span>ORACLE</span></div>
-                <p>Companion settings</p>
+                <p>Desktop companion · Settings</p>
             </div>
-            <div class="runtime">
-                <span class="status-dot" aria-hidden="true"></span>
-                <span>Local companion</span>
+            <div class="runtime" role="status" aria-live="polite">
+                <span id="connection-dot" class="status-dot" aria-hidden="true"></span>
+                <span id="connection-summary">Checking local API…</span>
             </div>
         </header>
 
-        <main>
-            <div class="page-heading">
-                <div>
-                    <div class="eyebrow">PRE-GAME CONFIGURATION</div>
-                    <h1>Set up before you play.</h1>
-                    <p>Choose how the overlay should recommend builds and send feedback here.
-                       In-game, the overlay stays transparent and click-through.</p>
-                </div>
-            </div>
-
-            <nav class="tabs" aria-label="Settings navigation" role="tablist">
-                <button type="button" class="tab active" id="tab-preferences"
-                        role="tab" aria-selected="true" aria-controls="panel-preferences"
-                        data-target="panel-preferences">Preferences</button>
-                <button type="button" class="tab" id="tab-feedback"
-                        role="tab" aria-selected="false" aria-controls="panel-feedback"
-                        data-target="panel-feedback">Feedback &amp; diagnostics</button>
+        <div class="settings-layout">
+            <nav class="tabs" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+                <button type="button" class="tab active" id="tab-general" role="tab" aria-selected="true"
+                        aria-controls="panel-general" tabindex="0" data-target="panel-general">General</button>
+                <button type="button" class="tab" id="tab-overlay" role="tab" aria-selected="false"
+                        aria-controls="panel-overlay" tabindex="-1" data-target="panel-overlay">Overlay</button>
+                <button type="button" class="tab" id="tab-preferences" role="tab" aria-selected="false"
+                        aria-controls="panel-preferences" tabindex="-1" data-target="panel-preferences">Build Preferences</button>
+                <button type="button" class="tab" id="tab-ocr" role="tab" aria-selected="false"
+                        aria-controls="panel-ocr" tabindex="-1" data-target="panel-ocr">OCR</button>
+                <button type="button" class="tab" id="tab-diagnostics" role="tab" aria-selected="false"
+                        aria-controls="panel-diagnostics" tabindex="-1" data-target="panel-diagnostics">Diagnostics</button>
+                <button type="button" class="tab" id="tab-feedback" role="tab" aria-selected="false"
+                        aria-controls="panel-feedback" tabindex="-1" data-target="panel-feedback">Feedback</button>
+                <button type="button" class="tab" id="tab-about" role="tab" aria-selected="false"
+                        aria-controls="panel-about" tabindex="-1" data-target="panel-about">About</button>
             </nav>
 
-            <section id="panel-preferences" class="tab-panel" role="tabpanel"
-                     aria-labelledby="tab-preferences">
-                <div class="setting-card">
-                    <div class="setting-details">
-                        <div class="setting-icon" aria-hidden="true">↗</div>
-                        <div>
-                            <h2>Default build style</h2>
-                            <p>This changes the priority of item recommendations, not your items.
-                               The selection is shared with the live overlay.</p>
+            <main class="settings-content" id="settings-content">
+                <section id="panel-general" class="tab-panel" role="tabpanel" aria-labelledby="tab-general"
+                         tabindex="0" aria-hidden="false">
+                    <div class="section-heading">
+                        <div class="eyebrow">DESKTOP COMPANION</div>
+                        <h1>General</h1>
+                        <p>Configure your companion before a match. The desktop window is interactive;
+                           the in-game overlay remains separate.</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>Getting started</h2>
+                        <p>Choose a preferred build style under <strong>Build Preferences</strong>.
+                           Check the OCR dependency under <strong>OCR</strong>, and use
+                           <strong>Feedback</strong> to report incorrect or missing advice.</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>Window behavior</h2>
+                        <p>Closing Settings hides it to the notification area when the system tray is
+                           available. Open Settings again from the ARAM Oracle tray menu.
+                           Use <strong>Quit ARAM Oracle</strong> to stop the desktop companion.</p>
+                    </div>
+                </section>
+
+                <section id="panel-overlay" class="tab-panel hidden" role="tabpanel"
+                         aria-labelledby="tab-overlay" tabindex="0" aria-hidden="true" hidden>
+                    <div class="section-heading">
+                        <div class="eyebrow">IN-GAME WINDOW</div>
+                        <h1>Overlay</h1>
+                        <p>Existing display controls are available through the keyboard and tray.</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>Overlay shortcuts</h2>
+                        <div class="shortcut-row"><span>Show or hide overlay</span><kbd>Alt + H</kbd></div>
+                        <div class="shortcut-row"><span>Toggle click-through interaction</span><kbd>Alt + O</kbd></div>
+                        <div class="shortcut-row"><span>Open Settings</span><span>System tray menu</span></div>
+                        <p class="small">Click-through is normally enabled. Alt + O temporarily allows
+                           interaction with the overlay.</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>Appearance and position</h2>
+                        <p>Scale, opacity, screen anchor and offsets are not configurable here yet.
+                           These controls and a preview are planned for a later phase.</p>
+                        <span class="availability-label">Not available in this version</span>
+                    </div>
+                </section>
+
+                <section id="panel-preferences" class="tab-panel hidden" role="tabpanel"
+                         aria-labelledby="tab-preferences" tabindex="0" aria-hidden="true" hidden>
+                    <div class="section-heading">
+                        <div class="eyebrow">RECOMMENDATION OPTIONS</div>
+                        <h1>Build Preferences</h1>
+                        <p>Choose the style used by the existing build recommendation engine.</p>
+                    </div>
+                    <div class="setting-card">
+                        <div class="setting-details">
+                            <div class="setting-icon" aria-hidden="true">↗</div>
+                            <div>
+                                <h2>Default build style</h2>
+                                <p>This changes the priority of item suggestions, not the items you own.
+                                   The selection is shared with the live overlay.</p>
+                            </div>
+                        </div>
+                        <label for="preferred-build">Preferred style</label>
+                        <select id="preferred-build" name="build_style" disabled>
+                            <option value="Balanced">Balanced — adaptable to the match</option>
+                            <option value="Damage">Damage — offensive power</option>
+                            <option value="Survival">Survival — durability</option>
+                            <option value="Utility">Utility — team support and control</option>
+                        </select>
+                        <div class="setting-footer">
+                            <span id="save-status" role="status" aria-live="polite" class="form-status">Loading saved settings…</span>
+                            <div class="button-group">
+                                <button id="retry-preferences" type="button" class="button-secondary" hidden>Retry loading</button>
+                                <button id="save-preferences" type="button" class="button-primary" disabled>Save preference</button>
+                            </div>
                         </div>
                     </div>
-                    <label for="preferred-build">Preferred style</label>
-                    <select id="preferred-build" name="build_style" aria-label="Preferred build style">
-                        <option value="Balanced">Balanced — adaptable to the match</option>
-                        <option value="Damage">Damage — offensive power</option>
-                        <option value="Survival">Survival — durability</option>
-                        <option value="Utility">Utility — team support and control</option>
-                    </select>
-                    <div class="setting-footer">
-                        <span id="save-status" role="status" aria-live="polite" class="form-status">Loading saved settings…</span>
-                        <button id="save-preferences" type="button" class="button-primary">Save preference</button>
+                </section>
+
+                <section id="panel-ocr" class="tab-panel hidden" role="tabpanel"
+                         aria-labelledby="tab-ocr" tabindex="0" aria-hidden="true" hidden>
+                    <div class="section-heading">
+                        <div class="eyebrow">AUGMENT RECOGNITION</div>
+                        <h1>OCR</h1>
+                        <p>See whether the existing OCR dependency is detectable on this PC.</p>
                     </div>
-                </div>
-
-                <div class="info-card">
-                    <h3>Augment recognition</h3>
-                    <p id="ocr-summary">Checking local OCR status…</p>
-                    <p class="small">If Tesseract is unavailable, use the manual augment input
-                       in the overlay after pressing Alt+O. This page cannot read
-                       an augment offer that is not visible in the game.</p>
-                </div>
-
-                <div class="info-card">
-                    <h3>Overlay shortcuts</h3>
-                    <div class="shortcut-row"><span>Show or hide overlay</span><kbd>Alt + H</kbd></div>
-                    <div class="shortcut-row"><span>Enable or disable clicking</span><kbd>Alt + O</kbd></div>
-                    <div class="shortcut-row"><span>Open Settings</span><span>System tray menu</span></div>
-                </div>
-            </section>
-
-            <section id="panel-feedback" class="tab-panel hidden" role="tabpanel"
-                     aria-labelledby="tab-feedback">
-                <div class="setting-card">
-                    <div class="setting-details">
-                        <div class="setting-icon" aria-hidden="true">✎</div>
-                        <div>
-                            <h2>Send feedback</h2>
-                            <p>Report a wrong build, missed augment or overlay problem
-                               without trying to type during a match.</p>
+                    <div class="info-card">
+                        <div class="card-title-row">
+                            <h2>Tesseract readiness</h2>
+                            <button id="refresh-ocr" type="button" class="button-secondary">Recheck</button>
                         </div>
+                        <p id="ocr-summary" role="status" aria-live="polite">Checking local OCR status…</p>
+                        <p class="small">Detecting Tesseract does <strong>not</strong> confirm that all three
+                           Mayhem augment cards or rerolls can be recognized. Real in-game
+                           recognition remains to be validated.</p>
                     </div>
-                    <label for="feedback-description">What happened?</label>
-                    <textarea id="feedback-description" maxlength="2000" rows="6"
-                              placeholder="Example: Jinx was offered Blunt Force, Erosion and Homeguard, but none appeared in the overlay."></textarea>
-                    <div class="setting-footer">
-                        <span id="feedback-status" role="status" aria-live="polite" class="form-status">
-                            Include the champion and what you expected to see.
-                        </span>
-                        <button id="send-feedback" type="button" class="button-primary">Save report</button>
+                    <div class="info-card">
+                        <h2>Manual fallback</h2>
+                        <p>If automatic reading fails, use the manual augment input in the overlay
+                           after pressing Alt + O. OCR capture/testing tools are not yet available
+                           in these desktop Settings.</p>
                     </div>
-                    <p class="disclosure">This creates a local diagnostic report with recent app
-                       logs and game state. If GitHub reporting is configured, it may also
-                       create an issue in the configured repository.</p>
-                </div>
-            </section>
-        </main>
+                </section>
+
+                <section id="panel-diagnostics" class="tab-panel hidden" role="tabpanel"
+                         aria-labelledby="tab-diagnostics" tabindex="0" aria-hidden="true" hidden>
+                    <div class="section-heading">
+                        <div class="eyebrow">LOCAL STATUS</div>
+                        <h1>Diagnostics</h1>
+                        <p>Read-only results from the existing local endpoints; no new game telemetry.</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>Preferences API</h2>
+                        <p id="diagnostics-api" role="status" aria-live="polite">Checking local preferences API…</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>OCR dependency</h2>
+                        <p id="diagnostics-ocr" role="status" aria-live="polite">Checking Tesseract availability…</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>Detailed diagnostics</h2>
+                        <p>In-app log browsing, capture tests and diagnostic export are not available
+                           yet. Use Feedback to create a local diagnostic report.</p>
+                        <span class="availability-label">Not available in this version</span>
+                    </div>
+                </section>
+
+                <section id="panel-feedback" class="tab-panel hidden" role="tabpanel"
+                         aria-labelledby="tab-feedback" tabindex="0" aria-hidden="true" hidden>
+                    <div class="section-heading">
+                        <div class="eyebrow">REPORT A PROBLEM</div>
+                        <h1>Feedback</h1>
+                        <p>Send a report before or after playing; there is no need to type in-game.</p>
+                    </div>
+                    <div class="setting-card">
+                        <div class="setting-details">
+                            <div class="setting-icon" aria-hidden="true">✎</div>
+                            <div>
+                                <h2>Save diagnostic report</h2>
+                                <p>Describe a missed augment, incorrect item suggestion or window issue.</p>
+                            </div>
+                        </div>
+                        <label for="feedback-description">What happened?</label>
+                        <textarea id="feedback-description" maxlength="2000" rows="6"
+                                  placeholder="Example: Jinx was offered Blunt Force, Erosion and Homeguard, but none appeared in the overlay."></textarea>
+                        <div class="setting-footer">
+                            <span id="feedback-status" role="status" aria-live="polite" class="form-status">
+                                Include the champion and what you expected to see.
+                            </span>
+                            <button id="send-feedback" type="button" class="button-primary">Save report</button>
+                        </div>
+                        <p class="disclosure">This sends the description to the local ARAM Oracle API
+                           to create a diagnostic report with recent logs and game state. If GitHub
+                           reporting is configured, it may also create a repository issue.
+                           Review your description before sending.</p>
+                    </div>
+                </section>
+
+                <section id="panel-about" class="tab-panel hidden" role="tabpanel"
+                         aria-labelledby="tab-about" tabindex="0" aria-hidden="true" hidden>
+                    <div class="section-heading">
+                        <div class="eyebrow">ABOUT THIS COMPANION</div>
+                        <h1>About</h1>
+                        <p>ARAM Oracle is an experimental companion for League of Legends ARAM Mayhem.</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>How it works</h2>
+                        <p>Build and augment information is advisory. No in-game purchases,
+                           champion picks or augment choices are automated.</p>
+                    </div>
+                    <div class="info-card">
+                        <h2>Development status</h2>
+                        <p>This desktop Settings interface is evolving. Advanced overlay appearance,
+                           verified three-card OCR diagnostics, contextual shop detection and
+                           installation/update features are separate future work, not current options.</p>
+                    </div>
+                </section>
+            </main>
+        </div>
 
         <footer class="settings-footer">
             <span>ARAM Oracle · Private experimental companion</span>
-            <span>No in-game purchases or selections are automated.</span>
+            <span>Settings are configured outside the game.</span>
         </footer>
     </div>
     <script src="/static/settings.js"></script>

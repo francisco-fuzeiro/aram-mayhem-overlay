@@ -1,41 +1,18 @@
 # Continue ARAM Oracle in a New Chat
 
-The repository-local continuity skill is [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md). It is a **GitHub repository skill**, not an automatically installed ChatGPT plugin. A new project conversation must explicitly fetch it through the connected GitHub app.
+Read the repository-local skill [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) through connected GitHub. It is repository documentation, not an installed ChatGPT command or background job.
 
-## Trigger phrases (in the ChatGPT project)
+**`ARAM Oracle: preparar passagem`** checkpoints current state/TODO/log/CI and gives a prompt. **`ARAM Oracle: continuar`** fetches the skill, required files and live PR/Actions before further work. Rotate mid-phase on the **same** branch/PR; use one new stacked draft for each new phase. Never modify `main` without approval.
 
-Use one phrase per action. These are **conventions interpreted by the
-assistant**, not real slash commands or an automatic new-chat mechanism.
+## 2026-11-18 handoff: D3 implemented and user Windows acceptance reported
 
-- **`ARAM Oracle: preparar passagem`** in the current chat: persist
-  verified facts, pending tests, branch/PR and actual CI to the GitHub
-  state/log/TODO files; refresh this handoff and give the exact next prompt.
-  A partial/incomplete phase is handed off **on the same branch**, not falsely
-  marked complete.
-- **`ARAM Oracle: continuar`** in a **new chat**: open this private GitHub
-  repository, read `.agents/skills/continue-aram-oracle/SKILL.md` and all
-  mandatory state files, verify the current PR/CI, then follow the
-  `Next phase` instructions below. For an explicit first message use:
-  `ARAM Oracle: continuar. Lê a skill .agents/skills/continue-aram-oracle/SKILL.md diretamente do GitHub francisco-fuzeiro/aram-mayhem-overlay e segue docs/CONTINUE_PROJECT.md.`
+- [Draft PR #15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15): `feat/desktop-settings-navigation`, targets `feat/desktop-single-instance-tray` ([draft PR #14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14)), which targets PR #13 branch. `main` untouched.
+- D2 user-confirmed Windows lifecycle/tray acceptance (duplicate-launch activation, Close-to-Tray, tray Open/Show-Hide/Quit, Alt+H/Alt+O and released API port 8765) satisfies `PH-D2.3` and `UX-D04`; it does not prove the wider in-game/display matrix.
+- D3 has seven Settings sections (General, Overlay, Build Preferences, OCR, Diagnostics, Feedback, About), keyboard/ARIA navigation, loading/saving/errors, retry and read-only existing API diagnostics; planned controls are explicitly unavailable. No backend/Qt/tray/hotkey/OCR detection/score changes.
+- **Code-head CI green:** [Windows Actions 44352298709](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44352298709) at `346998a8` — **255 Python passed, 1 warning; 8 Node passed; both JS syntax checks passed**. [Final prior documentation-head Windows Actions 44353064467](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44353064467) also passed at `1748d6e4`. Recheck this new acceptance-doc commit's CI independently.
+- **D3 user Windows acceptance reported:** The user shared a screenshot with OCR Recheck reporting Tesseract detected and local API reachable, and said all other D3 checklist items were tested. `PH-D3.3`, `PH-D1.5` and `UX-D02` are checked on that report, with no independent evidence for each individual step. `UX-D09` complete 1080p/1440p/League/Alt+Tab smoke, actual three-card augment/reroll OCR, and shop verification remain open. Tesseract green is only dependency readiness.
+- **D4a is already underway according to the user**, in another conversation. As of this snapshot no D4a branch/PR has been published to GitHub; check live branches/PRs before creating or changing work to avoid conflicting with that session. D4a scope is validated/versioned anchor, offset, scale and opacity preference schema and migration; **D4b** Qt preview/apply is separate. No installer or scoring/OCR overhaul.
 
-The user must manually start the next ChatGPT conversation. When GitHub is
-not connected, ask to reconnect rather than guessing previous work. All
-changes remain stacked drafts unless the user explicitly approves merging.
+## Prompt to paste into the next chat — D4a
 
-## Confirmed handoff — 2026-11-18, Europe/Lisbon
-
-- **Draft PR #14:** [D2 single-instance and tray lifecycle](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14), branch `feat/desktop-single-instance-tray`, targeting `feat/desktop-settings-shell` (draft PR #13), itself stacked on draft PR #12. `main` remains unchanged.
-- D2 adds one per-user OS process lock, authenticated loopback launch forwarding, one owned FastAPI uvicorn thread (or safe reuse of a compatible existing API), one Qt app/tray managing both normal Settings and transparent overlay surfaces, hide/restore/quit actions and a clean server stop. Duplicate desktop or Qt overlay launches activate the existing window rather than opening a second owner.
-- `python -m backend.desktop` opens Settings; `python -m backend.overlay --renderer qt` opens/restores the overlay. The explicit legacy `--renderer webview` path is outside the managed Qt lifecycle. No installer, UI redesign, updater or scoring/OCR change was made.
-- **Verified code-head CI:** [Windows Actions run 44345555542](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44345555542) at `0b4a563b` succeeded: **253 Python passed, 1 warning; 4 Node Settings tests passed; both JavaScript syntax checks passed**. Confirm latest PR #14 head CI separately after documentation commits.
-- **Not yet verified on the user's Windows:** repeated launch to one tray/one API, native Settings close-to-tray/restore and focus/resize, overlay transparency/Alt+H/Alt+O, Quit releasing the process/port, foreign port 8765 rejection, recovery after abnormal stop. `PH-D2.3` and `UX-D04` remain open. `PH-D1.5` also remains open for changed preference save/restart and feedback report creation.
-- The user already confirmed that D1 Settings loaded, Qt transparency/shortcuts worked and OCR installation is ready (green). **The real three-card augment names, rerolls and dynamic in-game behavior remain unverified**; do not treat the green Tesseract status as proof. Do not ask the user to abandon matchmaking.
-- No new external companion source was imported. See `docs/REUSE_CANDIDATES.md` for candidate MIT projects and unlicensed/proprietary restrictions.
-
-## Next phase
-
-**D3 — Desktop Settings information architecture**, only after D2 Windows acceptance or with its manual gate explicitly carried forward. Create `feat/desktop-settings-navigation` based on `feat/desktop-single-instance-tray`, open a new **draft PR targeting the PR #14 branch**, and keep all older PRs and `main` untouched. Add navigable General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About sections by reusing the existing frontend/API, keyboard/ARIA support and truthful save/error states. No installer, OCR overhaul, recommendation changes or overlay layout redesign in D3.
-
-## Copy-paste prompt for the next ChatGPT project conversation
-
-ARAM Oracle: continuar. Resume connected GitHub repository `francisco-fuzeiro/aram-mayhem-overlay` and read `AGENTS.md`, `.agents/skills/continue-aram-oracle/SKILL.md`, `docs/PROJECT_STATE.md`, `docs/TODO.md`, `docs/IMPLEMENTATION_PHASES.md`, `docs/DESKTOP_ARCHITECTURE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/REUSE_CANDIDATES.md` and `docs/CONTINUE_PROJECT.md` at the live head. Check draft PR #14 on `feat/desktop-single-instance-tray`, based on PR #13, and latest Windows GitHub Actions. D2 implementation has one OS-held process lock, launch forwarding, one FastAPI owner, one Qt tray controlling Settings/overlay and clean Quit; do not redo D2. Carry forward D2 Windows checks (duplicate launch, tray, Close/Restore, Alt+O/H, Quit/no orphan/port conflict) until I confirm them; retain D1 preference persistence/feedback checks and unverified real three-card/reroll OCR, despite green Tesseract readiness. After D2 verification, implement only D3 desktop navigation (General, Overlay, Build Preferences, OCR, Diagnostics, Feedback, About; keyboard/ARIA; truthful save/error states), creating `feat/desktop-settings-navigation` from PR #14 with a new draft PR targeting its branch. Do not merge `main`, introduce installers or change scoring/game detection. Add tests, verify actual Actions at final head, update TODO/state/log/continuity skill. Code/docs/UI English; talk to the user in European Portuguese.
+ARAM Oracle: continuar. Continue `francisco-fuzeiro/aram-mayhem-overlay` via connected GitHub. Read `AGENTS.md`, `.agents/skills/continue-aram-oracle/SKILL.md`, `docs/PROJECT_STATE.md`, `docs/TODO.md`, `docs/IMPLEMENTATION_PHASES.md`, `docs/DESKTOP_ARCHITECTURE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/REUSE_CANDIDATES.md` and `docs/CONTINUE_PROJECT.md` at latest head. Verify draft PR #15 (`feat/desktop-settings-navigation`) targeting PR #14 branch, its latest Windows CI, and no merge into `main`. D2 lifecycle/tray Windows acceptance is complete. D3 implemented seven keyboard/ARIA-accessible Settings sections with truthful API/save/error/OCR states and automated tests; check real Windows navigation, resize, focus, changed build style persistence after restart and feedback report, record evidence before marking `PH-D3.3` or `PH-D1.5` passed. Preserve unverified real three-card/reroll OCR despite green Tesseract, borderless League transparency and broader smoke tests. D3 Windows acceptance has been reported; if D4a is still underway on an existing branch/PR, continue that work rather than creating a duplicate. Implement only **D4a: versioned validated anchor, offset, opacity and scale preferences + safe defaults/migration/persistence tests**, on a new branch and draft PR targeting `feat/desktop-settings-navigation`. Do not implement D4b preview/Qt application, installers, updater, scoring or new OCR detection. Preserve FastAPI ownership, Qt transparency/click-through, Alt+O/Alt+H, tray and existing frontend/API. Update docs/skill and verify actual Actions. Code/UI/docs English; communicate PT-PT.
