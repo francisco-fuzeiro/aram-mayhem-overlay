@@ -197,3 +197,15 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Required Windows follow-up: verify `Test-Path 'C:\Program Files\Tesseract-OCR\tesseract.exe'`, install via `winget install --id UB-Mannheim.TesseractOCR --exact` if needed, fetch PR #11 branch, restart `python -m backend.overlay --renderer qt`, inspect AUGMENT PICK and DETECT AUGMENTS in a match, confirm Poro-Snax does not occupy a build slot and Phantom Dancer is not repeated.
 - Remaining Mayhem-specific considerations: actual augment name variants, OC R region calibration, eligible levels, item patch/mode availability and enemy catalog provenance.
 
+
+
+## 2026-11-18 Europe/Lisbon — PR #12: pre-game Settings and local feedback (implementation)
+
+- Branch `feat/pregame-settings-feedback` based on `fix/live-augment-detection-item-duplicates` (PR #11); earlier draft PRs and `main` remain untouched.
+- Audited the seven partial commits already present: local preference persistence, API `/settings`, `GET/PUT /api/preferences`, Settings HTML/CSS/JS and display-only in-game build style.
+- Added Qt **Open Settings** tray action via default browser, without altering Qt transparency, Alt+O, Alt+H or click-through flags.
+- Removed dead frontend feedback button/handlers; retained a post-game explanation pointing to Settings. Manual augment search remains available during eligible picks.
+- Fixed diagnostics so user text is actually stored in the local JSON report. Server now emits HTTP 429 for cooldown and 500 for an unsuccessful local save; cooldown is only consumed after a successful file write. Settings displays these errors and preserves unsent text.
+- Added `tests/test_pregame_settings.py`, `tests/js/settings.test.cjs`, and Windows Actions checks for `frontend/settings.js` syntax and browserless Settings interactions. Updated README.
+- Validation: `python -m pytest -q`, `node --check frontend/app.js`, `node --check frontend/settings.js`, `node --test tests/js/settings.test.cjs` **not run at entry**; new PR/CI to be checked. No Windows on-device Settings/feedback/OCR test yet.
+- Pending: create draft PR #12 targeting PR #11 branch, verify Actions and fix failures; afterwards request only necessary real Windows tests.
