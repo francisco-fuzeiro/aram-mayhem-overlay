@@ -6,9 +6,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const source = fs.readFileSync(
-    path.join(__dirname, "../../frontend/settings.js"), "utf8"
-);
+const source = fs.readFileSync(path.join(__dirname, "../../frontend/settings.js"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "../../frontend/settings.html"), "utf8");
+const ids = ["general", "overlay", "preferences", "ocr", "diagnostics", "feedback", "about"];
 
 function harness(respond) {
     const elements = new Map();
@@ -17,6 +17,7 @@ function harness(respond) {
             const classes = new Set();
             elements.set(id, {
                 id, value: "", textContent: "", className: "", disabled: false,
+                hidden: false, tabIndex: -1, focused: false,
                 dataset: {}, attributes: {}, handlers: {},
                 classList: {
                     toggle(name, enabled) {
@@ -32,14 +33,16 @@ function harness(respond) {
         }
         return elements.get(id);
     }
-    const tabs = [element("tab-preferences"), element("tab-feedback")];
-    tabs[0].dataset.target = "panel-preferences";
-    tabs[1].dataset.target = "panel-feedback";
-    const panels = [element("panel-preferences"), element("panel-feedback")];
+    const tabs = ids.map((id) => {
+        const tab = element("tab-" + id);
+        tab.dataset.target = "panel-" + id;
+        return tab;
+    });
+    const panels = ids.map((id) => element("panel-" + id));
     const calls = [];
     async function fetch(url, options = {}) {
         calls.push({url, options});
-        const result = respond(url, options);
+        const result = await respond(url, options);
         return {
             ok: result.ok !== false,
             async json() {
@@ -64,54 +67,89 @@ async function ready() {
     await new Promise((resolve) => setImmediate(resolve));
 }
 
-test("loads preference and saves changed style through the local API", async () => {
-    const h = harness((url, opts) => {
-        if (url === "/api/preferences" && opts.method === "PUT") {
-            return {body: {build_style: JSON.parse(opts.body).build_style, saved: true}};
-        }
-        if (url === "/api/preferences") return {body: {build_style: "Survival"}};
-        if (url === "/api/ocr/status") return {body: {available: false}};
-        throw new Error("unexpected URL");
-    });
+function successful(url, options) {
+    if (url === "/api/preferences" && options.method === "PUT") {
+        return {body: {build_style: JSON.parse(options.body).build_style, saved: true}};
+    }
+    if (url === "/api/preferences") return {body: {build_style: "Survival"}};
+    if (url === "/api/ocr/status") return {body: {available: false}};
+    if (url === "/api/bug-report") return {body: {filename: "report.json"}};
+    throw new Error("Unexpected URL: " + url);
+}
+
+test("seven Settings tabs have matching ARIA panels and truthful unavailable sections", () => {
+    for (const id of ids) {
+        assert.match(html, new RegExp('id="tab-' + id + '"[^>]*role="tab"'));
+        assert.match(html, new RegExp('id="panel-' + id + '"[^>]*role="tabpanel"'));
+        assert.match(html, new RegExp('aria-controls="panel-' + id + '"'));
+        assert.match(html, new RegExp('aria-labelledby="tab-' + id + '"'));
+    }
+    assert.match(html, /aria-orientation="vertical"/);
+    assert.match(html, /Not available in this version/);
+    assert.match(html, /does <strong>not<\/strong> confirm/);
+});
+
+test("loads preference and saves changed style through the existing local API", async () => {
+    const h = harness(successful);
     await ready();
     assert.equal(h.element("preferred-build").value, "Survival");
+    assert.equal(h.element("save-preferences").disabled, true);
     assert.match(h.element("ocr-summary").textContent, /OCR unavailable/);
     h.element("preferred-build").value = "Damage";
+    h.element("preferred-build").handlers.change();
+    assert.equal(h.element("save-preferences").disabled, false);
     await h.element("save-preferences").handlers.click();
     const put = h.calls.find((c) => c.options.method === "PUT");
     assert.equal(put.url, "/api/preferences");
     assert.equal(JSON.parse(put.options.body).build_style, "Damage");
     assert.match(h.element("save-status").textContent, /Damage saved/);
-    assert.equal(h.element("save-preferences").disabled, false);
+    assert.equal(h.element("save-preferences").disabled, true);
+    assert.equal(h.element("save-status").attributes["aria-busy"], "false");
+});
+
+test("mouse and keyboard navigate seven panels with roving tabIndex and focus", async () => {
+    const h = harness(successful);
+    await ready();
+    assert.equal(h.element("tab-general").attributes["aria-selected"], "true");
+    assert.equal(h.element("tab-general").tabIndex, 0);
+    assert.equal(h.element("panel-general").hidden, false);
+    h.element("tab-general").handlers.keydown({
+        key: "ArrowDown", preventDefault() { this.prevented = true; },
+    });
+    assert.equal(h.element("tab-overlay").focused, true);
+    assert.equal(h.element("tab-overlay").tabIndex, 0);
+    assert.equal(h.element("tab-general").tabIndex, -1);
+    assert.equal(h.element("panel-general").hidden, true);
+    assert.equal(h.element("panel-overlay").attributes["aria-hidden"], "false");
+    h.element("tab-overlay").handlers.keydown({key: "End", preventDefault() {}});
+    assert.equal(h.element("tab-about").attributes["aria-selected"], "true");
+    h.element("tab-about").handlers.keydown({key: "Home", preventDefault() {}});
+    assert.equal(h.element("tab-general").attributes["aria-selected"], "true");
+    h.element("tab-feedback").handlers.click();
+    assert.equal(h.element("panel-feedback").hidden, false);
+    assert.equal(h.element("panel-ocr").hidden, true);
 });
 
 test("feedback success clears input only when local report was saved", async () => {
-    const h = harness((url) => {
-        if (url === "/api/preferences") return {body: {build_style: "Balanced"}};
-        if (url === "/api/ocr/status") return {body: {available: true}};
-        if (url === "/api/bug-report") return {body: {filename: "report.json"}};
-        throw new Error("unexpected URL");
-    });
+    const h = harness(successful);
     await ready();
-    h.tabs[1].handlers.click();
-    assert.equal(h.tabs[1].attributes["aria-selected"], "true");
-    assert.equal(h.panels[0].classList.has("hidden"), true);
+    h.element("tab-feedback").handlers.click();
+    assert.equal(h.element("tab-feedback").attributes["aria-selected"], "true");
     h.element("feedback-description").value = "Missing augment";
     await h.element("send-feedback").handlers.click();
     const post = h.calls.find((c) => c.url === "/api/bug-report");
     assert.equal(JSON.parse(post.options.body).description, "Missing augment");
     assert.match(h.element("feedback-status").textContent, /Report saved locally/);
     assert.equal(h.element("feedback-description").value, "");
+    assert.equal(h.element("feedback-status").attributes["aria-busy"], "false");
 });
 
 test("feedback failure is displayed and text retained for retry", async () => {
-    const h = harness((url) => {
-        if (url === "/api/preferences") return {body: {build_style: "Balanced"}};
-        if (url === "/api/ocr/status") return {body: {available: true}};
+    const h = harness((url, options) => {
         if (url === "/api/bug-report") {
             return {ok: false, body: {detail: "Please wait 30s before submitting another report"}};
         }
-        throw new Error("unexpected URL");
+        return successful(url, options);
     });
     await ready();
     h.element("feedback-description").value = "Not detected";
@@ -121,18 +159,57 @@ test("feedback failure is displayed and text retained for retry", async () => {
     assert.equal(h.element("send-feedback").disabled, false);
 });
 
-test("non-JSON save errors produce useful feedback", async () => {
-    const h = harness((url, opts) => {
-        if (url === "/api/preferences" && opts.method === "PUT") {
+test("non-JSON save errors preserve unsaved selection and retry affordance", async () => {
+    const h = harness((url, options) => {
+        if (url === "/api/preferences" && options.method === "PUT") {
             return {ok: false, invalidJson: true};
         }
-        if (url === "/api/preferences") return {body: {build_style: "Balanced"}};
-        if (url === "/api/ocr/status") return {body: {available: true}};
-        throw new Error("unexpected URL");
+        return successful(url, options);
     });
     await ready();
     h.element("preferred-build").value = "Utility";
+    h.element("preferred-build").handlers.change();
     await h.element("save-preferences").handlers.click();
     assert.match(h.element("save-status").textContent, /Invalid server response/);
     assert.equal(h.element("save-preferences").disabled, false);
+    assert.equal(h.element("preferred-build").value, "Utility");
+    assert.equal(h.element("preferred-build").disabled, false);
+});
+
+test("failed initial preference load disables writing and provides retry", async () => {
+    let failures = 1;
+    const h = harness((url, options) => {
+        if (url === "/api/preferences" && !options.method && failures-- > 0) {
+            return {ok: false, body: {detail: "Backend unavailable"}};
+        }
+        return successful(url, options);
+    });
+    await ready();
+    assert.equal(h.element("preferred-build").disabled, true);
+    assert.equal(h.element("save-preferences").disabled, true);
+    assert.equal(h.element("retry-preferences").hidden, false);
+    assert.match(h.element("diagnostics-api").textContent, /Backend unavailable/);
+    assert.match(h.element("connection-summary").textContent, /unavailable/);
+    await h.element("retry-preferences").handlers.click();
+    assert.equal(h.element("preferred-build").disabled, false);
+    assert.equal(h.element("retry-preferences").hidden, true);
+    assert.match(h.element("connection-summary").textContent, /reachable/);
+});
+
+test("OCR readiness is dependency-only and refresh errors are visible", async () => {
+    let failure = false;
+    const h = harness((url, options) => {
+        if (url === "/api/ocr/status" && failure) {
+            return {ok: false, body: {detail: "OCR service unavailable"}};
+        }
+        if (url === "/api/ocr/status") return {body: {available: true}};
+        return successful(url, options);
+    });
+    await ready();
+    assert.match(h.element("ocr-summary").textContent, /not yet verified/);
+    assert.match(h.element("diagnostics-ocr").textContent, /dependency readiness only/);
+    failure = true;
+    await h.element("refresh-ocr").handlers.click();
+    assert.match(h.element("ocr-summary").textContent, /OCR service unavailable/);
+    assert.equal(h.element("refresh-ocr").disabled, false);
 });
