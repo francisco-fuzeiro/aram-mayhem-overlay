@@ -1,5 +1,9 @@
 # ARAM Oracle — Functional Audit Remediation Plan (2026-11-18)
 
+
+> **Superseded for execution by:** [Full M1–M8 Functional Fix Implementation Plan](FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md) and [per-phase TODO](TODO.md). This document preserves the initial high-level A-FIX.0–A-FIX.6 breakdown as audit traceability, **not** the current implementation order. Mandatory agent workflow lives in [AGENTS.md](../AGENTS.md). Begin with **M1 P0.1** after verifying current code/PR state. No application fixes were made by either plan.
+
+
 **Status:** Planning / no application code changed. Source: user-supplied **A-FUNC Functional Code Audit Report** excerpt from 2026-11-18 (in the ChatGPT Overlay LoL project). This is a *reported* audit, **not an independently rerun audit** in this GitHub documentation session. The pasted report is truncated during AUD-11; obtain the full original before claiming a complete defect ledger.
 
 **Audited baseline:** `feat/desktop-overlay-preview-apply-d4b` @ `9832fb0`; [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17), stacked on #16. Preserve the draft PR chain and `main`. The independent WIP `fix/postgame-stale-match-state` @ `cc4aee7` is **not validated**; reported tests: 1 failed, 303 passed. Do not merge or cherry-pick blindly.
