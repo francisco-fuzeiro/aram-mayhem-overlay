@@ -212,7 +212,7 @@ test("M2/E3 null scores render honest insufficient-data labels with reroll hidde
     assert.equal(cards.length, 3);
     for (const card of cards) {
         assert.match(card.innerHTML, /Not rated — insufficient data/);
-        assert.doesNotMatch(card.innerHTML, /NaN|0\\.0\\/10|2\\.1\\/10|null\\/10/);
+        for (const bad of ["NaN", "0.0/10", "2.1/10", "null/10"]) assert.equal(card.innerHTML.includes(bad), false);
     }
     assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
     assert.equal(h.element("reroll-badge").classList.contains("hidden"), true);
@@ -233,7 +233,7 @@ test("M2/E3 rated offers render numeric scores without losing sort semantics", (
     });
     const cards = h.element("augment-list").children;
     assert.equal(cards.length, 2);
-    assert.match(cards[0].innerHTML, /7\\.2\\/10/);
-    assert.match(cards[1].innerHTML, /3\\.1\\/10/);
+    assert.equal(cards[0].innerHTML.includes("7.2/10"), true);
+    assert.equal(cards[1].innerHTML.includes("3.1/10"), true);
     assert.doesNotMatch(cards.map(card => card.innerHTML).join(" "), /NaN/);
 });
