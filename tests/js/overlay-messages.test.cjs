@@ -36,6 +36,18 @@ function harness() {
             replaceChildren(...items) { this.children = [...items]; },
             querySelector() { return node("button"); },
         };
+        // A browser turns textContent into escaped innerHTML. The overlay's
+        // esc() helper relies on this DOM contract; the stub must model it.
+        let plainText = "";
+        Object.defineProperty(element, "textContent", {
+            get() { return plainText; },
+            set(value) {
+                plainText = String(value ?? "");
+                element.innerHTML = plainText.replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+            },
+        });
         return element;
     }
     const document = {
