@@ -71,6 +71,38 @@ pip install -e ".[webview-overlay]"
 python -m backend.overlay
 ```
 
+## Champion Select — experimental team-fit panel
+
+During ARAM champion select, the app reads the local League Client API
+(read-only). It displays your current champion and the visible ARAM bench,
+together with explanations of how they complement allied team roles.
+It never changes your selection.
+
+**Important:** The 0–100 score and S/A/B/C labels are *experimental team-role
+fit heuristics*, **not ARAM Mayhem win rates or verified champion strength**.
+No augment win rates are displayed.
+
+Champion IDs are resolved using a local read-only champion-summary asset.
+If the client data are unavailable, the app does not invent ratings.
+
+If the overlay remains on "Waiting for game..." during champion select, open
+http://127.0.0.1:8765/api/champ-select/status to check detection (no account
+names or client credentials are returned).
+
+For a non-default League installation, set an override to your actual lockfile
+path in the same PowerShell terminal before launching the overlay:
+
+    $env:ARAM_ORACLE_LCU_LOCKFILE = "D:\Riot Games\League of Legends\lockfile"
+    python -m backend.overlay
+
+The lockfile exists only while the League client is running.
+
+**Riot policy:** The League Developer Policy prohibits displaying augment win
+rates and apps that dictate player decisions. Keep this as a private prototype
+until the complete experience is registered/reviewed through the Riot Developer
+Portal. This screen shows several explained alternatives rather than
+automatically choosing a champion.
+
 ## Architecture
 
 ```

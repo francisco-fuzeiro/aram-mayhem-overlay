@@ -16,6 +16,8 @@ from backend.storage.db import init_db
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import get_raw_game_data, parse_game_snapshot
+from backend.collectors.lcu import read_champ_select
+from backend.engine.champion_select import summarize_champion_select
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
@@ -186,6 +188,22 @@ def get_static_names():
     }
     champions = {cid: champ.name for cid, champ in static_data._champions.items()}
     return {"items": items, "augments": augments, "stat_anvils": stat_anvils, "champions": champions}
+
+
+def _read_champ_select_payload() -> dict | None:
+    """Synchronous, read-only LCU access; poller runs this in a worker thread."""
+    snapshot = read_champ_select()
+    if snapshot is None:
+        return None
+    draft, id_map = snapshot
+    return summarize_champion_select(draft, id_map, static_data.get_champion)
+
+
+@app.get("/api/champ-select/status")
+def champ_select_status():
+    """Local debug endpoint; no account IDs or client secrets are exposed."""
+    payload = _read_champ_select_payload()
+    return payload if payload else {"type": "champ_select_unavailable"}
 
 
 @app.get("/api/ocr/status")
@@ -668,25 +686,35 @@ async def _poll_game_loop(interval: float | None = None):
                         )
                         await _broadcast(payload)
                 else:
-                    async with game_state.lock:
-                        if game_state.had_game_last_tick:
-                            # Game just ended — transition to post-game
+                    # Live Client API is unavailable during champion select.
+                    # Read the local client (read-only) off the event loop.
+                    champ_select = await asyncio.to_thread(_read_champ_select_payload)
+                    if champ_select is not None:
+                        async with game_state.lock:
                             game_state.had_game_last_tick = False
-                            game_state.post_game = True
-                            game_state.post_game_time = asyncio.get_event_loop().time()
-                            logger.info("Game ended — entering post-game state")
-                            await _broadcast(json.dumps({"type": "game_ended"}))
-                        elif game_state.post_game:
-                            # In post-game window — auto-reset after 5 minutes
-                            elapsed = asyncio.get_event_loop().time() - game_state.post_game_time
-                            if elapsed > 300:
-                                logger.info("Post-game timeout — resetting state")
-                                game_state.post_game = False
+                            game_state.post_game = False
+                            game_state.reset()
+                        await _broadcast(json.dumps(champ_select))
+                    else:
+                        async with game_state.lock:
+                            if game_state.had_game_last_tick:
+                                # Game just ended — transition to post-game
+                                game_state.had_game_last_tick = False
+                                game_state.post_game = True
+                                game_state.post_game_time = asyncio.get_event_loop().time()
+                                logger.info("Game ended — entering post-game state")
+                                await _broadcast(json.dumps({"type": "game_ended"}))
+                            elif game_state.post_game:
+                                # In post-game window — auto-reset after 5 minutes
+                                elapsed = asyncio.get_event_loop().time() - game_state.post_game_time
+                                if elapsed > 300:
+                                    logger.info("Post-game timeout — resetting state")
+                                    game_state.post_game = False
+                                    game_state.reset()
+                                    await _broadcast(json.dumps({"type": "no_game"}))
+                            else:
                                 game_state.reset()
                                 await _broadcast(json.dumps({"type": "no_game"}))
-                        else:
-                            game_state.reset()
-                            await _broadcast(json.dumps({"type": "no_game"}))
         except Exception as e:
             logger.error("Poll loop error: %s", e, exc_info=True)
         await asyncio.sleep(interval)

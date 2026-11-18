@@ -18,6 +18,9 @@
     const $ = (id) => document.getElementById(id);
     const connectionDot = $("connection-dot");
     const waitingPanel = $("waiting");
+    const champSelectSection = $("section-champ-select");
+    const champSelectList = $("champ-select-list");
+    const champSelectNote = $("champ-select-note");
     const champName = $("champion-name");
     const gameTime = $("game-time");
     const goldEl = $("gold");
@@ -144,6 +147,11 @@
     // -- Message handling --
 
     function handleMessage(msg) {
+        if (msg.type === "champ_select") {
+            renderChampSelect(msg);
+            return;
+        }
+
         if (msg.type === "no_game") {
             hidePostGameFeedback();
             showWaiting(true);
@@ -197,11 +205,54 @@
 
     function showWaiting(show) {
         waitingPanel.classList.toggle("hidden", !show);
+        champSelectSection.classList.add("hidden");
 
         const sections = ["section-augments", "section-input", "section-build", "section-enemies"];
         sections.forEach((id) => {
             $(id).classList.toggle("hidden", show);
         });
+    }
+
+    function renderChampSelect(data) {
+        // Hide gameplay-only panels during champion selection.
+        showWaiting(true);
+        waitingPanel.classList.add("hidden");
+        champSelectSection.classList.remove("hidden");
+        champName.textContent = "Champion Select";
+        gameTime.textContent = "--:--";
+        goldEl.textContent = "--";
+        phaseEl.textContent = "Draft";
+
+        champSelectList.replaceChildren();
+        const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+        for (const candidate of candidates) {
+            const card = document.createElement("div");
+            card.className = "augment-card";
+
+            const name = document.createElement("div");
+            name.className = "aug-name";
+            name.textContent = candidate.name + (candidate.current ? " (current)" : "");
+
+            const summary = document.createElement("div");
+            summary.className = "aug-details";
+            summary.textContent = candidate.tier + " · " + candidate.score + "/100 team fit · " + candidate.role;
+
+            const reasons = document.createElement("div");
+            reasons.className = "aug-explain";
+            reasons.textContent = (candidate.reasons || []).join(" · ");
+
+            card.append(name, summary, reasons);
+            champSelectList.appendChild(card);
+        }
+        if (candidates.length === 0) {
+            const empty = document.createElement("div");
+            empty.className = "aug-empty";
+            empty.textContent = "No champion data yet. Waiting for bench or local client IDs.";
+            champSelectList.appendChild(empty);
+        }
+        const skipped = (data.skipped_ids || []).length;
+        champSelectNote.textContent = (data.notice || "Experimental team-fit score.") +
+            (skipped ? " · " + skipped + " champion ID(s) unavailable in local data." : "");
     }
 
     // -- Render update --
