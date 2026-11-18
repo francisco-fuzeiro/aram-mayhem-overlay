@@ -46,6 +46,24 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **UX-011 — Gameplay and Riot policy gate.** Review real-time recommendations, statistical evidence and UI copy against current Riot rules; keep `experimental_augment_evidence` disabled until cleared. Ensure no auto-select, hidden information or unlicensed code/assets.
 - [ ] **UX-012 — State continuity and failure safety.** On WebSocket disconnect, game exit, new game and OCR timeout, clear or mark stale panels; preserve user preferences but reset only match-specific augments, and recover without requiring a manual restart.
 
+## Functional audit gate — observed November 18 Windows playtest (before more interface work)
+
+> Evidence and exact candidate source references: [FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md](FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md). User stopped feature implementation for a **Claude code/functionality audit**. D4b development/CI is complete; **real gameplay correctness is not**. These are independent P0 defects, not D4b feature failures to silently mark as fixed.
+
+- [ ] **F-AUD-01 (P0):** Resolve intermittent `Waiting for game...` in a live **custom Mayhem** match after a successful Champion Select; validate LCDA game transition and error state.
+- [ ] **F-AUD-02 (P0):** Correct wrong three offered augments (visible **Impassable / Upgrade Stormsurge / Tooth Fairy**, overlay **escAPAde / Restart / Mercy**) with reliable card-specific left/center/right identity, freshness, confidence and catalog validation.
+- [ ] **F-AUD-03 (P0):** Automatically recognize **single-card rerolls**, invalidate replaced scores, and preserve unchanged offers; manual **Alt+O → Scan Screen** must be a fallback rather than required.
+- [ ] **F-AUD-04 (P0):** Remove misleading uniform **2.1/10** for unknown/zero-contribution augments and consequential unjustified reroll suggestion; report insufficient data, not weak fit.
+- [ ] **F-AUD-05 (P0):** Clear stale **Neeko / game time / gold** after game exit; test fresh game, WebSocket/LCDA failure and reconnection while preserving saved preferences.
+- [ ] **F-AUD-06 (P0):** Audit stale OCR/WS offer generations, out-of-order updates, candidate reordering, previous-game state, and recommendation invalidation; add deterministic regressions.
+- [ ] **F-AUD-07 (P1, deferred UI):** After reliable three-card OCR/scoring and game-state gates, display **minimal scores aligned above the actual League augment cards**, with correct screen/DPI placement and click-through. No guessing from sorted list positions.
+- [ ] **A-FUNC.1 (audit):** Obtain an actual **Claude functional/code audit** against current repo head, with file/line evidence, confirmed/suspected causes, severity, missing fixtures and P0/P1/P2 defect backlog.
+- [ ] **A-FUNC.2 (plan):** Define small independent bug-fix phases, deterministic tests and Windows capture evidence, before coding the next interface feature.
+- [ ] **A-FUNC.3 (acceptance):** Correct P0 faults and validate three real offered cards, reroll, meaningful/unknown scores and clean game exit on a permitted Windows custom match.
+- [ ] **A-FUNC.4 (UI gate):** Hold game-card-aligned in-game UI until the actual identity/score/offer lifecycle is reliable. Keep D5c **desktop Settings UX audit** a separate later phase.
+
+**WIP safety:** `fix/postgame-stale-match-state` was created during this review with preliminary unverified state-cleanup code and one test file; this branch is **unmerged, not part of PR #17, not validated and not a resolved issue**. Do not promote it silently. Review separately during the audit.
+
 ## P1 — Contextual UI and pre-game flow
 
 - [ ] **UX-101 — Augment choice micro-panel.** Replace a large expandable list with 3 simultaneously visible, ordered cards (name, contextual 0–10 rating, data confidence and one-line reason) during a detected offer. Make alternative choices obvious; no forced "best" decision.
@@ -90,7 +108,7 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **UX-D10 — Branding and licensing (P2).** Build original ARAM Oracle icon, typography, layout and visual hierarchy; use OP.GG only as an interaction reference, check Riot requirements and every bundled dependency's license/attribution.
 - [ ] **UX-D11 — Claude UX/UI audit after desktop interface completion (P1).** After D3, D4a/D4b and D5a/D5b, commission/document an actual Claude review of the real Windows Settings, onboarding, preview and feedback flows. Triage concrete accessibility, consistency and usability findings and implement bounded P0/P1 design fixes before D6. Keep future D7/D8 live gameplay panels separately validated; no pretend audit or copied OP.GG designs.
 
-**Delivery order (desktop roadmap):** D1–D2 lifecycle, D3 navigation, D4a preferences, D4b preview, D5a OCR readiness, D5b diagnostics, **D5c Claude UI/UX audit + bounded design closure**, then D6–D8 contextual in-game engine/panels, then D9–D11 packaging/release when core behavior is dependable. Historical PR #12 follow-ups remain independently tracked. Do not treat a pretty installer as evidence that live recommendations work. Do not treat a pretty installer as evidence that live recommendations work.
+**Delivery order (desktop roadmap):** D1–D2 lifecycle, D3 navigation, D4a preferences, D4b preview, **A-FUNC Claude functionality/code audit and P0 defect triage (next, before new interface work)**, D5a OCR readiness, D5b diagnostics, **D5c Claude UI/UX audit + bounded design closure**, then D6–D8 contextual in-game engine/panels, then D9–D11 packaging/release when core behavior is dependable. Historical PR #12 follow-ups remain independently tracked. Do not treat a pretty installer as evidence that live recommendations work. Do not treat a pretty installer as evidence that live recommendations work.
 
 ## Small desktop development phases — implementation checklist
 
