@@ -9,7 +9,7 @@ Uses perceptual image hashing for cheap change detection:
 - On subsequent ticks, only the hash is recomputed (fast).
 - If the hash changes significantly, a reroll happened and OCR re-runs.
 
-Screenshots are saved persistently to data/screenshots/ for debugging.
+Screenshots are never stored by default; explicitly opted-in debugging can save images.
 
 Requires Tesseract OCR installed:
   Windows: winget install UB-Mannheim.TesseractOCR
@@ -163,7 +163,7 @@ class ScreenWatcher:
         self,
         augment_names: dict[str, str],
         monitor_index: int = 1,
-        save: bool = True,
+        save: bool = False,
     ) -> tuple[str, list[tuple[str, str, int]] | None]:
         """Check the screen for augment changes.
 
@@ -552,7 +552,7 @@ def match_augments(
 def detect_augments(
     augment_names: dict[str, str],
     monitor_index: int = 1,
-    save: bool = True,
+    save: bool = False,
 ) -> list[tuple[str, str, int]]:
     """Full pipeline: capture screen -> OCR -> match augments.
 
