@@ -7,7 +7,7 @@ League of Legends in borderless windowed mode without causing tab-outs
 because the window never captures mouse input.
 
 Win32 flags:
-  WS_EX_TRANSPARENT — mouse events pass through to the game
+  WS_EX_TRANSPARENT — mouse events pass through to the game (Alt+O to toggle)
   WS_EX_LAYERED     — required for per-pixel transparency
   HWND_TOPMOST      — stays on top of all windows
 
@@ -44,6 +44,8 @@ WS_EX_LAYERED = 0x00080000
 OVERLAY_WIDTH = 320
 OVERLAY_MARGIN_RIGHT = 10
 OVERLAY_MARGIN_TOP = 60
+VK_MENU = 0x12
+VK_O = 0x4F
 
 
 # Guard class definitions behind PYQT_AVAILABLE so they don't reference
@@ -102,8 +104,50 @@ if PYQT_AVAILABLE:
             # Load the overlay URL
             self._view.setUrl(QUrl(url))
 
-            # Apply Win32 click-through after the window is shown
+            # Keep an interaction toggle available while the game has focus.
+            self._is_click_through = True
+            self._hotkey_was_down = False
             QTimer.singleShot(100, self._set_click_through)
+            self._hotkey_timer = QTimer(self)
+            self._hotkey_timer.timeout.connect(self._poll_interaction_hotkey)
+            self._hotkey_timer.start(60)
+
+        def _poll_interaction_hotkey(self):
+            """Toggle passthrough on a fresh Alt+O key chord globally."""
+            if sys.platform != "win32":
+                return
+            user32 = ctypes.windll.user32
+            down = bool(
+                user32.GetAsyncKeyState(VK_MENU) & 0x8000
+                and user32.GetAsyncKeyState(VK_O) & 0x8000
+            )
+            if down and not self._hotkey_was_down:
+                self._toggle_click_through()
+            self._hotkey_was_down = down
+
+        def _toggle_click_through(self):
+            """Enable controls temporarily without affecting transparency."""
+            if sys.platform != "win32":
+                return
+            hwnd = int(self.winId())
+            user32 = ctypes.windll.user32
+            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            if self._is_click_through:
+                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style & ~WS_EX_TRANSPARENT)
+                self._view.page().runJavaScript(
+                    "document.body.classList.add('interactive-mode')"
+                )
+            else:
+                user32.SetWindowLongW(
+                    hwnd, GWL_EXSTYLE, style | WS_EX_TRANSPARENT | WS_EX_LAYERED
+                )
+                self._view.page().runJavaScript(
+                    "document.body.classList.remove('interactive-mode')"
+                )
+            self._is_click_through = not self._is_click_through
+            logger.info(
+                "Qt click-through %s", "ON" if self._is_click_through else "OFF"
+            )
 
         def _set_click_through(self):
             """Set Win32 extended styles so mouse events pass through."""

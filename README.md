@@ -71,6 +71,35 @@ pip install -e ".[webview-overlay]"
 python -m backend.overlay
 ```
 
+### Windows overlay has a white background?
+
+The lightweight pywebview/Edge WebView2 backend can render a white rectangle
+instead of transparent unused space on some Windows/WebView2 combinations.
+This is a native compositor issue; changing the CSS alone will not necessarily
+fix it. The launcher defaults to pywebview for backward compatibility.
+
+Try the **PyQt6 transparency fallback** without uninstalling pywebview:
+
+```powershell
+python -m pip install -e ".[overlay]"
+python -m backend.overlay --renderer qt
+```
+
+With either backend, press **Alt+O** to toggle click-through and interact with
+the overlay controls, then press it again to return mouse input to the game.
+If a window shows "Waiting for game..." outside a match, that is normal;
+it is not evidence of failed transparency or working in-game detection.
+
+To explicitly compare the original WebView2 renderer:
+
+```powershell
+python -m backend.overlay --renderer webview
+```
+
+Close the previous overlay before launching another renderer. If Qt also
+shows a white background or fails to start, report the terminal message and
+Windows screenshot; neither backend is guaranteed without on-device testing.
+
 ## Champion Select — experimental composite rating
 
 During ARAM champion select, the app reads the local League Client API

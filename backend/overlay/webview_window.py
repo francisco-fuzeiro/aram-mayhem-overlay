@@ -96,10 +96,26 @@ def _get_screen_size() -> tuple[int, int]:
 
 
 def _find_hwnd(title: str) -> int | None:
-    """Find the HWND of a window by its title."""
+    """Find the HWND by title, only when the native handle is unavailable."""
     user32 = ctypes.windll.user32
     hwnd = user32.FindWindowW(None, title)
     return hwnd if hwnd else None
+
+
+def _get_overlay_hwnd() -> int | None:
+    """Prefer the live WinForms handle over a brittle window-title lookup."""
+    if _window is not None:
+        native = getattr(_window, "native", None)
+        if native is not None:
+            try:
+                handle = getattr(native, "Handle", None)
+                if handle is not None:
+                    hwnd = int(handle.ToInt64()) if hasattr(handle, "ToInt64") else int(handle)
+                    if hwnd:
+                        return hwnd
+            except (ValueError, TypeError, AttributeError) as exc:
+                logger.debug("Unable to inspect native window handle: %s", exc)
+    return _find_hwnd(WINDOW_TITLE)
 
 
 def _force_topmost(hwnd: int) -> None:
@@ -196,7 +212,7 @@ def toggle_click_through() -> bool:
     if _window is None:
         return _click_through
 
-    hwnd = _find_hwnd(WINDOW_TITLE)
+    hwnd = _get_overlay_hwnd()
     if not hwnd:
         logger.warning("Could not find overlay HWND for toggle")
         return _click_through
@@ -336,7 +352,12 @@ def _on_shown():
     import time
     time.sleep(0.3)
 
-    hwnd = _find_hwnd(WINDOW_TITLE)
+    hwnd = None
+    for _ in range(6):
+        hwnd = _get_overlay_hwnd()
+        if hwnd:
+            break
+        time.sleep(0.2)
     if hwnd:
         _set_click_through(hwnd)
         _force_topmost(hwnd)
@@ -347,7 +368,10 @@ def _on_shown():
         if alpha < 255:
             _set_opacity(hwnd, alpha)
     else:
-        logger.warning("Could not find overlay HWND — click-through not set")
+        logger.warning(
+            "Could not find native overlay HWND — click-through not set. "
+            "Try --renderer qt for the alternative window backend."
+        )
 
     _start_hotkey_listener()
     _start_tray_icon()

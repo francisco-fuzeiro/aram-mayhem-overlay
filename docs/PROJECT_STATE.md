@@ -32,8 +32,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#6](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/6) | `feat/team-threat-coverage` | PR #5 branch | Player-inclusive ally roles, catalog coverage safeguards and visible enemy inventory fallback |
 | [#7](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/7) | `feat/selectable-build-paths` | PR #6 branch | Selectable build style, saved UI preference, inventory-safe next item, WebSocket contract |
 | [#8](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/8) | `feat/late-game-boots-replacement` | PR #7 branch | Optional full-inventory boots-to-mobility item swap with conservative stat comparison |
+| [#9](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/9) | `fix/windows-overlay-transparency-fallback` | PR #8 branch | Explicit Qt fallback for Windows transparency; pywebview HWND fix |
 
-**Active working head: `feat/late-game-boots-replacement` (draft PR #8)**, stacked on PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `fix/windows-overlay-transparency-fallback` (draft PR #9)**, stacked on PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -63,7 +64,21 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Missing/conditional movement effects, mode shop eligibility, unique passives, full actual movespeed/soft cap and item buy path **remain unverified**. The comparison is **heuristic** and needs real Windows/Mayhem validation.
 - Tests: [Windows GitHub Actions run 44318127647](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44318127647) **passed: 171 tests, 1 warning**, plus successful `node --check frontend/app.js`. Real Mayhem shop/Windows in-game verification remains pending.
 
+## Current work: PR #9 — Windows overlay transparency diagnosis/fallback
+
+- User screenshot (2026-11-18) shows `163 passed, 2 warnings` on Windows, normal `Waiting for game...` when no match, but a large unwanted white area. Log also reports `Could not find overlay HWND — click-through not set`; these are two distinct desktop-window concerns.
+- Current on-device checkout appears to be PR #7 (`163` tests), not the latest PR #8 (`171` tests on GitHub Actions). Screenshots are **not** in-game tests.
+- pywebview/Edge WebView2 transparency on Windows is known to be inconsistent. `backend/overlay/__main__.py` now accepts `--renderer qt` and `--renderer webview`; default remains pywebview for compatibility. Qt is an **opt-in fallback**, not a proven fix on the user's machine.
+- `backend/overlay/webview_window.py` now prefers `_window.native.Handle` for the Win32 HWND and retries when the window has just opened; exact-title `FindWindowW` is fallback only.
+- `backend/overlay/window.py` now supports an Alt+O click-through toggle using a Qt timer that observes the global key chord, maintaining access to build style and other UI controls when Qt is used.
+- Added `tests/test_overlay_renderer.py` and a Windows troubleshooting section in README. [Windows CI 44319789943](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44319789943) **passed: 178 tests, 1 warning; JavaScript syntax passed**. On-device Qt/WebView2 comparison **not yet run**.
+- **User Windows desktop validation confirmed on 2026-11-18:** the user ran `python -m backend.overlay --renderer qt`; the screenshot shows fully transparent unused window regions with legible panels, and terminal logs `Using PyQt6 transparent overlay`, `Overlay window started` and `Click-through enabled (HWND=...)`. Their local pytest run reported **178 passed, 2 warnings**. This resolves the reported white-background symptom **on that desktop**. The actual in-game render, Alt+O interactivity and LCDA/OCR remain unverified. The default `auto` renderer still chooses pywebview; Qt must be requested explicitly.
+
 ## Automated verification (as last observed)
+
+- PR #9 latest completed Windows GitHub Actions run `44320104470` on documentation-only head `388fe862`: **success**. The user also ran **178 passed, 2 warnings** locally with the Qt renderer. The warning count differs between environments.
+
+- PR #9 Windows CI `44319789943` at `e93aad6b`: **178 passed, 1 warning**, JavaScript syntax check passed. On-device Qt render remains unconfirmed; later documentation commits need own CI recheck.
 
 - PR #8 Windows CI `44318127647` on feature commit `280e7659`: **171 passed, 1 warning**, JavaScript syntax check passed. Newer documentation commits require separate CI recheck.
 
@@ -108,7 +123,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. Confirm the latest PR #8 CI and complete real Windows in-game verification of LCDA roster, OCR choices, persistent build style and in-game overlay behavior.
+1. **Windows desktop transparency has been validated with `--renderer qt`**. Next verify Qt overlay over League in borderless mode, Alt+O interaction, champion-select/LCDA roster, OCR choices, persistent build style and real item updates.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
@@ -120,8 +135,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #8 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
-3. Continue from PR #8 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #9 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
+3. Continue from PR #9 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.
