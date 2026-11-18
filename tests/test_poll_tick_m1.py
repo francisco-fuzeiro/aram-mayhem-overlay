@@ -99,7 +99,6 @@ async def test_poll_tick_inactive_without_match_sends_no_game():
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="AUD-03a: passive level-up stat change falsely enters augment pick inference")
 async def test_aud03a_level_up_must_not_be_treated_as_augment_pick():
     state, deps, _events = make_harness(
         [{"tick": 1}, {"tick": 2}, {"tick": 3}, {"tick": 4}],
@@ -113,6 +112,51 @@ async def test_aud03a_level_up_must_not_be_treated_as_augment_pick():
     await poll_tick(state, deps, 16.0)
     assert state.chosen_augments == []
     assert not state.awaiting_stat_delta
+
+
+@pytest.mark.asyncio
+async def test_a1_item_purchase_during_offer_does_not_infer_pick():
+    state, deps, _events = make_harness(
+        [{"tick": tick} for tick in range(4)],
+        [make_snapshot(attack_damage=100.0)]
+        + [make_snapshot(attack_damage=145.0) for _ in range(3)],
+    )
+    for tick in range(4):
+        await poll_tick(state, deps, 20.0 + 2 * tick)
+    assert state.scan_window_open
+    assert state.chosen_augments == []
+    assert not state.awaiting_stat_delta
+
+
+@pytest.mark.asyncio
+async def test_a1_death_respawn_with_stat_changes_does_not_infer_pick():
+    state, deps, _events = make_harness(
+        [{"tick": tick} for tick in range(5)],
+        [
+            make_snapshot(),
+            make_snapshot(dead=True, hp=0.0, attack_damage=110.0),
+            make_snapshot(dead=True, hp=0.0, attack_damage=110.0),
+            make_snapshot(dead=False, attack_damage=130.0),
+            make_snapshot(dead=False, attack_damage=130.0),
+        ],
+    )
+    for tick in range(5):
+        await poll_tick(state, deps, 30.0 + 2 * tick)
+    assert state.chosen_augments == []
+    assert not state.awaiting_stat_delta
+
+
+@pytest.mark.asyncio
+async def test_a1_watcher_disappearance_still_arms_the_separate_confirmation_path():
+    state, deps, _events = make_harness(
+        [{"tick": 1}],
+        [make_snapshot()],
+        ocr=True,
+        watcher_result=("disappeared", [], None),
+    )
+    await poll_tick(state, deps, 40.0)
+    assert state.awaiting_stat_delta
+    assert state.chosen_augments == []
 
 
 @pytest.mark.asyncio
