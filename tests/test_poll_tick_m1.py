@@ -12,7 +12,7 @@ import pytest
 from backend.api.server import GameState, poll_tick
 
 
-def make_snapshot(level=3, *, dead=False, hp=1.0, attack_damage=100.0):
+def make_snapshot(level=3, *, dead=False, hp=1.0, attack_damage=100.0, items=()):
     return SimpleNamespace(
         level=level,
         is_dead=dead,
@@ -20,6 +20,7 @@ def make_snapshot(level=3, *, dead=False, hp=1.0, attack_damage=100.0):
         champion_stats={"attackDamage": attack_damage, "maxHealth": 1000.0},
         augment_choices=[],
         chosen_augments=[],
+        purchased_items=list(items),
         build_style="Balanced",
     )
 
@@ -232,8 +233,9 @@ async def test_a2_ocr_disappearance_at_low_hp_keeps_existing_confirmation_path()
     await poll_tick(state, deps, 40.0)
     deps.run_watcher_check = Mock(return_value=("disappeared", [], None))
     await poll_tick(state, deps, 42.0)
-    assert state.scan_window_open
+    assert not state.scan_window_open
     assert state.awaiting_stat_delta
+    assert state.confirmation_pending
     assert state.chosen_augments == []
     assert not any(event["type"] == "augment_confirm" for event in events)
     deps.run_watcher_check.assert_called_once()
@@ -249,3 +251,59 @@ async def test_aud03d_damage_must_not_close_ocr_window():
     assert state.scan_window_open
     await poll_tick(state, deps, 12.0)
     assert state.scan_window_open
+
+
+@pytest.mark.asyncio
+async def test_a3_disappeared_offer_prompts_once_and_never_auto_chooses():
+    state, deps, events = make_harness(
+        [{"tick": i} for i in range(5)],
+        [make_snapshot() for _ in range(5)],
+        ocr=True,
+        watcher_result=("disappeared", [], None),
+    )
+    matches = []
+
+    async def deferred_match(snapshot):
+        matches.append(snapshot.level)
+        events.append({"type": "augment_confirm", "best_guess_id": None})
+
+    deps.try_stat_delta_match = deferred_match
+    watcher_checks = Mock(return_value=("disappeared", [], None))
+    deps.run_watcher_check = watcher_checks
+
+    await poll_tick(state, deps, 10.0)
+    assert not state.scan_window_open
+    assert state.confirmation_pending
+    assert state.awaiting_stat_delta
+    assert state.chosen_augments == []
+    assert matches == []
+
+    for tick in range(1, 5):
+        await poll_tick(state, deps, 10.0 + tick * 2)
+
+    assert matches == [3]
+    assert state.confirmation_pending
+    assert not state.awaiting_stat_delta
+    assert state.chosen_augments == []
+    assert [event["type"] for event in events].count("augment_confirm") == 1
+    watcher_checks.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_a3_level_change_while_confirmation_pending_does_not_reopen_scan():
+    state, deps, _events = make_harness(
+        [{"tick": i} for i in range(3)],
+        [make_snapshot(level=3), make_snapshot(level=7), make_snapshot(level=7)],
+        ocr=True,
+        watcher_result=("disappeared", [], None),
+    )
+    async def deferred_match(_snapshot):
+        pass
+
+    deps.try_stat_delta_match = deferred_match
+    await poll_tick(state, deps, 10.0)
+    await poll_tick(state, deps, 12.0)
+    await poll_tick(state, deps, 14.0)
+    assert state.confirmation_pending
+    assert not state.scan_window_open
+    assert state.chosen_augments == []
