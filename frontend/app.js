@@ -812,6 +812,28 @@
     }
 
     // -- Boot --
-    applyOverlayMode();
-    init();
+    // Node's DOM-stub harness gets the existing handlers without connecting
+    // to a real server. Browser/Qt startup remains exactly as before.
+    if (typeof module !== "undefined" && module.exports) {
+        module.exports = Object.freeze({
+            handleMessage,
+            renderUpdate,
+            renderHeader,
+            renderRecommendations,
+            renderBuild,
+            renderEnemies,
+            renderChampSelect,
+            renderOcrResult,
+            connectWebSocket,
+            setConnected,
+            getState: () => ({
+                lastResult,
+                selectedAugmentIds: [...selectedAugmentIds],
+                scanning,
+            }),
+        });
+    } else {
+        applyOverlayMode();
+        init();
+    }
 })();
