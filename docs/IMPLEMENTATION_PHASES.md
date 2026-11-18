@@ -1,5 +1,8 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **Latest M2/E1 checkpoint (2026-11-18):** [draft PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) on `fix/m2-e1-augment-keyword-cache` stacked on A3 PR #25. Tests-first [Actions 44408360190](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408360190) failed as expected (4 cases); fix code-head [Actions 44408721703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408721703) passed (339 Python, 1 AUD-07 xfailed; 26 JS, 4 TODO). **Verify final E1 docs-head CI before creating E2.** E2 provenance/coverage and E3 unrated/reroll are separate PRs. No manual League acceptance.
+
+
 > **Latest 2026-11-18 execution checkpoint:** M2/A3 is implemented on [draft PR #25](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/25), stacked on verified A2 draft PR #24; its core backend [Windows Actions 44406157335](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44406157335) passed (334 Python, 1 xfailed; 24 JS, 4 TODO), deferred UI [44406383857](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44406383857) passed (334 Python, 1 xfailed; 26 JS, 4 TODO). Verify final documentation-head CI before advancing. **Next M2/E1 only**; E2, E3 and M3 are later separate phases. Full approved execution plan is still independent docs-only PR #19; no real Windows/League acceptance or G4/G1/G2 clearance implied.
 
 

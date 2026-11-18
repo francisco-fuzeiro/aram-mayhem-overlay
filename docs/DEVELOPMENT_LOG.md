@@ -422,3 +422,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - JS test first `b6e2e675` asserted no forced section expansion, and an honest empty OCR fallback; tiny UI fix `a653c1f2` met it. [Windows Actions 44406383857](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44406383857) succeeded: **334 Python passed, 1 xfailed; 26 JS passed, 4 TODO**. WebSocket manual acknowledgement/pending reset regression `f03a5d36` added; its CI and the final documentation-head CI must be verified.
 - Scope only A3. No E1/E2/E3, M3, installer, broad UI redesign or `main` edits. Real Windows/League validation remains open; G4 local API security and G1/G2 Mayhem catalog are not solved. Continue with E1 only in the next session.
 
+
+## 2026-11-18 — M2/E1 whole-word catalog hints and cache invalidation (draft PR #26)
+
+- Branch `fix/m2-e1-augment-keyword-cache` stacked on M2/A3 PR #25 @ `a1d5322f`; draft [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26). No merge or `main` write.
+- Tests-first commit `c3d5dbff`: [Windows Actions 44408360190](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408360190) reproduced four errors (Upgrade/AD, Donation/HP, partial description keyword, legacy cache reuse): 335 Python passed, 4 failed, 1 AUD-07 xfailed.
+- Fix commit `8e7c215b`: replace substring recognition with complete keyword boundaries; replace the legacy stem-only invulnerability/resistance keywords with their complete variants; remove Donation's unsupported name hint; add versioned augment cache v2 filename and align updater's cache detection with both augment/item cache schema versions.
+- [Windows headless Actions 44408721703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408721703) green on code head: **339 Python passed, 1 AUD-07 strict xfailed, 1 warning; 26 JavaScript passed, 4 TODO, 0 failed**; syntax checks passed. This documentation commit's own CI must still be inspected before E2. No Windows/League manual validation or Mayhem patch/catalog authority verification.
+- Next gated phase: E2 model coverage and contribution provenance, new stacked branch/draft PR only after final-head E1 CI green. Preserve diagnostic privacy caps, screenshots off and experimental augment evidence off; G1/G2, G4, AUD-07, A-FUNC.3 and Riot/licensing open.
