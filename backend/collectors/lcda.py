@@ -29,6 +29,22 @@ def _normalize_champion_name(raw: str) -> str:
     return _CHAMPION_ALIASES.get(key, key)
 
 
+def _riot_identity(player: dict) -> str | None:
+    """Riot ID from the current LCDA payload, with no guessed identity."""
+    if not isinstance(player, dict):
+        return None
+    rid = player.get("riotId")
+    if isinstance(rid, str) and rid.strip():
+        return rid.strip().casefold()
+    if isinstance(rid, dict):
+        name, tag = rid.get("gameName"), rid.get("tagLine")
+    else:
+        name, tag = player.get("riotIdGameName"), player.get("riotIdTagLine")
+    if isinstance(name, str) and isinstance(tag, str) and name and tag:
+        return f"{name}#{tag}".casefold()
+    return None
+
+
 def _is_main_inventory_item(item: dict) -> bool:
     """Count only slots 0–5 towards a six-slot build.
 
@@ -136,10 +152,20 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
     all_players = raw.get("allPlayers", [])
     game_data = raw.get("gameData", {})
 
-    active_name = active.get("summonerName", "")
+    active_riot_id = _riot_identity(active)
     active_player = next(
-        (p for p in all_players if p.get("summonerName") == active_name), {}
+        (p for p in all_players
+         if active_riot_id and _riot_identity(p) == active_riot_id),
+        {},
     )
+    if not active_player:
+        # Older LCDA payloads may not expose Riot ID; use the legacy name
+        # only when a precise Riot-ID match was unavailable.
+        active_name = active.get("summonerName")
+        active_player = next(
+            (p for p in all_players if active_name and p.get("summonerName") == active_name),
+            {},
+        )
 
     items = [
         str(item["itemID"]) for item in active_player.get("items", [])

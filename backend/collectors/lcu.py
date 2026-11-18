@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import dataclass
 import os
 import subprocess
 import sys
@@ -144,4 +145,46 @@ def read_champ_select() -> tuple[dict, dict[str, str]] | None:
                 return None
             return draft, get_champion_id_map(lcu)
     except requests.RequestException:
+        return None
+
+
+@dataclass(frozen=True)
+class GameflowSnapshot:
+    """Only read-only phase and match ID, never LCU credentials or raw session."""
+
+    phase: str
+    game_id: str | None = None
+
+
+def read_gameflow() -> GameflowSnapshot | None:
+    """Read documented local Gameflow fields; no write requests or inference."""
+    session = get_lcu_session()
+    if session is None:
+        return None
+    try:
+        with session:
+            response = session.get(
+                f"{session.base_url}/lol-gameflow/v1/gameflow-phase", timeout=1,
+            )
+            if response.status_code != 200:
+                return None
+            phase = response.json()
+            if not isinstance(phase, str):
+                return None
+            game_id = None
+            if phase in ("GameStart", "InProgress", "Reconnect", "PreEndOfGame",
+                         "WaitingForStats", "EndOfGame"):
+                detail = session.get(
+                    f"{session.base_url}/lol-gameflow/v1/session", timeout=1,
+                )
+                if detail.status_code == 200:
+                    payload = detail.json()
+                    if isinstance(payload, dict):
+                        raw_id = payload.get("gameId")
+                        if raw_id is None and isinstance(payload.get("gameData"), dict):
+                            raw_id = payload["gameData"].get("gameId")
+                        if isinstance(raw_id, (int, str)) and str(raw_id).strip() not in ("", "0", "unknown"):
+                            game_id = str(raw_id)
+            return GameflowSnapshot(phase=phase, game_id=game_id)
+    except (requests.RequestException, ValueError, OSError, TypeError):
         return None

@@ -69,6 +69,11 @@ request connection rather than inventing state. Always protect `main`.
 4. Keep the PR draft, targeting its predecessor; leave `main` untouched.
 5. Conclude in PT-PT with accomplished changes, automated results, unresolved Windows validation and a ready-to-paste prompt for the next phase/chat.
 
+## Active handoff (2026-11-18) — M3/F2 → F3
+
+- F2 [draft PR #30](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/30) `fix/m3-f2-explicit-gameflow-status` stacked on verified F1 PR #29. F2 red CI `44415699928`, green code [44416355903](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44416355903): 374 Python, 1 AUD-07 xfailed; 28 JS, 4 TODO. Code SHA `0493fad2`.
+- **Verify final F2 docs-head CI before F3**. Next F3: debounced game end >=3 misses over >=6 seconds or authoritative LCU end, identity and reset without 300-second hold, AUD-07 promotion; no F4/F5 work in F3. No merges or Windows acceptance assertions.
+
 ## Latest active handoff (2026-11-18) — M3/F1 → F2
 
 - F1 [draft PR #29](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/29) `fix/m3-f1-classified-lcda-nonblocking` stacks on E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28); E3 final [CI 44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) green. F1 red [44414416010](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44414416010), F1 green code [44415046195](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44415046195): 367 Python, 1 AUD-07 xfailed, 28 JS, 4 TODO.

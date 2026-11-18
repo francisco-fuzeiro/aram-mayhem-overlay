@@ -21,6 +21,12 @@ SCHEMA: dict[str, dict[str, object]] = {
         "status": frozenset(("available", "unavailable", "error")),
         "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse", "http_404", "refused", "bad_json")),
     },
+    "game_status": {
+        "state": frozenset((
+            "client_idle", "champ_select", "loading", "live_data_unavailable",
+            "in_game", "champion_unresolved", "post_game",
+        )),
+    },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
         "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "offer_disappeared", "reset", "unknown")),
