@@ -100,6 +100,39 @@ overlay, and clicking through remains the normal in-game mode. The system
 tray action only opens a standard browser tab; it does not alter the
 overlay's transparency or mouse handling.
 
+### Native desktop Settings (D1 prototype)
+
+Install the existing optional Qt/WebEngine dependency and launch Settings
+in a **regular, resizable Windows window**, independently of the game overlay:
+
+```powershell
+python -m pip install -e ".[overlay]"
+python -m backend.desktop
+```
+
+This hosts the existing `/settings` page and its same-origin
+`/api/preferences` and `/api/bug-report` requests; it does not duplicate
+the frontend, the preference store or the recommendation pipeline.
+If an existing compatible ARAM Oracle API is listening on
+`127.0.0.1:8765`, the desktop window reuses it. Otherwise this command
+starts the existing FastAPI server in its own background thread.
+A missing PyQt6 WebEngine installation, an incompatible process occupying
+port 8765, or an API that cannot become ready produces an error in the
+terminal rather than an empty Settings page.
+
+The previous in-game overlay entrypoint is **unchanged**:
+
+```powershell
+python -m backend.overlay --renderer qt
+```
+
+D1 is a development-only window, **not** a packaged application. A unified
+single-instance / tray lifecycle, installer and updater are later phases.
+For now the overlay's **Open Settings** tray action still opens the
+browser fallback. If launching the two developer commands independently,
+keep their server-owning terminal open while using the shared Settings/API;
+lifecycle coordination is part of D2.
+
 ### In-game augment options or build items are missing?
 
 If the overlay badge reads **NO OCR**, the local Tesseract executable could
