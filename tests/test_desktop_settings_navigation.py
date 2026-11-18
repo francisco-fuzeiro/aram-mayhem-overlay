@@ -36,8 +36,8 @@ def test_settings_sections_are_accessible_and_unique():
         panels.append(panel)
     assert sum(tab["aria-selected"] == "true" for tab in tabs) == 1
     assert sum("hidden" not in panel for panel in panels) == 1
-    assert parser.elements["preferred-build"][1].get("disabled") is not None
-    assert parser.elements["save-preferences"][1].get("disabled") is not None
+    assert "disabled" in parser.elements["preferred-build"][1]
+    assert "disabled" in parser.elements["save-preferences"][1]
 
 
 def test_settings_has_no_active_controls_for_future_overlay_customization():
