@@ -139,3 +139,41 @@ async def test_a3_no_premature_prompt_without_verified_disappearance(pending_off
     matcher.assert_not_called()
     assert state.chosen_augments == []
     assert state.scan_window_open
+
+
+@pytest.mark.asyncio
+async def test_a3_explicit_manual_choice_resolves_pending_state(pending_offer, monkeypatch):
+    state, data, _broadcast, _matcher, events = pending_offer
+    state.awaiting_stat_delta = True
+    state.delta_wait_ticks = 1
+
+    class Socket:
+        def __init__(self):
+            self.sent = []
+            self.pending = [json.dumps({"type": "choose_augment", "augment_id": "b"})]
+
+        async def accept(self):
+            pass
+
+        async def receive_text(self):
+            if self.pending:
+                return self.pending.pop(0)
+            raise server.WebSocketDisconnect()
+
+        async def send_text(self, message):
+            self.sent.append(json.loads(message))
+
+    client = Socket()
+    await server.game_ws(client)
+    assert state.chosen_augments == ["b"]
+    assert state.chosen_stat_anvils == []
+    assert not state.confirmation_pending
+    assert not state.awaiting_stat_delta
+    assert state.delta_wait_ticks == 0
+    assert state.augment_choices == []
+    assert state.stat_snapshot_before == {}
+    assert client.sent == [{
+        "type": "ack", "action": "choose_augment",
+        "chosen_augments": ["b"],
+    }]
+    assert ("augment_confirmation", {"method": "manual", "kind": "augment"}) in events
