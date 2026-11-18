@@ -12,6 +12,7 @@ import logging
 logger = logging.getLogger("aram-oracle")
 
 from backend.static_data.loader import StaticData
+from backend.storage.db import init_db
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import get_raw_game_data, parse_game_snapshot
@@ -108,6 +109,8 @@ def expected_augments_for_level(level: int) -> int:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
+    # Every entrypoint (CLI, desktop overlay, and direct ASGI) needs a DB.
+    init_db()
     static_data.load()
     game_state.pipeline = Pipeline(static_data)
 
@@ -690,22 +693,24 @@ async def _poll_game_loop(interval: float | None = None):
 
 
 async def _broadcast(message: str) -> None:
-    """Send a message to all connected WebSocket clients."""
+    """Push to WebSocket clients without re-acquiring the game-state lock.
+
+    This coroutine is sometimes called while game_state.lock is held
+    (e.g. OCR and augment confirmation). Acquiring it here deadlocked the
+    poll loop. All WebSocket registration, removal and broadcasts run on
+    the same ASGI event loop; taking a snapshot before the first await
+    avoids simultaneous set iteration and mutation.
+    """
     diagnostics.record_ws_message("outbound", message)
-    # Copy client set under lock, then send outside to avoid holding lock during I/O
-    async with game_state.lock:
-        clients = set(game_state.ws_clients)
+    clients = tuple(game_state.ws_clients)
     dead: list[WebSocket] = []
     for client in clients:
         try:
             await client.send_text(message)
         except Exception:
             dead.append(client)
-    if dead:
-        async with game_state.lock:
-            for client in dead:
-                game_state.ws_clients.discard(client)
-
+    for client in dead:
+        game_state.ws_clients.discard(client)
 
 async def _try_stat_delta_match(snapshot: GameSnapshot) -> None:
     """Compare champion stats before/after to identify chosen augment.
