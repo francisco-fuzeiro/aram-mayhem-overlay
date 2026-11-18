@@ -193,3 +193,60 @@ async def test_snapshot_is_immutable_after_capture_and_sent_without_lock():
     await poll_tick(state, deps, 10.0)
     assert captures[0]["chosen"] == ["confirmed"]
     assert state.chosen_augments == ["confirmed", "future"]
+
+
+@pytest.mark.asyncio
+async def test_slow_socket_does_not_delay_the_next_poll_tick(monkeypatch):
+    state = GameState()
+    slow = SlowSocket()
+    state.ws_clients.add(slow)
+    monkeypatch.setattr(server, "game_state", state)
+    deps = rig(state)
+    try:
+        await asyncio.wait_for(poll_tick(state, deps, 10.0), timeout=0.3)
+        await server._broadcast("blocked")
+        await asyncio.wait_for(slow.started.wait(), timeout=0.4)
+        # The second tick still executes while the sender is waiting for I/O.
+        await asyncio.wait_for(poll_tick(state, deps, 12.0), timeout=0.3)
+    finally:
+        slow.blocked.set()
+        await stop_sender_tasks(state)
+
+
+@pytest.mark.asyncio
+async def test_direct_ack_and_broadcast_share_ordered_socket_queue(monkeypatch):
+    state = GameState()
+    fast = RecordingSocket(limit=3)
+    state.ws_clients.add(fast)
+    monkeypatch.setattr(server, "game_state", state)
+    try:
+        await server._broadcast("state-before")
+        await server._send_ws_message(fast, "ack")
+        await server._broadcast("state-after")
+        await asyncio.wait_for(fast.complete.wait(), timeout=0.6)
+        assert fast.messages == ["state-before", "ack", "state-after"]
+    finally:
+        await stop_sender_tasks(state)
+
+
+@pytest.mark.asyncio
+async def test_slow_client_queue_has_bounded_backlog(monkeypatch):
+    state = GameState()
+    slow = SlowSocket()
+    state.ws_clients.add(slow)
+    monkeypatch.setattr(server, "game_state", state)
+    try:
+        await server._broadcast("initial")
+        await asyncio.wait_for(slow.started.wait(), timeout=0.4)
+        for index in range(100):
+            await server._broadcast(f"state-{index}")
+        queue = state.ws_send_queues[slow]
+        assert queue.maxsize == 32
+        assert queue.qsize() == 32
+        assert queue.get_nowait() == "state-68"
+        queue.task_done()
+        assert queue.get_nowait() == "state-69"
+        queue.task_done()
+    finally:
+        slow.blocked.set()
+        await stop_sender_tasks(state)
