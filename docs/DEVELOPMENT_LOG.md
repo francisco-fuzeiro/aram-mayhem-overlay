@@ -282,3 +282,10 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added 17 headless process/activation/cleanup/launcher tests in `tests/test_desktop_lifecycle.py` and adjusted D1 launcher mocks. Tests are structural and headless; they do not prove Windows tray focus or in-game OCR.
 - **At this checkpoint:** local Python/Node tests not run in the GitHub connector. GitHub Actions final head status must be checked and recorded in a follow-up log entry. No user Windows acceptance test for D2 has been performed.
 - `PH-D1.5`, `PH-D2.3`, `UX-D04` and in-game three-card/reroll OCR remain open until their separate evidence gates. No third-party source was copied (reviewed `docs/REUSE_CANDIDATES.md`); D3 navigation remains the next bounded phase.
+
+## 2026-11-18 Europe/Lisbon — PR #14 D2 verified Windows CI
+
+- Confirmed [Windows Actions run 44345555542](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44345555542) succeeded on stacked D2 merge head `0b4a563b861dac7f44bd50f057e53f085c86e52a` (including the latest PR #13 documentation). `python -m pytest -q`: **253 passed, 1 warning**; `node --check frontend/app.js` and `node --check frontend/settings.js`: **passed**; `node --test tests/js/settings.test.cjs`: **4 passed, 0 failed**.
+- The new D2 tests cover exclusive lock, authenticated duplicate activation, stale startup recovery, safe failure on conflicting services, managed uvicorn stop and port-bind failure, Qt entrypoint continuity and headless source contracts.
+- No native Qt GUI, in-game overlay, OCR card/reroll detection, preference persistence or feedback submission was actually performed on the user's Windows device as part of D2. Keep `PH-D2.3`, `PH-D1.5`, `UX-D04` and other game-context gates unchecked. Draft PR #14 remains stacked on draft PR #13; `main` remains unchanged.
+- These are verified tests at the stated head; subsequent documentation-only handoff commits should be checked independently and not portrayed as a separate live Windows acceptance.
