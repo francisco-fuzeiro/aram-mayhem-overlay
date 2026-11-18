@@ -7,7 +7,46 @@ import pytest
 from backend.collectors import lcu
 from backend.collectors.lcda import parse_game_snapshot
 from backend.models import GamePhase
-from test_poll_tick_m1 import make_harness, make_snapshot
+from backend.api.server import GameState
+import json
+from unittest.mock import Mock
+
+
+def make_snapshot():
+    return SimpleNamespace(
+        level=3, is_dead=False, health_pct=1.0,
+        champion_stats={}, augment_choices=[], chosen_augments=[],
+        purchased_items=[], build_style="Balanced",
+    )
+
+
+def make_harness(raw_values, snapshots):
+    state = GameState()
+    state.ws_clients.add(object())
+    state.pipeline = None
+    messages = []
+    raw = iter(raw_values)
+    parsed = iter(snapshots)
+
+    async def fake_thread(fn):
+        return fn()
+
+    async def broadcast(msg):
+        messages.append(json.loads(msg))
+
+    deps = SimpleNamespace(
+        get_raw_game_data=lambda: next(raw),
+        parse_game_snapshot=lambda *_args: next(parsed),
+        read_champ_select_payload=lambda: None,
+        ocr_available=lambda: False,
+        screen_watcher=SimpleNamespace(reset=Mock()),
+        to_thread=fake_thread,
+        broadcast=broadcast,
+        try_stat_delta_match=lambda snapshot: None,
+        serialize_result=lambda *args: {},
+        static_data=object(),
+    )
+    return state, deps, messages
 from backend.api.server import poll_tick
 
 
