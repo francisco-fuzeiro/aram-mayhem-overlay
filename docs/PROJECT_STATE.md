@@ -36,8 +36,20 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#10](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/10) | `feat/qt-overlay-window-controls` | PR #9 branch | Hide/show/quit buttons, Alt+H restore, Qt system tray menu |
 | [#11](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/11) | `fix/live-augment-detection-item-duplicates` | PR #10 branch | Fix early level scan, manual augment fallback, duplicate-name builds and non-equipment trinkets |
 | [#12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) | `feat/pregame-settings-feedback` | PR #11 branch | Out-of-game Settings, persistent live build preferences, Qt tray access and local feedback |
+| [#13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13) | `feat/desktop-settings-shell` | PR #12 branch | D1 native normal PyQt6 Settings host, shared API readiness/conflict handling and headless regressions |
 
-**Active working head: `feat/pregame-settings-feedback` (draft PR #12)**, stacked on PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/desktop-settings-shell` (draft PR #13)**, stacked on PR #12 -> PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+
+## Current work: PR #13 — D1 native desktop Settings shell (2026-11-18)
+
+- Branch `feat/desktop-settings-shell`, draft [PR #13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13), based on `feat/pregame-settings-feedback` (draft PR #12); `main` unchanged.
+- New `backend/desktop/{__main__,runtime,window}.py` opens a **standard, resizable, focusable** `QMainWindow` / `QWebEngineView` hosting the unchanged `http://127.0.0.1:8765/settings` page. No overlay transparency/topmost/click-through flags are applied.
+- `python -m backend.desktop` checks for Qt before starting a server, recognizes a compatible running local ARAM Oracle API, otherwise starts the **same** FastAPI startup path as the overlay, and refuses unexpected services already bound to 127.0.0.1:8765. Readiness, missing PyQt6, startup errors, and page load failure are surfaced. This does not yet provide unified process/tray ownership (D2).
+- The existing `frontend/settings.{html,js,css}`, `GET/PUT /api/preferences`, feedback endpoint, disk persistence and WebSocket synchronization are reused without new business logic.
+- The existing `backend/overlay` files remain unchanged, including explicit `--renderer qt`, transparency, Alt+O/Alt+H, click-through, and legacy tray/browser Settings fallback.
+- **Verified Windows Actions:** [run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) at D1 code+README head `d5aff632`: **234 Python passed, 1 warning**, 4 Node Settings tests passed, both JS syntax checks passed. Nineteen new Python tests cover startup/readiness, conflict and native host/overlay contracts. Subsequent documentation-only commits require checking the latest Actions result separately.
+- **Windows manual acceptance remains open:** native window focus/resize, style preference save/restart, feedback report and pre-existing transparent in-game overlay/keyboard shortcuts. D2 will unify single-instance and tray ownership; an installer/redesign/update service is not in D1.
+- External-source register: [`docs/REUSE_CANDIDATES.md`](REUSE_CANDIDATES.md). Permissively licensed companion projects are candidates for targeted future adaptation with exact license/attribution verification; D1 imports **no** external overlay code.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -167,8 +179,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - **Approved architectural direction:** Python/FastAPI remains the sole engine, with a normal PyQt6 desktop Settings window and a separate transparent, click-through Qt game overlay; both communicate through the existing local HTTP/WebSocket API.
 - Full component boundaries, state-driven presentation, lifecycle, preference/diagnostics handling and future packaging decisions: [`docs/DESKTOP_ARCHITECTURE.md`](DESKTOP_ARCHITECTURE.md).
 - Small, gated implementation plan and acceptance tests: [`docs/IMPLEMENTATION_PHASES.md`](IMPLEMENTATION_PHASES.md); task checkboxes `PH-G0.*` and `PH-D1.*` through `PH-D11.*` in [`docs/TODO.md`](TODO.md).
-- First development phase after baseline verification: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Next draft branch proposed `feat/desktop-settings-shell` stacked on PR #12, *not main*.
-- Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
+- Implemented code/CI phase: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Next draft branch proposed `feat/desktop-settings-shell` stacked on PR #12, *not main*.
+- Next planned development slice: **D2 — single-instance and tray lifecycle**, after Windows D1 smoke tests.\n- Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
 - **Current implementation remains unchanged:** existing Qt renderer, Alt+H/Alt+O, browser Settings and PR #12 are not replaced by this documentation update.
 
 ## Desktop packaging direction (planned, not implemented)
