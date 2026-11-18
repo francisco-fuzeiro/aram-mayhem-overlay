@@ -243,9 +243,9 @@ async def test_slow_client_queue_has_bounded_backlog(monkeypatch):
         queue = state.ws_send_queues[slow]
         assert queue.maxsize == 32
         assert queue.qsize() == 32
-        assert queue.get_nowait() == "state-68"
+        assert queue.get_nowait()[0] == "state-68"
         queue.task_done()
-        assert queue.get_nowait() == "state-69"
+        assert queue.get_nowait()[0] == "state-69"
         queue.task_done()
     finally:
         slow.blocked.set()
