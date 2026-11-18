@@ -288,3 +288,62 @@ def test_d2_source_keeps_qt_transparency_and_exact_hotkeys():
     assert "enable_tray=False" in desktop
     assert "Quit ARAM Oracle" in desktop
     assert "self.app.quit()" in desktop
+
+
+def test_owned_uvicorn_server_stops_on_quit(monkeypatch):
+    import sys
+    import threading
+    import types
+
+    class FakeServer:
+        def __init__(self, _config):
+            self.started = False
+            self.should_exit = False
+            self.done = threading.Event()
+
+        def run(self):
+            self.started = True
+            while not self.should_exit:
+                time.sleep(0.01)
+            self.done.set()
+
+    created = []
+    monkeypatch.setitem(sys.modules, "uvicorn", types.SimpleNamespace(
+        Config=lambda *_args, **_kwargs: object(),
+        Server=lambda config: created.append(FakeServer(config)) or created[-1],
+    ))
+    monkeypatch.setattr(service, "probe_companion",
+                        lambda: bool(created and created[-1].started))
+    monkeypatch.setattr(service, "port_in_use", lambda: False)
+    api = service.ManagedApi()
+    assert api.start(timeout=2) == "started"
+    assert api.alive()
+    owned = created[-1]
+    api.stop()
+    assert owned.done.is_set()
+
+
+def test_uvicorn_binding_failure_releases_owned_thread(monkeypatch):
+    import sys
+    import types
+
+    class FailingServer:
+        started = False
+        should_exit = False
+
+        def __init__(self, _config):
+            pass
+
+        def run(self):
+            raise RuntimeError("simulated port race")
+
+    monkeypatch.setitem(sys.modules, "uvicorn", types.SimpleNamespace(
+        Config=lambda *_args, **_kwargs: object(),
+        Server=FailingServer,
+    ))
+    monkeypatch.setattr(service, "probe_companion", lambda: False)
+    monkeypatch.setattr(service, "port_in_use", lambda: False)
+    api = service.ManagedApi()
+    with pytest.raises(DesktopStartupError, match="simulated port race"):
+        api.start(timeout=2)
+    assert api._thread is None
