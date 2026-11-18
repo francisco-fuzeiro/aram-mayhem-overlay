@@ -14,6 +14,18 @@
     const feedbackStatus = $("feedback-status");
     const refreshOcrButton = $("refresh-ocr");
     const availableStyles = new Set(["Balanced", "Damage", "Survival", "Utility"]);
+    const overlayModel = globalThis.ARAMOverlayPreferences;
+    if (!overlayModel) throw new Error("Overlay preferences helper was not loaded.");
+    const overlayFields = {
+        anchor: $("overlay-anchor"), offset_x: $("overlay-offset-x"),
+        offset_y: $("overlay-offset-y"), opacity: $("overlay-opacity"),
+        scale: $("overlay-scale"),
+    };
+    const overlaySave = $("save-overlay");
+    const overlayRetry = $("retry-overlay");
+    const overlayStatus = $("overlay-save-status");
+    let savedOverlay = null;
+    let overlaySaving = false;
     let lastSavedStyle = null;
     let saving = false;
 
@@ -45,10 +57,120 @@
         return payload;
     }
 
+    function enableOverlay(enabled) {
+        Object.values(overlayFields).forEach((field) => { field.disabled = !enabled; });
+    }
+
+    function overlayDraft() {
+        const offset = (key) => {
+            const raw = String(overlayFields[key].value).trim();
+            if (!/^-?[0-9]+$/.test(raw)) throw new Error(key + " must be a whole number.");
+            return Number(raw);
+        };
+        const percentage = (key) => {
+            const raw = String(overlayFields[key].value).trim();
+            if (!/^[0-9]+(\.[0-9]+)?$/.test(raw))
+                throw new Error(key + " must be a percentage.");
+            return Number(raw) / 100;
+        };
+        return overlayModel.validateOverlay({
+            anchor: overlayFields.anchor.value,
+            offset_x: offset("offset_x"), offset_y: offset("offset_y"),
+            opacity: percentage("opacity"), scale: percentage("scale"),
+        });
+    }
+
+    function previewOverlay(prefs) {
+        // A fixed, labelled visual sample; never use game data or OCR status.
+        const sample = $("overlay-preview-example");
+        const width = 94 * prefs.scale, height = 74 * prefs.scale;
+        const viewport = $("overlay-preview");
+        const maxX = Math.max(0, (viewport.clientWidth || 320) - width);
+        const maxY = Math.max(0, (viewport.clientHeight || 210) - height);
+        const clamp = (value, max) => Math.max(0, Math.min(max, value));
+        const x = prefs.anchor.endsWith("left")
+            ? 8 + prefs.offset_x * 0.12 : maxX - 8 - prefs.offset_x * 0.12;
+        const y = prefs.anchor.startsWith("top")
+            ? 28 + prefs.offset_y * 0.12 : maxY - 8 - prefs.offset_y * 0.12;
+        sample.style.width = width + "px";
+        sample.style.height = height + "px";
+        sample.style.left = clamp(x, maxX) + "px";
+        sample.style.top = clamp(y, maxY) + "px";
+        sample.style.opacity = String(prefs.opacity);
+        $("overlay-preview-note").textContent = "Simulated only · " +
+            prefs.anchor.replace("_", " ") + " · " +
+            Math.round(prefs.scale * 100) + "% scale · " +
+            Math.round(prefs.opacity * 100) + "% opacity.";
+    }
+
+    function fillOverlay(prefs) {
+        overlayFields.anchor.value = prefs.anchor;
+        overlayFields.offset_x.value = String(prefs.offset_x);
+        overlayFields.offset_y.value = String(prefs.offset_y);
+        overlayFields.opacity.value = String(Number((prefs.opacity * 100).toFixed(5)));
+        overlayFields.scale.value = String(Number((prefs.scale * 100).toFixed(5)));
+        previewOverlay(prefs);
+    }
+
+    function overlayChanged() {
+        if (savedOverlay === null || overlaySaving) return;
+        try {
+            const draft = overlayDraft();
+            previewOverlay(draft);
+            const dirty = JSON.stringify(draft) !== JSON.stringify(savedOverlay);
+            overlaySave.disabled = !dirty;
+            message(overlayStatus, dirty
+                ? "Unsaved appearance · Save to apply to the Qt overlay."
+                : "No unsaved appearance changes.");
+        } catch (error) {
+            overlaySave.disabled = true;
+            message(overlayStatus, "Invalid appearance: " + error.message, "error");
+            $("overlay-preview-note").textContent =
+                "Preview paused until values are valid. Sample data only.";
+        }
+    }
+
+    async function saveOverlayAppearance() {
+        if (savedOverlay === null || overlaySaving) return;
+        let draft;
+        try { draft = overlayDraft(); } catch (_error) { overlayChanged(); return; }
+        overlaySaving = true;
+        overlaySave.disabled = true;
+        enableOverlay(false);
+        overlayStatus.setAttribute("aria-busy", "true");
+        message(overlayStatus, "Saving appearance…");
+        let failed = false;
+        try {
+            const result = await requestJson("/api/preferences/overlay", {
+                method: "PUT", headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(draft),
+            });
+            if (result.schema_version !== overlayModel.VERSION || result.saved !== true)
+                throw new Error("Server did not confirm the saved appearance.");
+            savedOverlay = overlayModel.validateOverlay(result.overlay);
+            fillOverlay(savedOverlay);
+            message(overlayStatus,
+                "Appearance saved. The running Qt overlay updates automatically.", "success");
+        } catch (error) {
+            failed = true;
+            message(overlayStatus, "Not saved: " + error.message, "error");
+        } finally {
+            overlaySaving = false;
+            overlayStatus.setAttribute("aria-busy", "false");
+            enableOverlay(true);
+            overlaySave.disabled = !failed;  // Keep the API failure visible for retry.
+        }
+    }
+
     async function loadSettings() {
         buildSelect.disabled = true;
         saveButton.disabled = true;
         retryPreferences.hidden = true;
+        overlayRetry.hidden = true;
+        savedOverlay = null;
+        enableOverlay(false);
+        overlaySave.disabled = true;
+        message(overlayStatus, "Loading saved appearance…");
         message(saveStatus, "Loading saved settings…");
         connection("Checking local API…", "");
         $("diagnostics-api").textContent = "Checking local preferences API…";
@@ -57,6 +179,13 @@
             if (!availableStyles.has(settings.build_style)) {
                 throw new Error("Server returned an unknown build style.");
             }
+            if (Object.hasOwn(settings, "schema_version") &&
+                ![0, overlayModel.VERSION].includes(settings.schema_version))
+                throw new Error("Unsupported preferences version; cannot edit safely.");
+            savedOverlay = overlayModel.validateOverlay(overlayModel.fromApi(settings).overlay);
+            fillOverlay(savedOverlay);
+            enableOverlay(true);
+            message(overlayStatus, "Saved appearance loaded.", "success");
             lastSavedStyle = settings.build_style;
             buildSelect.value = lastSavedStyle;
             buildSelect.disabled = false;
@@ -65,6 +194,11 @@
             $("diagnostics-api").textContent = "Preferences API reachable. Saved style: " + lastSavedStyle + ".";
         } catch (error) {
             lastSavedStyle = null;
+            savedOverlay = null;
+            overlaySave.disabled = true;
+            enableOverlay(false);
+            overlayRetry.hidden = false;
+            message(overlayStatus, "Unable to load appearance: " + error.message, "error");
             message(saveStatus, "Unable to load settings: " + error.message, "error");
             connection("Local API unavailable", "error");
             $("diagnostics-api").textContent = "Preferences API failed: " + error.message;
@@ -213,6 +347,12 @@
         message(saveStatus, saveButton.disabled
             ? "No unsaved changes." : "Unsaved change — click Save preference.");
     });
+    Object.values(overlayFields).forEach((field) => {
+        field.addEventListener("input", overlayChanged);
+        field.addEventListener("change", overlayChanged);
+    });
+    overlaySave.addEventListener("click", saveOverlayAppearance);
+    overlayRetry.addEventListener("click", loadSettings);
     saveButton.addEventListener("click", saveSettings);
     retryPreferences.addEventListener("click", loadSettings);
     refreshOcrButton.addEventListener("click", loadOcrStatus);

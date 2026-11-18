@@ -77,9 +77,61 @@
                     </div>
                     <div class="info-card">
                         <h2>Appearance and position</h2>
-                        <p>Scale, opacity, screen anchor and offsets are not configurable here yet.
-                           These controls and a preview are planned for a later phase.</p>
-                        <span class="availability-label">Not available in this version</span>
+                        <p>Position and appearance apply after saving to the running Qt overlay.</p>
+                        <div class="overlay-controls">
+                            <div class="field">
+                                <label for="overlay-anchor">Screen corner</label>
+                                <select id="overlay-anchor" disabled>
+                                    <option value="top_left">Top left</option>
+                                    <option value="top_right">Top right</option>
+                                    <option value="bottom_left">Bottom left</option>
+                                    <option value="bottom_right">Bottom right</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="overlay-offset-x">Horizontal inset (px)</label>
+                                <input id="overlay-offset-x" type="number" min="-500" max="500" step="1" disabled>
+                            </div>
+                            <div class="field">
+                                <label for="overlay-offset-y">Vertical inset (px)</label>
+                                <input id="overlay-offset-y" type="number" min="-500" max="500" step="1" disabled>
+                            </div>
+                            <div class="field">
+                                <label for="overlay-opacity">Opacity (%)</label>
+                                <input id="overlay-opacity" type="number" min="40" max="100" step="any" disabled>
+                            </div>
+                            <div class="field">
+                                <label for="overlay-scale">Scale (%)</label>
+                                <input id="overlay-scale" type="number" min="75" max="150" step="any" disabled>
+                            </div>
+                        </div>
+                        <p class="small">Positive offsets move inward from the selected corner; negative
+                           offsets move outward but are clamped within the display. Positions
+                           use Windows DPI-aware logical pixels.</p>
+                        <div class="setting-footer">
+                            <span id="overlay-save-status" class="form-status" role="status"
+                                  aria-live="polite">Loading saved appearance…</span>
+                            <div class="button-group">
+                                <button id="retry-overlay" class="button-secondary" type="button" hidden>Retry loading</button>
+                                <button id="save-overlay" class="button-primary" type="button" disabled>Save appearance</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <h2>Simulated layout preview</h2>
+                        <p>Illustrative only: no game screen, OCR results or live recommendations.
+                           Actual geometry depends on the selected display and its scaling.</p>
+                        <div id="overlay-preview" class="overlay-preview" role="img"
+                             aria-label="Simulated desktop with sample overlay panel, not live game data">
+                            <span class="preview-watermark">SIMULATED · NOT LIVE GAME DATA</span>
+                            <div id="overlay-preview-example" class="preview-example" aria-hidden="true">
+                                <span class="preview-example-head">EXAMPLE OVERLAY</span>
+                                <strong>Preview only</strong>
+                                <span>Example content</span>
+                            </div>
+                        </div>
+                        <p id="overlay-preview-note" class="small" role="status"
+                           aria-live="polite">Preview uses sample content only.</p>
                     </div>
                 </section>
 
@@ -209,8 +261,8 @@
                     </div>
                     <div class="info-card">
                         <h2>Development status</h2>
-                        <p>This desktop Settings interface is evolving. Advanced overlay appearance,
-                           verified three-card OCR diagnostics, contextual shop detection and
+                        <p>Overlay appearance and its simulated preview are available. Live
+                           three-card OCR diagnostics, contextual shop detection and
                            installation/update features are separate future work, not current options.</p>
                     </div>
                 </section>
@@ -222,6 +274,7 @@
             <span>Settings are configured outside the game.</span>
         </footer>
     </div>
+    <script src="/static/overlay-preferences.js"></script>
     <script src="/static/settings.js"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@ body {
     font-family: "Segoe UI", system-ui, sans-serif;
     line-height: 1.5;
 }
-button, select, textarea { font: inherit; }
+button, select, textarea, input { font: inherit; }
 .settings-shell { width: min(940px, calc(100% - 36px)); margin: 0 auto; }
 .settings-header {
     display: flex;
@@ -64,7 +64,7 @@ h1 { font-size: clamp(27px, 4vw, 38px); letter-spacing: -.035em; line-height: 1.
 h2 { font-size: 17px; margin: 0 0 6px; }
 .setting-details p, .info-card p { color: var(--muted); margin: 0; font-size: 13px; max-width: 660px; }
 label { display: block; margin-bottom: 9px; color: var(--text); font-size: 13px; font-weight: 600; }
-select, textarea {
+select, textarea, input {
     background: var(--panel-raised);
     border: 1px solid #44516a;
     color: var(--text);
@@ -75,7 +75,7 @@ select, textarea {
 }
 select { cursor: pointer; }
 textarea { resize: vertical; min-height: 135px; }
-select:focus-visible, textarea:focus-visible, button:focus-visible {
+select:focus-visible, textarea:focus-visible, input:focus-visible, button:focus-visible {
     outline: 2px solid var(--cyan);
     outline-offset: 2px;
 }
@@ -203,3 +203,23 @@ kbd { color: var(--text); border-radius: 4px; padding: 2px 7px; border: 1px soli
     .tabs { grid-template-columns: 1fr; }
     .button-group { flex-wrap: wrap; }
 }
+
+/* D4b: accessible form and clearly simulated, non-game preview. */
+.overlay-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px; margin-top: 20px; }
+.overlay-controls .field:first-child { grid-column: 1 / -1; }
+.overlay-controls input { min-width: 0; }
+.overlay-preview {
+    position: relative; isolation: isolate; overflow: hidden; width: 100%;
+    height: 210px; margin: 18px 0 4px; border: 1px solid #546078;
+    border-radius: 10px; background: linear-gradient(125deg,#1f2940,#0a1729);
+}
+.preview-watermark { position: absolute; top: 8px; left: 8px; z-index: 1;
+    color: #b6c3d6; font-size: 10px; font-weight: 750; letter-spacing: .08em; }
+.preview-example { position: absolute; z-index: 2; display: flex; flex-direction: column;
+    gap: 5px; width: 94px; height: 74px; padding: 8px; border: 1px solid #8b9cba;
+    border-radius: 7px; background: #26354c; color: #f4f7ff; overflow: hidden;
+    font-size: 9px; pointer-events: none; }
+.preview-example strong { font-size: 11px; white-space: nowrap; }
+.preview-example-head { font-size: 8px; color: #8de9e7; font-weight: 700; }
+@media(max-width:560px) { .overlay-controls{grid-template-columns:1fr}
+    .overlay-controls .field:first-child{grid-column:auto} }

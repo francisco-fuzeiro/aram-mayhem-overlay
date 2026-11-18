@@ -1,6 +1,6 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
-Status: **in progress** (D1/D2 implemented; D3 draft PR #15 passed code-head Windows Actions but awaits manual Windows GUI acceptance). Each phase should be a small, focused **stacked draft PR** with test evidence and a minimal diff. Check the corresponding tasks in [TODO.md](TODO.md), not just the phase title, after the relevant acceptance criteria are met. The original PRs #1–#12 remain drafts. Never merge to `main` without the user's approval.
+Status: **in progress** (D2 lifecycle and D3 Settings accepted by user on Windows; D4a final CI passed; D4b draft PR #17 under automated validation, real monitor/League matrix pending). Each phase should be a small, focused **stacked draft PR** with test evidence and a minimal diff. Check the corresponding tasks in [TODO.md](TODO.md), not just the phase title, after the relevant acceptance criteria are met. The original PRs #1–#12 remain drafts. Never merge to `main` without the user's approval.
 
 Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX backlog first.
 
@@ -14,7 +14,8 @@ Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX back
 | D3 — Desktop navigation | Small: General + Build + Feedback/Diagnostics sections | D2 | No duplicate settings backend and accessible navigation |
 | D4a — Overlay preferences | Small: validated scale/anchor/offset/opacity model and persistence | D3 | Migration, error handling and safe defaults tested |
 | D4b — Overlay preview and apply | Small: Settings preview and safe Qt position/scale/opacity apply | D4a | No transparency, hotkey or click-through regressions |
-| D5a — OCR readiness | Small: Tesseract detection and setup guidance | D3 | Missing OCR clearly reported, no silent install |
+| **A-FUNC — Claude gameplay/functionality audit (next)** | **Review current code, OCR and playtest evidence; prioritize P0 bugs, no unreviewed implementation** | **D4b code/Settings complete, gameplay failures logged** | **Actual Claude output saved; each fault has source evidence, tests and small repair phases before new interface work** |
+| D5a — OCR readiness | Small: Tesseract detection and setup guidance | A-FUNC intake/roadmap + D3 | Missing OCR clearly reported, no silent install |
 | D5b — OCR test and diagnostics | Small: manual capture/recognition test with confidence and privacy-safe report | D5a | Failure and manual fallback tested; real screen calibration pending until observed |
 | **D5c — Claude UX/UI audit and desktop design closure** | **Small, evidence-based audit of completed desktop Settings/preview/OCR workflows, then prioritized design fixes** | **D3 + D4a + D4b + D5a + D5b** | **Claude audit findings recorded, P0/P1 UX defects resolved or explicitly tracked, desktop Windows recheck before D6** |
 | D6 — Game context state machine | Small: pure deterministic state reducer + transitions | D5c + P0 OCR readiness | Minimal overlay in combat, explicit unknown states, regression tests |
@@ -23,6 +24,8 @@ Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX back
 | D9 — App package smoke | Small: unsigned local onedir Windows package | D2–D5c + core P0 readiness | Starts on clean Windows without Python; assets bundled |
 | D10 — Installer and uninstall | Small: Inno Setup or evaluated equivalent | D9 | Installs, launches, repairs/uninstalls, preserves data only by choice |
 | D11 — Release quality | Separate later PRs: privacy, license, updater, signing | D10 | Explicit release gates; no misleading trust/compliance claims |
+
+The new **A-FUNC audit** precedes the next interface implementation. It investigates real functional defects, does **not** itself fix OCR/ratings and must not be confused with the later D5c **desktop design/UX audit**. See [the functional audit intake](FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md).
 
 D5c closes the **desktop Settings interface design pass** before core gameplay panels begin. It does not certify the later D7/D8 in-game augment/shop micro-panels; those need their own contextual Windows/League validation when implemented.
 
@@ -69,8 +72,16 @@ D6–D8 are **product core work**, not prerequisites for prototyping the Setting
 ## D4 — Overlay configuration (split if needed)
 
 - **D4a:** validated settings model/API for anchor/offset/scale/opacity plus safe defaults and migration.
-- **D4b:** preview/position in desktop window and Qt apply/reload without disrupting click-through.
+- **D4b:** [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17) provides an explicitly simulated Settings preview and form backed by D4a schema/API. The existing transparent Qt window polls the atomic saved file and clamps logical coordinates to the current display's available geometry while applying opacity and zoom. Manual Windows resolution/DPI/hotplug/League validation remains a separate gate.
 - Tests: invalid input, persistence across restart, 1080p/1440p scaling, multiple monitors when available.
+
+## A-FUNC — Functional/code audit checkpoint after D4b
+
+**Status: requested, not performed.** D4b implementation and user Windows Settings smoke passed; the playtest showed P0 gameplay defects. Ask Claude to inspect the actual connected private code and [audit handoff](FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md), including custom-game transition, **wrong three augments**, per-card reroll, uniform **2.1/10** on unknown data, stale Neeko/time/gold after game exit and bad-offer lifecycle. Record source/line evidence, confirmed versus suspected root causes, fixture/test needs and a ranked ordered repair plan. **Do not start new visual/in-game card-aligned UI until foundational identity and score confidence are verified.**
+
+- **Audit gate:** Claude's actual report exists; triage `A-FUNC.1` and `A-FUNC.2` with user approval of bounded fixes. Functional Windows acceptance `A-FUNC.3` and visual integration `A-FUNC.4` remain separately open.
+- D4b code/CI and 6/6 Settings are **development complete**, while `PH-D4b.2` and `UX-D09` remain unchecked; no fabricated full-screen/DPI/League test.
+- Do **not** accept the unverified `fix/postgame-stale-match-state` WIP branch as a completed fix. `main` unchanged.
 
 ## D5 — First-run OCR and diagnostics
 

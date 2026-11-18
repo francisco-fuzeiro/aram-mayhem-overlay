@@ -1,6 +1,6 @@
 # ARAM Oracle — Desktop and Contextual Overlay Architecture
 
-Status: **approved architecture; D1 #13, D2 #14 (Windows lifecycle accepted), D3 #15 (user-reported Settings acceptance), D4a #16 (versioned preferences/data API; no Qt apply), all draft PRs**. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
+Status: **approved architecture; D1 #13, D2 #14 (Windows lifecycle accepted), D3 #15 (user-reported Settings acceptance), D4a #16 (persisted v1 API), D4b #17 (simulated preview / Qt appearance application), all stacked draft PRs**. Actual D4b Windows display acceptance remains pending. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
 
 ## Design principles
 
@@ -58,7 +58,7 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - **User-editable:** build style, overlay positioning/scale/opacity, visibility and keyboard controls, OCR readiness/manual fallback, diagnostics/reporting preferences.
 - **Display-only diagnostics:** engine/WS/OCR status, data-source and patch confidence, read-only logs and export.
 - **Separate sensitive configuration:** GitHub token and credentials must not enter the browser UI, report JSON, or git. Any diagnostic upload requires clear opt-in and disclosure.
-- Desktop preference writes use the existing local HTTP API (not direct unsynchronized JSON writes); overlay receives changes from WebSocket and applies them at the next relevant pipeline update.
+- Desktop preference writes use the existing local HTTP API (not direct unsynchronized JSON writes). Build-style updates still use the existing backend/WebSocket path. D4b Qt appearance updates read the same atomically persisted preference document on an 800 ms Qt timer and apply changed, sanitized layout/opacity/zoom without a second API service or network request on the GUI thread; no gameplay-state update is required.
 - Support failing dependencies gracefully. Missing Tesseract should not prevent opening Settings; unavailable Qt should report an actionable install error in developer mode.
 
 ## D4a persisted overlay preferences contract
@@ -68,6 +68,12 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - V0 `{ "build_style": "..." }` preferences are read without an immediate rewrite and migrated on the next successful write. Corrupt saved fields individually use safe defaults, while newer unsupported schema versions are never overwritten. Startup reloads saved values. The D4a WebSocket preference payload can carry overlay data but **no Qt window applies it yet**.
 - D4b owns normal Settings controls, a simulated non-game preview, safe screen-bound positioning, opacity/scale application/reload and actual 1080p/1440p Windows/League behavior checks. Do not assume negative offsets or multiple displays are safe until D4b clamps to the selected screen's available geometry.
 
+## D4b applied window geometry and simulated preview
+
+- The Settings form uses the existing v1 `GET /api/preferences` and `PUT /api/preferences/overlay` contract. The D4a JavaScript helper validates/migrates values; an unsaved draft may update the conspicuously **simulated** preview but cannot affect the game overlay or imply real OCR/game data.
+- The transparent Qt surface keeps its existing OS window flags and Alt+O/Alt+H behavior. Qt uses logical device-independent `QScreen.availableGeometry()` coordinates and returns a bounded geometry for all four corners, signed offsets, negative monitor origins, small screens, resizing and DPI/display changes. WebEngine `setZoomFactor` matches the layout scale; `setWindowOpacity` changes overall opacity. Click-through is reapplied only when enabled, not forced on when the user has toggled interaction.
+- Monitor choice initially follows Qt's primary screen, then the window's current screen; this is **not** a League-window/monitor detector. Real Windows 1080p/1440p, 100/125/150% DPI, moving displays, Alt+Tab and borderless League transparency require user-device testing. No screenshot/overlay alignment or real OCR correctness is implied by mock tests.
+
 ## Window lifecycle contract
 
 - Desktop Settings: regular taskbar window, keyboard/mouse interaction, resizable, no transparent fullscreen region.
@@ -75,6 +81,10 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - **Single instance** is implemented for managed Qt entrypoints through an OS-held lock. Repeated launches forward Settings or overlay requests through a per-user authenticated loopback channel. The managed app owns one tray icon, and only stops an ASGI server that it started. Unrelated occupants of port 8765 are rejected. Legacy explicit non-Qt webview is not managed by this gate.
 - D2 code closes Settings to tray when tray is present; without a tray, closing Settings quits rather than stranding a process. The tray's Quit stops polling, exits the Qt event loop and requests the owned uvicorn server to stop. User-device validation confirms the expected controls and no port 8765 listener after Quit; this is not a full process audit.
 - Use the existing browser `/settings` fallback until the native desktop shell is verified on the user's Windows machine.
+
+## Functional reliability checkpoint (A-FUNC, before the next interface development)
+
+A real Windows custom Mayhem test exposed misleading `Waiting for game`, wrong augment triple, one-slot reroll not auto-detected, uniform `2.1/10` for unknown contributions, and stale Neeko/game-time/gold after exiting. See [functional audit intake](FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md). **A Claude gameplay/code audit is now required before further UI work; it has not happened yet.** Record exact P0 root causes, evidence and regression fixtures. Per-card score badges are a future design option only after reliable left/center/right OCR mapping, context scores, offer invalidation and DPI/window placement. D5c remains a distinct subsequent **desktop design/UX** review.
 
 ## Desktop UI design-closure gate (D5c, before D6)
 

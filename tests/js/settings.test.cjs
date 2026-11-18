@@ -7,6 +7,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../../frontend/settings.js"), "utf8");
+const overlayModel = require("../../frontend/overlay-preferences.js");
 const html = fs.readFileSync(path.join(__dirname, "../../frontend/settings.html"), "utf8");
 const ids = ["general", "overlay", "preferences", "ocr", "diagnostics", "feedback", "about"];
 
@@ -18,7 +19,7 @@ function harness(respond) {
             elements.set(id, {
                 id, value: "", textContent: "", className: "", disabled: false,
                 hidden: false, tabIndex: -1, focused: false,
-                dataset: {}, attributes: {}, handlers: {},
+                dataset: {}, attributes: {}, handlers: {}, style: {},
                 classList: {
                     toggle(name, enabled) {
                         if (enabled) classes.add(name);
@@ -59,7 +60,7 @@ function harness(respond) {
             throw new Error("Unexpected selector: " + selector);
         },
     };
-    vm.runInNewContext(source, {document, fetch, console});
+    vm.runInNewContext(source, {document, fetch, console, ARAMOverlayPreferences: overlayModel});
     return {element, tabs, panels, calls};
 }
 
@@ -71,6 +72,8 @@ function successful(url, options) {
     if (url === "/api/preferences" && options.method === "PUT") {
         return {body: {build_style: JSON.parse(options.body).build_style, saved: true}};
     }
+    if (url === "/api/preferences/overlay" && options.method === "PUT")
+        return {body: {schema_version: 1, overlay: JSON.parse(options.body), saved: true}};
     if (url === "/api/preferences") return {body: {build_style: "Survival"}};
     if (url === "/api/ocr/status") return {body: {available: false}};
     if (url === "/api/bug-report") return {body: {filename: "report.json"}};
@@ -215,8 +218,6 @@ test("OCR readiness is dependency-only and refresh errors are visible", async ()
 });
 
 
-const overlayModel = require("../../frontend/overlay-preferences.js");
-
 test("D4a JavaScript model migrates legacy v0 preferences without changing build style", () => {
     const result = overlayModel.fromApi({build_style: "Survival"});
     assert.equal(result.schema_version, 1);
@@ -285,4 +286,94 @@ test("D3 Settings remains compatible with versioned GET and legacy style-only PU
     const writes = h.calls.filter((entry) => entry.options.method === "PUT");
     assert.equal(writes.length, 1);
     assert.deepEqual(JSON.parse(writes[0].options.body), {build_style: "Damage"});
+});
+
+test("D4b Settings appearance controls have a clearly simulated preview", () => {
+    for (const id of ["anchor", "offset-x", "offset-y", "opacity", "scale"])
+        assert.match(html, new RegExp('id="overlay-' + id + '"'));
+    assert.match(html, /SIMULATED · NOT LIVE GAME DATA/);
+    assert.match(html, /overlay-preferences[.]js/);
+    assert.match(html, /id="overlay-preview-example"/);
+});
+
+test("D4b loads saved appearance, previews draft and only writes v1 overlay API", async () => {
+    const original = {
+        ...overlayModel.DEFAULT_OVERLAY, anchor: "bottom_left",
+        offset_x: -15, offset_y: 50,
+    };
+    const h = harness((url, options) => {
+        if (url === "/api/preferences") return {body: {
+            schema_version: 1, build_style: "Survival", overlay: original,
+        }};
+        return successful(url, options);
+    });
+    await ready();
+    assert.equal(h.element("overlay-anchor").value, "bottom_left");
+    assert.equal(h.element("overlay-offset-x").value, "-15");
+    assert.equal(h.element("overlay-opacity").value, "92");
+    assert.equal(h.element("save-overlay").disabled, true);
+    h.element("overlay-scale").value = "125";
+    h.element("overlay-scale").handlers.input();
+    assert.equal(h.element("save-overlay").disabled, false);
+    assert.match(h.element("overlay-preview-note").textContent, /Simulated only/);
+    assert.equal(h.element("overlay-preview-example").style.width, "117.5px");
+    await h.element("save-overlay").handlers.click();
+    const writes = h.calls.filter((call) => call.options.method === "PUT");
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0].url, "/api/preferences/overlay");
+    assert.equal(JSON.parse(writes[0].options.body).scale, 1.25);
+    assert.equal(JSON.parse(writes[0].options.body).anchor, "bottom_left");
+    assert.equal(h.element("save-overlay").disabled, true);
+    assert.match(h.element("overlay-save-status").textContent, /Appearance saved/);
+});
+
+test("D4b invalid value cannot save and preview marks invalid sample", async () => {
+    const h = harness(successful);
+    await ready();
+    h.element("overlay-offset-x").value = "1.5";
+    h.element("overlay-offset-x").handlers.input();
+    assert.equal(h.element("save-overlay").disabled, true);
+    assert.match(h.element("overlay-save-status").textContent, /whole number/);
+    assert.match(h.element("overlay-preview-note").textContent, /paused/);
+    h.element("overlay-offset-x").value = "-500";
+    h.element("overlay-offset-x").handlers.input();
+    assert.equal(h.element("save-overlay").disabled, false);
+    assert.ok(h.element("overlay-preview-example").style.left);
+});
+
+test("D4b rejected appearance save preserves draft and supports retry", async () => {
+    let failing = true;
+    const h = harness((url, options) => {
+        if (url === "/api/preferences/overlay" && failing)
+            return {ok: false, body: {detail: "Disk is read-only"}};
+        return successful(url, options);
+    });
+    await ready();
+    h.element("overlay-anchor").value = "top_left";
+    h.element("overlay-anchor").handlers.change();
+    await h.element("save-overlay").handlers.click();
+    assert.match(h.element("overlay-save-status").textContent, /read-only/);
+    assert.equal(h.element("overlay-anchor").value, "top_left");
+    assert.equal(h.element("save-overlay").disabled, false);
+    failing = false;
+    await h.element("save-overlay").handlers.click();
+    assert.match(h.element("overlay-save-status").textContent, /Appearance saved/);
+});
+
+test("D4b unsupported schema disables writes until successful retry", async () => {
+    let outdated = true;
+    const h = harness((url, options) => {
+        if (url === "/api/preferences" && outdated)
+            return {body: {schema_version: 55, build_style: "Survival"}};
+        return successful(url, options);
+    });
+    await ready();
+    assert.equal(h.element("save-overlay").disabled, true);
+    assert.equal(h.element("overlay-anchor").disabled, true);
+    assert.equal(h.element("retry-overlay").hidden, false);
+    assert.match(h.element("overlay-save-status").textContent, /Unsupported preferences version/);
+    outdated = false;
+    await h.element("retry-overlay").handlers.click();
+    assert.equal(h.element("overlay-anchor").disabled, false);
+    assert.equal(h.element("retry-overlay").hidden, true);
 });
