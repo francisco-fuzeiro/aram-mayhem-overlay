@@ -29,6 +29,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#3](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/3) | `feat/reuse-mayhem-core` | PR #2 branch | Adapt permissively licensed OCR and client discovery, opt-in own-match history, proprietary composite champion score and CI |
 | [#4](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/4) | `feat/augment-composite-rating` | PR #3 branch | Absolute experimental augment score 0.0–10.0, confidence and source, optional empirical signal **disabled by default** |
 | [#5](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/5) | `feat/dynamic-team-threats` | PR #4 branch | LCDA visible enemy/ally state, original threat profiles, shared augment/build context, Balanced + Damage/Survival/Utility build paths and tests |
+| [#6](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/6) | `feat/team-threat-coverage` | PR #5 branch | Player-inclusive ally roles, catalog coverage safeguards and visible enemy inventory fallback |
+| [#7](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/7) | `feat/selectable-build-paths` | PR #6 branch | Selectable build style, saved UI preference, inventory-safe next item, WebSocket contract |
 
 **Continue on `feat/dynamic-team-threats`**, unless its PR is merged and a new branch is appropriate. Follow the dependency order; never assume all stacked drafts have been merged.
 
@@ -39,7 +41,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Enemy inventories are examined even when an enemy champion is not present in the catalog. `visible_items` now means the observed item count; `unknown_items` indicates IDs lacking our item metadata.
 - High threat confidence requires all visible enemy champions to be recognized and every observed item to resolve, as well as minimum roster/item coverage.
 - New deterministic tests cover partial catalog coverage, item observation without a known champion, and including the player in allied roles.
-- Validation: Windows run `44314745431` failed with 154 passed/1 failed, then the fix in commit `9954041` passed GitHub Actions Windows run `44315389814`. Documentation-only follow-up CI is tracked separately; Windows in-game sample outstanding.
+- Validation: CI regression run `44314745431` failed (154 passed/1 failed); fixed in `9954041`. Latest PR #6 Windows run `44315513781` **passed: 155 tests, 1 warning, JavaScript syntax check passed**. Real in-game sample still outstanding.
 - Remaining risks: DataDragon tags may not correspond to verified item stats; role vectors approximate threat types; actual LCDA roster must be checked on Windows.
 
 ## Current work: PR #7 — selectable build paths
@@ -48,10 +50,13 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - The player can select Balanced, Damage, Survival or Utility using the overlay. The selected style is sent over the local WebSocket, applies to later live pipeline snapshots, and is saved in frontend local storage across restarts.
 - The selected path now drives `full_build` and its affordable `next_item_id`, while all paths remain visible for comparison. A full inventory does not produce a seventh item suggestion. Unknown style values fall back to Balanced.
 - Item catalog restrictions, actual purchase path/component costs, mode-specific inventory rules and real in-game persistence still need verification. This does **not** auto-buy items.
-- Tests: new style and inventory regressions plus serialization contract; Windows GitHub Actions **not run** for this branch until PR opened. Also inherits PR #6 fix, which must pass CI.
+- Tests: Windows run `44315895591` on PR #7 **passed: 163 tests, 1 warning, JS syntax passed**. Includes the passing PR #6 fix. Real Windows in-game testing is still pending.
 - Next P0: strengthen verified item availability, enemy item-stat provenance and patch-aware metadata; validate Windows LCDA and OCR.
 
 ## Automated verification (as last observed)
+
+- PR #6 latest Windows CI `44315513781`: **155 passed, 1 warning**; JS syntax passed.
+- PR #7 Windows CI `44315895591` on feature commit `c4f8ba25`: **163 passed, 1 warning**; JS syntax passed. Documentation-only commits may be newer; verify head.
 
 - Previous user-run suite on the Champion Select branch: **114 passed**.
 - PR #3: **138 passed** on GitHub Actions Windows (one earlier transient failure was a badly specified assertion, fixed).
