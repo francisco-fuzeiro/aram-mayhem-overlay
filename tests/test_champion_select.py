@@ -88,7 +88,7 @@ def test_api_debug_endpoint_uses_team_fit(monkeypatch):
     with patch.object(server.static_data, "get_champion", side_effect=get_champion):
         response = server.champ_select_status()
     assert response["candidates"][0]["name"] == "Lux"
-    assert response["method"] == "experimental_team_fit"
+    assert response["method"] == "composite_v1"
 
 
 def test_role_fit_tiers_use_ten_point_scale():
@@ -108,3 +108,36 @@ def test_role_fit_tiers_use_ten_point_scale():
         expected = "S" if score >= 7.5 else "A" if score >= 7.0 else "B" if score >= 6.5 else "C"
         assert tier == expected
     assert "0.0" in result["notice"] and "10.0" in result["notice"]
+
+
+def test_champion_composite_uses_personal_record_when_available():
+    draft = {
+        "localPlayerCellId": 1,
+        "myTeam": [
+            {"cellId": 1, "championId": 99},
+            {"cellId": 2, "championId": 222},
+        ],
+        "benchChampions": [{"championId": 12}],
+    }
+    no_history = summarize_champion_select(draft, IDS, get_champion)
+    with_history = summarize_champion_select(
+        draft, IDS, get_champion,
+        record_lookup=lambda champ: (80, 100) if champ == "lux" else None,
+    )
+    before = next(c for c in no_history["candidates"] if c["name"] == "Lux")
+    after = next(c for c in with_history["candidates"] if c["name"] == "Lux")
+    assert after["score"] > before["score"]
+    assert after["confidence"] > 0
+    assert after["sample_size"] == 100
+    assert after["evidence_source"] == "personal_history"
+    assert before["sample_size"] == 0
+    assert before["components"]["performance"] is None
+
+
+def test_champion_composite_is_not_rescaled_win_percentage():
+    draft = {"benchChampions": [{"championId": 99}]}
+    output = summarize_champion_select(
+        draft, IDS, get_champion, record_lookup=lambda _: (70, 100)
+    )
+    assert output["method"] == "composite_v1"
+    assert output["candidates"][0]["score"] != 7.0
