@@ -1,15 +1,19 @@
 from pathlib import Path
+import os
 import requests
 
 
 def _find_lockfile() -> Path | None:
     """Locate the League Client lockfile on Windows or macOS."""
     candidates = [
+        # Override for custom League installations.
+        Path(os.environ["ARAM_ORACLE_LCU_LOCKFILE"])
+        if os.environ.get("ARAM_ORACLE_LCU_LOCKFILE") else None,
         Path("C:/Riot Games/League of Legends/lockfile"),
         Path.home() / "Library/Application Support/Riot Games/League of Legends/lockfile",
     ]
     for path in candidates:
-        if path.exists():
+        if path is not None and path.is_file():
             return path
     return None
 
@@ -30,7 +34,10 @@ def get_lcu_session() -> requests.Session | None:
     lockfile = _find_lockfile()
     if not lockfile:
         return None
-    info = _parse_lockfile(lockfile)
+    try:
+        info = _parse_lockfile(lockfile)
+    except (OSError, ValueError, IndexError):
+        return None
     session = requests.Session()
     session.verify = False
     session.auth = ("riot", info["password"])
@@ -62,3 +69,50 @@ def parse_team_champions(session_data: dict) -> list[str]:
         for a in session_data.get("myTeam", [])
         if a.get("championId", 0) != 0
     ]
+
+
+def get_champion_id_map(lcu: requests.Session) -> dict[str, str]:
+    """Map numeric champion IDs to Data Dragon aliases (lowercase).
+
+    /lol-game-data/assets/v1/champion-summary.json is a read-only client asset.
+    Names are not suitable as IDs because some differ from their aliases.
+    """
+    try:
+        response = lcu.get(
+            f"{lcu.base_url}/lol-game-data/assets/v1/champion-summary.json",
+            timeout=2,
+        )
+        if response.status_code != 200:
+            return {}
+        payload = response.json()
+        if not isinstance(payload, list):
+            return {}
+        return {
+            str(champ["id"]): champ["alias"].lower()
+            for champ in payload
+            if isinstance(champ, dict)
+            and isinstance(champ.get("id"), int)
+            and isinstance(champ.get("alias"), str)
+            and champ["id"] > 0
+        }
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        return {}
+
+
+def read_champ_select() -> tuple[dict, dict[str, str]] | None:
+    """Read already visible data from the user's current League client.
+
+    Returns None outside champion select. Lockfile credentials and raw
+    client session data are never sent to the frontend.
+    """
+    lcu = get_lcu_session()
+    if lcu is None:
+        return None
+    try:
+        with lcu:
+            draft = get_champ_select_session(lcu)
+            if draft is None:
+                return None
+            return draft, get_champion_id_map(lcu)
+    except requests.RequestException:
+        return None
