@@ -1,5 +1,8 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **M3/F1 code gate (2026-11-18):** PR #33 @ `5489f056`, Windows Actions [44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545) passed (363 Python, 1 AUD-07 xfailed, 28 JavaScript, 4 TODO). Final docs-head CI must pass to unlock F2; user-device acceptance remains open.
+
+
 > **2026-11-18 M3/F1 underway:** F1 [draft PR #33](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/33), branch `fix/m3-f1-lcda-nonblocking-status` stacked on E3 PR #28 (final-head [CI 44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) passed). Tests-first and implementation commits present; final F1 CI pending. Gates: F1 classified non-blocking LCDA → F2 explicit LCU statuses → F3 match end/identity → F4 UI stale/clear → F5 broadcast outside lock, each in own draft PR and only after green CI. No native-game acceptance.
 
 
