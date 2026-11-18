@@ -7,7 +7,7 @@ import pytest
 from backend.collectors import lcu
 from backend.collectors.lcda import parse_game_snapshot
 from backend.models import GamePhase
-from tests.test_poll_tick_m1 import make_harness, make_snapshot
+from test_poll_tick_m1 import make_harness, make_snapshot
 from backend.api.server import poll_tick
 
 
