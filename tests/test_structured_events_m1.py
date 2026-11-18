@@ -3,7 +3,9 @@ import json
 import queue
 import time
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
+from types import SimpleNamespace
+import inspect
 
 import pytest
 
@@ -113,3 +115,83 @@ def test_lcda_timeout_emits_only_the_error_class(monkeypatch):
     monkeypatch.setattr(lcda.SESSION, "get", timeout)
     assert lcda.get_raw_game_data() is None
     assert sent == [("lcda", {"status": "error", "error_class": "timeout"})]
+
+
+@pytest.mark.asyncio
+async def test_live_poll_tick_records_match_and_ocr_open_close_without_raw_data(monkeypatch):
+    emitted = []
+    class Sink:
+        def emit(self, event, **kw):
+            emitted.append((event, kw))
+    monkeypatch.setattr(server, "event_log", Sink())
+    state = server.GameState()
+    state.ws_clients.add(object())
+    snapshots = iter((
+        SimpleNamespace(level=3, is_dead=False, health_pct=1.0,
+                        champion_stats={"attackDamage": 100}, augment_choices=[],
+                        chosen_augments=[], build_style="Balanced"),
+        SimpleNamespace(level=3, is_dead=False, health_pct=0.6,
+                        champion_stats={"attackDamage": 100}, augment_choices=[],
+                        chosen_augments=[], build_style="Balanced"),
+    ))
+    raw = iter(({"game": 1}, {"game": 1}))
+    async def background(fn):
+        return fn()
+    async def broadcast(_msg):
+        return None
+    deps = SimpleNamespace(
+        get_raw_game_data=lambda: next(raw),
+        parse_game_snapshot=lambda _raw, _phase: next(snapshots),
+        read_champ_select_payload=lambda: None,
+        screen_watcher=SimpleNamespace(reset=Mock()),
+        to_thread=background, broadcast=broadcast,
+        ocr_available=lambda: False, run_watcher_check=lambda: ("unchanged", [], None),
+        try_stat_delta_match=background, send_augment_confirm=background,
+        static_data=object(), serialize_result=lambda *_: {},
+    )
+    await server.poll_tick(state, deps, 1.0)
+    assert state.scan_window_open
+    await server.poll_tick(state, deps, 3.0)
+    assert not state.scan_window_open
+    assert ("match_transition", {"from_state": "no_game", "to_state": "in_game"}) in emitted
+    assert ("ocr_window", {"state": "opened", "reason": "level_due", "level": 3}) in emitted
+    assert ("ocr_window", {"state": "closed", "reason": "damage", "level": 3}) in emitted
+    assert "attackDamage" not in str(emitted)
+
+
+@pytest.mark.asyncio
+async def test_auto_inference_emits_confirmation_metadata_without_augment_name(monkeypatch):
+    emitted = []
+    class Sink:
+        def emit(self, event, **kw):
+            emitted.append((event, kw))
+    monkeypatch.setattr(server, "event_log", Sink())
+    state = server.GameState()
+    state.scan_window_open = True
+    state.scan_window_level = 3
+    state.stat_snapshot_before = {"attackDamage": 100.0}
+    state.augment_choices = ["private-id"]
+    monkeypatch.setattr(server, "game_state", state)
+    candidate = SimpleNamespace(id="private-id", name="private-augment-name")
+    fake_static = SimpleNamespace(
+        get_augment=lambda _id: candidate,
+        get_stat_anvil=lambda _id: None,
+    )
+    monkeypatch.setattr(server, "static_data", fake_static)
+    monkeypatch.setattr(server, "match_augment", lambda *_: (candidate, 0.93))
+    monkeypatch.setattr(server, "screen_watcher", SimpleNamespace(reset=Mock()))
+    monkeypatch.setattr(server, "_broadcast", AsyncMock())
+    await server._try_stat_delta_match(
+        SimpleNamespace(champion_stats={"attackDamage": 130.0})
+    )
+    assert ("augment_inference", {"result": "auto", "confidence": 0.93}) in emitted
+    assert ("augment_confirmation", {"method": "automatic", "kind": "augment"}) in emitted
+    assert ("ocr_window", {"state": "closed", "reason": "confirmed", "level": 3}) in emitted
+    assert "private-id" not in str(emitted)
+    assert "private-augment-name" not in str(emitted)
+
+
+def test_ocr_screenshot_defaults_are_opt_in_not_automatic():
+    from backend.collectors.screen_ocr import ScreenWatcher, detect_augments
+    assert inspect.signature(ScreenWatcher.check).parameters["save"].default is False
+    assert inspect.signature(detect_augments).parameters["save"].default is False
