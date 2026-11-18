@@ -1,4 +1,6 @@
 import json
+import html
+import re
 import sys
 import requests
 from pathlib import Path
@@ -151,6 +153,34 @@ ITEM_STAT_MAP: dict[str, str] = {
 
 
 _loader_logger = logging.getLogger("aram-oracle.loader")
+
+# Cache schema v2 stores listed movement-speed bonuses. Old caches cannot
+# support a safe boot-swap comparison, so require a new item cache.
+_ITEM_CACHE_SCHEMA = 2
+
+
+def _listed_movement_speed(stats: dict, description: str) -> tuple[float, float]:
+    """Read unconditional listed movement speed, not situational passive effects.
+
+    DataDragon often includes movement speed in its structured stats. Some
+    items list always-on movement speed inside <stats> in the description.
+    Do not infer conditional movement-speed passives from free text.
+    """
+    flat = max(0.0, float(stats.get("FlatMovementSpeedMod") or 0.0))
+    percent = max(0.0, float(stats.get("PercentMovementSpeedMod") or 0.0))
+    block = re.search(r"<stats>(.*?)</stats>", description or "", flags=re.I | re.S)
+    if block:
+        plain = html.unescape(re.sub(r"<[^>]*>", " ", block.group(1)))
+        for match in re.finditer(
+            r"([+]?[0-9]+(?:\.[0-9]+)?)\s*(%)?\s*(?:bonus\s+)?(?:move|movement)\s+speed\b",
+            plain, flags=re.I,
+        ):
+            amount = float(match.group(1))
+            if match.group(2):
+                percent = max(percent, amount / 100.0)
+            else:
+                flat = max(flat, amount)
+    return flat, percent
 
 
 class StaticData:
@@ -492,7 +522,7 @@ def _load_items() -> dict[str, ItemData]:
     except (requests.RequestException, ValueError):
         version = "unknown"
 
-    cache_file = CACHE_DIR / f"items_{version}.json"
+    cache_file = CACHE_DIR / f"items_v{_ITEM_CACHE_SCHEMA}_{version}.json"
     if cache_file.exists():
         cached = json.loads(cache_file.read_text(encoding="utf-8"))
         return _parse_item_cache(cached)
@@ -549,6 +579,9 @@ def _load_items() -> dict[str, ItemData]:
             continue
 
         item_stats = data.get("stats", {})
+        move_flat, move_percent = _listed_movement_speed(
+            item_stats, data.get("description", "")
+        )
         mapped = {}
         for dd_key, our_key in ITEM_STAT_MAP.items():
             val = item_stats.get(dd_key, 0)
@@ -567,6 +600,8 @@ def _load_items() -> dict[str, ItemData]:
             "mythic": is_mythic,
             "boots": is_boots,
             "tags": tags,
+            "move_speed_flat": move_flat,
+            "move_speed_percent": move_percent,
         }
 
     # Compute min-max per stat for normalization
@@ -606,6 +641,8 @@ def _load_items() -> dict[str, ItemData]:
             mythic=data["mythic"],
             boots=data["boots"],
             tags=data["tags"],
+            move_speed_flat=data["move_speed_flat"],
+            move_speed_percent=data["move_speed_percent"],
         )
         cache_data[item_id] = {
             "name": data["name"],
@@ -614,6 +651,8 @@ def _load_items() -> dict[str, ItemData]:
             "mythic": data["mythic"],
             "boots": data["boots"],
             "tags": data["tags"],
+            "move_speed_flat": data["move_speed_flat"],
+            "move_speed_percent": data["move_speed_percent"],
         }
 
     cache_file.write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
@@ -635,6 +674,8 @@ def _parse_item_cache(cached: dict) -> dict[str, ItemData]:
             mythic=data.get("mythic", False),
             boots=data.get("boots", False),
             tags=data.get("tags", []),
+            move_speed_flat=data.get("move_speed_flat", 0.0),
+            move_speed_percent=data.get("move_speed_percent", 0.0),
         )
     return result
 
