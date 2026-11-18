@@ -83,7 +83,7 @@ def test_full_inventory_never_recommends_a_seventh_item():
 
 
 def test_selected_style_changes_the_build_and_next_purchase():
-    mage = _make_champion("mage", ap=0.9, hp=0.1)
+    mage = _make_champion("mage", ap=0.9, hp=0.4)
     offense = _make_item("offense", cost=1000, ap=1.0)
     defense = _make_item("defense", cost=1000, hp=1.0)
     items = [offense, defense]
