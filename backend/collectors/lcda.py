@@ -69,6 +69,9 @@ def get_raw_game_data() -> LCDAResult:
         status = "request_error"
     except (ValueError, TypeError):
         status = "bad_json"
+    except Exception:
+        # Unknown failure class; never retain or print payloads or credentials.
+        status = "internal_error"
     event_log.transition("lcda", status=status, error_class=status)
     return LCDAResult(status)
 
