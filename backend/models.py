@@ -139,6 +139,17 @@ class BuildState:
     next_item_id: str | None = None
     gold_to_next: int = 0
     full_build: list[str] = field(default_factory=list)
+    alternatives: dict[str, list[str]] = field(default_factory=dict)
+    reasons: list[str] = field(default_factory=list)
+
+
+@dataclass
+class EnemyState:
+    """Only information already visible through the local live client API."""
+    champion_id: str
+    item_ids: list[str] = field(default_factory=list)
+    kills: int = 0
+    deaths: int = 0
 
 
 @dataclass
@@ -157,6 +168,8 @@ class GameSnapshot:
     is_dead: bool = False
     health_pct: float = 1.0  # currentHealth / maxHealth, 0-1
     champion_stats: dict[str, float] = field(default_factory=dict)
+    ally_champion_ids: list[str] = field(default_factory=list)
+    enemy_states: list[EnemyState] = field(default_factory=list)
 
 
 @dataclass
