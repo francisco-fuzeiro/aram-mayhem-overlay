@@ -61,9 +61,11 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - DataDragon item loader now collects structured flat/percent movement speed and unconditional movement stats from the `<stats>` description section, never conditional passive text. Cache schema v2 prevents silently treating stale items as fully known; legacy cached items can still support regular builds offline with boot swaps disabled.
 - The recommendation appears in the English build panel with item names, purchase cost (excluding uncertain sell value), approximate listed movement-speed change and a shop-availability disclaimer. No buying or selling is automated.
 - Missing/conditional movement effects, mode shop eligibility, unique passives, full actual movespeed/soft cap and item buy path **remain unverified**. The comparison is **heuristic** and needs real Windows/Mayhem validation.
-- Tests: dedicated regression coverage in `tests/test_boot_replacement.py`; `pytest -q` and `node --check frontend/app.js` **not run** at writing this entry, awaiting GitHub Actions.
+- Tests: [Windows GitHub Actions run 44318127647](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44318127647) **passed: 171 tests, 1 warning**, plus successful `node --check frontend/app.js`. Real Mayhem shop/Windows in-game verification remains pending.
 
 ## Automated verification (as last observed)
+
+- PR #8 Windows CI `44318127647` on feature commit `280e7659`: **171 passed, 1 warning**, JavaScript syntax check passed. Newer documentation commits require separate CI recheck.
 
 - PR #6 latest Windows CI `44315513781`: **155 passed, 1 warning**; JS syntax passed.
 - PR #7 Windows CI `44315895591` on feature commit `c4f8ba25`: **163 passed, 1 warning**; JS syntax passed. Documentation-only commits may be newer; verify head.
