@@ -1,5 +1,8 @@
 # ARAM Oracle — Product and UX TODO
 
+> **M3/F2 code implemented / documentation-head gate pending:** [draft PR #36](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/36), code [CI 44420212177](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44420212177) passed 374 Python, 1 xfailed, 28 JS, 4 TODO. F3 must still promote AUD-07 and implement authoritative/debounced end; no native acceptance.
+
+
 > **M3/F1 code evidence (2026-11-18):** 363 Python passing / 1 AUD-07 xfailed, 28 JS passing / 4 TODO, green code [CI 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545), PR #33. Check final documentation-head CI before marking phase gate complete and starting F2.
 
 
