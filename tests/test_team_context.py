@@ -146,3 +146,36 @@ def test_lcda_only_exposes_visible_teams_and_enemy_items():
     assert len(snapshot.enemy_states) == 1
     assert snapshot.enemy_states[0].item_ids == ["3006"]
     assert snapshot.enemy_states[0].kills == 7
+
+
+def test_unknown_champion_still_counts_visible_item_metadata():
+    armor = item("armor", ["Armor"])
+    profile = analyze_enemies(
+        [EnemyState("not-in-catalog", ["armor", "unknown-item"])],
+        lambda _: None,
+        {"armor": armor}.get,
+    )
+    assert profile.enemies_visible == 1
+    assert profile.enemies_analyzed == 0
+    assert profile.visible_items == 2
+    assert profile.armor_items == 1
+    assert profile.unknown_items == 1
+    assert profile.confidence == "low"
+
+
+def test_partial_enemy_catalog_cannot_report_high_confidence():
+    known = champion("known", "mage", ap=0.8)
+    item_db = {"armor": item("armor", ["Armor"])}
+    players = [EnemyState("known", ["armor"]) for _ in range(4)]
+    players.append(EnemyState("missing", ["armor"]))
+    partial = analyze_enemies(players, {"known": known}.get, item_db.get)
+    assert partial.enemies_analyzed == 4
+    assert partial.visible_items == 5
+    assert partial.confidence == "medium"
+    assert "Partial enemy coverage" in " ".join(partial.notes())
+
+    complete = analyze_enemies(
+        [EnemyState("known", ["armor"]) for _ in range(5)],
+        {"known": known}.get, item_db.get,
+    )
+    assert complete.confidence == "high"
