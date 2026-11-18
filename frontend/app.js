@@ -545,6 +545,19 @@
             buildFooter.textContent = "";
         }
         buildAlternatives.replaceChildren();
+        if (bs.boot_replacement) {
+            const swap = bs.boot_replacement;
+            const row = document.createElement("div");
+            row.className = "aug-explain";
+            const listedMs = Number(swap.listed_ms_change);
+            const msText = Number.isFinite(listedMs)
+                ? ` · Listed MS change: ${listedMs >= 0 ? "+" : ""}${listedMs.toFixed(1)} (approx.)`
+                : "";
+            row.textContent = `Optional boot swap: ${swap.sell_item_name} → ${swap.buy_item_name}` +
+                ` · Item cost: ${swap.buy_cost}g before selling boots` + msText +
+                ` · ${swap.reason}`;
+            buildAlternatives.appendChild(row);
+        }
         const alt = bs.alternatives || {};
         const paths = ["Balanced", "Damage", "Survival", "Utility"].filter(name => name !== bs.selected_style);
         if (paths.some(name => Array.isArray(alt[name]) && alt[name].length)) {
