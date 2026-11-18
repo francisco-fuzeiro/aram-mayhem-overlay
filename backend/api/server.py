@@ -853,6 +853,10 @@ async def _poll_game_loop(interval: float | None = None):
                                 game_state.had_game_last_tick = False
                                 game_state.post_game = True
                                 game_state.post_game_time = asyncio.get_event_loop().time()
+                                # Reset chosen/offered augments and the OCR watcher
+                                # immediately, not after the post-game timeout.
+                                # GameState.reset preserves saved user preferences.
+                                game_state.reset()
                                 logger.info("Game ended — entering post-game state")
                                 await _broadcast(json.dumps({"type": "game_ended"}))
                             elif game_state.post_game:
