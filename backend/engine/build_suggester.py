@@ -11,6 +11,8 @@ from backend.engine.team_context import EnemyThreatProfile, AllyTeamProfile
 
 logger = logging.getLogger("aram-oracle.engine.build")
 
+BUILD_STYLES = ("Balanced", "Damage", "Survival", "Utility")
+
 
 def _item_role_bonus(
     item: ItemData,
@@ -120,6 +122,7 @@ def suggest_build(
     build_size: int = 6,
     enemy_profile: EnemyThreatProfile | None = None,
     ally_profile: AllyTeamProfile | None = None,
+    build_style: str = "Balanced",
 ) -> BuildState:
     """Return one flexible path and optional Damage/Survival/Utility paths.
 
@@ -127,41 +130,48 @@ def suggest_build(
     another style without changing their existing items. Item-purchase paths
     and game-mode-specific item restrictions need further data validation.
     """
+    # Client-selected style changes ordering, but cannot force or buy an item.
+    # Invalid external snapshot values fall back to the neutral default.
+    selected_style = build_style if build_style in BUILD_STYLES else "Balanced"
     purchased = list(purchased_items)
     available = [item for item in all_items if item.id not in purchased]
-    ranked = _rank_items(
-        champion, active_augments, available, enemy_profile, ally_profile, "Balanced"
-    )
-    full_build = _fill_slots(ranked, purchased, all_items, build_size)
-
-    owned = {item.id: item for item in all_items}
-    boots_owned = any(owned.get(i) and owned[i].boots for i in purchased)
-    affordable = [
-        item for item in ranked
-        if item.cost <= current_gold and not (boots_owned and item.boots)
-    ]
-    next_item = affordable[0] if affordable else None
-    gold_to_next = 0
-    if next_item is None:
-        viable = [item for item in ranked if not (boots_owned and item.boots)]
-        if viable:
-            gold_to_next = max(0, viable[0].cost - current_gold)
-
-    alternatives = {
-        direction: _fill_slots(
-            _rank_items(champion, active_augments, available,
-                        enemy_profile, ally_profile, direction),
-            purchased, all_items, build_size,
+    rankings = {
+        style: _rank_items(
+            champion, active_augments, available, enemy_profile, ally_profile, style
         )
-        for direction in ("Damage", "Survival", "Utility")
+        for style in BUILD_STYLES
     }
+    paths = {
+        style: _fill_slots(rankings[style], purchased, all_items, build_size)
+        for style in BUILD_STYLES
+    }
+    full_build = paths[selected_style]
+
+    # Do not recommend a seventh item. Even if the catalog offers thousands
+    # of candidates, "next item" must actually belong to the selected path.
+    remaining = [item_id for item_id in full_build[len(purchased):]]
+    by_id = {item.id: item for item in all_items}
+    next_item = next(
+        (by_id[item_id] for item_id in remaining
+         if item_id in by_id and by_id[item_id].cost <= current_gold),
+        None,
+    )
+    gold_to_next = 0
+    if next_item is None and remaining:
+        first = by_id.get(remaining[0])
+        if first is not None:
+            gold_to_next = max(0, first.cost - current_gold)
+
+    alternatives = paths
 
     reasons = ["Adjusted for your current champion and chosen augments"]
     if enemy_profile and enemy_profile.enemies_analyzed:
         reasons.extend(enemy_profile.notes())
     if ally_profile and ally_profile.known:
         reasons.extend(ally_profile.notes())
-    if next_item is None and available:
+    if selected_style != "Balanced":
+        reasons.append(f"Selected build path: {selected_style}")
+    if next_item is None and remaining:
         logger.debug("%s has no affordable recommended item at %dg", champion.id, current_gold)
 
     return BuildState(
@@ -173,4 +183,5 @@ def suggest_build(
         full_build=full_build,
         alternatives=alternatives,
         reasons=reasons,
+        selected_style=selected_style,
     )
