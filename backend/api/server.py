@@ -50,7 +50,7 @@ class GameState:
         self.poll_lock = asyncio.Lock()
         self.pipeline: Pipeline | None = None
         self.ws_clients: set[WebSocket] = set()
-        self.ws_send_queues: dict[WebSocket, asyncio.Queue[str]] = {}
+        self.ws_send_queues: dict[WebSocket, asyncio.Queue[tuple[str, asyncio.Future[None] | None]]] = {}
         self.ws_send_tasks: dict[WebSocket, asyncio.Task[None]] = {}
         # Augment choices injected by overlay / OCR
         self.augment_choices: list[str] = []
@@ -1142,18 +1142,27 @@ async def _poll_game_loop(interval: float | None = None):
             logger.error("Poll loop error: %s", e, exc_info=True)
         await asyncio.sleep(interval)
 
-def _queue_ws_message(state: GameState, client: WebSocket, message: str) -> None:
-    """Route every outgoing message through one ordered, bounded client queue."""
+def _queue_ws_message(
+    state: GameState,
+    client: WebSocket,
+    message: str,
+    delivered: asyncio.Future[None] | None = None,
+) -> None:
+    """Enqueue a socket message without awaiting network I/O or game locks."""
     if client not in state.ws_clients:
+        if delivered is not None and not delivered.done():
+            delivered.set_exception(ConnectionError("WebSocket disconnected"))
         return
     queue = state.ws_send_queues.get(client)
     if queue is None:
         queue = asyncio.Queue(maxsize=32)
         state.ws_send_queues[client] = queue
     if queue.full():
-        queue.get_nowait()
+        _, displaced = queue.get_nowait()
+        if displaced is not None and not displaced.done():
+            displaced.set_exception(ConnectionError("WebSocket send queue overflow"))
         queue.task_done()
-    queue.put_nowait(message)
+    queue.put_nowait((message, delivered))
     task = state.ws_send_tasks.get(client)
     if task is None or task.done():
         state.ws_send_tasks[client] = asyncio.create_task(
@@ -1162,9 +1171,15 @@ def _queue_ws_message(state: GameState, client: WebSocket, message: str) -> None
 
 
 async def _send_ws_message(client: WebSocket, message: str) -> None:
-    """Enqueue ACKs/errors without racing the per-client broadcast sender."""
+    """Preserve ACK/error delivery semantics using the ordered sender.
+
+    Only this requesting WebSocket handler waits for its own completion.
+    Polling and broadcasts remain non-blocking and outside GameState.lock.
+    """
     diagnostics.record_ws_message("outbound", message)
-    _queue_ws_message(game_state, client, message)
+    delivered = asyncio.get_running_loop().create_future()
+    _queue_ws_message(game_state, client, message, delivered)
+    await asyncio.wait_for(delivered, timeout=4.0)
 
 
 async def _broadcast(message: str) -> None:
@@ -1180,23 +1195,35 @@ async def _broadcast(message: str) -> None:
 
 
 async def _drain_ws_client(
-    state: GameState, client: WebSocket, queue: asyncio.Queue[str]
+    state: GameState,
+    client: WebSocket,
+    queue: asyncio.Queue[tuple[str, asyncio.Future[None] | None]],
 ) -> None:
-    """Only this client task performs its socket sends, preserving order."""
+    """One sender per client, with optional delivery receipts for direct ACKs."""
     try:
         while client in state.ws_clients:
-            message = await queue.get()
+            message, delivered = await queue.get()
             try:
-                # A socket that never drains must not pin a worker forever.
                 await asyncio.wait_for(client.send_text(message), timeout=3.0)
+                if delivered is not None and not delivered.done():
+                    delivered.set_result(None)
             except asyncio.CancelledError:
+                if delivered is not None and not delivered.done():
+                    delivered.cancel()
                 raise
-            except Exception:
+            except Exception as exc:
+                if delivered is not None and not delivered.done():
+                    delivered.set_exception(exc)
                 state.ws_clients.discard(client)
                 break
             finally:
                 queue.task_done()
     finally:
+        while not queue.empty():
+            _, delivered = queue.get_nowait()
+            if delivered is not None and not delivered.done():
+                delivered.set_exception(ConnectionError("WebSocket sender stopped"))
+            queue.task_done()
         if state.ws_send_tasks.get(client) is asyncio.current_task():
             state.ws_send_tasks.pop(client, None)
             state.ws_send_queues.pop(client, None)
