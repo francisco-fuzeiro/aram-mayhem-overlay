@@ -1,5 +1,8 @@
 # ARAM Oracle — Product and UX TODO
 
+> **M3/F1 working branch:** [PR #35](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/35), LCDA classification/nonblocking code and tests submitted. Final CI and real Windows/League acceptance remain unchecked; F2–F5 pending.
+
+
 > Canonical, persistent backlog for this repository. Created 2026-11-18 (Europe/Lisbon).
 > Incorporates the **"Auditoria UX — ARAM Oracle"** discussion in the ChatGPT Overlay LoL project, the user-supplied `funcionalidades.md` specification, the first real in-game Jinx screenshot, and the current stacked PR history.
 > The UX audit was recovered from the cross-chat discussion summary; this is an actionable synthesis, **not** a verbatim export of that conversation.
