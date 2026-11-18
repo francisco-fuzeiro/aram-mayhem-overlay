@@ -16,6 +16,7 @@ Requires Tesseract OCR installed:
   Or download from: https://github.com/UB-Mannheim/tesseract/wiki
 """
 import hashlib
+import re
 import logging
 import sys
 import time
@@ -462,12 +463,23 @@ def extract_text(img: "Image.Image") -> list[str]:
     return lines
 
 
+def _normalize_augment_text(text: str) -> str:
+    """Normalize OCR noise to the same alphabet as augment catalog names."""
+    return " ".join(re.sub(r"[^a-z0-9 ]", " ", text.lower()).split())
+
+
 def match_augments(
     ocr_texts: list[str],
     augment_names: dict[str, str],
     threshold: int | None = None,
 ) -> list[tuple[str, str, int]]:
-    """Fuzzy-match OCR text against known augment names."""
+    """Match offered augments, including titles wrapped across OCR lines.
+
+    Adjacent-line joining and normalization adapted from the pure matcher in
+    zp96-cmd/mayhem-overlay/src/main/ocr-match.js (MIT declared in its package
+    metadata; Copyright 2026 Zac Pitts; see THIRD_PARTY_NOTICES.md).
+    Retains our existing rapidfuzz matcher and the 3-card maximum.
+    """
     if not OCR_AVAILABLE or not ocr_texts or not augment_names:
         return []
 
@@ -478,49 +490,63 @@ def match_augments(
         except Exception:
             threshold = MATCH_THRESHOLD
 
-    name_to_id: dict[str, str] = {name: aid for aid, name in augment_names.items()}
-    all_names = list(name_to_id.keys())
+    name_to_id: dict[str, str] = {}
+    for aug_id, name in augment_names.items():
+        normalized = _normalize_augment_text(name)
+        if normalized:
+            name_to_id[normalized] = str(aug_id)
+    if not name_to_id:
+        return []
+    all_names = list(name_to_id)
+
+    normalized_lines = [
+        _normalize_augment_text(line) for line in ocr_texts
+        if isinstance(line, str)
+    ]
+    normalized_lines = [line for line in normalized_lines if len(line) >= MIN_TEXT_LEN]
+
+    # The Mayhem Overlay matcher joins neighbouring OCR lines when an augment
+    # title wraps, rather than treating each line as a separate augment.
+    joined_lines = [
+        normalized_lines[index] + " " + normalized_lines[index + 1]
+        for index in range(len(normalized_lines) - 1)
+    ]
+    texts = normalized_lines + joined_lines
 
     matches: dict[str, tuple[str, int]] = {}
+    name_by_id = {str(aug_id): name for aug_id, name in augment_names.items()}
 
-    for text in ocr_texts:
-        result = process.extractOne(
-            text,
-            all_names,
-            scorer=fuzz.token_sort_ratio,
-            score_cutoff=threshold,
-        )
-        if result:
-            matched_name, score, _ = result
-            aug_id = name_to_id[matched_name]
-            if aug_id not in matches or score > matches[aug_id][1]:
-                matches[aug_id] = (matched_name, int(score))
-
+    for text in texts:
+        variants = [text]
         words = text.split()
-        for i in range(len(words)):
-            for j in range(i + 1, min(i + 5, len(words) + 1)):
-                fragment = " ".join(words[i:j])
-                if len(fragment) < MIN_TEXT_LEN:
-                    continue
-                result = process.extractOne(
-                    fragment,
-                    all_names,
-                    scorer=fuzz.token_sort_ratio,
-                    score_cutoff=max(threshold, 70),
-                )
-                if result:
-                    matched_name, score, _ = result
-                    aug_id = name_to_id[matched_name]
-                    if aug_id not in matches or score > matches[aug_id][1]:
-                        matches[aug_id] = (matched_name, int(score))
+        # Existing fragment search, useful for text with borders or UI labels.
+        for start in range(len(words)):
+            for stop in range(start + 1, min(start + 6, len(words) + 1)):
+                fragment = " ".join(words[start:stop])
+                if len(fragment) >= MIN_TEXT_LEN:
+                    variants.append(fragment)
+
+        for variant in variants:
+            result = process.extractOne(
+                variant,
+                all_names,
+                scorer=fuzz.token_sort_ratio,
+                score_cutoff=threshold,
+            )
+            if result:
+                normalized_name, score, _ = result
+                aug_id = name_to_id[normalized_name]
+                if aug_id not in matches or score > matches[aug_id][1]:
+                    matches[aug_id] = (name_by_id[aug_id], int(score))
 
     sorted_matches = sorted(
-        [(aid, name, score) for aid, (name, score) in matches.items()],
-        key=lambda x: x[2],
-        reverse=True,
+        ((aid, name, score) for aid, (name, score) in matches.items()),
+        key=lambda result: (-result[2], result[1]),
     )
-
-    return sorted_matches[:3]
+    # An augment offer has three cards. Reject weak incidental labels when
+    # three confident matches have already been found.
+    strong = [item for item in sorted_matches if item[2] >= 85]
+    return (strong if len(strong) >= 3 else sorted_matches)[:3]
 
 
 def detect_augments(

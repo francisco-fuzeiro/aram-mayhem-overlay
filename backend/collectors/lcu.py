@@ -1,22 +1,51 @@
 from pathlib import Path
 import os
+import subprocess
+import sys
 import requests
 
 
 def _find_lockfile() -> Path | None:
-    """Locate the League Client lockfile on Windows or macOS."""
+    """Find the local League lockfile without assuming the install drive.
+
+    Windows discovery adapted from zp96-cmd/mayhem-overlay's MIT-declared
+    src/main/lcu.js (Copyright 2026 Zac Pitts; see THIRD_PARTY_NOTICES.md).
+    No client secrets are logged or transmitted.
+    """
     candidates = [
-        # Override for custom League installations.
         Path(os.environ["ARAM_ORACLE_LCU_LOCKFILE"])
         if os.environ.get("ARAM_ORACLE_LCU_LOCKFILE") else None,
         Path("C:/Riot Games/League of Legends/lockfile"),
+        Path("D:/Riot Games/League of Legends/lockfile"),
+        Path("C:/Program Files/Riot Games/League of Legends/lockfile"),
         Path.home() / "Library/Application Support/Riot Games/League of Legends/lockfile",
     ]
     for path in candidates:
         if path is not None and path.is_file():
             return path
-    return None
 
+    # LeagueClientUx.exe may run from a custom location (E:, another folder).
+    # Use a fixed PowerShell command (never interpolate user input).
+    if sys.platform == "win32":
+        try:
+            result = subprocess.run(
+                [
+                    "powershell", "-NoProfile", "-NonInteractive", "-Command",
+                    "(Get-Process LeagueClientUx -ErrorAction SilentlyContinue "
+                    "| Select-Object -First 1 -ExpandProperty Path)",
+                ],
+                capture_output=True, text=True, timeout=3,
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            executable = result.stdout.strip().splitlines()
+            if executable:
+                candidate = Path(executable[0]).parent / "lockfile"
+                if candidate.is_file():
+                    return candidate
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return None
 
 def _parse_lockfile(path: Path) -> dict:
     parts = path.read_text().strip().split(":")

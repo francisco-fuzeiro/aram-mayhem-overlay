@@ -29,6 +29,8 @@ def test_reads_bench_and_current_champion_without_player_identifiers():
     }
     result = summarize_champion_select(draft, IDS, get_champion)
     assert result["type"] == "champ_select"
+    assert all(isinstance(c["score"], float) and 0.0 <= c["score"] <= 10.0 for c in result["candidates"])
+    assert all(round(c["score"], 1) == c["score"] for c in result["candidates"])
     assert {x["name"] for x in result["candidates"]} == {"Lux", "Alistar"}
     assert next(x for x in result["candidates"] if x["name"] == "Lux")["current"]
     assert next(x for x in result["candidates"] if x["name"] == "Alistar")["score"] > \
@@ -86,4 +88,61 @@ def test_api_debug_endpoint_uses_team_fit(monkeypatch):
     with patch.object(server.static_data, "get_champion", side_effect=get_champion):
         response = server.champ_select_status()
     assert response["candidates"][0]["name"] == "Lux"
-    assert response["method"] == "experimental_team_fit"
+    assert response["method"] == "composite_v1"
+
+
+def test_role_fit_tiers_use_ten_point_scale():
+    draft = {
+        "localPlayerCellId": 1,
+        "myTeam": [
+            {"cellId": 1, "championId": 99},
+            {"cellId": 2, "championId": 222},
+        ],
+        "benchChampions": [{"championId": 12}],
+    }
+    result = summarize_champion_select(draft, IDS, get_champion)
+    for candidate in result["candidates"]:
+        score = candidate["score"]
+        tier = candidate["tier"]
+        assert 0 <= score <= 10
+        expected = "S" if score >= 7.5 else "A" if score >= 7.0 else "B" if score >= 6.5 else "C"
+        assert tier == expected
+    assert "0.0" in result["notice"] and "10.0" in result["notice"]
+
+
+def test_champion_composite_uses_personal_record_when_available():
+    draft = {
+        "localPlayerCellId": 1,
+        "myTeam": [
+            {"cellId": 1, "championId": 99},
+            {"cellId": 2, "championId": 222},
+        ],
+        "benchChampions": [{"championId": 12}],
+    }
+    no_history = summarize_champion_select(draft, IDS, get_champion)
+    with_history = summarize_champion_select(
+        draft, IDS, get_champion,
+        record_lookup=lambda champ: (80, 100) if champ == "lux" else None,
+    )
+    before = next(c for c in no_history["candidates"] if c["name"] == "Lux")
+    after = next(c for c in with_history["candidates"] if c["name"] == "Lux")
+    assert after["score"] > before["score"]
+    assert after["confidence"] > 0
+    assert after["sample_size"] == 100
+    assert after["evidence_source"] == "personal_history"
+    assert before["sample_size"] == 0
+    assert before["components"]["performance"] is None
+
+
+def test_champion_composite_depends_on_team_even_with_same_win_evidence():
+    roster = {"benchChampions": [{"championId": 99}]}
+    one = dict(roster, myTeam=[{"championId": 222}])  # No mage yet
+    two = dict(roster, myTeam=[{"championId": 99}])  # Already has a mage
+    lookup = lambda _: (70, 100)
+    rating_a = summarize_champion_select(one, IDS, get_champion, record_lookup=lookup)
+    rating_b = summarize_champion_select(two, IDS, get_champion, record_lookup=lookup)
+    assert rating_a["method"] == "composite_v1"
+    assert rating_b["method"] == "composite_v1"
+    assert rating_a["candidates"][0]["score"] != rating_b["candidates"][0]["score"]
+    assert rating_a["candidates"][0]["sample_size"] == 100
+    assert rating_b["candidates"][0]["sample_size"] == 100

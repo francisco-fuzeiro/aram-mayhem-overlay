@@ -1,0 +1,136 @@
+"""Read-only import of the player's own finished ARAM Mayhem matches.
+
+Adapted conceptually from zp96-cmd/mayhem-overlay/src/main/history.js
+(MIT-declared; credit in THIRD_PARTY_NOTICES.md). No account identifiers,
+tokens or raw match data are returned by this module or sent externally.
+"""
+import logging
+import re
+
+import requests
+
+from backend.collectors.lcu import get_lcu_session, get_champion_id_map
+from backend.storage.db import game_exists, record_game
+
+logger = logging.getLogger("aram-oracle.history")
+
+MAYHEM_QUEUE_ID = 2400
+_AUGMENT_KEY = re.compile(r"^playerAugment(\d+)$", re.IGNORECASE)
+
+
+def extract_augments(stats: dict) -> list[str]:
+    """Extract non-empty augment IDs in pick order from match statistics."""
+    entries = []
+    for key, value in (stats or {}).items():
+        match = _AUGMENT_KEY.match(str(key))
+        if match and isinstance(value, int) and value > 0:
+            entries.append((int(match.group(1)), str(value)))
+    return [value for _, value in sorted(entries)]
+
+
+def extract_items(stats: dict) -> list[str]:
+    """Extract positive item IDs in client slot order."""
+    return [
+        str(stats[f"item{slot}"])
+        for slot in range(7)
+        if isinstance(stats.get(f"item{slot}"), int)
+        and stats[f"item{slot}"] > 0
+    ]
+
+
+def _get_json(session: requests.Session, endpoint: str) -> dict | None:
+    try:
+        response = session.get(f"{session.base_url}{endpoint}", timeout=3)
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        return data if isinstance(data, dict) else None
+    except (requests.RequestException, ValueError):
+        return None
+
+
+def _own_participant(match: dict, puuid: str) -> dict | None:
+    """Match our PUUID to a participant; never assume the first player is us."""
+    identities = match.get("participantIdentities") or []
+    own_id = None
+    for item in identities:
+        if isinstance(item, dict) and (item.get("player") or {}).get("puuid") == puuid:
+            own_id = item.get("participantId")
+            break
+    if own_id is None:
+        return None
+    for participant in match.get("participants") or []:
+        if isinstance(participant, dict) and participant.get("participantId") == own_id:
+            return participant
+    return None
+
+
+def sync_recent_mayhem_games(max_games: int = 40) -> dict:
+    """Import up to 40 recent games, using local LCU data only.
+
+    The return value deliberately excludes account identifiers and match IDs.
+    No network calls are made beyond the loopback League Client API.
+    """
+    max_games = max(1, min(int(max_games), 40))
+    session = get_lcu_session()
+    if session is None:
+        return {"status": "client_unavailable", "imported": 0, "inspected": 0}
+
+    imported = 0
+    inspected = 0
+    with session:
+        summoner = _get_json(session, "/lol-summoner/v1/current-summoner")
+        puuid = summoner.get("puuid") if summoner else None
+        if not isinstance(puuid, str) or not puuid:
+            return {"status": "identity_unavailable", "imported": 0, "inspected": 0}
+
+        response = _get_json(
+            session,
+            f"/lol-match-history/v1/products/lol/current-summoner/matches"
+            f"?begIndex=0&endIndex={max_games}",
+        )
+        matches = ((response or {}).get("games") or {}).get("games") or []
+        if not isinstance(matches, list):
+            return {"status": "history_unavailable", "imported": 0, "inspected": 0}
+        aliases = get_champion_id_map(session)
+
+        for summary in matches[:max_games]:
+            if not isinstance(summary, dict):
+                continue
+            if summary.get("queueId") != MAYHEM_QUEUE_ID and str(
+                summary.get("gameMode", "")
+            ).upper() != "MAYHEM":
+                continue
+            inspected += 1
+            game_id = summary.get("gameId")
+            if not isinstance(game_id, int) or game_id <= 0 or game_exists(str(game_id)):
+                continue
+            detail = _get_json(session, f"/lol-match-history/v1/games/{game_id}")
+            if not detail:
+                logger.debug("Game details missing for an otherwise eligible match")
+                continue
+            participant = _own_participant(detail, puuid)
+            if participant is None:
+                continue
+
+            champion_id = aliases.get(str(participant.get("championId", 0)))
+            stats = participant.get("stats") or {}
+            if not champion_id or not isinstance(stats, dict):
+                continue
+            win = stats.get("win")
+            if not isinstance(win, (bool, int)) or int(win) not in (0, 1):
+                continue
+
+            record_game(
+                game_id=str(game_id),
+                champion_id=champion_id,
+                augments=extract_augments(stats),
+                items=extract_items(stats),
+                win=bool(win),
+                game_time_secs=int(detail.get("gameDuration")
+                                   or summary.get("gameDuration") or 0),
+                kda={k: stats.get(k, 0) for k in ("kills", "deaths", "assists")},
+            )
+            imported += 1
+
+    return {"status": "ok", "imported": imported, "inspected": inspected}

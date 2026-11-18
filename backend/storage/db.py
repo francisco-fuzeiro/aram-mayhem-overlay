@@ -56,6 +56,15 @@ def record_game(
     path = db_path or DB_PATH
     try:
         with _connect(path) as con:
+            # Importers may encounter the same game repeatedly. Avoid
+            # inflating augment sample counts on a second sync.
+            previous = con.execute(
+                "SELECT win FROM games WHERE id=?", (game_id,)
+            ).fetchone()
+            if previous is not None:
+                # Permit backfilling a previously unknown result only.
+                if previous[0] is not None or win is None:
+                    return
             con.execute(
                 """INSERT OR REPLACE INTO games
                    VALUES (?,?,?,?,?,?,?,?,?,?,0)""",
@@ -81,6 +90,38 @@ def record_game(
                     """, (aug_id, champion_id, int(win)))
     except sqlite3.Error as e:
         logger.error("Failed to record game %s: %s", game_id, e, exc_info=True)
+
+
+def game_exists(game_id: str, db_path: Path | None = None) -> bool:
+    """Return whether an imported game was already stored."""
+    try:
+        with _connect(db_path or DB_PATH) as con:
+            return con.execute(
+                "SELECT 1 FROM games WHERE id=?", (game_id,)
+            ).fetchone() is not None
+    except sqlite3.Error:
+        return False
+
+
+def get_champion_record(
+    champion_id: str, db_path: Path | None = None,
+) -> tuple[int, int] | None:
+    """Return (wins, games) for the user's known, finished games on a champion.
+
+    No matches are fabricated. Games with unknown outcome are excluded.
+    """
+    try:
+        with _connect(db_path or DB_PATH) as con:
+            row = con.execute(
+                """SELECT COALESCE(SUM(CASE WHEN win = 1 THEN 1 ELSE 0 END), 0),
+                          COUNT(*)
+                   FROM games
+                   WHERE champion_id = ? AND win IN (0, 1)""",
+                (champion_id,),
+            ).fetchone()
+        return (int(row[0]), int(row[1])) if row and row[1] else None
+    except sqlite3.Error:
+        return None
 
 
 def get_personal_winrate(
