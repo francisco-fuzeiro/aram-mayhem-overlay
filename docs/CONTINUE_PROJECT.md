@@ -1,5 +1,11 @@
 # Continue ARAM Oracle in a New Chat
 
+## 2026-11-18 M3/F4 code complete — F5 after final docs gate
+
+- [Draft PR #32](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/32), branch `fix/m3-f4-frontend-match-stale-clear`, stacked on F3 PR #31. Red [44418231275](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418231275): 9 Node regressions; green code [44418575069](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418575069): **385 Python, 37 JS, 0 xfail/TODO**. Code SHA `3d2c4608`.
+- **Verify F4 final docs-head CI success before F5.** F5 own branch/draft PR only: no WebSocket sends under GameState.lock, bounded per-client transport/slow-disconnected client resilience, snapshot consistency and concurrent ticks; write red tests, prove, fix, verify full code and final docs CI.
+- Preserve G1/G2, G4, A-FUNC.3/V1, Riot licence/policy and actual Windows gameplay gates as open.
+
 ## 2026-11-18 M3/F3 code complete — F4 after final-head CI
 
 - F3 [draft PR #31](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/31), branch `fix/m3-f3-match-identity-debounced-end` on F2 PR #30. Red [44417070655](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417070655), green code [44417583673](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417583673): 385 Python, **0 xfail**, 28 JS, 4 TODO; code SHA `90f30018`.

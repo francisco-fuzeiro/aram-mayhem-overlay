@@ -141,9 +141,7 @@ test("OCR renderer is callable with stub nodes and does not require a browser", 
     assert.equal(h.element("ocr-detected").children.length, 2);
 });
 
-test("AUD-05 game_ended should clear stale Neeko/time/gold", {
-    todo: "AUD-05: known stale match header; M2 functional correction deferred",
-}, () => {
+test("AUD-05 game_ended should clear stale Neeko/time/gold", () => {
     const h = harness();
     h.api.handleMessage(gameUpdate());
     h.api.handleMessage({type: "game_ended"});
@@ -152,9 +150,7 @@ test("AUD-05 game_ended should clear stale Neeko/time/gold", {
     assert.equal(h.element("gold").textContent, "--");
 });
 
-test("AUD-05 no_game must erase the previous match snapshot", {
-    todo: "AUD-05: visible header and internal lastResult persist; M2 correction deferred",
-}, () => {
+test("AUD-05 no_game must erase the previous match snapshot", () => {
     const h = harness();
     h.api.handleMessage(gameUpdate());
     h.api.handleMessage({type: "no_game"});
@@ -162,9 +158,7 @@ test("AUD-05 no_game must erase the previous match snapshot", {
     assert.equal(h.element("champion-name").textContent, "---");
 });
 
-test("AUD-05 disconnected WS must mark prior match data stale", {
-    todo: "AUD-05: connection indicator changes but cached match result remains live",
-}, () => {
+test("AUD-05 disconnected WS must mark prior match data stale", () => {
     const h = harness();
     h.api.handleMessage(gameUpdate());
     h.api.connectWebSocket();
@@ -172,9 +166,7 @@ test("AUD-05 disconnected WS must mark prior match data stale", {
     assert.equal(h.api.getState().lastResult, null);
 });
 
-test("AUD-06 new champion must invalidate previous augment confirmation UI", {
-    todo: "AUD-06: unversioned frontend offer state persists across a new match",
-}, () => {
+test("AUD-06 new champion must invalidate previous augment confirmation UI", () => {
     const h = harness();
     h.api.handleMessage(gameUpdate("Neeko"));
     h.api.handleMessage({type: "augment_confirm", candidates: [{id: "old", name: "Old"}]});
@@ -248,4 +240,85 @@ test("M2/E3 rated offers render numeric scores without losing sort semantics", (
     assert.equal(cards[0].innerHTML.includes("7.2/10"), true);
     assert.equal(cards[1].innerHTML.includes("3.1/10"), true);
     assert.doesNotMatch(cards.map(card => card.innerHTML).join(" "), /NaN/);
+});
+
+
+test("F4 end of game invalidates old OCR, reroll, build and pending confirmation", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:1"});
+    h.api.handleMessage({type: "ocr_result", detected: [{
+        id: "old", name: "Old augment", confidence: 95,
+    }], augment_choices: ["old"]});
+    h.api.handleMessage({type: "augment_confirm", candidates: [{
+        id: "old", name: "Old augment",
+    }]});
+    h.api.handleMessage({type: "game_ended"});
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
+    assert.equal(h.element("ocr-detected").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-list").innerHTML, "");
+    assert.equal(h.element("build-list").innerHTML, "");
+    assert.equal(h.element("build-footer").textContent, "");
+    assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-progress").classList.contains("hidden"), true);
+    assert.equal(h.api.getState().lastResult, null);
+    assert.equal(h.api.getState().matchId, null);
+});
+
+test("F4 new match ID clears old offer and confirmation before another update", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:100"});
+    h.api.handleMessage({type: "augment_confirm", candidates: [{
+        id: "previous", name: "Previous augment", tier: 2,
+    }]});
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), false);
+    h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:101"});
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
+    assert.equal(h.element("champion-name").textContent, "Jinx");
+    assert.equal(h.api.getState().matchId, "lcu:101");
+});
+
+test("F4 match lifecycle statuses are visible without presenting old build as current", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:100"});
+    h.api.handleMessage({type: "status", state: "live_data_unavailable", match_id: "lcu:100"});
+    assert.equal(h.element("waiting").classList.contains("hidden"), false);
+    assert.match(h.element("waiting-title").textContent, /temporarily unavailable/i);
+    assert.equal(h.api.getState().stale, true);
+    assert.equal(h.element("section-build").classList.contains("hidden"), true);
+    h.api.handleMessage({type: "status", state: "loading"});
+    assert.match(h.element("waiting-title").textContent, /loading/i);
+    h.api.handleMessage({type: "status", state: "champion_unresolved"});
+    assert.match(h.element("waiting-title").textContent, /champion/i);
+    h.api.handleMessage({type: "status", state: "client_idle"});
+    assert.equal(h.element("champion-name").textContent, "---");
+});
+
+test("F4 reconnection remains stale until valid data arrives, then recovers", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:1"});
+    h.api.connectWebSocket();
+    h.sockets[0].onopen();
+    h.sockets[0].onclose();
+    assert.match(h.element("waiting-title").textContent, /reconnecting/i);
+    assert.equal(h.api.getState().stale, true);
+    assert.equal(h.element("section-build").classList.contains("hidden"), true);
+    h.pendingTimers[0]();
+    h.sockets[1].onopen();
+    assert.equal(h.api.getState().stale, true);
+    h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:1"});
+    assert.equal(h.api.getState().stale, false);
+    assert.equal(h.element("waiting").classList.contains("hidden"), true);
+    assert.equal(h.element("champion-name").textContent, "Neeko");
+});
+
+test("F4 loading screen and champion select do not inherit old champion or gold", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:1"});
+    h.api.handleMessage({type: "status", state: "loading"});
+    assert.equal(h.element("champion-name").textContent, "---");
+    assert.equal(h.element("gold").textContent, "--");
+    h.api.handleMessage({type: "champ_select", candidates: []});
+    assert.equal(h.element("champion-name").textContent, "Champion Select");
+    assert.equal(h.element("game-time").textContent, "--:--");
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
 });
