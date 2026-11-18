@@ -44,6 +44,15 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 **Active working head: `feat/desktop-overlay-preview-apply-d4b` (draft PR #17)**, based on D4a draft PR #16 (`feat/desktop-overlay-preferences-d4a`). Earlier drafts remain stacked; no merge into `main`.
 
+## New functional audit gate — user playtest (2026-11-18)
+
+- **User decision:** D4b **implementation** and the 6/6 Settings acceptance are sufficient to stop this development phase. Before further interface work, request an actual **Claude review of source code and gameplay functionality**, not just aesthetics. Keep D4b's full Windows QA matrix and P0 gameplay defect tasks unchecked; passing Settings is not gameplay acceptance.
+- Playtest screenshots captured real regressions: **F-AUD-01** intermittent custom-match `Waiting for game`; **F-AUD-02** wrong augment triple (Impassable / Upgrade Stormsurge / Tooth Fairy on screen versus escAPAde / Restart / Mercy in overlay); **F-AUD-03** one-card reroll needing Alt+O + Scan Screen; **F-AUD-04** repeated 2.1/10 and misleading reroll; **F-AUD-05** Neeko/time/gold persist after match exit; **F-AUD-06** stale/out-of-order offer risks. **F-AUD-07** requests future score badges on the actual game cards, **only after OCR/score mapping passes**.
+- Canonical audit handoff: [`docs/FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md`](FUNCTIONAL_AUDIT_HANDOFF_2026-11-18.md), with P0/P1 table, source review, tests needed, acceptance gates and copy/paste Claude prompt. The screenshots exist in ChatGPT Overlay LoL; Claude needs user-provided copies, never claim they were copied into the repository.
+- Source review indicates a global OCR fuzzy matcher that lacks card-position alignment, full-crop threshold-based reroll polling, a zero-contribution heuristic that yields 2.1 and a frontend postgame path that retains HUD values. These are **investigation leads**, not user-verified fixes. No Claude audit has occurred.
+- An **unverified preliminary** `fix/postgame-stale-match-state` branch was created off D4b with frontend/backend edits and one test; it is **not merged, CI-verified or user-accepted**. Canonical development/audit branch remains `feat/desktop-overlay-preview-apply-d4b`; `main` unchanged. **Do not resume that partial fix without a deliberate post-audit decision.**
+- **Next action: A-FUNC Claude functional/code audit and triage.** D5a is the next bounded implementation phase **after audit intake/roadmap**, not started. Planned D5c **design-only UX audit** remains a separate gate after D5a/b.
+
 ## Approved interface-design checkpoint — D5c (planned, 2026-11-18)
 
 - The user requested a **Claude-led UX/UI audit after D3 Settings navigation, D4a/D4b overlay preferences/preview, and D5a/D5b OCR/onboarding**, before starting D6. This adds **D5c — Claude UX/UI audit and desktop design closure**; it does not replace existing D6–D11 phases.
