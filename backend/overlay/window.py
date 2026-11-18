@@ -96,7 +96,9 @@ if PYQT_AVAILABLE:
     class OverlayWindow(QMainWindow):
         """Transparent, click-through, always-on-top overlay."""
 
-        def __init__(self, url: str = "http://localhost:8765/overlay?mode=overlay"):
+        def __init__(self, url: str = "http://localhost:8765/overlay?mode=overlay", *,
+                     enable_tray: bool = True, on_quit=None,
+                     on_settings=None, on_visibility=None):
             super().__init__()
 
             self.setWindowTitle("ARAM Oracle Overlay")
@@ -137,7 +139,11 @@ if PYQT_AVAILABLE:
             self._visibility_hotkey_was_down = False
             self._tray = None
             self._tray_toggle = None
-            self._setup_tray()
+            self._on_quit = on_quit
+            self._on_settings = on_settings
+            self._on_visibility = on_visibility
+            if enable_tray:
+                self._setup_tray()
             QTimer.singleShot(100, self._set_click_through)
             self._hotkey_timer = QTimer(self)
             self._hotkey_timer.timeout.connect(self._poll_interaction_hotkey)
@@ -190,7 +196,10 @@ if PYQT_AVAILABLE:
             self._tray.show()
 
         def _open_settings(self):
-            """Open the local interactive Settings page in the default browser."""
+            """Open Settings using the managed Qt host or legacy browser fallback."""
+            if self._on_settings is not None:
+                self._on_settings()
+                return
             url = "http://127.0.0.1:8765/settings"
             try:
                 if not webbrowser.open(url, new=2):
@@ -214,9 +223,14 @@ if PYQT_AVAILABLE:
             if self._tray_toggle is not None:
                 action = "Hide" if self.isVisible() else "Show"
                 self._tray_toggle.setText(f"{action} overlay (Alt+H)")
+            if self._on_visibility is not None:
+                self._on_visibility()
 
         def _quit_overlay(self):
-            """Exit the Qt event loop, stopping the background daemon server."""
+            """Delegate quit to the lifecycle owner when using the managed app."""
+            if self._on_quit is not None:
+                self._on_quit()
+                return
             logger.info("Closing Qt overlay")
             app = QApplication.instance()
             if app is not None:
