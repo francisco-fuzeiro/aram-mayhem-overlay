@@ -1,5 +1,6 @@
 import requests
 import urllib3
+from backend.diagnostic_events import events as event_log
 from backend.models import GameSnapshot, GamePhase, EnemyState
 
 # League's Live Client Data API uses a self-signed certificate
@@ -40,12 +41,24 @@ def _is_main_inventory_item(item: dict) -> bool:
 
 
 def get_raw_game_data() -> dict | None:
-    """Returns raw API response or None if game is not running."""
+    """Return the original response contract; log only sanitized LCDA status."""
     try:
         r = SESSION.get(f"{LCDA_BASE}/allgamedata", timeout=1)
-        return r.json() if r.status_code == 200 else None
-    except (requests.RequestException, ValueError):
-        return None
+        if r.status_code != 200:
+            event_log.transition("lcda", status="unavailable", error_class="http")
+            return None
+        raw = r.json()
+        event_log.transition("lcda", status="available", error_class="none")
+        return raw
+    except requests.Timeout:
+        event_log.transition("lcda", status="error", error_class="timeout")
+    except requests.ConnectionError:
+        event_log.transition("lcda", status="error", error_class="connection")
+    except requests.RequestException:
+        event_log.transition("lcda", status="error", error_class="request")
+    except ValueError:
+        event_log.transition("lcda", status="error", error_class="parse")
+    return None
 
 
 def get_active_player_name() -> str | None:
