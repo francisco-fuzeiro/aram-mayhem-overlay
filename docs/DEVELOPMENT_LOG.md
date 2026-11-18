@@ -56,6 +56,12 @@ Append-only timeline. Entries are factual snapshots, not future promises. For th
 - Created this `docs/DEVELOPMENT_LOG.md` as an append-only record. **Update both after meaningful future changes**.
 - User's `funcionalidades.md` is the feature specification, supplied as a ChatGPT project upload. Future sessions should use it alongside these two GitHub documents.
 
+## 2026-11-18 — Verification and continuity completion
+
+- **Verified** PR #5 functional test commit `8c8109838c9de03076078a90a480462427accbce`: Windows GitHub Actions run **44312737054 succeeded**, **153 passed, 1 warning**; `node --check frontend/app.js` also succeeded.
+- Created durable `docs/PROJECT_STATE.md` (current snapshot) and this append-only `docs/DEVELOPMENT_LOG.md`.
+- Added root `AGENTS.md` instructing coding agents to read handoff documents, honor license and game-policy constraints, and keep logs updated after future work.
+- Subsequent documentation-only commits do not themselves prove end-to-end Windows in-game behavior; recheck GitHub Actions on the latest head.
 ## Rule for every future entry
 
 Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command and result (or `not run`), outstanding risks, and next step. Do not silently claim tests passed or functionality is integrated into main until verified.
