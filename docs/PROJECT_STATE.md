@@ -71,10 +71,12 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - pywebview/Edge WebView2 transparency on Windows is known to be inconsistent. `backend/overlay/__main__.py` now accepts `--renderer qt` and `--renderer webview`; default remains pywebview for compatibility. Qt is an **opt-in fallback**, not a proven fix on the user's machine.
 - `backend/overlay/webview_window.py` now prefers `_window.native.Handle` for the Win32 HWND and retries when the window has just opened; exact-title `FindWindowW` is fallback only.
 - `backend/overlay/window.py` now supports an Alt+O click-through toggle using a Qt timer that observes the global key chord, maintaining access to build style and other UI controls when Qt is used.
-- Added `tests/test_overlay_renderer.py` and a Windows troubleshooting section in README. CI and on-device renderer comparison **pending** at the time of writing.
+- Added `tests/test_overlay_renderer.py` and a Windows troubleshooting section in README. [Windows CI 44319789943](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44319789943) **passed: 178 tests, 1 warning; JavaScript syntax passed**. On-device Qt/WebView2 comparison **not yet run**.
 - User test: stop the old process, fetch PR #9 branch, install `python -m pip install -e ".[overlay]"`, then `python -m backend.overlay --renderer qt`; compare with `--renderer webview`. Avoid claiming real transparency support until observed.
 
 ## Automated verification (as last observed)
+
+- PR #9 Windows CI `44319789943` at `e93aad6b`: **178 passed, 1 warning**, JavaScript syntax check passed. On-device Qt render remains unconfirmed; later documentation commits need own CI recheck.
 
 - PR #8 Windows CI `44318127647` on feature commit `280e7659`: **171 passed, 1 warning**, JavaScript syntax check passed. Newer documentation commits require separate CI recheck.
 
