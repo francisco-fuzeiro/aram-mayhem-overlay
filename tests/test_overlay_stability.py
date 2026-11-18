@@ -10,27 +10,53 @@ from backend.api import server
 
 
 @pytest.mark.asyncio
-async def test_broadcast_from_inside_state_lock_does_not_deadlock(monkeypatch):
-    """OCR and stat confirmation broadcast while holding game_state.lock."""
+async def test_broadcast_is_enqueued_without_socket_io_under_state_lock(monkeypatch):
+    """Even a legacy caller under the lock only queues; sender runs later."""
+    state = server.GameState()
+    sent = asyncio.Event()
     fake = type("FakeSocket", (), {})()
-    fake.send_text = AsyncMock()
-    monkeypatch.setattr(server.game_state, "ws_clients", {fake})
 
-    async def send_with_lock():
-        async with server.game_state.lock:
-            await server._broadcast('{"type": "test"}')
+    async def send(payload):
+        assert not state.lock.locked()
+        assert payload == '{"type": "test"}'
+        sent.set()
 
-    await asyncio.wait_for(send_with_lock(), timeout=1.0)
-    fake.send_text.assert_awaited_once_with('{"type": "test"}')
+    fake.send_text = AsyncMock(side_effect=send)
+    state.ws_clients.add(fake)
+    monkeypatch.setattr(server, "game_state", state)
+
+    async with state.lock:
+        await server._broadcast('{"type": "test"}')
+        fake.send_text.assert_not_awaited()
+
+    try:
+        await asyncio.wait_for(sent.wait(), timeout=1.0)
+        fake.send_text.assert_awaited_once_with('{"type": "test"}')
+    finally:
+        sender = state.ws_send_tasks.get(fake)
+        if sender:
+            sender.cancel()
+            await asyncio.gather(sender, return_exceptions=True)
 
 
 @pytest.mark.asyncio
 async def test_broadcast_removes_disconnected_clients(monkeypatch):
+    state = server.GameState()
+    attempted = asyncio.Event()
     fake = type("FakeSocket", (), {})()
-    fake.send_text = AsyncMock(side_effect=ConnectionError("disconnected"))
-    monkeypatch.setattr(server.game_state, "ws_clients", {fake})
+
+    async def fail(_message):
+        attempted.set()
+        raise ConnectionError("disconnected")
+
+    fake.send_text = AsyncMock(side_effect=fail)
+    state.ws_clients.add(fake)
+    monkeypatch.setattr(server, "game_state", state)
+
     await asyncio.wait_for(server._broadcast("test"), timeout=1.0)
-    assert fake not in server.game_state.ws_clients
+    await asyncio.wait_for(attempted.wait(), timeout=1.0)
+    await asyncio.sleep(0)
+    assert fake not in state.ws_clients
 
 
 def test_overlay_server_only_listens_on_loopback():
