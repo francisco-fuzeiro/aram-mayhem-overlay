@@ -1,5 +1,8 @@
 # Overlay LoL — Project State / Chat Handoff
 
+> **2026-11-18 M3/F2 code gate:** stacked [draft PR #36](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/36), branch `fix/m3-f2-gameflow-status-machine`, code `6b1bdbb9`, [Actions 44420212177](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44420212177) green: **374 Python passed, 1 AUD-07 xfailed, 28 JS passed, 4 TODO**. F2 reads LCU Gameflow phase without writes, reports status transitions, detects champion_unresolved and prioritizes Riot ID player matching. F3 identity/end debounce not started. Verify documentation-head CI before F3.
+
+
 > **2026-11-18 F1 code-head verified:** [M3/F1 draft PR #33](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/33) on `fix/m3-f1-lcda-nonblocking-status` has green code [CI 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545): **363 Python passed, 1 AUD-07 xfailed, 28 JS passed, 4 JS TODO**. Final documentation-head CI still needs verification. F2–F5 not started; no Windows/League validation.
 
 
