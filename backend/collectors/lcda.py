@@ -24,6 +24,21 @@ def _normalize_champion_name(raw: str) -> str:
     return _CHAMPION_ALIASES.get(key, key)
 
 
+def _is_main_inventory_item(item: dict) -> bool:
+    """Count only slots 0–5 towards a six-slot build.
+
+    Live Client Data API reports the trinket/poro slot as slot 6. The
+    fallback for Poro-Snax protects older data mocks with no slot field.
+    This must not infer any hidden items or discount regular item slots.
+    """
+    if not isinstance(item, dict) or item.get("itemID") is None:
+        return False
+    if str(item["itemID"]) == "2052":
+        return False
+    slot = item.get("slot")
+    return not (isinstance(slot, int) and (slot < 0 or slot >= 6))
+
+
 def get_raw_game_data() -> dict | None:
     """Returns raw API response or None if game is not running."""
     try:
@@ -56,7 +71,10 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
         (p for p in all_players if p.get("summonerName") == active_name), {}
     )
 
-    items = [str(item["itemID"]) for item in active_player.get("items", [])]
+    items = [
+        str(item["itemID"]) for item in active_player.get("items", [])
+        if _is_main_inventory_item(item)
+    ]
     gold = int(active.get("currentGold", 0))
     game_time = float(game_data.get("gameTime", 0))
     game_id = str(game_data.get("gameId", "unknown"))
@@ -95,7 +113,7 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
             champion_id=_normalize_champion_name(p.get("championName", "")),
             item_ids=[
                 str(item["itemID"]) for item in p.get("items", [])
-                if isinstance(item, dict) and item.get("itemID") is not None
+                if _is_main_inventory_item(item)
             ],
             kills=max(0, int((p.get("scores") or {}).get("kills") or 0)),
             deaths=max(0, int((p.get("scores") or {}).get("deaths") or 0)),
