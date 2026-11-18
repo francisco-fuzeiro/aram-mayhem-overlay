@@ -113,7 +113,7 @@ def test_lcda_timeout_emits_only_the_error_class(monkeypatch):
     def timeout(*args, **kwargs):
         raise lcda.requests.Timeout("private http URL/token")
     monkeypatch.setattr(lcda.SESSION, "get", timeout)
-    assert lcda.get_raw_game_data() is None
+    assert lcda.get_raw_game_data().status == "timeout"
     assert sent == [("lcda", {"status": "error", "error_class": "timeout"})]
 
 
