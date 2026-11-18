@@ -17,7 +17,7 @@ from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
-from backend.collectors.lcu import read_champ_select
+from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
@@ -73,6 +73,7 @@ class GameState:
         self.had_game_last_tick: bool = False
         self.post_game: bool = False
         self.post_game_time: float = 0.0
+        self.lifecycle_status: str | None = None
 
     @property
     def lock(self) -> asyncio.Lock:
@@ -728,6 +729,14 @@ def _record_match_phase(state: GameState, phase: str) -> None:
         state._diagnostic_phase = phase
 
 
+def _status_message(state: GameState, status: str) -> str:
+    """Keep status logs transition-only and messages independent of raw LCU data."""
+    if state.lifecycle_status != status:
+        state.lifecycle_status = status
+        event_log.emit("game_status", state=status)
+    return json.dumps({"type": "status", "state": status})
+
+
 def _poll_dependencies() -> SimpleNamespace:
     """Capture the live integrations for one polling task.
 
@@ -738,6 +747,7 @@ def _poll_dependencies() -> SimpleNamespace:
         get_raw_game_data=get_raw_game_data,
         parse_game_snapshot=parse_game_snapshot,
         read_champ_select_payload=_read_champ_select_payload,
+        read_gameflow=read_gameflow,
         ocr_available=ocr_available,
         run_watcher_check=_run_watcher_check,
         screen_watcher=screen_watcher,
@@ -762,7 +772,12 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
         # Legacy injected test dependencies may still supply a dict/None.
         lcda_result = await deps.to_thread(deps.get_raw_game_data)
         raw = lcda_result.payload if isinstance(lcda_result, LCDAResult) else lcda_result
-        if raw:
+        # Keep existing deterministic M1 mocks intact; production injects the
+        # read-only Gameflow collector and receives explicit statuses.
+        has_gameflow = hasattr(deps, "read_gameflow")
+        flow = await deps.to_thread(deps.read_gameflow) if has_gameflow else None
+        phase = getattr(flow, "phase", None)
+        if raw is not None:
             _record_match_phase(state, "in_game")
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
             current_level = snapshot.level
@@ -885,7 +900,52 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                     deps.serialize_result(result, deps.static_data, snapshot)
                 )
                 await deps.broadcast(payload)
+            if has_gameflow:
+                status = (
+                    "champion_unresolved"
+                    if state.pipeline is not None and result is None
+                    else "in_game"
+                )
+                await deps.broadcast(_status_message(state, status))
         else:
+            if has_gameflow:
+                if phase == "ChampSelect":
+                    draft = await deps.to_thread(deps.read_champ_select_payload)
+                    _record_match_phase(state, "champ_select")
+                    async with state.lock:
+                        state.had_game_last_tick = False
+                        state.post_game = False
+                        state.reset()
+                    await deps.broadcast(_status_message(state, "champ_select"))
+                    await deps.broadcast(json.dumps(draft or {
+                        "type": "champ_select", "candidates": [],
+                    }))
+                    return
+                if phase in ("GameStart", "InProgress", "Reconnect"):
+                    status = "live_data_unavailable" if state.had_game_last_tick else "loading"
+                    await deps.broadcast(_status_message(state, status))
+                    return
+                if phase in ("WaitingForStats", "PreEndOfGame", "EndOfGame"):
+                    await deps.broadcast(_status_message(state, "post_game"))
+                    return
+                if phase in ("None", "Lobby", "Matchmaking", "ReadyCheck", "WaitingForGame"):
+                    if not state.had_game_last_tick:
+                        async with state.lock:
+                            state.reset()
+                        await deps.broadcast(json.dumps({"type": "no_game"}))
+                    await deps.broadcast(_status_message(state, "client_idle"))
+                    return
+                # Unknown/missing LCU phase is not proof a game ended. A3
+                # confirmed picks must survive uncertain network conditions.
+                draft = await deps.to_thread(deps.read_champ_select_payload)
+                if draft is not None:
+                    await deps.broadcast(_status_message(state, "champ_select"))
+                    await deps.broadcast(json.dumps(draft))
+                else:
+                    await deps.broadcast(_status_message(state, "live_data_unavailable"))
+                return
+            # Legacy injected P0.1 harness without Gameflow retains its
+            # original known AUD-07 behavior until F3's debounce contract.
             # Live Client API is unavailable during champion select.
             # Read the local client (read-only) off the event loop.
             champ_select = await deps.to_thread(deps.read_champ_select_payload)
