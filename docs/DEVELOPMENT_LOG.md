@@ -122,3 +122,12 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Validation at entry: `python -m pytest -q` **not run**; `node --check frontend/app.js` **not run**; Windows Actions pending PR creation.
 - Pending: sample actual item records and Mayhem shop eligibility, special augments that modify boots, active movement effects, purchases/components and Windows in-game checks.
 
+
+## 2026-11-18 — PR #8 Windows CI verification
+
+- Verified [GitHub Actions run 44318127647](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44318127647) at head `280e7659`: **success**.
+- `python -m pytest -q`: **171 passed, 1 warning**.
+- `node --check frontend/app.js`: **passed**.
+- No actual Windows in-game item swap test has been observed. Keep PR #8 in draft until Mayhem item availability and purchase behavior are checked.
+- The original six-slot restriction is preserved: swap advice is separate from `next_item_id` and no item is sold/purchased by the app.
+
