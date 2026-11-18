@@ -87,3 +87,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Validation: `python -m pytest -q` and `node --check frontend/app.js` **not run** at time of entry; CI must verify. Local Windows in-game choice synchronization and item purchase availability remain untested.
 - Decision: style selection changes recommendations only; it never buys/equips items. Player preferences can influence ordering but must not replace the contextual rules.
 
+
+## 2026-11-18 — Inherited PR #6 validation follow-up
+
+- Run [44314745431](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44314745431) failed (154 passed, 1 failed, 1 warning) on an uncovered zero-recognized-champion item case.
+- The missing armor/MR counts were restored in `backend/engine/team_context.py` on both stacked branches.
+- Follow-up functional commit `9954041` passed GitHub Actions run [44315389814](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44315389814) on Windows. This does not validate a live League match.
+- PR #7 adds further build style tests; its own CI must pass separately.
+
