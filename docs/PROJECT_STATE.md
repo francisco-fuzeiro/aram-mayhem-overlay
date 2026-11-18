@@ -7,6 +7,14 @@
 Last authored: **2026-11-18**, Europe/Lisbon. Code and product UI must remain **English**; user conversation is **European Portuguese**.
 
 
+## 2026-11-18 — M2/A1 stop passive stat-change picks (draft PR #23)
+
+- The **complete Functional Fix Implementation Plan** (M1–M8, 31 slices, gates G1–G6) and source audit report were located on the **independent docs-only draft PR #19**, branch `docs/a-func-audit-report`, paths `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md` and `docs/FUNCTIONAL_AUDIT_REPORT_2026-11-18.md`. The originally proposed plan was subsequently approved by the user; do not treat PR #19 as merged into the M1 chain. The historical A-FIX docs-only draft PR #18 stays independent.
+- M1 documentation head `c2c639a93b874ed59c3a4b3f7de02278359e7878` is verified by successful [headless Windows Actions 44398642390](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44398642390). Baseline: 317 Python passed, 3 xfailed, 24 JavaScript passed, 4 TODO; real Windows/League gameplay not tested.
+- **Current implementation:** [draft PR #23](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/23) on `fix/m2-a1-no-stat-change-picks`, stacked on M1/P0.3 PR #22. Tests-first commit `31dca394` makes AUD-03a a normal test and adds item stat-change, death/respawn and OCR-disappearance regression coverage. Fix commit `c8a41921` removes only the passive stat-change-to-pick inference path; OCR disappearance still triggers existing matching pending M2/A3. [Windows headless code/test Actions 44401726776](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44401726776) passed: 321 Python, 2 xfailed, 1 warning; 24 JavaScript passed, 4 TODO. **Final branch documentation-head CI must be verified separately**; A1 is not accepted on real Windows/League.
+- **Next only after successful A1 final-head CI:** M2/A2 (damage must not close scan eligibility), on its own new stacked branch/draft PR. Then A3, E1, E2, E3 in that order. AUD-03d and AUD-07 xfails remain strict; four Node TODO tests still await M3/M6. Do not implement UI/installer or merge to `main`.
+- Open constraints: G4 local API Host/Origin/per-launch token before public build; G1/G2 authoritative patch-specific Mayhem catalog source/coverage before accepting M7 scoring; A3 confirmation must remain non-intrusive and must never manufacture an augment pick. Preserve bounded structured logs and disabled automatic screenshots.
+
 ## 2026-11-18 — Approved M1 Functional Fix implementation checkpoint
 
 - New approved M1–M8 Functional Fix Implementation Plan drives implementation; existing A-FUNC/A-FIX labels are kept for defect traceability. The full newer plan and full audit report have **not** been located at the baseline ref. Historical A-FIX planning lives untouched on separate docs-only draft PR #18.

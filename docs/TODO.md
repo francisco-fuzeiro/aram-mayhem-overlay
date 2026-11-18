@@ -32,9 +32,9 @@ Target states and *expected* presentation (**not all implemented**):
 If multiple contexts overlap, priority is **augment offer > shop > optional scoreboard**, and combat/visibility safety takes precedence when game context is uncertain. Until legitimate shop/scoreboard observability is confirmed, do not pretend to detect either.
 
 
-## Approved Functional Fix Plan — M1 Foundations (2026-11-18)
+## Approved Functional Fix Plan — M1 foundations / M2 execution (2026-11-18)
 
-> The user-approved M1–M8 Functional Fix Implementation Plan supersedes A-FIX as the implementation order; historical A-FUNC and A-FIX IDs remain traceability references. The full newer plan and FUNCTIONAL_AUDIT_REPORT_2026-11-18.md are not present in the GitHub baseline. Do not fabricate their missing contents. Preserve the independent [documentation draft PR #18](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/18).
+> The user-approved M1–M8 Functional Fix Implementation Plan supersedes A-FIX as the implementation order; historical A-FUNC and A-FIX IDs remain traceability references. The full plan and audit report are available on separate docs-only draft PR #19 (`docs/a-func-audit-report`), but are not present in the M1 baseline branch; keep that historical branch independent and use the approved A1–E3 sequence. Preserve the independent [documentation draft PR #18](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/18).
 
 - [x] **M1 / P0.1 — Poll-loop test harness (code/CI only).** Extracted `poll_tick(state, deps, now)`; deterministic LCDA/LCU/OCR mocks; AUD-03a (passive level-up false pick), AUD-07 (transient LCDA game end), AUD-03d (health-based OCR close) are tracked with `xfail(strict=True)`. [Draft PR #20](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/20); [Windows Actions 44394538148](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44394538148): 306 Python passed, 3 xfailed, 18 Node passed. **Defects NOT fixed.**
 - [x] **M1 / P0.2 — Frontend message harness (code/CI only).** Node DOM/WebSocket stubs exercise `handleMessage`, renderers, `game_ended`, `no_game`, disconnect, stale data and new champion. [Draft PR #21](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/21); [Windows headless CI 44395754449](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44395754449): 306 Python passed, 3 strict xfailed; 24 JS passed and 4 TODO (AUD-05/06 known defects). **F1–F5 are not fixed.**
@@ -43,6 +43,17 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **G4 security priority review:** Localhost API Host/Origin/authorization must be hardened before distribution; evaluate moving forward, without implementing in M1.
 - [ ] **G1/G2 Mayhem data source:** Validate source, patch version and augment catalog coverage before M7 scoring accuracy acceptance.
 - [ ] **A3 manual fallback:** Confirming an augment must not demand clicks during combat; design non-intrusive unresolved state without manufacturing a choice.
+
+## M2 — Stop false outputs (approved plan in draft PR #19)
+
+- [x] **M2 / A1 — No pick from stat changes (AUD-03a), code implementation.** [Draft PR #23](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/23) on `fix/m2-a1-no-stat-change-picks`, based on M1/P0.3. Converted the AUD-03a strict xfail to a normal assertion and added deterministic purchase, death/respawn and OCR-disappearance path tests **before** the code change. Passive champion stat changes no longer arm augmentation inference; actual OCR disappearance still uses the pre-existing confirmation path pending A3. [Windows headless code/test Actions 44401726776](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44401726776) passed: 321 Python, 2 xfailed, 24 JS, 4 TODO; final documentation-head CI is checked independently. Real-game validation remains open, and A1 is not a complete no-false-picks guarantee.
+- [ ] **M2 / A2 — Ignore damage for scan-window lifetime (AUD-03d).** Remove health-triggered OCR closure; convert only its matching strict xfail after correction and green CI.
+- [ ] **M2 / A3 — Confirm picks, never infer an automatic choice (AUD-03a).** On verified offer disappearance request a non-intrusive user confirmation, allowing only a guarded 'likely' highlight when level/inventory are unchanged; no automatic pick. Manual fallback must not interrupt combat.
+- [ ] **M2 / E1 — Catalog word-boundary parsing, Donation hint, cache schema (AUD-04b/c).**
+- [ ] **M2 / E2 — Model coverage and provenance flags (AUD-04a/e).** Zero-vector augments are not modelled.
+- [ ] **M2 / E3 — Unrated, not 2.1/10; suppress unsound rerolls (AUD-04).** Missing data -> null scores; no reroll unless three identified/modelled slots.
+- [ ] **M2 / A1–A3 Windows gate.** Hold an offer through level-ups and item changes without phantom progress, then verify actual picked-card confirmation.
+- [ ] **M2 / E1–E3 Windows gate.** Verify missing coverage renders 'Not rated' and suppresses misleading reroll advice.
 
 ## P0 — Capture, state, correctness, safety
 
