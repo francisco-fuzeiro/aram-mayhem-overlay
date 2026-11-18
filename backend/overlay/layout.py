@@ -23,7 +23,7 @@ def calculate_overlay_geometry(
         raise ValueError("invalid available screen geometry")
     scale = prefs["scale"]
     panel_width = min(width, max(1, round(base_width * scale)))
-    content_height = max(1, height - 2 * vertical_inset)
+    content_height = max(180, height - 2 * vertical_inset)
     panel_height = min(height, max(1, round(content_height * scale)))
     x = (left + prefs["offset_x"] if prefs["anchor"].endswith("left")
          else left + width - panel_width - prefs["offset_x"])
