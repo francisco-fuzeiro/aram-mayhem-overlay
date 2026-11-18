@@ -830,6 +830,51 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                             state.awaiting_stat_delta = True
                             state.delta_wait_ticks = 0
 
+                except Exception as e:
+                    logger.warning("OCR watcher error: %s", e, exc_info=True)
+
+            # Inject overlay augment state
+            snapshot.augment_choices = list(state.augment_choices)
+            snapshot.chosen_augments = list(state.chosen_augments)
+            snapshot.build_style = state.build_style
+
+            result = state.pipeline.run(snapshot) if state.pipeline else None
+            if result:
+                payload = json.dumps(
+                    deps.serialize_result(result, deps.static_data, snapshot)
+                )
+                await deps.broadcast(payload)
+        else:
+            # Live Client API is unavailable during champion select.
+            # Read the local client (read-only) off the event loop.
+            champ_select = await deps.to_thread(deps.read_champ_select_payload)
+            if champ_select is not None:
+                async with state.lock:
+                    state.had_game_last_tick = False
+                    state.post_game = False
+                    state.reset()
+                await deps.broadcast(json.dumps(champ_select))
+            else:
+                async with state.lock:
+                    if state.had_game_last_tick:
+                        # Game just ended — transition to post-game
+                        state.had_game_last_tick = False
+                        state.post_game = True
+                        state.post_game_time = now
+                        logger.info("Game ended — entering post-game state")
+                        await deps.broadcast(json.dumps({"type": "game_ended"}))
+                    elif state.post_game:
+                        # In post-game window — auto-reset after 5 minutes
+                        elapsed = now - state.post_game_time
+                        if elapsed > 300:
+                            logger.info("Post-game timeout — resetting state")
+                            state.post_game = False
+                            state.reset()
+                            await deps.broadcast(json.dumps({"type": "no_game"}))
+                    else:
+                        state.reset()
+                        await deps.broadcast(json.dumps({"type": "no_game"}))
+
 
 async def _poll_game_loop(interval: float | None = None):
     """Run the existing live polling cadence, with injectable single ticks."""
