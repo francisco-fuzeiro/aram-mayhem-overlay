@@ -803,25 +803,6 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                         state.awaiting_stat_delta = False
                         state.delta_wait_ticks = 0
 
-                # Close window when player takes damage (left base)
-                if (
-                    state.scan_window_open
-                    and not state.awaiting_stat_delta
-                ):
-                    if snapshot.health_pct < 0.98:
-                        logger.info(
-                            "Augment pick window CLOSED (took damage, hp=%.0f%%)",
-                            snapshot.health_pct * 100,
-                        )
-                        # Player took damage without us detecting the choice
-                        if state.augment_choices:
-                            await deps.send_augment_confirm(None)
-                        state.scan_window_open = False
-                        event_log.emit(
-                            "ocr_window", state="closed", reason="damage",
-                            level=current_level,
-                        )
-
             # -- Auto OCR (only while scan window is open) --
             # Run outside the lock since OCR is blocking I/O
             if (
