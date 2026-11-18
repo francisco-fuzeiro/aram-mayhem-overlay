@@ -793,32 +793,15 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
                     )
 
                 # -- Stat delta detection --
-                # Two paths trigger matching:
-                # 1. OCR "disappeared" signal (awaiting_stat_delta)
-                # 2. Passive stat change detection (no OCR needed)
+                # Stat matching only follows an OCR disappearance signal.
+                # Passive level-ups, purchases and death/respawn stat changes
+                # are not evidence that the player chose an augment.
                 if state.awaiting_stat_delta:
                     state.delta_wait_ticks += 1
                     if state.delta_wait_ticks >= 2:
                         await deps.try_stat_delta_match(snapshot)
                         state.awaiting_stat_delta = False
                         state.delta_wait_ticks = 0
-
-                elif state.scan_window_open and not state.awaiting_stat_delta:
-                    # Passive detection: stats changed → augment was chosen
-                    if (
-                        state.stat_snapshot_before
-                        and has_stats_changed(
-                            state.stat_snapshot_before,
-                            dict(snapshot.champion_stats),
-                        )
-                    ):
-                        logger.info(
-                            "Stat change detected — augment chosen "
-                            "(passive detection, no OCR needed)"
-                        )
-                        state.awaiting_stat_delta = True
-                        state.delta_wait_ticks = 0
-                        event_log.emit("augment_inference", result="pending", confidence=0.0)
 
                 # Close window when player takes damage (left base)
                 if (
