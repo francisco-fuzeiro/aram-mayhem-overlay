@@ -6,7 +6,7 @@ six-item build slot, and two Phantom Dancer entries from different catalog IDs.
 
 from pathlib import Path
 
-from backend.api.server import should_open_augment_scan
+from backend.api.server import GameState, should_open_augment_scan
 from backend.collectors.lcda import parse_game_snapshot
 from backend.engine.build_suggester import suggest_build
 from backend.engine.team_context import analyze_enemies
@@ -135,3 +135,14 @@ def test_manual_augment_fallback_is_visible_in_game_without_ocr():
     assert "data.scan_window_open" in source
     assert 'id="ocr-manual-help"' in html
     assert 'id="augment-search"' in html
+
+
+def test_manual_augment_state_does_not_leak_into_next_game():
+    state = GameState()
+    state.chosen_augments = ["manual-aug"]
+    state.augment_choices = ["option-1", "option-2", "option-3"]
+    state.chosen_stat_anvils = ["stat-1"]
+    state.reset()
+    assert state.chosen_augments == []
+    assert state.augment_choices == []
+    assert state.chosen_stat_anvils == []
