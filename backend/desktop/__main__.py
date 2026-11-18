@@ -9,12 +9,9 @@ from __future__ import annotations
 import logging
 import sys
 
-from backend.desktop.runtime import (
-    SETTINGS_URL,
-    DesktopStartupError,
-    ensure_api_available,
-)
-from backend.desktop.window import is_available, run_desktop
+from backend.desktop.runtime import DesktopStartupError
+from backend.desktop.lifecycle import run_application
+from backend.desktop.window import is_available
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger("aram-oracle.desktop")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, initial_view: str = "settings") -> int:
     """Run the Settings UI, returning a nonzero status for startup failures."""
     import argparse
     parser = argparse.ArgumentParser(description="ARAM Oracle desktop Settings")
@@ -39,9 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from backend.config import config
         config.load()
-        mode = ensure_api_available()
-        logger.info("Local ARAM Oracle API %s", mode)
-        return run_desktop(SETTINGS_URL)
+        return run_application(initial_view)
     except DesktopStartupError as error:
         logger.error("%s", error)
         return 1
