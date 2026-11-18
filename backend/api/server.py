@@ -880,6 +880,8 @@ def _serialize_result(
         "phase": result.phase.value,
         "suggest_reroll": result.suggest_reroll,
         "reroll_reason": result.reroll_reason,
+        "enemy_analysis": result.enemy_analysis,
+        "ally_analysis": result.ally_analysis,
         "recommendations": [
             {
                 "augment_id": r.augment_id,
@@ -914,6 +916,14 @@ def _serialize_result(
             "full_build_names": [
                 _resolve_item_name(i, sd) for i in result.build_state.full_build
             ],
+            "alternatives": {
+                style: [
+                    {"id": item_id, "name": _resolve_item_name(item_id, sd)}
+                    for item_id in item_ids
+                ]
+                for style, item_ids in result.build_state.alternatives.items()
+            },
+            "reasons": result.build_state.reasons,
         },
     }
 

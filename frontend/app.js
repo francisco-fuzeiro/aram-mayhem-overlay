@@ -31,6 +31,7 @@
     const rerollReason = $("reroll-reason");
     const buildList = $("build-list");
     const buildFooter = $("build-footer");
+    const buildAlternatives = $("build-alternatives");
     const enemyList = $("enemy-list");
     const augmentSearch = $("augment-search");
     const tierFilter = $("tier-filter");
@@ -293,7 +294,7 @@
         renderHeader(data);
         renderRecommendations(data);
         renderBuild(data.build_state);
-        renderEnemies(data.enemies || []);
+        renderEnemies(data.enemies || [], data.enemy_analysis || {});
         autoExpandSections(data.phase);
     }
 
@@ -391,8 +392,14 @@
         });
     }
 
-    function renderEnemies(enemies) {
+    function renderEnemies(enemies, analysis) {
         enemyList.innerHTML = "";
+        if (Array.isArray(analysis.notes) && analysis.enemies_analyzed) {
+            const note = document.createElement("div");
+            note.className = "aug-explain";
+            note.textContent = "Enemy threats (estimated): " + analysis.notes.join(" · ");
+            enemyList.appendChild(note);
+        }
 
         if (!enemies || enemies.length === 0) {
             enemyList.innerHTML = '<div style="color:var(--text-dim);padding:4px;">Unknown</div>';
@@ -465,6 +472,7 @@
         if (!bs || !bs.full_build || bs.full_build.length === 0) {
             buildList.innerHTML = '<div style="color:var(--text-dim);padding:8px;">No build data</div>';
             buildFooter.textContent = "";
+            buildAlternatives.replaceChildren();
             return;
         }
 
@@ -507,6 +515,23 @@
             buildFooter.className = "build-footer gold-needed";
         } else {
             buildFooter.textContent = "";
+        }
+        buildAlternatives.replaceChildren();
+        const alt = bs.alternatives || {};
+        const paths = ["Damage", "Survival", "Utility"];
+        if (paths.some(name => Array.isArray(alt[name]) && alt[name].length)) {
+            const header = document.createElement("div");
+            header.className = "waiting-sub";
+            header.textContent = "Alternative paths (estimated):";
+            buildAlternatives.appendChild(header);
+        }
+        for (const name of paths) {
+            const options = Array.isArray(alt[name]) ? alt[name] : [];
+            if (!options.length) continue;
+            const row = document.createElement("div");
+            row.className = "aug-explain";
+            row.textContent = name + ": " + options.map(item => item.name).join(" · ");
+            buildAlternatives.appendChild(row);
         }
     }
 

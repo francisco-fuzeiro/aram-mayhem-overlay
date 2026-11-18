@@ -9,6 +9,7 @@ import math
 from backend.engine.composite_score import CompositeRating, WinEvidence, composite_rating
 from backend.engine.scoring import score_augment
 from backend.models import AugmentData, ChampionMeta
+from backend.engine.team_context import EnemyThreatProfile, augment_threat_modifier
 
 
 def rate_augment(
@@ -17,6 +18,7 @@ def rate_augment(
     existing: list[AugmentData],
     enemies: list[ChampionMeta] | None = None,
     personal_record: tuple[int, int] | None = None,
+    threat_profile: EnemyThreatProfile | None = None,
     *,
     allow_empirical: bool = False,
 ) -> CompositeRating:
@@ -32,7 +34,9 @@ def rate_augment(
     # Monotone absolute normalization; unlike min/max across offered cards,
     # this does not make a uniformly bad offer look like a perfect 10/10.
     synergy = round(10.0 * (1.0 - math.exp(-max(0.0, raw_base) / 1.2)), 2)
-    context_delta = raw_with_context - raw_base
+    context_delta = (raw_with_context - raw_base) + augment_threat_modifier(
+        augment.contribution, threat_profile
+    )
     context = round(max(0.0, min(10.0, 5.0 + 4.0 * math.tanh(context_delta * 4.0))), 2)
 
     evidence = None

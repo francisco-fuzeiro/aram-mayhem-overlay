@@ -1,6 +1,6 @@
 import requests
 import urllib3
-from backend.models import GameSnapshot, GamePhase
+from backend.models import GameSnapshot, GamePhase, EnemyState
 
 # League's Live Client Data API uses a self-signed certificate
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -79,10 +79,35 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
         active_player.get("championName", "")
     )
 
+    # Never infer hidden opponents: use only players returned in allgamedata.
+    # If the local player cannot be identified, do not guess the teams.
+    our_team = active_player.get("team") if active_player else None
+    opponents = [
+        p for p in all_players
+        if our_team is not None and p.get("team") not in (None, our_team)
+    ]
     enemies = [
         _normalize_champion_name(p.get("championName", ""))
+        for p in opponents if p.get("championName")
+    ]
+    enemy_states = [
+        EnemyState(
+            champion_id=_normalize_champion_name(p.get("championName", "")),
+            item_ids=[
+                str(item["itemID"]) for item in p.get("items", [])
+                if isinstance(item, dict) and item.get("itemID") is not None
+            ],
+            kills=max(0, int((p.get("scores") or {}).get("kills") or 0)),
+            deaths=max(0, int((p.get("scores") or {}).get("deaths") or 0)),
+        )
+        for p in opponents if p.get("championName")
+    ]
+    allies = [
+        _normalize_champion_name(p.get("championName", ""))
         for p in all_players
-        if p.get("team") != active_player.get("team")
+        if our_team is not None and p.get("team") == our_team
+        and p.get("championName")
+        and p is not active_player
     ]
 
     return GameSnapshot(
@@ -99,4 +124,6 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
         is_dead=is_dead,
         health_pct=health_pct,
         champion_stats=champion_stats,
+        ally_champion_ids=allies,
+        enemy_states=enemy_states,
     )
