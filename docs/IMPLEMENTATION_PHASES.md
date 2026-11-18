@@ -1,5 +1,7 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **M3/F1 code validated (2026-11-18):** [draft PR #29](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/29) follows green E3. F1 tests-first red [44414416010](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44414416010), green code [44415046195](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44415046195) (367 Python, 1 AUD-07 xfailed; 28 JS, 4 TODO). Check docs-head CI before F2; separate PRs F2 → F3 → F4 → F5, all gate-by-gate. No native gameplay validation.
+
 > **2026-11-18 M2 code milestone:** E1 [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) final CI [44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) green; E2 [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) final CI [44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) green; E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) at code `5efa3628` CI [44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) green (354 Python, 1 AUD-07 xfailed, 28 JS, 4 TODO). Check E3 final documentation-head CI independently. M2 not Windows/League-accepted. **Next milestone M3 Match Lifecycle F1–F5**, independent stacked draft PR and CI gate per phase, then M4. Source plan in independent draft PR #19.
 
 

@@ -19,7 +19,7 @@ from pathlib import Path
 SCHEMA: dict[str, dict[str, object]] = {
     "lcda": {
         "status": frozenset(("available", "unavailable", "error")),
-        "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse")),
+        "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse", "http_404", "refused", "bad_json")),
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),

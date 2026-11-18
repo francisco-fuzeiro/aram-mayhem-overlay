@@ -1,3 +1,7 @@
+import errno
+from dataclasses import dataclass
+from typing import Literal
+
 import requests
 import urllib3
 from backend.diagnostic_events import events as event_log
@@ -40,26 +44,79 @@ def _is_main_inventory_item(item: dict) -> bool:
     return not (isinstance(slot, int) and (slot < 0 or slot >= 6))
 
 
-def get_raw_game_data() -> dict | None:
-    """Return the original response contract; log only sanitized LCDA status."""
-    try:
-        r = SESSION.get(f"{LCDA_BASE}/allgamedata", timeout=1)
-        if r.status_code != 200:
-            event_log.transition("lcda", status="unavailable", error_class="http")
-            return None
-        raw = r.json()
-        event_log.transition("lcda", status="available", error_class="none")
-        return raw
-    except requests.Timeout:
-        event_log.transition("lcda", status="error", error_class="timeout")
-    except requests.ConnectionError:
-        event_log.transition("lcda", status="error", error_class="connection")
-    except requests.RequestException:
-        event_log.transition("lcda", status="error", error_class="request")
-    except ValueError:
-        event_log.transition("lcda", status="error", error_class="parse")
-    return None
+LCDAStatus = Literal["ok", "http_404", "timeout", "refused", "bad_json", "error"]
 
+
+@dataclass(frozen=True)
+class LCDAResult:
+    """A transport result; unavailable data is never mistaken for an empty game."""
+
+    status: LCDAStatus
+    payload: dict | None = None
+
+
+def _result(status: LCDAStatus, payload: dict | None = None) -> LCDAResult:
+    """Only bounded status enums reach the diagnostic journal."""
+    if status == "ok":
+        event_log.transition("lcda", status="available", error_class="none")
+    elif status == "http_404":
+        event_log.transition("lcda", status="unavailable", error_class="http_404")
+    else:
+        event_log.transition("lcda", status="error", error_class=(
+            status if status in ("timeout", "refused", "bad_json") else "request"
+        ))
+    return LCDAResult(status, payload if status == "ok" else None)
+
+
+def _is_connection_refused(error: BaseException) -> bool:
+    """Unwrap requests/urllib3 exception causes without logging exception text."""
+    pending = [error]
+    visited: set[int] = set()
+    while pending and len(visited) < 16:
+        current = pending.pop()
+        if id(current) in visited:
+            continue
+        visited.add(id(current))
+        if isinstance(current, OSError) and getattr(current, "errno", None) in (
+            errno.ECONNREFUSED, 10061, 111,
+        ):
+            return True
+        for value in (
+            getattr(current, "__cause__", None),
+            getattr(current, "__context__", None),
+            getattr(current, "reason", None),
+            *getattr(current, "args", ()),
+        ):
+            if isinstance(value, BaseException):
+                pending.append(value)
+    return False
+
+
+def get_raw_game_data() -> LCDAResult:
+    """Fetch LCDA on a worker thread (caller responsibility), return typed status."""
+    try:
+        response = SESSION.get(f"{LCDA_BASE}/allgamedata", timeout=1)
+    except requests.Timeout:
+        return _result("timeout")
+    except requests.ConnectionError as error:
+        return _result("refused" if _is_connection_refused(error) else "error")
+    except requests.RequestException:
+        return _result("error")
+    except Exception:
+        # Unexpected network/adapter failures never fabricate a game.
+        return _result("error")
+
+    if response.status_code == 404:
+        return _result("http_404")
+    if response.status_code != 200:
+        return _result("error")
+    try:
+        raw = response.json()
+    except (ValueError, TypeError):
+        return _result("bad_json")
+    if not isinstance(raw, dict):
+        return _result("bad_json")
+    return _result("ok", raw)
 
 def get_active_player_name() -> str | None:
     try:

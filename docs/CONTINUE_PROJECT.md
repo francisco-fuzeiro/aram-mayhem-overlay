@@ -1,5 +1,11 @@
 # Continue ARAM Oracle in a New Chat
 
+## 2026-11-18 active handoff — M3/F1 coded; F2 next after final-head gate
+
+- [Draft PR #29](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/29): `fix/m3-f1-classified-lcda-nonblocking`, stacked on E3 PR #28; E3 final CI green `44412288780`.
+- F1 tests-first red `44414416010`, green code `44415046195` (367 Python + 1 AUD-07 xfailed; 28 JS + 4 TODO), code SHA `283c3f6a`. **Verify the latest docs-head Actions before branching F2.**
+- Next F2 only: read-only LCU Gameflow, seven explicit status values, champion unresolved fallback, riotId-first parsing; tests-first and its own stacked draft PR. F3 debounce/identity, F4 stale display, F5 lock separation must not be conflated. Preserve privacy and no League acceptance claims.
+
 ## 2026-11-18 handoff — M2/E1–E3 finished in code, next M3 Match Lifecycle
 
 - Stacked draft branches, unmerged: A3 `fix/m2-a3-confirm-not-infer-augment-picks` @ `a1d5322f` → **E1** [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) `fix/m2-e1-augment-keyword-cache` @ `cc34107b` ([CI 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) passed) → **E2** [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `fix/m2-e2-augment-provenance-coverage` @ `a4432f69` ([CI 44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) passed) → **E3** [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) `fix/m2-e3-unrated-safe-rerolls`, code `5efa3628` ([CI 44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) passed: 354 Python, 1 AUD-07 xfailed; 28 JavaScript, 4 TODO). **Check E3 final documentation-head SHA and corresponding CI before M3.** The plan lives independently on `docs/a-func-audit-report` PR #19, not historical PR #18.
