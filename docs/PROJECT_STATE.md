@@ -6,6 +6,15 @@
 
 Last authored: **2026-11-18**, Europe/Lisbon. Code and product UI must remain **English**; user conversation is **European Portuguese**.
 
+
+## 2026-11-18 — Approved M1 Functional Fix implementation checkpoint
+
+- New approved M1–M8 Functional Fix Implementation Plan drives implementation; existing A-FUNC/A-FIX labels are kept for defect traceability. The full newer plan and full audit report have **not** been located at the baseline ref. Historical A-FIX planning lives untouched on separate docs-only draft PR #18.
+- **M1 / P0.1**: [draft PR #20](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/20), branch `test/m1-p01-poll-tick-harness`, starts at approved `9832fb0`. Replaced the body of `_poll_game_loop` with injectable `poll_tick(state, deps, now)` and retained existing behavior/defects. Three strict expected-failure regressions cover AUD-03a, AUD-07 and AUD-03d.
+- Verified P0.1 code SHA `646161378`: [Windows headless Actions 44394538148](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44394538148), **306 Python passed, 3 xfailed, 1 warning, 18 Node passed**. An earlier extraction CI run 44393987021 failed syntax and was corrected. No genuine League/Windows gameplay test performed. The P0.1 documentation-head CI is separately checked after writing this checkpoint.
+- **Next sequential gates:** P0.2 frontend DOM/message harness on a branch based on P0.1, then P0.3 bounded structured diagnostics on P0.2. One branch and draft PR per phase, no merge.
+- Record without implementing: G4 local API origin/auth security must precede public distribution; G1/G2 patch-specific Mayhem augment data coverage before M7 scoring; A3 no intrusive manual confirmation in combat (never invent picks).
+
 ## Current goal
 
 Build a Windows companion overlay for **League of Legends — ARAM Mayhem** that responds to the actual match state instead of displaying static tier lists. Show alternative options rather than forcing decisions. The same augment can score differently depending on champion, already-picked augments, items, allies, opponents and game phase.
