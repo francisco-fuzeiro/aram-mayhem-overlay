@@ -182,7 +182,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Implemented code/CI phase: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Implemented in draft PR #13 based on PR #12; no merge to main.
 - Next planned development slice: **D2 — single-instance and tray lifecycle**, after Windows D1 smoke tests.
 - Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
-- **Current implementation remains unchanged:** existing Qt renderer, Alt+H/Alt+O, browser Settings and PR #12 are not replaced by this documentation update.
+- **Overlay implementation remains unchanged:** D1 adds a separate native Settings host while preserving the existing Qt overlay renderer, Alt+H/Alt+O and legacy browser Settings fallback.
 
 ## Desktop packaging direction (planned, not implemented)
 
@@ -200,7 +200,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. **PR #12 automated validation passed (215 Python + 4 Node).** Now check Settings browser/tray, preference persistence and live build updates on Windows, and retest PR #11 OCR/build regressions. Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.
+1. **PR #13 D1 automated code validation passed (234 Python + 4 Node at `d5aff632`).** Verify latest docs-head Actions and test the new native Settings window, preference persistence and local feedback on Windows; then revalidate PR #11 OCR/build regressions in a match. Install/locate Tesseract and recheck offered augments including manual fallback, Poro-Snax and duplicate-name item behavior.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
@@ -212,8 +212,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #12 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
-3. Continue from PR #12 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #13 head, its PR #12 / #11 stacked dependencies and GitHub Actions live; inspect source code before assuming this snapshot is perfectly current.
+3. Continue from PR #13 through the GitHub connector in a new stacked feature branch / draft PR for D2 after Windows smoke tests; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.
