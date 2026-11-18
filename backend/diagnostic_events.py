@@ -23,7 +23,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
-        "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "reset", "unknown")),
+        "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "offer_disappeared", "reset", "unknown")),
         "level": "int",
     },
     "ocr_recognition": {
