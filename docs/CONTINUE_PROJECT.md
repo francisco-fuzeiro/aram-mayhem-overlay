@@ -1,5 +1,11 @@
 # Continue ARAM Oracle in a New Chat
 
+## 2026-11-18 handoff — M2/E2 draft PR #27
+
+- E2 branch `fix/m2-e2-augment-provenance-coverage`, [draft PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27), directly stacked on E1 PR #26 at `cc34107b` (final green [Actions 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703)). E2 red [Actions 44409504699](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409504699), code `b9fab4f8`, green code [44409785611](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409785611): 346 Python passed, 1 AUD-07 xfailed; 26 JS, 4 TODO. **Check E2 final documentation-head CI before continuing**.
+- E2 supplies contribution-based modelled status, explicit provenance, cache v3 and honest catalog coverage counts. E3 is next: tests-first `None` for zero-signal augments, API `null`, honest frontend label and strict three-known-modelled-cards reroll guard. Create a third stacked draft PR; do not merge, redesign, start M3 or install anything. A-FUNC.3/Windows, G1/G2 Mayhem source, G4 API security, AUD-07 and Riot/licenses pending.
+
+
 ## 2026-11-18 handoff — M2/E1 draft PR #26
 
 - E1 branch `fix/m2-e1-augment-keyword-cache` / [draft PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26), based on A3 PR #25 @ `a1d5322f` (successful [Actions 44406909763](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44406909763)). E1 red [44408360190](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408360190), green code [44408721703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408721703) @ `8e7c215b`: 339 Python, 1 AUD-07 xfailed; 26 JS, 4 TODO. **Verify final documentation-head Windows Actions** before E2.

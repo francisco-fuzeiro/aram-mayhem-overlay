@@ -105,6 +105,17 @@ class AugmentData:
     tier: AugmentTier
     description: str
     contribution: StatVector
+    provenance: str = "none"
+    modelled: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.refresh_modelled()
+
+    def refresh_modelled(self) -> None:
+        """A contribution of all zeroes is absence of a usable model."""
+        self.modelled = any(
+            getattr(self.contribution, stat) != 0.0 for stat in StatVector.fields()
+        )
 
 
 @dataclass

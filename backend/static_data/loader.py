@@ -159,7 +159,7 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 # support a safe boot-swap comparison, so require a new item cache.
 _ITEM_CACHE_SCHEMA = 2
 # Version in the filename prevents reuse of contributions parsed by older rules.
-_AUGMENT_CACHE_SCHEMA = 2
+_AUGMENT_CACHE_SCHEMA = 3
 
 
 def _listed_movement_speed(stats: dict, description: str) -> tuple[float, float]:
@@ -259,6 +259,20 @@ class StaticData:
 
     def all_augments(self) -> list[AugmentData]:
         return list(self._augments.values())
+
+    def augment_coverage_report(self) -> dict:
+        """Observed catalog coverage only; no claims about Mayhem completeness."""
+        origins = ("override", "name_hint", "description_keywords", "none")
+        by_provenance = {origin: 0 for origin in origins}
+        for augment in self._augments.values():
+            by_provenance[augment.provenance] += 1
+        total = len(self._augments)
+        modelled = sum(augment.modelled for augment in self._augments.values())
+        return {
+            "total": total, "modelled": modelled,
+            "unmodelled": total - modelled,
+            "by_provenance": by_provenance,
+        }
 
     def get_stat_anvil(self, anvil_id: str) -> AugmentData | None:
         return self._stat_anvils.get(str(anvil_id))
@@ -418,7 +432,7 @@ def _load_augments() -> dict[str, AugmentData]:
         desc = desc_by_name.get(name.lower(), "")
 
         # Compute contribution from description + name hints
-        contribution = _parse_description_to_stats(desc, name)
+        contribution, provenance = _parse_description_to_stats_with_provenance(desc, name)
 
         result[aug_id] = AugmentData(
             id=aug_id,
@@ -426,12 +440,15 @@ def _load_augments() -> dict[str, AugmentData]:
             tier=tier,
             description=desc,
             contribution=contribution,
+            provenance=provenance,
         )
         cache_data[aug_id] = {
             "name": name,
             "tier": tier.value,
             "description": desc,
             "contribution": {k: getattr(contribution, k) for k in StatVector.fields()},
+            "modelled": result[aug_id].modelled,
+            "provenance": provenance,
         }
 
     # Apply overrides
@@ -449,30 +466,43 @@ def _contains_catalog_keyword(text: str, keyword: str) -> bool:
 
 
 def _parse_description_to_stats(description: str, name: str = "") -> StatVector:
-    stats = {f: 0.0 for f in StatVector.fields()}
+    return _parse_description_to_stats_with_provenance(description, name)[0]
 
-    # 1. Name-based hints (highest priority, manually curated)
+
+def _parse_description_to_stats_with_provenance(
+    description: str, name: str = "",
+) -> tuple[StatVector, str]:
+    stats = {f: 0.0 for f in StatVector.fields()}
+    provenance = "none"
     name_lower = name.lower()
+
+    # Curated exact-name hints take precedence when multiple sources contribute.
     for hint_name, hint_stats in NAME_STAT_HINTS.items():
         if hint_name == name_lower:
             for stat, val in hint_stats.items():
                 stats[stat] = max(stats[stat], val)
+            if any(hint_stats.values()):
+                provenance = "name_hint"
             break
 
-    # 2. Description keyword matching
     if description:
         desc_lower = description.lower()
         for keyword, stat in DESCRIPTION_KEYWORDS.items():
             if _contains_catalog_keyword(desc_lower, keyword):
                 stats[stat] = min(stats[stat] + 0.3, 1.0)
+                if provenance == "none":
+                    provenance = "description_keywords"
 
-    # 3. If still all zeros, try matching keywords against the name itself
-    if all(v == 0.0 for v in stats.values()) and name:
+    # Keyword hints from names are a fallback only when no other signal exists.
+    if all(value == 0.0 for value in stats.values()) and name:
         for keyword, stat in DESCRIPTION_KEYWORDS.items():
             if _contains_catalog_keyword(name_lower, keyword):
                 stats[stat] = min(stats[stat] + 0.3, 1.0)
+                provenance = "name_hint"
 
-    return StatVector(**stats)
+    if all(value == 0.0 for value in stats.values()):
+        provenance = "none"
+    return StatVector(**stats), provenance
 
 
 def _apply_overrides(augments: dict[str, AugmentData]) -> dict[str, AugmentData]:
@@ -483,9 +513,14 @@ def _apply_overrides(augments: dict[str, AugmentData]) -> dict[str, AugmentData]
     for aug_id, override in overrides.items():
         if aug_id in augments:
             if "contribution" in override:
+                applied = False
                 for stat, val in override["contribution"].items():
-                    if hasattr(augments[aug_id].contribution, stat):
+                    if stat in StatVector.fields():
                         setattr(augments[aug_id].contribution, stat, val)
+                        applied = True
+                if applied:
+                    augments[aug_id].provenance = "override"
+                    augments[aug_id].refresh_modelled()
             if "tier" in override:
                 augments[aug_id].tier = AugmentTier(override["tier"])
         else:
@@ -501,6 +536,7 @@ def _apply_overrides(augments: dict[str, AugmentData]) -> dict[str, AugmentData]
                     tier=AugmentTier(override.get("tier", 1)),
                     description=override.get("description", ""),
                     contribution=contrib,
+                    provenance="override",
                 )
     return augments
 
@@ -518,6 +554,7 @@ def _parse_augment_cache(cached: dict) -> dict[str, AugmentData]:
             tier=AugmentTier(data["tier"]),
             description=data.get("description", ""),
             contribution=contrib,
+            provenance=data.get("provenance", "none"),
         )
     return _apply_overrides(result)
 

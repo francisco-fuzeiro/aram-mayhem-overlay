@@ -1,5 +1,8 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **Latest M2/E2 checkpoint (2026-11-18):** [draft PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `fix/m2-e2-augment-provenance-coverage` stacked on green E1 PR #26. E2 7 red [Actions 44409504699](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409504699), code-head [Actions 44409785611](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409785611) green (346 Python, 1 AUD-07 xfailed; 26 JS, 4 TODO). **Verify final docs-head CI before E3.** E3 only: honest null scores and reroll safety. M3, UI redesign, installer and on-device acceptance not part of E2.
+
+
 > **Latest M2/E1 checkpoint (2026-11-18):** [draft PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) on `fix/m2-e1-augment-keyword-cache` stacked on A3 PR #25. Tests-first [Actions 44408360190](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408360190) failed as expected (4 cases); fix code-head [Actions 44408721703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44408721703) passed (339 Python, 1 AUD-07 xfailed; 26 JS, 4 TODO). **Verify final E1 docs-head CI before creating E2.** E2 provenance/coverage and E3 unrated/reroll are separate PRs. No manual League acceptance.
 
 
