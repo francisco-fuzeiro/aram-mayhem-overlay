@@ -125,9 +125,11 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 ### D3 — Desktop Settings information architecture
 
-- [ ] **PH-D3.1:** Group General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About as focused navigable areas using current Settings implementation.
-- [ ] **PH-D3.2:** Add keyboard/ARIA navigation and clear loading/save/error feedback; do not expose inaccessible features as functional.
+- [x] **PH-D3.1:** Group General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About as focused navigable areas using current Settings implementation.
+- [x] **PH-D3.2:** Add keyboard/ARIA navigation and clear loading/save/error feedback; do not expose inaccessible features as functional.
 - [ ] **PH-D3.3:** Run UI interaction tests and validate real Windows navigation/resize.
+
+**D3 code/test evidence (2026-11-18):** [draft PR #15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15), [Windows CI run 44352298709](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44352298709) at code head `346998a8`: **255 Python passed, 1 warning; 8 Node passed; both JS syntax checks passed**. Seven Settings sections, accessible keyboard tabs, existing API save/error/retry states and truthful OCR status are implemented. **PH-D3.3 remains unchecked** until real Windows GUI/navigation/resize and save/feedback acceptance; `PH-D1.5`, broad `UX-D02` and `UX-D09` are also open.
 
 ### D4 — Overlay customization, split into two PRs
 

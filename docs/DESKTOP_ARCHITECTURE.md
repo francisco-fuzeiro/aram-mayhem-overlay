@@ -1,6 +1,6 @@
 # ARAM Oracle — Desktop and Contextual Overlay Architecture
 
-Status: **approved architecture; D1 Settings shell in draft PR #13 and D2 unified lifecycle in draft PR #14; D2 Windows lifecycle/tray acceptance confirmed; D1 preference/feedback and gameplay checks remain open**. Baseline: 2026-11-18, stacked drafts #14 -> #13 -> #12 -> #11. This document records the architecture decision and implementation boundaries; see [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md) for small delivery slices and [TODO.md](TODO.md) for live task status.
+Status: **approved architecture; D1 Settings host draft PR #13, D2 single-instance/tray draft PR #14 (Windows lifecycle accepted), D3 Settings navigation draft PR #15 (manual Windows acceptance pending)**. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
 
 ## Design principles
 
@@ -48,7 +48,7 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 | `backend.overlay.__main__` | Dev launcher and original loopback ASGI startup | Delegate Qt launches to the managed desktop owner; preserve the explicit Qt entrypoint and non-Qt fallback |
 | `backend.desktop` (D1 + D2) | Normal Settings QMainWindow, one QSystemTrayIcon, transparent overlay Qt surface and local activation | Single owner of Qt UI and explicit Quit; separate native window behaviors |
 | `backend.desktop.instance` + `backend.desktop.service` | OS-held per-user lock, local authenticated activation, managed FastAPI ASGI shutdown | Avoid duplicate process owners; never kill pre-existing compatible API; fail safely on port conflict |
-| `frontend/settings.*` | Existing browser Settings for build style and feedback | Reuse as desktop control center; add modules incrementally, no second JS framework initially |
+| `frontend/settings.*` | D3 seven-section accessible Settings navigation using the existing preferences/OCR/feedback APIs | D4 will add validated overlay positioning preferences; D5 will add OCR testing; no duplicated JS framework |
 | `frontend/index.html` + `app.js` | Current multipanel overlay | Future event-driven contextual surfaces with strict data confidence |
 | `backend.collectors.*` | LCDA and Tesseract watcher | Explicit observable offer/shop state only after tested capture/data-source validation |
 | `backend.workflow.pipeline` | Dynamic scoring/build recommendations | No duplicated scoring in UI; consume stable state, preserve rule explanations |

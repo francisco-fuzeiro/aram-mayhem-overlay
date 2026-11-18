@@ -1,6 +1,6 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
-Status: **planned**. Each phase should be a small, focused **stacked draft PR** with test evidence and a minimal diff. Check the corresponding tasks in [TODO.md](TODO.md), not just the phase title, after the relevant acceptance criteria are met. The original PRs #1–#12 remain drafts. Never merge to `main` without the user's approval.
+Status: **in progress** (D1/D2 implemented; D3 draft PR #15 passed code-head Windows Actions but awaits manual Windows GUI acceptance). Each phase should be a small, focused **stacked draft PR** with test evidence and a minimal diff. Check the corresponding tasks in [TODO.md](TODO.md), not just the phase title, after the relevant acceptance criteria are met. The original PRs #1–#12 remain drafts. Never merge to `main` without the user's approval.
 
 Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX backlog first.
 
@@ -63,6 +63,8 @@ D6–D8 are **product core work**, not prerequisites for prototyping the Setting
 
 - Reorganize current page into focused General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About tabs/sections. Keep labels English and preserve existing API calls.
 - Tests: keyboard navigation, form save/error states and loading with no League client. No fabricated hardware status.
+
+**D3 implementation:** [draft PR #15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15) and [Windows Actions run 44352298709](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44352298709) cover the seven sections, ARIA/keyboard navigation and truthful API state handling. Actual Qt Windows Settings acceptance remains a distinct gate.
 
 ## D4 — Overlay configuration (split if needed)
 
