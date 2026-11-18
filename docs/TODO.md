@@ -55,9 +55,9 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **M2 / A1–A3 Windows gate.** Hold an offer through level-ups and item changes without phantom progress, then verify actual picked-card confirmation.
 - [ ] **M2 / E1–E3 Windows gate.** Verify missing coverage renders 'Not rated' and suppresses misleading reroll advice.
 
-## M3 — Match lifecycle (next planned milestone; no code started)
+## M3 — Match lifecycle (F1 code implemented; F2–F5 pending)
 
-- [ ] **M3/F1 — Classified LCDA off the event loop (AUD-01).** `asyncio.to_thread`; typed status/payload; sanitized status diagnostics; confirm slow LCDA cannot block WS.
+- [x] **M3/F1 — Classified LCDA off the event loop (AUD-01), code/CI only.** [Draft PR #29](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/29), tests-first [red 44414416010](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44414416010) (13 failures), [green code 44415046195](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44415046195) (367 Python, 1 AUD-07 xfailed; 28 JS, 4 TODO). Typed LCDAResult, classified statuses, worker-thread I/O and sanitized diagnostic transitions. Final documentation-head CI requires independent verification; no Windows/League acceptance.
 - [ ] **M3/F2 — Explicit game state machine (AUD-01).** Read-only LCU gameflow phases; status: `client_idle`, `champ_select`, `loading`, `live_data_unavailable`, `in_game`, `champion_unresolved`, `post_game`; active player riotId-first then summonerName; test transitions.
 - [ ] **M3/F3 — Debounce game end and identify matches (AUD-06/AUD-07).** End on authoritative gameflow or three consecutive LCDA misses over >=6s; match ID from LCU gameflow session, guarded fallback and game-time regression; reset immediately for a new match; delete 300s stale hold; promote AUD-07 strict xfail only when fixed.
 - [ ] **M3/F4 — Clear stale frontend match display (AUD-05).** Clear champion/time/gold/offer/confirmation on end/no_game/champ_select/new match ID; reconnect dims stale state, then restores live state; retire the relevant JS TODOs when tests prove behavior.

@@ -69,6 +69,11 @@ request connection rather than inventing state. Always protect `main`.
 4. Keep the PR draft, targeting its predecessor; leave `main` untouched.
 5. Conclude in PT-PT with accomplished changes, automated results, unresolved Windows validation and a ready-to-paste prompt for the next phase/chat.
 
+## Latest active handoff (2026-11-18) — M3/F1 → F2
+
+- F1 [draft PR #29](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/29) `fix/m3-f1-classified-lcda-nonblocking` stacks on E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28); E3 final [CI 44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) green. F1 red [44414416010](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44414416010), F1 green code [44415046195](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44415046195): 367 Python, 1 AUD-07 xfailed, 28 JS, 4 TODO.
+- Verify **F1 final documentation-head CI** before F2. F1 provides typed status/payload and worker-thread LCDA, not debounced end; AUD-07 and F4 JS TODOs remain. F2 is read-only Gameflow/status machine; one new stacked draft PR and tests-first gate. Do not start F3 until F2's final-head green CI. No merges, M4 or Windows-game acceptance inferred.
+
 ## Latest authoritative handoff (2026-11-18) — M2/E3 → M3
 
 - M2 automated code: E1 [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) `cc34107b`, final [CI 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703); E2 [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `a4432f69`, final [CI 44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004); E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) `fix/m2-e3-unrated-safe-rerolls`, code `5efa3628`, [CI 44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) green (354 Python passing, 1 AUD-07 xfailed, 28 JS passing, 4 TODO). **Verify E3 docs-head CI at current PR head before M3.** All stacked draft PRs unmerged; main untouched.
