@@ -9,6 +9,8 @@
     const MAX_RECONNECT = 10000;
     let staticNames = { items: {}, augments: {}, stat_anvils: {}, champions: {} };
     let lastResult = null;
+    let activeMatchId = null;
+    let stale = false;
     let selectedAugmentIds = [];
     let searchDebounce = null;
     let ocrAvailable = false;
@@ -136,6 +138,7 @@
 
         ws.onclose = () => {
             setConnected(false);
+            markStale("Reconnecting…");
             scheduleReconnect();
         };
 
@@ -162,35 +165,187 @@
         }
     }
 
+    // -- Match-specific display lifecycle --
+
+    function setWaitingTitle(title) {
+        const element = $("waiting-title");
+        if (element) element.textContent = title;
+    }
+
+    function clearMatchDisplayState() {
+        // Preferences and backend-confirmed augment choices do not live here.
+        // Clear only browser-side state from the previous match.
+        lastResult = null;
+        selectedAugmentIds = [];
+        scanning = false;
+        stale = false;
+        $("app").classList.remove("data-stale");
+        champName.textContent = "---";
+        gameTime.textContent = "--:--";
+        goldEl.textContent = "--";
+        phaseEl.textContent = "---";
+
+        for (const el of [augmentList, buildList, buildAlternatives, enemyList,
+                          ocrDetected, searchResults, selectedAugments, augmentConfirm]) {
+            el.innerHTML = "";
+            el.replaceChildren();
+        }
+        rerollBadge.classList.add("hidden");
+        rerollBanner.classList.add("hidden");
+        rerollReason.textContent = "";
+        buildFooter.textContent = "";
+        augmentProgress.textContent = "0/4";
+        augmentProgress.classList.add("hidden");
+        augmentToast.innerHTML = "";
+        augmentToast.classList.add("hidden");
+        augmentConfirm.classList.add("hidden");
+        ocrDetected.classList.add("hidden");
+        clearTimeout(toastTimeout);
+        toastTimeout = null;
+        clearTimeout(searchDebounce);
+        searchDebounce = null;
+        augmentSearch.value = "";
+        btnScan.textContent = "Scan Screen";
+        btnScan.disabled = !ocrAvailable;
+        renderSelectedAugments();
+        updateOcrStatusBadge();
+    }
+
+    function observeMatchIdentity(message) {
+        const incoming = typeof message.match_id === "string" && message.match_id
+            ? message.match_id : null;
+        if (!incoming) return;
+        if (activeMatchId && incoming !== activeMatchId) {
+            clearMatchDisplayState();
+            showWaiting(true);
+        }
+        activeMatchId = incoming;
+    }
+
+    function hideOldHeader() {
+        champName.textContent = "---";
+        gameTime.textContent = "--:--";
+        goldEl.textContent = "--";
+        phaseEl.textContent = "---";
+    }
+
+    function markStale(title) {
+        stale = true;
+        lastResult = null;
+        $("app").classList.add("data-stale");
+        hideOldHeader();
+        hidePostGameFeedback();
+        showWaiting(true);
+        setWaitingTitle(title);
+    }
+
+    function handleStatus(message) {
+        observeMatchIdentity(message);
+        switch (message.state) {
+            case "client_idle":
+                clearMatchDisplayState();
+                activeMatchId = null;
+                hidePostGameFeedback();
+                showWaiting(true);
+                setWaitingTitle("Waiting for game...");
+                break;
+            case "champ_select":
+                clearMatchDisplayState();
+                activeMatchId = null;
+                hidePostGameFeedback();
+                showWaiting(true);
+                setWaitingTitle("Champion Select...");
+                break;
+            case "loading":
+                clearMatchDisplayState();
+                activeMatchId = null;
+                hidePostGameFeedback();
+                showWaiting(true);
+                setWaitingTitle("Loading match...");
+                break;
+            case "live_data_unavailable":
+                markStale("Live game data temporarily unavailable");
+                break;
+            case "champion_unresolved":
+                markStale("Champion not identified");
+                break;
+            case "post_game":
+                clearMatchDisplayState();
+                activeMatchId = null;
+                showPostGameFeedback();
+                break;
+            case "in_game":
+                // A successful WebSocket connection alone cannot make cached
+                // match data fresh. Wait for a valid update payload.
+                if (lastResult === null) {
+                    showWaiting(true);
+                    setWaitingTitle("Waiting for live game data...");
+                }
+                break;
+            default:
+                // Unknown statuses never imply a live game.
+                markStale("Waiting for game status...");
+        }
+    }
+
     // -- Message handling --
 
     function handleMessage(msg) {
+        if (!msg || typeof msg !== "object") return;
+        if (msg.type === "status") {
+            handleStatus(msg);
+            return;
+        }
         if (msg.type === "champ_select") {
+            clearMatchDisplayState();
+            activeMatchId = null;
             renderChampSelect(msg);
             return;
         }
 
         if (msg.type === "no_game") {
+            clearMatchDisplayState();
+            activeMatchId = null;
             hidePostGameFeedback();
             showWaiting(true);
+            setWaitingTitle("Waiting for game...");
             return;
         }
 
         if (msg.type === "game_ended") {
+            clearMatchDisplayState();
+            activeMatchId = null;
             showPostGameFeedback();
             return;
         }
 
         if (msg.type === "update") {
+            observeMatchIdentity(msg);
+            // Legacy clients may lack match_id. Champion changes cannot
+            // preserve an earlier game's pending offer or recommendations.
+            const oldChampion = lastResult?.build_state?.champion_id;
+            const newChampion = msg.build_state?.champion_id;
+            if (oldChampion && newChampion && oldChampion !== newChampion) {
+                clearMatchDisplayState();
+            }
+            stale = false;
+            $("app").classList.remove("data-stale");
+            hidePostGameFeedback();
             showWaiting(false);
+            setWaitingTitle("Waiting for game...");
             lastResult = msg;
             renderUpdate(msg);
             return;
         }
 
+        if (stale) {
+            // Ignore messages associated with an unknown or interrupted game
+            // until an authoritative update restores the current snapshot.
+            return;
+        }
+
         if (msg.type === "ocr_result") {
             renderOcrResult(msg.detected, msg.augment_choices);
-            // Auto-expand augment section if we detected something
             if (msg.detected && msg.detected.length > 0) {
                 $("section-augments").classList.remove("collapsed");
                 $("section-input").classList.remove("collapsed");
@@ -220,11 +375,8 @@
             return;
         }
 
-        if (msg.type === "ack") {
-            if (msg.action === "choose_augment") {
-                augmentConfirm.classList.add("hidden");
-            }
-            return;
+        if (msg.type === "ack" && msg.action === "choose_augment") {
+            augmentConfirm.classList.add("hidden");
         }
     }
 
@@ -835,6 +987,7 @@
     if (typeof module !== "undefined" && module.exports) {
         module.exports = Object.freeze({
             handleMessage,
+            clearMatchDisplayState,
             renderUpdate,
             renderHeader,
             renderRecommendations,
@@ -846,6 +999,8 @@
             setConnected,
             getState: () => ({
                 lastResult,
+                matchId: activeMatchId,
+                stale,
                 selectedAugmentIds: [...selectedAugmentIds],
                 scanning,
             }),
