@@ -69,6 +69,11 @@ request connection rather than inventing state. Always protect `main`.
 4. Keep the PR draft, targeting its predecessor; leave `main` untouched.
 5. Conclude in PT-PT with accomplished changes, automated results, unresolved Windows validation and a ready-to-paste prompt for the next phase/chat.
 
+## Active handoff (2026-11-18) — M3/F4 → F5
+
+- F4 [draft PR #32](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/32), branch `fix/m3-f4-frontend-match-stale-clear` stacked on verified F3 PR #31. Red [44418231275](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418231275) (9 Node failures), green code [44418575069](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418575069): 385 Python, 37 JS, 0 xfail/TODO. Code `3d2c4608`.
+- **Check F4 final docs-head CI before F5**. F5 only broadcast outside lock, bounded non-blocking ordered per-client messaging and regression tests; separate stacked draft, no merge or native League/Riot validation claims.
+
 ## Active handoff (2026-11-18) — M3/F3 → F4
 
 - F3 [draft PR #31](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/31) `fix/m3-f3-match-identity-debounced-end` stacked on F2 final green [44416684750](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44416684750). F3 red [44417070655](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417070655) and green code [44417583673](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44417583673): 385 Python passed, 0 xfail, 28 JS passed, 4 TODO. Code `90f30018`.
