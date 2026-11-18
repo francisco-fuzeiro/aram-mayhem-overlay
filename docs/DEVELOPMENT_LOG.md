@@ -65,3 +65,13 @@ Append-only timeline. Entries are factual snapshots, not future promises. For th
 ## Rule for every future entry
 
 Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command and result (or `not run`), outstanding risks, and next step. Do not silently claim tests passed or functionality is integrated into main until verified.
+
+## 2026-11-18 13:27 Europe/Lisbon — Enemy/ally catalog coverage (PR #6)
+
+- Branch `feat/team-threat-coverage`, based on `feat/dynamic-team-threats` (draft PR #5). Changes remain isolated from `main`.
+- Changed `backend/engine/team_context.py` to count visible enemy items even when champion metadata is missing, surface unresolved item IDs, and avoid high confidence for incomplete catalog coverage.
+- Changed `backend/workflow/pipeline.py` to include the current champion once in allied role analysis.
+- Added regressions in `tests/test_team_context.py` and `tests/test_dynamic_team_pipeline.py`.
+- Tests: `python -m pytest -q` and `node --check frontend/app.js` **not run** at the time of this entry; Windows GitHub Actions is required.
+- Next: verify CI, then tackle item feasibility and purchase recommendations separately. Real LCDA samples and Riot policy review remain open.
+
