@@ -131,3 +131,15 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - No actual Windows in-game item swap test has been observed. Keep PR #8 in draft until Mayhem item availability and purchase behavior are checked.
 - The original six-slot restriction is preserved: swap advice is separate from `next_item_id` and no item is sold/purchased by the app.
 
+## 2026-11-18 — PR #9: Windows white overlay background and HWND investigation
+
+- User provided an actual Windows desktop screenshot: `pytest` **163 passed, 2 warnings** at 13:55; process launched `python -m backend.overlay` with pywebview, rendered a persistent white region under the "Waiting for game..." panel, and logged `Could not find overlay HWND — click-through not set`.
+- The `163` local tests identify an older PR #7 checkout versus PR #8's `171` CI tests. No match was running or verified, so "Waiting for game..." alone is not a game-state bug.
+- WebView2/pywebview Windows transparency has independently reported rendering issues; changing CSS only is not a reliable native fix.
+- Branch `fix/windows-overlay-transparency-fallback`, stacked on PR #8; `main` unchanged.
+- Implemented explicit `python -m backend.overlay --renderer qt` alternate backend, preserving pywebview default/override; missing optional Qt dependencies report exact install command.
+- Fixed pywebview native HWND discovery to prefer the actual window handle and retry before relying on the potentially changed window title.
+- Added Qt Alt+O interaction toggle for mouse-transparent controls, targeted launcher/HWND regressions and README troubleshooting instructions.
+- Verification: full Windows CI **not run yet** at this entry; user's **163 passed** are for earlier code, not proof of this fix. On-device Qt transparency **not yet tested**.
+- Next: verify CI then request Windows screenshot of `--renderer qt`; if necessary inspect pywebview runtime version and GPU rendering issues.
+
