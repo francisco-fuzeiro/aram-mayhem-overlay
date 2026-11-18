@@ -758,7 +758,14 @@ async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None
     """
     clients_count = len(state.ws_clients)
     if clients_count > 0:
-        raw = deps.get_raw_game_data()
+        lcda_result = await deps.to_thread(deps.get_raw_game_data)
+        # The harness may still inject legacy dict/None until F2 updates it.
+        if isinstance(lcda_result, tuple) and len(lcda_result) == 2:
+            lcda_status, raw = lcda_result
+            if lcda_status != "ok":
+                raw = None
+        else:
+            raw = lcda_result
         if raw:
             _record_match_phase(state, "in_game")
             snapshot = deps.parse_game_snapshot(raw, GamePhase.IN_GAME)
