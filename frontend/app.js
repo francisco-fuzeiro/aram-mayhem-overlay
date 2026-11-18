@@ -235,7 +235,7 @@
 
             const summary = document.createElement("div");
             summary.className = "aug-details";
-            summary.textContent = candidate.tier + " · " + candidate.score + "/100 team fit · " + candidate.role;
+            summary.textContent = candidate.tier + " · " + Number(candidate.score).toFixed(1) + "/10.0 team fit · " + candidate.role;
 
             const reasons = document.createElement("div");
             reasons.className = "aug-explain";
