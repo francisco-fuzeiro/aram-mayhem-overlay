@@ -219,6 +219,10 @@ if PYQT_AVAILABLE:
             else:
                 self.show()
                 self.raise_()
+                # The managed desktop may create the overlay while hidden.
+                # Reapply its existing Win32 transparency flags after first show.
+                if self._is_click_through:
+                    QTimer.singleShot(0, self._set_click_through)
                 logger.info("Qt overlay shown")
             if self._tray_toggle is not None:
                 action = "Hide" if self.isVisible() else "Show"
