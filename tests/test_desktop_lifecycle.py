@@ -56,7 +56,7 @@ def test_invalid_activation_is_denied_and_never_queued(tmp_path):
         descriptor = json.loads(owner.info_path.read_text(encoding="utf-8"))
         with socket.create_connection(("127.0.0.1", descriptor["port"]), timeout=1) as sock:
             sock.sendall(json.dumps({"action": "overlay", "token": "wrong"}).encode())
-            assert sock.recv(64) == b"denied\\n"
+            assert sock.recv(64) == b"denied\n"
         assert owner.drain() == []
     finally:
         owner.close()
