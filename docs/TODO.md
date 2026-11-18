@@ -88,8 +88,9 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **UX-D08 — Updates and rollback (P2).** Design a versioned, opt-in update path with integrity verification, visible release notes, no disruptive update mid-match and rollback/recovery. Do not introduce auto-updates before a reliable package exists.
 - [ ] **UX-D09 — Desktop/overlay smoke matrix (P1).** Test app launch, minimize to tray, Settings persistence, reopening an overlay, switching modes, exit and restart on real Windows at 1080p/1440p, including League borderless and Alt+Tab. Attach evidence to each item.
 - [ ] **UX-D10 — Branding and licensing (P2).** Build original ARAM Oracle icon, typography, layout and visual hierarchy; use OP.GG only as an interaction reference, check Riot requirements and every bundled dependency's license/attribution.
+- [ ] **UX-D11 — Claude UX/UI audit after desktop interface completion (P1).** After D3, D4a/D4b and D5a/D5b, commission/document an actual Claude review of the real Windows Settings, onboarding, preview and feedback flows. Triage concrete accessibility, consistency and usability findings and implement bounded P0/P1 design fixes before D6. Keep future D7/D8 live gameplay panels separately validated; no pretend audit or copied OP.GG designs.
 
-**Delivery order:** finish current PR #12 Windows checks and P0 augment detection first; then implement the native desktop window and settings structure; package the installer once app start/stop, OCR and contextual overlay are reliable. Do not treat a pretty installer as evidence that live recommendations work.
+**Delivery order (desktop roadmap):** D1–D2 lifecycle, D3 navigation, D4a preferences, D4b preview, D5a OCR readiness, D5b diagnostics, **D5c Claude UI/UX audit + bounded design closure**, then D6–D8 contextual in-game engine/panels, then D9–D11 packaging/release when core behavior is dependable. Historical PR #12 follow-ups remain independently tracked. Do not treat a pretty installer as evidence that live recommendations work. Do not treat a pretty installer as evidence that live recommendations work.
 
 ## Small desktop development phases — implementation checklist
 
@@ -140,6 +141,12 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **PH-D5a.1:** Detect Tesseract availability/path and show helpful first-run status; no silent installation.
 - [ ] **PH-D5b.1:** Add a user-triggered OCR diagnostic/preview with confidence and safe manual fallback.
 - [ ] **PH-D5b.2 (Windows):** Confirm three real Mayhem cards and rerolls at the actual user's HUD scaling.
+
+### D5c — Claude UX/UI audit and design closure (after D3 + D4a/b + D5a/b)
+
+- [ ] **PH-D5c.1:** Obtain and record the actual Claude audit of implemented Windows Settings/OCR/preview flows, with screenshots or reproducible evidence, severity (P0/P1/P2), accessibility/visual hierarchy/usability checks and privacy-safe inputs; do not mark complete without the review artifact.
+- [ ] **PH-D5c.2:** Triage the audit; fix and regression-test bounded P0/P1 desktop navigation, layout, states and feedback issues while preserving existing backend, Qt lifecycle, transparency, hotkeys and preferences. Defer larger suggestions with tracked IDs and reasons.
+- [ ] **PH-D5c.3 (Windows):** Confirm the resulting desktop design at real display scaling with keyboard navigation, resize, saved/error/OCR states and preview; log pass/fail evidence. This gate closes **desktop** UI structure/design only; live overlay augment/shop cards await D7/D8.
 
 ### D6–D8 — Contextual overlay engine (separate small PRs)
 
