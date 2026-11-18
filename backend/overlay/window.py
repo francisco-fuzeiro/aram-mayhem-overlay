@@ -23,6 +23,9 @@ import logging
 import webbrowser
 from urllib.parse import urlsplit, parse_qs
 
+from backend import preferences
+from backend.overlay.layout import calculate_overlay_geometry
+
 logger = logging.getLogger("aram-oracle.overlay")
 
 try:
@@ -109,12 +112,11 @@ if PYQT_AVAILABLE:
                 | Qt.WindowType.Tool  # hidden from taskbar
             )
 
-            # Position: right edge, offset from top
-            screen = QApplication.primaryScreen().geometry()
-            x = screen.width() - OVERLAY_WIDTH - OVERLAY_MARGIN_RIGHT
-            y = OVERLAY_MARGIN_TOP
-            h = screen.height() - OVERLAY_MARGIN_TOP * 2
-            self.setGeometry(x, y, OVERLAY_WIDTH, h)
+            # D4b: screen-relative geometry is applied once WebEngine is ready.
+            self._overlay_preferences = dict(preferences.DEFAULT_OVERLAY)
+            self._layout_in_progress = False
+            self._watched_screens = set()
+            self._screen_signal_connected = False
 
             # Web view
             self._view = QWebEngineView(self)
@@ -130,7 +132,18 @@ if PYQT_AVAILABLE:
             self._view.loadFinished.connect(self._on_page_loaded)
             self._view.urlChanged.connect(self._on_url_changed)
 
-            # Load the overlay URL
+            # Read the same atomic preferences file owned by the existing API.
+            # This avoids blocking the GUI event loop with synchronous HTTP.
+            self._reload_overlay_preferences(force=True)
+            self._watch_screens()
+            QApplication.instance().screenAdded.connect(self._screens_changed)
+            QApplication.instance().screenRemoved.connect(self._screens_changed)
+            QApplication.instance().primaryScreenChanged.connect(self._screens_changed)
+            self._preferences_timer = QTimer(self)
+            self._preferences_timer.timeout.connect(self._reload_overlay_preferences)
+            self._preferences_timer.start(800)
+
+            # Load the overlay URL only after the transparent window is configured.
             self._view.setUrl(QUrl(url))
 
             # Keep an interaction toggle available while the game has focus.
@@ -148,6 +161,70 @@ if PYQT_AVAILABLE:
             self._hotkey_timer = QTimer(self)
             self._hotkey_timer.timeout.connect(self._poll_interaction_hotkey)
             self._hotkey_timer.start(60)
+
+        def _screens_changed(self, *_args):
+            """Reconcile Qt logical-coordinate screens after hotplug / DPI changes."""
+            self._watch_screens()
+            self._apply_overlay_layout()
+
+        def _watch_screens(self):
+            screens = set(QApplication.screens())
+            self._watched_screens.intersection_update(screens)
+            for screen in screens - self._watched_screens:
+                screen.availableGeometryChanged.connect(self._apply_overlay_layout)
+                screen.geometryChanged.connect(self._apply_overlay_layout)
+                screen.logicalDotsPerInchChanged.connect(self._apply_overlay_layout)
+                self._watched_screens.add(screen)
+
+        def showEvent(self, event):
+            super().showEvent(event)
+            handle = self.windowHandle()
+            if handle is not None and not self._screen_signal_connected:
+                handle.screenChanged.connect(self._screens_changed)
+                self._screen_signal_connected = True
+            self._apply_overlay_layout()
+
+        def resizeEvent(self, event):
+            super().resizeEvent(event)
+            if not self._layout_in_progress and hasattr(self, "_preferences_timer"):
+                QTimer.singleShot(0, self._apply_overlay_layout)
+
+        def _reload_overlay_preferences(self, force=False):
+            """Apply only changed, sanitized settings; never change interaction mode."""
+            loaded = preferences.load_preferences()["overlay"]
+            if force or loaded != self._overlay_preferences:
+                self._overlay_preferences = loaded
+                self._apply_overlay_layout()
+
+        def _apply_overlay_layout(self, *_args):
+            """Qt returns device-independent screen coordinates, including DPI scales."""
+            if self._layout_in_progress or not hasattr(self, "_view"):
+                return
+            screens = QApplication.screens()
+            screen = self.screen()
+            if screen not in screens:
+                screen = QApplication.primaryScreen()
+            if screen is None:
+                return
+            area = screen.availableGeometry()  # taskbar-safe and screen-origin-aware
+            try:
+                x, y, w, h = calculate_overlay_geometry(
+                    (area.x(), area.y(), area.width(), area.height()),
+                    self._overlay_preferences, base_width=OVERLAY_WIDTH,
+                    vertical_inset=OVERLAY_MARGIN_TOP,
+                )
+                self._layout_in_progress = True
+                if (self.x(), self.y(), self.width(), self.height()) != (x, y, w, h):
+                    self.setGeometry(x, y, w, h)
+                self._view.setZoomFactor(self._overlay_preferences["scale"])
+                self.setWindowOpacity(self._overlay_preferences["opacity"])
+            except (ValueError, RuntimeError) as exc:
+                logger.warning("Unable to apply Qt overlay preferences: %s", exc)
+            finally:
+                self._layout_in_progress = False
+            # Opacity may recreate a layered HWND on Windows; never turn off Alt+O.
+            if getattr(self, "_is_click_through", False) and self.isVisible():
+                QTimer.singleShot(0, self._set_click_through)
 
         def _on_page_loaded(self, success: bool):
             """Expose native-only controls after the local HTML page loads."""
