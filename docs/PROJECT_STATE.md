@@ -32,7 +32,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#6](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/6) | `feat/team-threat-coverage` | PR #5 branch | Player-inclusive ally roles, catalog coverage safeguards and visible enemy inventory fallback |
 | [#7](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/7) | `feat/selectable-build-paths` | PR #6 branch | Selectable build style, saved UI preference, inventory-safe next item, WebSocket contract |
 
-**Continue on `feat/dynamic-team-threats`**, unless its PR is merged and a new branch is appropriate. Follow the dependency order; never assume all stacked drafts have been merged.
+**Active working head: `feat/selectable-build-paths` (draft PR #7)**, stacked on PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -96,20 +96,20 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. Re-check PR #5 latest CI and fix failures, especially after `tests/test_dynamic_team_pipeline.py`.
+1. Confirm the latest PR #7 CI and complete real Windows in-game verification of LCDA roster, OCR choices, persistent build style and in-game overlay behavior.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
 5. Improve synergy model for augment-specific effects, quests, abilities, duplicate/redundant interactions and chosen augment history; calibrate against real matches.
-6. Make the three item paths actually selectable and persist player preferences; currently they are displayed as alternatives, not a committed style selector.
+6. Validate the new selectable build-style preference in the actual Windows overlay and confirm the selected path updates after purchases and augment picks.
 7. Patch/version-aware data ingestion and confidence; ensure only ARAM Mayhem games are counted (verify actual queue/mode identifiers).
 8. Test champion select, augment OCR, build updates, click-through and resize live on user's Windows; keep interface polishing last.
 
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #5 head + GitHub Actions live; inspect code before assuming log is perfectly current.
-3. Continue through GitHub connector on a separate feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #7 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
+3. Continue from PR #7 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.
