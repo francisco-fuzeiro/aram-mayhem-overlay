@@ -1,5 +1,8 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **2026-11-18 M3/F1 underway:** F1 [draft PR #33](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/33), branch `fix/m3-f1-lcda-nonblocking-status` stacked on E3 PR #28 (final-head [CI 44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) passed). Tests-first and implementation commits present; final F1 CI pending. Gates: F1 classified non-blocking LCDA → F2 explicit LCU statuses → F3 match end/identity → F4 UI stale/clear → F5 broadcast outside lock, each in own draft PR and only after green CI. No native-game acceptance.
+
+
 > **2026-11-18 M2 code milestone:** E1 [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) final CI [44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) green; E2 [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) final CI [44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) green; E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) at code `5efa3628` CI [44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) green (354 Python, 1 AUD-07 xfailed, 28 JS, 4 TODO). Check E3 final documentation-head CI independently. M2 not Windows/League-accepted. **Next milestone M3 Match Lifecycle F1–F5**, independent stacked draft PR and CI gate per phase, then M4. Source plan in independent draft PR #19.
 
 
