@@ -7,6 +7,43 @@ description: Resume ARAM Oracle development safely across ChatGPT project conver
 
 Use this repository-local skill when the user asks to continue work on the private League of Legends ARAM Mayhem companion from another ChatGPT conversation. **This file is a reusable repository instruction, not an automatically installed ChatGPT plugin/skill.** The next chat must explicitly fetch/read it from GitHub, along with the current repository files.
 
+## Trigger phrases and cross-chat rotation
+
+The following are **user-facing phrases**, not registered slash commands or
+automatically executed GitHub hooks. They provide a reliable convention for a
+ChatGPT conversation with the GitHub connector available:
+
+- **`ARAM Oracle: preparar passagem`** — In the **current** conversation,
+  finish/record the current small work unit, verify the actual draft PR/head
+  and latest available CI, update `docs/PROJECT_STATE.md`, `docs/TODO.md`,
+  `docs/DEVELOPMENT_LOG.md` and `docs/CONTINUE_PROJECT.md`. Refresh this
+  skill's handoff anchor only when the phase/PR has really changed. Separate
+  verified Windows observations from untested behaviors. Provide a compact
+  next-chat prompt naming the current PR, base branch, pending Windows checks
+  and next bounded phase. If CI is pending, state that fact rather than
+  claiming success; do not start a new phase in the old chat.
+- **`ARAM Oracle: continuar`** — In a **new conversation in the Overlay LoL
+  ChatGPT project**, first read this repository skill through GitHub, then
+  `AGENTS.md`, `docs/PROJECT_STATE.md`, `docs/TODO.md`,
+  `docs/IMPLEMENTATION_PHASES.md`, `docs/DESKTOP_ARCHITECTURE.md`,
+  `docs/DEVELOPMENT_LOG.md`, `docs/REUSE_CANDIDATES.md` and
+  `docs/CONTINUE_PROJECT.md` at the **current head**, plus the project
+  specification/UX audit when available. Check live PRs and Actions and
+  continue the next uncompleted phase described in the handoff, rather
+  than relying on chat memory or a hard-coded PR number.
+
+**One phase = one chat = one new stacked branch = one draft PR.** A rotation
+may also happen mid-phase when context becomes long: record a checkpoint on
+the *same* branch/PR and resume that unfinished phase in the next chat,
+**without creating a new phase branch prematurely**. Never mark a phase
+complete merely to rotate chats.
+
+**Limitations:** A repository-local skill is documentation, not an installed
+ChatGPT invocation, scheduled job, or new-chat creator. The user opens the new
+chat and sends the phrase; the assistant explicitly fetches this skill from
+the connected private GitHub repository. If the connector is unavailable,
+request connection rather than inventing state. Always protect `main`.
+
 ## Startup — mandatory, in order
 
 1. Locate the GitHub-connected repo `francisco-fuzeiro/aram-mayhem-overlay`; read `AGENTS.md`.
@@ -34,8 +71,8 @@ Use this repository-local skill when the user asks to continue work on the priva
 
 ## Current handoff anchor (verify, do not blindly trust)
 
-- On 2026-11-18: `feat/desktop-settings-shell` is draft PR #13 based on `feat/pregame-settings-feedback` (draft PR #12), which targets `fix/live-augment-detection-item-duplicates` (draft PR #11). The PR chain has not been merged into main.
-- D1 code and Windows CI are complete: `python -m backend.desktop` creates a normal Qt WebEngine Settings window, using the existing local FastAPI/Settings frontend and detecting compatible server reuse or port conflict. [Windows run 44336280007](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44336280007) passed at code/README head `d5aff632`: 234 Python tests, 1 warning; 4 Node Settings tests and syntax checks passed. Re-verify the newest documentation commit's CI.
-- D1 Windows native GUI, in-game transparency, hotkeys and persistence/feedback acceptance are still **open** (`PH-D1.5`).
-- Next proposed phase is **D2 — single instance and tray lifecycle**, in a new draft PR stacked on PR #13. No installer, updater or redesign in D2.
-- External code candidates are catalogued in `docs/REUSE_CANDIDATES.md`. Favor explicit compatible licenses and targeted adapters with source-commit attribution; Mayhem Advisor is **not** licensed for general source copying.
+- On 2026-11-18, the working branch is `feat/desktop-settings-shell`, draft PR #13 targeting draft PR #12 `feat/pregame-settings-feedback`, which targets draft PR #11. `main` was not changed.
+- D1 code/CI is implemented: `python -m backend.desktop` opens the unchanged Settings page in a normal Qt window and reuses or starts the existing FastAPI service. [Windows CI 44337928614](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44337928614) succeeded at the earlier documentation head `52a96563`: **234 Python passed, 1 warning; 4 Node tests passed**. Recheck CI at the latest head.
+- **Confirmed on user Windows:** desktop Settings window opened and loaded, Qt overlay stayed transparent, Alt+O and Alt+H worked. The user installed external Tesseract OCR and confirmed Settings OCR status green. **Not yet confirmed:** actual resize/focus, save/restart preferences, feedback submission, *live* 3-card augment OCR recognition and rerolls. `PH-D1.5` stays partially open.
+- Next implementation phase is **D2 — single-instance/server/tray lifecycle** on a new stacked draft PR from PR #13. In-game OCR calibration remains a distinct feature/test track; do not require leaving matchmaking games to test.
+- External-code candidates: `docs/REUSE_CANDIDATES.md`. Verify exact license, copyright, transitive dependencies, and attribution before reuse; do not copy Mayhem Advisor proprietary material.
