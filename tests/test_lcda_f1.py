@@ -74,3 +74,16 @@ async def test_lcda_slow_does_not_block_other_tasks():
     finally:
         worker_release.set()
         await task
+
+def test_lcda_unexpected_failure_fails_closed(monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError("do not log secrets")
+    monkeypatch.setattr(lcda.SESSION, "get", fail)
+    result = lcda.get_raw_game_data()
+    assert result.status == "internal_error"
+    assert result.payload is None
+
+
+def test_lcda_non_object_json_fails_closed(monkeypatch):
+    monkeypatch.setattr(lcda.SESSION, "get", lambda *a, **kw: SimpleNamespace(status_code=200, json=lambda: [1, 2]))
+    assert lcda.get_raw_game_data().status == "bad_json"
