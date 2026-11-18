@@ -173,7 +173,73 @@ async def test_aud07_one_lcda_miss_must_not_end_existing_game():
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="AUD-03d: taking damage must not close the OCR offer eligibility window")
+async def test_a2_level_seven_offer_at_sixty_percent_hp_still_scans():
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(level=7, hp=0.60), make_snapshot(level=7, hp=0.45)],
+        ocr=True,
+    )
+    # A previous pick is already recorded; this is the newly due level-7 offer.
+    state.chosen_augments.append("previous-pick")
+    state.last_known_level = 6
+    checks = Mock(return_value=("unchanged", [], None))
+    deps.run_watcher_check = checks
+
+    await poll_tick(state, deps, 20.0)
+    assert state.scan_window_open
+    assert state.scan_window_level == 7
+    assert checks.call_count == 1
+
+    await poll_tick(state, deps, 22.0)
+    assert state.scan_window_open
+    assert checks.call_count == 2
+    assert state.chosen_augments == ["previous-pick"]
+    assert not state.awaiting_stat_delta
+    assert not any(event["type"] == "augment_confirm" for event in events)
+
+
+@pytest.mark.asyncio
+async def test_a2_damage_does_not_discard_detected_choices_or_request_confirmation():
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(), make_snapshot(hp=0.55)],
+        ocr=True,
+        watcher_result=("detected", ["left", "middle", "right"], [
+            {"id": "left", "name": "Left", "confidence": 0.9},
+            {"id": "middle", "name": "Middle", "confidence": 0.9},
+            {"id": "right", "name": "Right", "confidence": 0.9},
+        ]),
+    )
+    await poll_tick(state, deps, 30.0)
+    assert state.augment_choices == ["left", "middle", "right"]
+
+    deps.run_watcher_check = Mock(return_value=("unchanged", [], None))
+    await poll_tick(state, deps, 32.0)
+    assert state.scan_window_open
+    assert state.augment_choices == ["left", "middle", "right"]
+    assert state.chosen_augments == []
+    assert not any(event["type"] == "augment_confirm" for event in events)
+    deps.run_watcher_check.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_a2_ocr_disappearance_at_low_hp_keeps_existing_confirmation_path():
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(), make_snapshot(hp=0.40)],
+        ocr=True,
+    )
+    await poll_tick(state, deps, 40.0)
+    deps.run_watcher_check = Mock(return_value=("disappeared", [], None))
+    await poll_tick(state, deps, 42.0)
+    assert state.scan_window_open
+    assert state.awaiting_stat_delta
+    assert state.chosen_augments == []
+    assert not any(event["type"] == "augment_confirm" for event in events)
+    deps.run_watcher_check.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_aud03d_damage_must_not_close_ocr_window():
     state, deps, events = make_harness(
         [{"tick": 1}, {"tick": 2}],
