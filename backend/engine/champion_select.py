@@ -97,7 +97,7 @@ def summarize_champion_select(
             skipped_ids.append(numeric_id)
             continue
         score, notes = _fit_score(champ, teammates)
-        tier = "S" if score >= 80 else "A" if score >= 72 else "B" if score >= 64 else "C"
+        tier = "S" if score >= 75 else "A" if score >= 70 else "B" if score >= 65 else "C"
         candidates.append({
             "id": champ.id,
             "name": champ.name,
