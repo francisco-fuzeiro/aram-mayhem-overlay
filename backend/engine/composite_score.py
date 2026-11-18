@@ -74,8 +74,8 @@ def composite_rating(
     prior (50%) by sample size. Confidence shrinks the empirical signal;
     it does *not* award extra points to commonly played augments.
 
-    If there is no compatible evidence, exclude that component entirely and
-    renormalize the other weights: 35/60 synergy, 25/60 context.
+    With weak evidence, taper in the performance component gradually; with
+    no compatible evidence, use 35/60 synergy and 25/60 context only.
     Scores are ordinal estimates, not predicted probabilities.
     """
     if prior_games <= 0:
@@ -105,7 +105,12 @@ def composite_rating(
         confidence *= 0.5
         performance = 5.0 + (performance - 5.0) * 0.5
 
-    score = 0.40 * performance + 0.35 * synergy + 0.25 * context
+    # A single played game must not suddenly replace 40% of the heuristic
+    # with a neutral prior. Introduce performance weight gradually, based on
+    # evidence confidence, while preserving the target 40/35/25 blend at scale.
+    heuristic = (0.35 * synergy + 0.25 * context) / 0.60
+    empirical_weight = 0.40 * confidence
+    score = (1.0 - empirical_weight) * heuristic + empirical_weight * performance
     return CompositeRating(
         score=round(_clamp10(score), 1), confidence=round(confidence, 2),
         sample_size=evidence.games, performance=round(performance, 2),
