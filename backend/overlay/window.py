@@ -20,6 +20,7 @@ from __future__ import annotations
 import ctypes
 import sys
 import logging
+import webbrowser
 from urllib.parse import urlsplit, parse_qs
 
 logger = logging.getLogger("aram-oracle.overlay")
@@ -174,6 +175,9 @@ if PYQT_AVAILABLE:
             )
             self._tray.setToolTip("ARAM Oracle Overlay (Alt+H to show/hide)")
             menu = QMenu()
+            open_settings = menu.addAction("Open Settings")
+            open_settings.triggered.connect(self._open_settings)
+            menu.addSeparator()
             self._tray_toggle = menu.addAction("Hide overlay (Alt+H)")
             self._tray_toggle.triggered.connect(self._toggle_visibility)
             interaction = menu.addAction("Toggle interaction (Alt+O)")
@@ -184,6 +188,15 @@ if PYQT_AVAILABLE:
             self._tray.setContextMenu(menu)
             self._tray.activated.connect(self._on_tray_activated)
             self._tray.show()
+
+        def _open_settings(self):
+            """Open the local interactive Settings page in the default browser."""
+            url = "http://127.0.0.1:8765/settings"
+            try:
+                if not webbrowser.open(url, new=2):
+                    logger.warning("Could not open Settings automatically: %s", url)
+            except Exception:
+                logger.exception("Failed to open Settings in the default browser")
 
         def _on_tray_activated(self, reason):
             if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
