@@ -1,6 +1,8 @@
 # ARAM Oracle — Functional Code Audit Intake (2026-11-18)
 
-**Status:** User requested a Claude **code and functionality audit** before the next interface implementation. **No Claude audit has happened yet.** This is a factual playtest issue register and source-review handoff, not a completed diagnosis or a tested repair. The screenshots are in the user's Overlay LoL ChatGPT conversation; they have **not** been uploaded to the GitHub repository.
+**Update 2026-11-18:** the Claude audit is now delivered in [FUNCTIONAL_AUDIT_REPORT_2026-11-18.md](FUNCTIONAL_AUDIT_REPORT_2026-11-18.md); it used the app's own saved playtest frames from the user's local folder (not committed). No defect is fixed yet.
+
+**Original status:** User requested a Claude **code and functionality audit** before the next interface implementation. **No Claude audit has happened yet.** This is a factual playtest issue register and source-review handoff, not a completed diagnosis or a tested repair. The screenshots are in the user's Overlay LoL ChatGPT conversation; they have **not** been uploaded to the GitHub repository.
 
 **Baseline:** draft [D4b PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17), `feat/desktop-overlay-preview-apply-d4b`, targeting PR #16; `main` remains unchanged. D4b code/automated suite is implemented and the user gave **6/6 PASS** for its native Windows **Settings** controls and preview. Live League functionality remains **unaccepted**.
 
