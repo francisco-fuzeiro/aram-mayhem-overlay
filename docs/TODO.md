@@ -114,9 +114,11 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 ### D2 — Stable single instance and tray lifecycle
 
-- [ ] **PH-D2.1:** Reuse one ASGI server and one tray owner; prevent duplicate instances and conflicting port starts.
-- [ ] **PH-D2.2:** Implement reliable Open Settings, Show/Hide Overlay, Close/Minimize and Quit behavior without orphaned processes; test failures and recovery.
+- [x] **PH-D2.1:** Reuse one ASGI server and one tray owner; prevent duplicate instances and conflicting port starts.
+- [x] **PH-D2.2:** Implement reliable Open Settings, Show/Hide Overlay, Close/Minimize and Quit behavior without orphaned processes; test failures and recovery.
 - [ ] **PH-D2.3 (Windows):** Validate startup, repeat launch, taskbar/tray, close/reopen and keyboard shortcuts.
+
+**D2 automated implementation evidence (2026-11-18):** [draft PR #14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14), [Windows CI 44343412427](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44343412427) at D2 code head `d018f0d8`: **251 Python passed, 1 warning; 4 Node tests passed; JavaScript syntax checks passed**. New headless tests cover OS-held lock, local activation, duplicates, error/stop paths and Qt launcher contract; they do **not** prove real tray, focus, close/hide or no orphan processes on the user's Windows machine. Leave **PH-D2.3, UX-D04, UX-D09 and PH-D1.5 unchecked** until actual device evidence. The explicit legacy `--renderer webview` fallback is not part of the unified Qt tray lifecycle.
 
 ### D3 — Desktop Settings information architecture
 
