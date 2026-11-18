@@ -151,3 +151,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Transparency over Windows desktop/League and the Qt global Alt+O hotkey are **not yet verified in-game**. Only user-on-device visual feedback can confirm the compositor workaround.
 - Recommended user command after fetching PR #9 branch: `python -m pip install -e ".[overlay]"` then `python -m backend.overlay --renderer qt` (stop the old overlay first). Do not merge draft PRs into `main` yet.
 
+## 2026-11-18 — Windows desktop confirms Qt transparency fix
+
+- User executed `python -m backend.overlay --renderer qt` on Windows, from `D:\Overlay ARAM\aram-oracle`.
+- User screenshot confirms the previous large white rectangle is gone: unused Qt overlay area is transparent over the desktop; the "Waiting for game..." and header panels display legibly.
+- Startup logs confirm `Using PyQt6 transparent overlay (explicit renderer)`, `Overlay window started` and `Click-through enabled (HWND=...)`.
+- User's local test run: `pytest` **178 passed, 2 warnings**, confirming the current PR #9 test count. The warnings concern dependency deprecations, not test failures.
+- The Qt DPI-awareness warning appeared in the terminal, but the desktop renderer started and displayed as expected.
+- Verified scope: **Windows desktop transparency and startup click-through only**. Not yet confirmed: Qt overlay over League, actual key-toggle behavior, champion select / LCDA / OCR signals, builds and boot replacement in a match.
+- The CLI default `--renderer auto` still prefers pywebview. Run `--renderer qt` explicitly for the confirmed working desktop renderer; do not claim default changed.
+- Latest CI at the preceding documentation-only head `388fe862`: [Windows run 44320104470](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44320104470) **success**. Neither draft PR #9 nor prior PRs were merged to `main`.
+
