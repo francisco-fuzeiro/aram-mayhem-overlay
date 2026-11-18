@@ -103,6 +103,27 @@ def game_exists(game_id: str, db_path: Path | None = None) -> bool:
         return False
 
 
+def get_champion_record(
+    champion_id: str, db_path: Path | None = None,
+) -> tuple[int, int] | None:
+    """Return (wins, games) for the user's known, finished games on a champion.
+
+    No matches are fabricated. Games with unknown outcome are excluded.
+    """
+    try:
+        with _connect(db_path or DB_PATH) as con:
+            row = con.execute(
+                """SELECT COALESCE(SUM(CASE WHEN win = 1 THEN 1 ELSE 0 END), 0),
+                          COUNT(*)
+                   FROM games
+                   WHERE champion_id = ? AND win IN (0, 1)""",
+                (champion_id,),
+            ).fetchone()
+        return (int(row[0]), int(row[1])) if row and row[1] else None
+    except sqlite3.Error:
+        return None
+
+
 def get_personal_winrate(
     champion_id: str, augment_id: str, db_path: Path | None = None,
 ) -> tuple[int, int] | None:
