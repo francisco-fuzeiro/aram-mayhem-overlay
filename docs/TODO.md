@@ -135,8 +135,11 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 ### D4 — Overlay customization, split into two PRs
 
-- [ ] **PH-D4a.1:** Add validated, versioned local preferences/API for anchor, offsets, opacity and scale with safe defaults.
-- [ ] **PH-D4a.2:** Test invalid settings and migration/restart persistence without changing Qt renderer semantics.
+- [x] **PH-D4a.1:** Add validated, versioned local preferences/API for anchor, offsets, opacity and scale with safe defaults.
+- [x] **PH-D4a.2:** Test invalid settings and migration/restart persistence without changing Qt renderer semantics.
+
+**D4a code/test evidence (2026-11-18):** [draft PR #16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) introduces schema v1 overlay preferences, a strict FastAPI write route, legacy migration and restart persistence. Windows CI [44355601388](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44355601388) on D4a code head passed regression steps (**292 Python, 1 warning; 13 Node**); check the final docs-head run separately. The frontend helper is data-only; no preview or Qt application. D3 user-reported Windows acceptance is tracked separately and real in-game OCR remains open.
+
 - [ ] **PH-D4b.1:** Add safe preview in desktop Settings and controlled application of user preferences to Qt overlay.
 - [ ] **PH-D4b.2 (Windows):** Confirm 1080p/1440p scaling, positioning, click-through and no white background.
 

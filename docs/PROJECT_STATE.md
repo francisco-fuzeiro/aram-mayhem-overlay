@@ -39,8 +39,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13) | `feat/desktop-settings-shell` | PR #12 branch | D1 native normal PyQt6 Settings host, shared API readiness/conflict handling and headless regressions |
 | [#14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14) | `feat/desktop-single-instance-tray` | PR #13 branch | D2 exclusive process lock, repeat-launch IPC, single Qt tray owner and managed API shutdown (Windows acceptance pending) |
 | [#15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15) | `feat/desktop-settings-navigation` | PR #14 branch | D3 accessible seven-section Settings; reported Windows navigation acceptance recorded 2026-11-18; real in-game OCR remains pending |
+| [#16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) | `feat/desktop-overlay-preferences-d4a` | PR #15 branch | D4a versioned anchor/offset/opacity/scale preferences with validation, v0 migration and FastAPI persistence; D4b Qt apply/preview pending |
 
-**Active working head: `feat/desktop-settings-navigation` (draft PR #15)**, based on draft PR #14 (`feat/desktop-single-instance-tray`) and earlier drafts. No merge into `main`.
+**Active working head: `feat/desktop-overlay-preferences-d4a` (draft PR #16)**, based on D3 draft PR #15 (`feat/desktop-settings-navigation`). Earlier drafts remain stacked; no merge into `main`.
 
 ## Approved interface-design checkpoint — D5c (planned, 2026-11-18)
 
@@ -49,7 +50,16 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - **Out of scope:** claiming real augment or shop in-game panels are validated (D7/D8), rewriting OCR/scoring, duplicating the engine, or using protected competitor UI/assets. Maintain Riot/privacy safeguards. See `PH-D5c.1`–`PH-D5c.3` and `UX-D11` in `docs/TODO.md`, and gates in `docs/IMPLEMENTATION_PHASES.md`.
 - Existing order continues: **D3 -> D4a -> D4b -> D5a -> D5b -> D5c -> D6 context -> D7 augment -> D8 shop -> D9 Windows package -> D10 installer -> D11 release quality**. Each phase remains a small stacked draft PR when executed; `main` stays untouched.
 
-## Current work: PR #15 — D3 desktop Settings navigation (2026-11-18)
+## Current work: PR #16 — D4a overlay preferences model/API (2026-11-18)
+
+- [Draft PR #16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) targets `feat/desktop-settings-navigation` (draft PR #15). D3 Windows Settings acceptance was later **reported by the user** and recorded on the D3 base; D4a preserves that newer documentation. `main` is unchanged.
+- Existing `backend.preferences` now persists **schema v1** (`schema_version`, `build_style`, `overlay`), with anchor `top_left/top_right/bottom_left/bottom_right`, integer offsets from -500 to 500, opacity 0.40–1.0, scale 0.75–1.50, default top-right/24px/24px/0.92/1.0. Invalid disk values fall back independently; legacy `{ "build_style": "..." }` files migrate on the next write; future unknown versions are not overwritten. Writes remain atomic. No match state is stored.
+- The **same FastAPI server** exposes these settings in `GET /api/preferences` and provides strict full-object `PUT /api/preferences/overlay`, with 422 for unsafe writes, 409 for unknown persisted schema and 500 for disk failures. Existing build-style-only `PUT /api/preferences` and WebSocket updates remain compatible; independent style writes retain saved overlay choices. The server loads both settings at startup; game resets do not clear appearance.
+- `frontend/overlay-preferences.js` provides data-only client validation/migration for D4b; it is not wired to an in-game panel. D4a deliberately **does not** create a Settings preview, alter Qt geometry/opacity/scale, transparency, click-through, Alt+O/Alt+H, tray or single-instance behavior, change OCR/scoring, or add a service.
+- **Verified Windows code-head Actions:** [run 44355601388](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44355601388) at `8ef17b81`: **292 Python passed, 1 warning; 13 Node tests passed**; original JS syntax checks passed. A follow-up commit also checks the new JavaScript helper's syntax; verify final docs/merge head CI independently.
+- D3 accepted tasks `PH-D3.3`, `PH-D1.5` and `UX-D02` are based on user confirmation, not independent per-step logs. `UX-D09` multi-resolution/borderless League, three-card augment OCR and reroll detection remain pending. **Next phase D4b** preview and safe Qt application; no D4b actions have been implemented.
+
+## Previous work: PR #15 — D3 desktop Settings navigation (2026-11-18)
 
 - Draft [PR #15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15) targets `feat/desktop-single-instance-tray` (draft PR #14), preserving the latest D2 documentation commits. `main` is untouched.
 - `frontend/settings.html`, `settings.js` and `settings.css` now organize General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About. Keyboard/ARIA tabs use roving focus with arrows/Home/End; preference read/write and feedback have clear loading/saving/error states and explicit retry when the initial preference load fails.
