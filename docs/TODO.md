@@ -62,24 +62,47 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **A-FUNC.3 (acceptance):** Correct P0 faults and validate three real offered cards, reroll, meaningful/unknown scores and clean game exit on a permitted Windows custom match.
 - [ ] **A-FUNC.4 (UI gate):** Hold game-card-aligned in-game UI until the actual identity/score/offer lifecycle is reliable. Keep D5c **desktop Settings UX audit** a separate later phase.
 
-### A-FUNC audit findings — fix phases (proposed 2026-11-18, not approved, nothing implemented)
+### A-FUNC fix phases (proposed 2026-11-18, not approved, nothing implemented)
 
-> Source: [FUNCTIONAL_AUDIT_REPORT_2026-11-18.md](FUNCTIONAL_AUDIT_REPORT_2026-11-18.md). Each phase is a separate small draft PR stacked on #17. Check the code item only with tests; keep each Windows item unchecked until the user reports device evidence.
+> Plan: [FIX_IMPLEMENTATION_PLAN_2026-11-18.md](FIX_IMPLEMENTATION_PLAN_2026-11-18.md), which refines FX-0…FX-8 of the audit report. Order: M1 P0.x → M2 A/E → M3 F → M4 B → M5 C → M6 D → M7 V1 → M8 G. One phase = one small stacked draft PR. Check a code item only with tests; each milestone Windows gate stays unchecked until the user reports device evidence.
 
-- [ ] **FX-0 (enabler):** Poll-loop and `app.js` message test harnesses, redacted title-band OCR fixtures, structured per-tick logs. No behaviour change.
-- [ ] **FX-1 (P0, AUD-03a/03d):** Never infer an augment pick from stat change (level-ups and purchases currently auto-confirm, e.g. Donation at 0.998); remove the `health_pct < 0.98` scan-window close rule.
-- [ ] **FX-1 Windows:** Hold an offer across two level-ups and one purchase; progress stays 0/4, offer stays scored.
-- [ ] **FX-2 (P0, AUD-02a/AUD-09):** Capture only when the League game window is foreground, using its client rect; no OCR or screenshots otherwise; screenshots off by default.
-- [ ] **FX-2 Windows:** Alt-tab with an open offer; windowed and borderless at 1080p/1440p; no non-League frames saved.
-- [ ] **FX-3 (P0, AUD-02b/03b/03c):** Per-slot title-band OCR (`psm 7`), strict match or `unknown`, per-band hash change detection, retry until stable.
-- [ ] **FX-3 Windows:** 10 offers / 30 slots correct or `unknown`; every slot rerolled once; one slot rerolled twice in a row, all without Alt+O.
-- [ ] **FX-4 (P0, AUD-06/AUD-11):** Single `Offer` model with match id + generation, serial OCR, per-slot recommendations in slot order, one UI source of truth.
-- [ ] **FX-5 (P0, AUD-04/AUD-10):** `modelled` coverage flag, `null` score shown as "Not rated", reroll advice only for fully identified and modelled offers, word-boundary keyword parsing, Mayhem-only deduplicated catalog, no empty-cache poisoning.
-- [ ] **FX-5 Windows:** Real unmodelled offers show "Not rated" and no reroll banner.
-- [ ] **FX-6 (P0, AUD-01/05/07/12):** LCU gameflow + LCDA status machine, debounced game end, match identity, client clear/stale states, LCDA calls off the event loop, explicit `champion_unresolved` status. May reuse reviewed parts of the WIP branch.
-- [ ] **FX-6 Windows:** Custom Mayhem start leaves "Waiting" within two ticks of live data; game end clears header; second game shows no carry-over.
-- [ ] **FX-7 (P1, AUD-08/AUD-11):** Origin/Host allow-list and per-launch token for the local API and WebSocket; validate WS inputs.
-- [ ] **FX-8 (P1, AUD-13):** Calibrate the 0–10 model with curated Mayhem augment tags and visible provenance.
+- [ ] **P0.1:** Poll-loop test harness (no behaviour change)
+- [ ] **P0.2:** `app.js` message test harness
+- [ ] **P0.3:** Structured diagnostic log
+- [ ] **A1:** No pick from stat changes (AUD-03a)
+- [ ] **A2:** Scan window ignores health (AUD-03d)
+- [ ] **A3:** Confirm picks instead of guessing
+- [ ] **E1:** Word-boundary keyword parsing, Donation hint (AUD-04b/c)
+- [ ] **E2:** `modelled` coverage flag and provenance
+- [ ] **E3:** "Not rated" instead of 2.1; gated reroll advice
+- [ ] **F1:** LCDA off the event loop, classified results
+- [ ] **F2:** Explicit status machine with LCU gameflow
+- [ ] **F3:** Debounced game end and match identity
+- [ ] **F4:** Client clears or marks stale
+- [ ] **F5:** Broadcast outside the lock
+- [ ] **B1:** League window locator
+- [ ] **B2:** Capture only the focused League window
+- [ ] **B3:** Screenshot policy off by default
+- [ ] **P0.4:** Redacted OCR fixtures
+- [ ] **C1:** Card title geometry
+- [ ] **C2:** Strict per-card OCR
+- [ ] **C3:** Per-card change detection
+- [ ] **C4:** Offer present / gone
+- [ ] **D1:** Offer model and serial OCR
+- [ ] **D2:** Protocol v2 with generations and slot order
+- [ ] **D3:** Input validation
+- [ ] **V1:** A-FUNC.3 Windows acceptance (no code)
+- [ ] **G1:** Mayhem catalog source and gameMode spike
+- [ ] **G2:** Mayhem-only catalog, no empty-cache poisoning
+- [ ] **G3:** Game-mode gate
+- [ ] **G4:** Local API Origin/Host hardening
+- [ ] **G5:** Score calibration slices
+- [ ] **G6:** P2 clean-ups
+- [ ] **Windows gate M2:** offer held across level-ups/purchase stays 0/4; unknown cards show "Not rated", no false reroll advice.
+- [ ] **Windows gate M3:** custom start leaves "Waiting" quickly; brief live-data loss keeps picks; game end and second game are clean.
+- [ ] **Windows gate M4:** alt-tab with open offer → "not in focus", nothing saved; windowed and borderless.
+- [ ] **Windows gate M5:** 30 cards correct or `unknown`; every position rerolled, double reroll, no Alt+O.
+- [ ] **Windows gate M6:** rapid double reroll; scores always match the visible cards.
 
 **WIP safety:** `fix/postgame-stale-match-state` was created during this review with preliminary unverified state-cleanup code and one test file; this branch is **unmerged, not part of PR #17, not validated and not a resolved issue**. Do not promote it silently. **Audit result:** its new test fails (the poll loop skips ticks without a WebSocket client) and it resets all picks on the first LCDA miss; reuse only inside FX-6 with debounce and match identity.
 

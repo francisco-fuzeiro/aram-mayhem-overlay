@@ -380,3 +380,7 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Reproduced offline: real offers score 2.1/2.1/2.1 with reroll advice; 334/600 catalog entries score exactly 2.1 for Neeko; a simulated level-up auto-confirms Donation at 0.998; single-card rerolls change the whole-crop hash by 3–6 bits against a threshold of 30, while per-card title-band hashes separate them (0/65/0).
 - Not run: Tesseract OCR, League, LCDA/LCU, Qt, DPI or multi-monitor checks. All Windows acceptance items stay unchecked.
 - Next: user approval of the FX plan (recommended start FX-0 + FX-1), then small stacked draft PRs; D5a remains after the P0 fixes.
+
+## 2026-11-18 Europe/Lisbon — Proposed fine-grained fix implementation plan
+
+- Same branch `docs/a-func-audit-report`. Added `docs/FIX_IMPLEMENTATION_PLAN_2026-11-18.md`: 31 small phases in 8 milestones (M1 foundations, M2 stop false outputs, M3 lifecycle, M4 capture gate, M5 per-card OCR, M6 offer state, M7 Windows acceptance, M8 P1/P2), each with scope, size, tests and Windows gate, covering AUD-01…AUD-19. Replaced the FX list in `docs/TODO.md` with these phase IDs. Documentation only; plan **not approved**, nothing implemented, no tests run for this entry.
