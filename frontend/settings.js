@@ -69,7 +69,7 @@
         };
         const percentage = (key) => {
             const raw = String(overlayFields[key].value).trim();
-            if (!/^[0-9]+(\\.[0-9]+)?$/.test(raw))
+            if (!/^[0-9]+(\.[0-9]+)?$/.test(raw))
                 throw new Error(key + " must be a percentage.");
             return Number(raw) / 100;
         };
@@ -84,7 +84,9 @@
         // A fixed, labelled visual sample; never use game data or OCR status.
         const sample = $("overlay-preview-example");
         const width = 94 * prefs.scale, height = 74 * prefs.scale;
-        const maxX = 320 - width, maxY = 210 - height;
+        const viewport = $("overlay-preview");
+        const maxX = Math.max(0, (viewport.clientWidth || 320) - width);
+        const maxY = Math.max(0, (viewport.clientHeight || 210) - height);
         const clamp = (value, max) => Math.max(0, Math.min(max, value));
         const x = prefs.anchor.endsWith("left")
             ? 8 + prefs.offset_x * 0.12 : maxX - 8 - prefs.offset_x * 0.12;
