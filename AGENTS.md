@@ -6,8 +6,10 @@ Before changing code, read:
 
 1. `docs/PROJECT_STATE.md` — current architecture, branches, PR dependencies, validation status and open risks.
 2. `docs/TODO.md` — canonical product/UX backlog with task IDs, completion criteria, and evidence.
-3. `docs/DEVELOPMENT_LOG.md` — chronological work record.
-4. The product specification `funcionalidades.md` when provided in the ChatGPT Overlay LoL project; it is **not automatically assumed to exist in this Git repository**.
+3. `docs/IMPLEMENTATION_PHASES.md` and `docs/DESKTOP_ARCHITECTURE.md` — small-phase plan and approved desktop/overlay architecture.
+4. `docs/DEVELOPMENT_LOG.md` — chronological work record.
+5. `.agents/skills/continue-aram-oracle/SKILL.md` — cross-chat project continuity procedure.
+6. The product specification `funcionalidades.md` when provided in the ChatGPT Overlay LoL project; it is **not automatically assumed to exist in this Git repository**.
 
 Work from the current feature branch and inspect open stacked draft PRs before merges. Protect `main`. Confirm live GitHub Actions results rather than trusting old documentation.
 

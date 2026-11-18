@@ -91,6 +91,64 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 **Delivery order:** finish current PR #12 Windows checks and P0 augment detection first; then implement the native desktop window and settings structure; package the installer once app start/stop, OCR and contextual overlay are reliable. Do not treat a pretty installer as evidence that live recommendations work.
 
+## Small desktop development phases — implementation checklist
+
+> Authoritative phase scope and gates: [`docs/IMPLEMENTATION_PHASES.md`](IMPLEMENTATION_PHASES.md). Architectural contract: [`docs/DESKTOP_ARCHITECTURE.md`](DESKTOP_ARCHITECTURE.md). These checkboxes represent **new development work**, not completed work.
+
+### G0 — Baseline (verification only)
+
+- [ ] **PH-G0.1:** Reconfirm current draft PR #12 head, its PR #11 base, unchanged main, and the latest Windows Actions results immediately before starting development.
+- [ ] **PH-G0.2:** Inspect the actual launcher/Qt/API source and record any blockers for a separate normal desktop window; preserve the tested Qt renderer as the baseline.
+
+### D1 — First implementation phase: native Settings shell
+
+- [ ] **PH-D1.1:** Add `backend/desktop` normal Qt window hosting the existing `/settings` page (no transparency, topmost or click-through).
+- [ ] **PH-D1.2:** Add `python -m backend.desktop` dev entrypoint and clear error handling for missing Qt, unavailable API or unexpected port conflict; use **one** local backend.
+- [ ] **PH-D1.3:** Add automated tests for launch/URL/readiness and legacy `python -m backend.overlay --renderer qt` compatibility; keep Alt+O / Alt+H unchanged.
+- [ ] **PH-D1.4:** Create a draft PR stacked on `feat/pregame-settings-feedback`, verify its Windows CI at final code head and update TODO/state/log.
+- [ ] **PH-D1.5 (Windows):** Confirm actual standard Qt Settings window (focus, resize, preferences, feedback) and old transparent overlay behavior. **Never check from CI alone.**
+
+### D2 — Stable single instance and tray lifecycle
+
+- [ ] **PH-D2.1:** Reuse one ASGI server and one tray owner; prevent duplicate instances and conflicting port starts.
+- [ ] **PH-D2.2:** Implement reliable Open Settings, Show/Hide Overlay, Close/Minimize and Quit behavior without orphaned processes; test failures and recovery.
+- [ ] **PH-D2.3 (Windows):** Validate startup, repeat launch, taskbar/tray, close/reopen and keyboard shortcuts.
+
+### D3 — Desktop Settings information architecture
+
+- [ ] **PH-D3.1:** Group General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About as focused navigable areas using current Settings implementation.
+- [ ] **PH-D3.2:** Add keyboard/ARIA navigation and clear loading/save/error feedback; do not expose inaccessible features as functional.
+- [ ] **PH-D3.3:** Run UI interaction tests and validate real Windows navigation/resize.
+
+### D4 — Overlay customization, split into two PRs
+
+- [ ] **PH-D4a.1:** Add validated, versioned local preferences/API for anchor, offsets, opacity and scale with safe defaults.
+- [ ] **PH-D4a.2:** Test invalid settings and migration/restart persistence without changing Qt renderer semantics.
+- [ ] **PH-D4b.1:** Add safe preview in desktop Settings and controlled application of user preferences to Qt overlay.
+- [ ] **PH-D4b.2 (Windows):** Confirm 1080p/1440p scaling, positioning, click-through and no white background.
+
+### D5 — OCR diagnostics and onboarding
+
+- [ ] **PH-D5a.1:** Detect Tesseract availability/path and show helpful first-run status; no silent installation.
+- [ ] **PH-D5b.1:** Add a user-triggered OCR diagnostic/preview with confidence and safe manual fallback.
+- [ ] **PH-D5b.2 (Windows):** Confirm three real Mayhem cards and rerolls at the actual user's HUD scaling.
+
+### D6–D8 — Contextual overlay engine (separate small PRs)
+
+- [ ] **PH-D6.1:** Build tested deterministic/permission-aware overlay context controller, debouncing and stale-state handling; unknown shop must not be inferred from death/gold.
+- [ ] **PH-D6.2:** Default to hidden during combat/loading and ensure augment > verified shop > optional scoreboard priority.
+- [ ] **PH-D7.1:** Show concise score/reason for each of three **confirmed** augment cards, including rerolls; hide when selection vanishes.
+- [ ] **PH-D7.2 (Windows):** Validate alignment, calibration and failure fallback in an actual match.
+- [ ] **PH-D8.1:** Verify legitimate shop-open signal and Mayhem purchasability before presenting one next item/alternative.
+- [ ] **PH-D8.2 (Windows):** Confirm recommendations appear only with shop open and do not suggest impossible/duplicate items.
+
+### D9–D11 — Packaging and release (not in first PR)
+
+- [ ] **PH-D9.1:** Produce local onedir executable, package Qt WebEngine/frontend/data and verify clean Windows launch without Python.
+- [ ] **PH-D10.1:** Create installer/uninstaller with Start menu shortcut, optional desktop shortcut, error/rollback and user-data retention choice.
+- [ ] **PH-D11.1:** Audit privacy, optional bug-report upload consent, third-party license notices, Riot compliance and release readiness.
+- [ ] **PH-D11.2:** Investigate signing/SmartScreen and opt-in safe updates only after a tested installer.
+
 ## Completed implementation milestones (Windows in-game validation may still be open above)
 
 - [x] ~~**UX-C01 — Baseline transparent Qt renderer.**~~ User confirmed the white desktop rectangle disappeared with `--renderer qt`; PR #9 Windows CI passed. **Real LoL overlay still open:** UX-110.

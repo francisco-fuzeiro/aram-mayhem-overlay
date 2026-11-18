@@ -235,3 +235,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Architecture direction: keep the existing Python/FastAPI engine and two purposeful Qt surfaces (standard desktop window + transparent click-through overlay). Preserve Riot/licensing guardrails; no OP.GG source/assets are reused.
 - Documentation-only change; installer and desktop shell **not implemented**. Do not mark these tasks complete. Source code tests for this change **not run locally**; verify Actions at the updated branch head.
 - PR #12 remains draft targeting PR #11; `main` unchanged.
+
+## 2026-11-18 Europe/Lisbon — Approved desktop architecture, granular phases and continuity skill
+
+- The user approved an intuitive Windows installer, a dedicated desktop Settings/control app and a separate contextual Qt game overlay inspired by the usability of OP.GG (not its source/assets).
+- Added `docs/DESKTOP_ARCHITECTURE.md`: single existing FastAPI/scoring/OCR engine, normal focusable Qt Settings window and separate transparent click-through Qt overlay, configuration/data ownership and safeguards, pending installer/lifecycle gates.
+- Added `docs/IMPLEMENTATION_PHASES.md`: baseline G0, first small implementation D1 desktop Settings shell, separate D2 lifecycle, D3 navigation, D4 preferences/preview, D5 OCR, D6–D8 contextual overlay, and D9–D11 packaging/release. Each phase has a narrow scope, acceptance gates and dependencies.
+- Added `PH-G0.*` and `PH-D1.*` through `PH-D11.*` unchecked task items to `docs/TODO.md`, preserving existing UX-D tasks and completed milestones.
+- Added repository-local skill `.agents/skills/continue-aram-oracle/SKILL.md` and `docs/CONTINUE_PROJECT.md` prompt to restart development from GitHub in another ChatGPT project conversation; documented that repository skill is not an automatically installed ChatGPT skill.
+- Updated `AGENTS.md` and `docs/PROJECT_STATE.md` to require reading these plans in future sessions.
+- This is a **documentation/plan-only** change: no application code implemented, no Windows device tests performed, and no local Python/JS suite run. The prior PR #12 head `b09f736b` passed Windows CI run `44333213842`; verify Actions at the **new documentation head** separately.
+- Remain on draft PR #12 (`feat/pregame-settings-feedback` targeting PR #11), never merge to `main` without user approval. Next development action is **D1** in a new stacked draft feature branch.

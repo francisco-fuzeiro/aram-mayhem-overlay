@@ -162,6 +162,15 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Third-party datasets (e.g. AramHex CC BY-NC 4.0) have **separate licenses**; do not import without validating provenance and permitted use.
 - User reports separately researching Riot's third-party policy. Avoid definitive claims that converting augment win rates into a 0–10 number makes live recommendations permissible. **Do not expose raw augment win rates**; keep empirically derived augment scoring behind `experimental_augment_evidence=False` until resolved. Use player-visible permitted interfaces; no hidden information, memory injection, or automatic augment/item selection.
 
+## Approved desktop application architecture and delivery phases
+
+- **Approved architectural direction:** Python/FastAPI remains the sole engine, with a normal PyQt6 desktop Settings window and a separate transparent, click-through Qt game overlay; both communicate through the existing local HTTP/WebSocket API.
+- Full component boundaries, state-driven presentation, lifecycle, preference/diagnostics handling and future packaging decisions: [`docs/DESKTOP_ARCHITECTURE.md`](DESKTOP_ARCHITECTURE.md).
+- Small, gated implementation plan and acceptance tests: [`docs/IMPLEMENTATION_PHASES.md`](IMPLEMENTATION_PHASES.md); task checkboxes `PH-G0.*` and `PH-D1.*` through `PH-D11.*` in [`docs/TODO.md`](TODO.md).
+- First development phase after baseline verification: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Next draft branch proposed `feat/desktop-settings-shell` stacked on PR #12, *not main*.
+- Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
+- **Current implementation remains unchanged:** existing Qt renderer, Alt+H/Alt+O, browser Settings and PR #12 are not replaced by this documentation update.
+
 ## Desktop packaging direction (planned, not implemented)
 
 - The user wants an intuitive Windows installer, a full desktop Settings/control app and a contextual in-game overlay similar in usability (not appearance/assets) to OP.GG.
