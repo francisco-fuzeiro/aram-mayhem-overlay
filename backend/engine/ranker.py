@@ -1,16 +1,17 @@
+"""Augment ranking in a comparable 0.0–10.0 experimental score range."""
 import logging
 
-import numpy as np
 from backend.models import (
-    ChampionMeta, AugmentData, ItemData,
-    AugmentRecommendation,
+    ChampionMeta, AugmentData, ItemData, AugmentRecommendation,
 )
-from backend.engine.scoring import score_augment, score_item, stat_vec
+from backend.engine.augment_rating import rate_augment
+from backend.engine.scoring import score_item
 from backend.engine.label import derive_label, derive_explanation
 
 logger = logging.getLogger("aram-oracle.engine.ranker")
 
-REROLL_THRESHOLD = 0.5
+# Provisional heuristic reroll threshold; validate against offline match samples.
+REROLL_THRESHOLD = 4.0
 
 
 def rank_augments(
@@ -20,22 +21,20 @@ def rank_augments(
     all_items: list[ItemData],
     personal_winrates: dict[str, tuple[int, int]] | None = None,
     enemies: list[ChampionMeta] | None = None,
+    use_personal_performance: bool = False,
 ) -> list[AugmentRecommendation]:
-    """
-    Rank augment choices. Returns list sorted best->worst.
-    personal_winrates: {augment_id: (wins, games)} -- applied only if games >= 5
+    """Rank cards by composite score, independent of offer-best normalization.
+
+    Match evidence requires an explicit opt-in and at least 5 local matches.
+    Score is not a win rate or a prediction of winning.
     """
     results = []
     for aug in choices:
-        score = score_augment(champion, aug, existing, enemies=enemies)
-
-        if personal_winrates and aug.id in personal_winrates:
-            wins, games = personal_winrates[aug.id]
-            if games >= 5:
-                wr_delta = (wins / games) - 0.5
-                score += wr_delta * 0.2
-                logger.debug("Winrate delta %+.3f for %s (%d/%d)", wr_delta * 0.2, aug.name, wins, games)
-
+        record = personal_winrates.get(aug.id) if personal_winrates else None
+        rating = rate_augment(
+            champion, aug, existing, enemies=enemies,
+            personal_record=record, allow_empirical=use_personal_performance,
+        )
         label = derive_label(champion, aug)
         explanation = derive_explanation(champion, aug)
         core_items = _suggest_core_items(champion, aug, existing, all_items)
@@ -43,13 +42,16 @@ def rank_augments(
         results.append(AugmentRecommendation(
             augment_id=aug.id,
             augment_name=aug.name,
-            score=score,
+            score=rating.score,
             label=label,
             core_items=core_items,
             explanation=explanation,
+            confidence=rating.confidence,
+            sample_size=rating.sample_size,
+            components=rating.as_dict()["components"],
         ))
 
-    return sorted(results, key=lambda r: r.score, reverse=True)
+    return sorted(results, key=lambda r: (-r.score, r.augment_name))
 
 
 def should_reroll(
@@ -57,29 +59,16 @@ def should_reroll(
     champion: ChampionMeta,
     existing: list[AugmentData],
 ) -> tuple[bool, str]:
-    """Returns (suggest_reroll, reason_string)."""
+    """Simple absolute-fit warning; does not estimate unseen reroll outcomes."""
     if not recommendations:
         return False, ""
-
-    best_score = recommendations[0].score
-
-    # Champion ceiling = score of a perfect-fit hypothetical augment
-    # approximated as the sum of the champion's top 3 stat weights
-    champ_arr = stat_vec(champion.stats)
-    ceiling = float(np.sort(champ_arr)[-3:].sum())
-
-    if ceiling == 0:
-        return False, ""
-
-    ratio = best_score / ceiling
-
-    if ratio < REROLL_THRESHOLD:
-        label = recommendations[0].label
-        logger.debug("Reroll suggested: best=%.3f ceiling=%.3f ratio=%.2f", best_score, ceiling, ratio)
+    best = recommendations[0]
+    if best.score < REROLL_THRESHOLD:
+        logger.debug("Weak augment offer: highest composite score %.1f/10", best.score)
         return (
             True,
-            f"Best option ({label[0]} · {label[1]}) scores {ratio:.0%} of your "
-            f"ceiling. Consider rerolling for a better fit.",
+            f"Best available option scores {best.score:.1f}/10 in the "
+            "experimental model. Consider rerolling.",
         )
     return False, ""
 

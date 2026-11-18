@@ -70,7 +70,7 @@ def test_personal_winrate_applied_when_enough_games():
 
     # aug_b has 80% winrate over 10 games
     winrates = {"b": (8, 10)}
-    recs = rank_augments(lux, [aug_a, aug_b], [], items, personal_winrates=winrates)
+    recs = rank_augments(lux, [aug_a, aug_b], [], items, personal_winrates=winrates, use_personal_performance=True)
 
     # aug_b should be ranked higher due to winrate bonus
     assert recs[0].augment_id == "b"
@@ -84,7 +84,7 @@ def test_personal_winrate_not_applied_when_few_games():
 
     # aug_b has data but only 3 games (below threshold of 5)
     winrates = {"b": (3, 3)}
-    recs = rank_augments(lux, [aug_a, aug_b], [], items, personal_winrates=winrates)
+    recs = rank_augments(lux, [aug_a, aug_b], [], items, personal_winrates=winrates, use_personal_performance=True)
 
     # Both should have equal scores (winrate not applied)
     assert abs(recs[0].score - recs[1].score) < 0.01

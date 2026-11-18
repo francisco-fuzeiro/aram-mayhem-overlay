@@ -433,13 +433,13 @@
                 <div class="aug-row">
                     <span class="aug-rank">${rankText}</span>
                     <span class="aug-name">${esc(rec.augment_name)}</span>
-                    <span class="aug-score">${rec.score.toFixed(3)}</span>
+                    <span class="aug-score">${Number(rec.score).toFixed(1)}/10</span>
                 </div>
                 <div class="aug-details">
                     <span class="aug-label">${esc(labelStr)}</span>
                     <span class="aug-items">${esc(itemsStr)}</span>
                 </div>
-                <div class="aug-explain">${esc(rec.explanation)}</div>
+                <div class="aug-explain">${esc(rec.explanation)}${rec.sample_size ? " · Personal sample: " + rec.sample_size + " games" : ""}</div>
                 <button class="btn-choose" data-augment-id="${esc(rec.augment_id)}">Choose this</button>
             `;
 

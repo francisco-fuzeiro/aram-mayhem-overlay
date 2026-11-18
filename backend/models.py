@@ -126,6 +126,9 @@ class AugmentRecommendation:
     label: tuple[str, str]       # ("Magic", "Burst")
     core_items: list[str]        # item IDs, ordered
     explanation: str
+    confidence: float = 0.0
+    sample_size: int = 0
+    components: dict[str, float | None] = field(default_factory=dict)
 
 
 @dataclass

@@ -117,6 +117,26 @@ until the complete experience is registered/reviewed through the Riot Developer
 Portal. This screen shows several explained alternatives rather than
 automatically choosing a champion.
 
+## Experimental augment score (0.0–10.0)
+
+The augment panel now uses an **absolute 0.0–10.0 composite rating**:
+- Champion-kit and already selected augment fit, using the existing
+  ARAM Oracle scoring engine.
+- Enemy composition from the Live Client Data API, where available.
+- An optional *personal* match-history component, confidence-shrunk by
+  sample size (minimum 5 games). Missing performance evidence is excluded.
+
+The scoring engine uses a bounded nonlinear normalization of its heuristic
+output, **not a transformation of win rate into a 0–10 number**.
+A very weak offer does not automatically receive 10/10 because it is the
+best of three. Rerolls use a provisional absolute-fit threshold; this is
+not a mathematical estimate of future reroll outcomes.
+
+The feature flag `experimental_augment_evidence` is **false by default**.
+Only enable it after the app's live recommendation behavior has been reviewed
+against Riot's current requirements. This private prototype is not a claim
+of Riot approval, and it does not show raw augment win rates.
+
 ## Architecture
 
 ```

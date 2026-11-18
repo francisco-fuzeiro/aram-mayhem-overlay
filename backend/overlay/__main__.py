@@ -92,6 +92,8 @@ def _wait_for_server(timeout: float = 15.0) -> bool:
 
 
 def main():
+    from backend.config import config
+    config.load()
     logger.info("Starting ARAM Oracle with overlay...")
 
     # Start the web server in a daemon thread
