@@ -133,6 +133,8 @@ async def test_runtime_pipeline_uses_updated_style_on_next_poll(monkeypatch):
         server, "parse_game_snapshot",
         lambda _raw, _phase: GameSnapshot(
             game_id="fixture", phase=GamePhase.IN_GAME, champion_id="jinx",
+            augment_choices=[], chosen_augments=[], purchased_items=[],
+            current_gold=0, game_time=0.0, enemy_champion_ids=[],
         ),
     )
     monkeypatch.setattr(
