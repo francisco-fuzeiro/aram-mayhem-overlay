@@ -3,6 +3,13 @@ name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
 
+## Most recent work anchor — M3/F1 (2026-11-18)
+
+- E3 final PR #28 HEAD `659b20edb8b9457e631a5f375aa2b93563ef5f3d` green [Actions 44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780).
+- M3/F1 active branch `fix/m3-f1-lcda-nonblocking-status` with [draft PR #33](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/33) based on E3. Tests-first `a1b5ddb3`, LCDA status classification / to_thread / sanitized diagnostic changes through `f4eb5ebd`. **This is not marked CI-complete.** Verify final docs-head workflow and fix failures before branching M3/F2.
+- F2–F5 are still unstarted. Retain an AUD-07 strict xfail until F3 proves recovery, and never equate CI to native Windows/League acceptance. Preserve G1/G2, G4, Riot/licensing and safety flags.
+
+
 # Continue ARAM Oracle
 
 Use this repository-local skill when the user asks to continue work on the private League of Legends ARAM Mayhem companion from another ChatGPT conversation. **This file is a reusable repository instruction, not an automatically installed ChatGPT plugin/skill.** The next chat must explicitly fetch/read it from GitHub, along with the current repository files.
