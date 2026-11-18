@@ -1,6 +1,6 @@
 # ARAM Oracle — Desktop and Contextual Overlay Architecture
 
-Status: **approved architecture; D1 Settings shell in draft PR #13 and D2 unified lifecycle in draft PR #14; real D2 Windows acceptance pending**. Baseline: 2026-11-18, stacked drafts #14 -> #13 -> #12 -> #11. This document records the architecture decision and implementation boundaries; see [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md) for small delivery slices and [TODO.md](TODO.md) for live task status.
+Status: **approved architecture; D1 Settings shell in draft PR #13 and D2 unified lifecycle in draft PR #14; D2 Windows lifecycle/tray acceptance confirmed; D1 preference/feedback and gameplay checks remain open**. Baseline: 2026-11-18, stacked drafts #14 -> #13 -> #12 -> #11. This document records the architecture decision and implementation boundaries; see [IMPLEMENTATION_PHASES.md](IMPLEMENTATION_PHASES.md) for small delivery slices and [TODO.md](TODO.md) for live task status.
 
 ## Design principles
 
@@ -36,7 +36,7 @@ preferences   collectors/OCR     scoring/pipeline
 disk + API    (permitted input)   + diagnostics
 ```
 
-D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one per-user OS lock and authenticated loopback activation to arbitrate both Qt launch commands, one Qt application/tray owner and one managed ASGI server thread (or a reused compatible external API). One process owns both Settings and overlay Qt windows; no new scoring/preference engine was introduced. Explicit non-Qt webview remains a legacy developer fallback outside this managed Qt lifecycle. Windows tray and stop/restart behavior still need user acceptance. Treat `localhost` web routes as local UI, but keep authorization, validation and privacy boundaries explicit before public distribution.
+D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one per-user OS lock and authenticated loopback activation to arbitrate both Qt launch commands, one Qt application/tray owner and one managed ASGI server thread (or a reused compatible external API). One process owns both Settings and overlay Qt windows; no new scoring/preference engine was introduced. Explicit non-Qt webview remains a legacy developer fallback outside this managed Qt lifecycle. The user confirmed Settings close-to-tray, tray actions, Alt+H/Alt+O and an empty 8765 listener check after Quit; broader Windows/League validation remains open. Treat `localhost` web routes as local UI, but keep authorization, validation and privacy boundaries explicit before public distribution.
 
 ## Components and ownership
 
@@ -66,8 +66,17 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - Desktop Settings: regular taskbar window, keyboard/mouse interaction, resizable, no transparent fullscreen region.
 - In-game overlay: separate window with transparent idle space, click-through by default, Alt+O interaction toggle, Alt+H show/hide and tray recovery preserved.
 - **Single instance** is implemented for managed Qt entrypoints through an OS-held lock. Repeated launches forward Settings or overlay requests through a per-user authenticated loopback channel. The managed app owns one tray icon, and only stops an ASGI server that it started. Unrelated occupants of port 8765 are rejected. Legacy explicit non-Qt webview is not managed by this gate.
-- D2 code closes Settings to tray when tray is present; without a tray, closing Settings quits rather than stranding a process. The tray's Quit stops polling, exits the Qt event loop and requests the owned uvicorn server to stop. Real on-device confirmation is still required.
+- D2 code closes Settings to tray when tray is present; without a tray, closing Settings quits rather than stranding a process. The tray's Quit stops polling, exits the Qt event loop and requests the owned uvicorn server to stop. User-device validation confirms the expected controls and no port 8765 listener after Quit; this is not a full process audit.
 - Use the existing browser `/settings` fallback until the native desktop shell is verified on the user's Windows machine.
+
+## Desktop UI design-closure gate (D5c, before D6)
+
+The desktop interface is built progressively in D3 (navigation), D4a/D4b (validated overlay preferences and safe preview) and D5a/D5b (OCR readiness, test and diagnostics). **D5c is a new planned Claude-led UX/UI audit and bounded design refinement phase** after these capabilities exist, before D6 gameplay context logic.
+
+- Review the actual runnable desktop Settings experience across General, Overlay, Build Preferences, OCR, Diagnostics, Feedback and About, including loading, missing-data, save/error and keyboard states. Use real screenshots and safe mock data, not invented success screens or private League data.
+- Save the actual Claude audit/report with ranked P0/P1/P2 issues and reproducible evidence. Claude analysis is **not yet performed**; no audit is implied merely by this plan.
+- Fix bounded P0/P1 usability/visual/accessibility issues; keep UX hierarchy, consistent forms and truthful system states. Preserve single-instance/tray, existing APIs, click-through, transparency and Alt+H/Alt+O. Separate deferred design wishes into TODO.
+- Gate the design pass on automated interaction tests and observed Windows navigation/scaling/recovery. **This closes the desktop design system only**, not the future D7 augment panel or D8 shop panel, which need contextual in-game audit at implementation time.
 
 ## Distribution architecture (later phases only)
 
