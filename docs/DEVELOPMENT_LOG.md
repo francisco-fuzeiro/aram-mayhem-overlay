@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-18 — M3/F1 automated code gate green
+
+- Initial tests-only [Actions 44418721047](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418721047) failed with 9 new assertions as intended. First implementation [Actions 44418797816](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44418797816) had 362 passed / 1 failed legacy diagnostic assertion / 1 xfailed; corrected the legacy assertion in `tests/test_structured_events_m1.py` at `5489f056`.
+- [Code-head Actions 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545) succeeded: **363 Python passed, 1 AUD-07 xfailed, 28 JS passed, 4 TODO**. No native Windows/League playtest. Documentation-head CI still pending.
+
+
 ## 2026-11-18 — M3/F1 LCDA nonblocking work in progress
 
 - Verified E3 draft PR #28 exact HEAD `659b20edb8b9457e631a5f375aa2b93563ef5f3d` and successful final-head Actions [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780).
