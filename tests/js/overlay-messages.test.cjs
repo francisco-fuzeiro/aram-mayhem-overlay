@@ -170,3 +170,29 @@ test("AUD-06 new champion must invalidate previous augment confirmation UI", {
     h.api.handleMessage(gameUpdate("Jinx"));
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
 });
+
+
+test("M2/A3 confirmation stays deferred and does not expand gameplay panels", () => {
+    const h = harness();
+    h.element("section-augments").classList.add("collapsed");
+    h.api.handleMessage({
+        type: "augment_confirm",
+        candidates: [{id: "one", name: "Observed", tier: 2}],
+        best_guess_id: null,
+    });
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), false);
+    assert.match(h.element("augment-confirm").children[0].textContent, /when safe/i);
+    assert.equal(h.element("augment-confirm").children.length, 2);
+});
+
+test("M2/A3 missing OCR candidates show an honest manual fallback", () => {
+    const h = harness();
+    h.element("section-augments").classList.add("collapsed");
+    h.api.handleMessage({
+        type: "augment_confirm", candidates: [], best_guess_id: null,
+    });
+    const panel = h.element("augment-confirm");
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.match(panel.children[1].textContent, /No reliable card names/i);
+});
