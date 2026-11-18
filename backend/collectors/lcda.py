@@ -95,9 +95,16 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
     game_data = raw.get("gameData", {})
 
     active_name = active.get("summonerName", "")
-    active_player = next(
-        (p for p in all_players if p.get("summonerName") == active_name), {}
-    )
+    active_riot_id = active.get("riotId")
+    active_player = {}
+    if isinstance(active_riot_id, str) and active_riot_id:
+        active_player = next(
+            (p for p in all_players if p.get("riotId") == active_riot_id), {}
+        )
+    if not active_player and active_name:
+        active_player = next(
+            (p for p in all_players if p.get("summonerName") == active_name), {}
+        )
 
     items = [
         str(item["itemID"]) for item in active_player.get("items", [])
