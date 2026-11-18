@@ -39,9 +39,10 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13) | `feat/desktop-settings-shell` | PR #12 branch | D1 native normal PyQt6 Settings host, shared API readiness/conflict handling and headless regressions |
 | [#14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14) | `feat/desktop-single-instance-tray` | PR #13 branch | D2 exclusive process lock, repeat-launch IPC, single Qt tray owner and managed API shutdown (Windows acceptance pending) |
 | [#15](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/15) | `feat/desktop-settings-navigation` | PR #14 branch | D3 accessible seven-section Settings; reported Windows navigation acceptance recorded 2026-11-18; real in-game OCR remains pending |
-| [#16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) | `feat/desktop-overlay-preferences-d4a` | PR #15 branch | D4a versioned anchor/offset/opacity/scale preferences with validation, v0 migration and FastAPI persistence; D4b Qt apply/preview pending |
+| [#16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) | `feat/desktop-overlay-preferences-d4a` | PR #15 branch | D4a versioned anchor/offset/opacity/scale preferences with validation, v0 migration and FastAPI persistence |
+| [#17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17) | `feat/desktop-overlay-preview-apply-d4b` | PR #16 branch | D4b Settings appearance controls, labelled simulated preview, Qt geometry/opacity/zoom apply and headless tests; Windows GUI acceptance pending |
 
-**Active working head: `feat/desktop-overlay-preferences-d4a` (draft PR #16)**, based on D3 draft PR #15 (`feat/desktop-settings-navigation`). Earlier drafts remain stacked; no merge into `main`.
+**Active working head: `feat/desktop-overlay-preview-apply-d4b` (draft PR #17)**, based on D4a draft PR #16 (`feat/desktop-overlay-preferences-d4a`). Earlier drafts remain stacked; no merge into `main`.
 
 ## Approved interface-design checkpoint — D5c (planned, 2026-11-18)
 
@@ -50,14 +51,22 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - **Out of scope:** claiming real augment or shop in-game panels are validated (D7/D8), rewriting OCR/scoring, duplicating the engine, or using protected competitor UI/assets. Maintain Riot/privacy safeguards. See `PH-D5c.1`–`PH-D5c.3` and `UX-D11` in `docs/TODO.md`, and gates in `docs/IMPLEMENTATION_PHASES.md`.
 - Existing order continues: **D3 -> D4a -> D4b -> D5a -> D5b -> D5c -> D6 context -> D7 augment -> D8 shop -> D9 Windows package -> D10 installer -> D11 release quality**. Each phase remains a small stacked draft PR when executed; `main` stays untouched.
 
-## Current work: PR #16 — D4a overlay preferences model/API (2026-11-18)
+## Current work: PR #17 — D4b desktop preview and Qt apply (2026-11-18)
+
+- [Draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17) targets `feat/desktop-overlay-preferences-d4a` (draft PR #16), not `main`. D4a final [Windows Actions 44356926105](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44356926105) passed at `0bc9535a`: 292 Python and 13 JavaScript tests, with syntax checks.
+- The desktop Overlay section now offers four anchors, signed integer offsets, opacity and scale. It consumes the existing D4a `frontend/overlay-preferences.js` validation/migration helper, GET/PUT v1 preferences routes and persisted JSON; the preview is explicitly simulated and updates from unsaved drafts, while the real Qt window changes only after saving.
+- `backend.overlay.layout.calculate_overlay_geometry` is pure/testable, clamps size/coordinates to the selected monitor's available logical Qt geometry, including negative desktop origins. The existing transparent Qt window loads saved values, checks the atomic preferences file every 800 ms, applies Qt WebEngine zoom and window opacity, and reacts to display geometry, DPI, screen changes and resizing. Existing Win32 click-through/Alt+O and Alt+H paths remain; no OCR/scoring, packaging or API service work.
+- Headless Python geometry/Qt contract tests and JavaScript form, validation, save/retry and simulated-preview tests added. **Initial PR #17 Actions run 44360223711 was in progress at this handoff update; verify the final head before reporting results.** Real 1080p/1440p/100%/125%/150%, multi-monitor, no-white-background, Alt+Tab and League borderless tests have **not** been observed; keep `PH-D4b.2` and `UX-D09` open.
+- Next phase after CI and on-device review: **D5a OCR executable/path readiness guidance**, not live three-card recognition (D5b) or D6 context management. D5c Claude UI audit remains after D5b, before D6.
+
+## Previous work: PR #16 — D4a overlay preferences model/API (2026-11-18)
 
 - [Draft PR #16](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/16) targets `feat/desktop-settings-navigation` (draft PR #15). D3 Windows Settings acceptance was later **reported by the user** and recorded on the D3 base; D4a preserves that newer documentation. `main` is unchanged.
 - Existing `backend.preferences` now persists **schema v1** (`schema_version`, `build_style`, `overlay`), with anchor `top_left/top_right/bottom_left/bottom_right`, integer offsets from -500 to 500, opacity 0.40–1.0, scale 0.75–1.50, default top-right/24px/24px/0.92/1.0. Invalid disk values fall back independently; legacy `{ "build_style": "..." }` files migrate on the next write; future unknown versions are not overwritten. Writes remain atomic. No match state is stored.
 - The **same FastAPI server** exposes these settings in `GET /api/preferences` and provides strict full-object `PUT /api/preferences/overlay`, with 422 for unsafe writes, 409 for unknown persisted schema and 500 for disk failures. Existing build-style-only `PUT /api/preferences` and WebSocket updates remain compatible; independent style writes retain saved overlay choices. The server loads both settings at startup; game resets do not clear appearance.
 - `frontend/overlay-preferences.js` provides data-only client validation/migration for D4b; it is not wired to an in-game panel. D4a deliberately **does not** create a Settings preview, alter Qt geometry/opacity/scale, transparency, click-through, Alt+O/Alt+H, tray or single-instance behavior, change OCR/scoring, or add a service.
 - **Verified Windows code-head Actions:** [run 44355601388](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44355601388) at `8ef17b81`: **292 Python passed, 1 warning; 13 Node tests passed**; original JS syntax checks passed. A follow-up commit also checks the new JavaScript helper's syntax; verify final docs/merge head CI independently.
-- D3 accepted tasks `PH-D3.3`, `PH-D1.5` and `UX-D02` are based on user confirmation, not independent per-step logs. `UX-D09` multi-resolution/borderless League, three-card augment OCR and reroll detection remain pending. **Next phase D4b** preview and safe Qt application; no D4b actions have been implemented.
+- D3 accepted tasks `PH-D3.3`, `PH-D1.5` and `UX-D02` are based on user confirmation, not independent per-step logs. `UX-D09` multi-resolution/borderless League, three-card augment OCR and reroll detection remain pending. **D4b work now follows separately in draft PR #17**, with distinct real Windows validation remaining.
 
 ## Previous work: PR #15 — D3 desktop Settings navigation (2026-11-18)
 

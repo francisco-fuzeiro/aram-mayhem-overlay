@@ -143,6 +143,8 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **PH-D4b.1:** Add safe preview in desktop Settings and controlled application of user preferences to Qt overlay.
 - [ ] **PH-D4b.2 (Windows):** Confirm 1080p/1440p scaling, positioning, click-through and no white background.
 
+**D4b implementation status (2026-11-18):** [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17), stacked on PR #16, adds the appearance form, explicit sample-only preview, Qt display-aware placement/zoom/opacity and Python/JS regressions. Initial Windows Actions [run 44360223711](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44360223711) was in progress when this record was authored; mark `PH-D4b.1` complete only after a successful final code-head CI. User-device `PH-D4b.2` and `UX-D09` remain unchecked pending actual Windows/League tests.
+
 ### D5 — OCR diagnostics and onboarding
 
 - [ ] **PH-D5a.1:** Detect Tesseract availability/path and show helpful first-run status; no silent installation.

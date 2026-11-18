@@ -1,6 +1,6 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
-Status: **in progress** (D1/D2 implemented; D3 draft PR #15 passed code-head Windows Actions but awaits manual Windows GUI acceptance). Each phase should be a small, focused **stacked draft PR** with test evidence and a minimal diff. Check the corresponding tasks in [TODO.md](TODO.md), not just the phase title, after the relevant acceptance criteria are met. The original PRs #1–#12 remain drafts. Never merge to `main` without the user's approval.
+Status: **in progress** (D2 lifecycle and D3 Settings accepted by user on Windows; D4a final CI passed; D4b draft PR #17 under automated validation, real monitor/League matrix pending). Each phase should be a small, focused **stacked draft PR** with test evidence and a minimal diff. Check the corresponding tasks in [TODO.md](TODO.md), not just the phase title, after the relevant acceptance criteria are met. The original PRs #1–#12 remain drafts. Never merge to `main` without the user's approval.
 
 Read [DESKTOP_ARCHITECTURE.md](DESKTOP_ARCHITECTURE.md) and the original UX backlog first.
 
@@ -69,7 +69,7 @@ D6–D8 are **product core work**, not prerequisites for prototyping the Setting
 ## D4 — Overlay configuration (split if needed)
 
 - **D4a:** validated settings model/API for anchor/offset/scale/opacity plus safe defaults and migration.
-- **D4b:** preview/position in desktop window and Qt apply/reload without disrupting click-through.
+- **D4b:** [draft PR #17](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/17) provides an explicitly simulated Settings preview and form backed by D4a schema/API. The existing transparent Qt window polls the atomic saved file and clamps logical coordinates to the current display's available geometry while applying opacity and zoom. Manual Windows resolution/DPI/hotplug/League validation remains a separate gate.
 - Tests: invalid input, persistence across restart, 1080p/1440p scaling, multiple monitors when available.
 
 ## D5 — First-run OCR and diagnostics

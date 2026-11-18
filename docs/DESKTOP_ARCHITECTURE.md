@@ -1,6 +1,6 @@
 # ARAM Oracle — Desktop and Contextual Overlay Architecture
 
-Status: **approved architecture; D1 #13, D2 #14 (Windows lifecycle accepted), D3 #15 (user-reported Settings acceptance), D4a #16 (versioned preferences/data API; no Qt apply), all draft PRs**. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
+Status: **approved architecture; D1 #13, D2 #14 (Windows lifecycle accepted), D3 #15 (user-reported Settings acceptance), D4a #16 (persisted v1 API), D4b #17 (simulated preview / Qt appearance application), all stacked draft PRs**. Actual D4b Windows display acceptance remains pending. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
 
 ## Design principles
 
@@ -58,7 +58,7 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - **User-editable:** build style, overlay positioning/scale/opacity, visibility and keyboard controls, OCR readiness/manual fallback, diagnostics/reporting preferences.
 - **Display-only diagnostics:** engine/WS/OCR status, data-source and patch confidence, read-only logs and export.
 - **Separate sensitive configuration:** GitHub token and credentials must not enter the browser UI, report JSON, or git. Any diagnostic upload requires clear opt-in and disclosure.
-- Desktop preference writes use the existing local HTTP API (not direct unsynchronized JSON writes); overlay receives changes from WebSocket and applies them at the next relevant pipeline update.
+- Desktop preference writes use the existing local HTTP API (not direct unsynchronized JSON writes). Build-style updates still use the existing backend/WebSocket path. D4b Qt appearance updates read the same atomically persisted preference document on an 800 ms Qt timer and apply changed, sanitized layout/opacity/zoom without a second API service or network request on the GUI thread; no gameplay-state update is required.
 - Support failing dependencies gracefully. Missing Tesseract should not prevent opening Settings; unavailable Qt should report an actionable install error in developer mode.
 
 ## D4a persisted overlay preferences contract
@@ -67,6 +67,12 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - `GET /api/preferences` includes saved/loaded v1 settings and prior style keys. `PUT /api/preferences` retains the existing style-only request contract, preserving overlay data. `PUT /api/preferences/overlay` requires a complete, validated overlay object and preserves the style. Both writes are serialized by the existing GameState lock; invalid input cannot partially update the live state or file.
 - V0 `{ "build_style": "..." }` preferences are read without an immediate rewrite and migrated on the next successful write. Corrupt saved fields individually use safe defaults, while newer unsupported schema versions are never overwritten. Startup reloads saved values. The D4a WebSocket preference payload can carry overlay data but **no Qt window applies it yet**.
 - D4b owns normal Settings controls, a simulated non-game preview, safe screen-bound positioning, opacity/scale application/reload and actual 1080p/1440p Windows/League behavior checks. Do not assume negative offsets or multiple displays are safe until D4b clamps to the selected screen's available geometry.
+
+## D4b applied window geometry and simulated preview
+
+- The Settings form uses the existing v1 `GET /api/preferences` and `PUT /api/preferences/overlay` contract. The D4a JavaScript helper validates/migrates values; an unsaved draft may update the conspicuously **simulated** preview but cannot affect the game overlay or imply real OCR/game data.
+- The transparent Qt surface keeps its existing OS window flags and Alt+O/Alt+H behavior. Qt uses logical device-independent `QScreen.availableGeometry()` coordinates and returns a bounded geometry for all four corners, signed offsets, negative monitor origins, small screens, resizing and DPI/display changes. WebEngine `setZoomFactor` matches the layout scale; `setWindowOpacity` changes overall opacity. Click-through is reapplied only when enabled, not forced on when the user has toggled interaction.
+- Monitor choice initially follows Qt's primary screen, then the window's current screen; this is **not** a League-window/monitor detector. Real Windows 1080p/1440p, 100/125/150% DPI, moving displays, Alt+Tab and borderless League transparency require user-device testing. No screenshot/overlay alignment or real OCR correctness is implied by mock tests.
 
 ## Window lifecycle contract
 
