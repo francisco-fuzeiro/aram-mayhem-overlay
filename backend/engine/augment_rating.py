@@ -28,6 +28,14 @@ def rate_augment(
     to a 0–10 scale. It is not a statistical prediction or rate conversion.
     A 5.0 context is neutral when no enemy information is available.
     """
+    if not augment.modelled:
+        # No gameplay contribution data: absence of a model is not weak fit.
+        return CompositeRating(
+            score=None, confidence=0.0, sample_size=0, performance=None,
+            synergy=None, context=None, evidence_source="none",
+            method="not_rated",
+        )
+
     raw_base = score_augment(champion, augment, existing, enemies=None)
     raw_with_context = score_augment(champion, augment, existing, enemies=enemies)
 

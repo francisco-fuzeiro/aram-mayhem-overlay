@@ -461,9 +461,13 @@
 
         data.recommendations.forEach((rec, i) => {
             const card = document.createElement("div");
-            card.className = "augment-card" + (i === 0 ? " top-pick" : "");
+            const rated = typeof rec.score === "number" && Number.isFinite(rec.score)
+                && rec.modelled !== false;
+            card.className = "augment-card" + (i === 0 && rated ? " top-pick" : "");
 
-            const rankText = i === 0 ? ">>>" : `${i + 1}.`;
+            const rankText = i === 0 && rated ? ">>>" : `${i + 1}.`;
+            const scoreText = rated ? rec.score.toFixed(1) + "/10"
+                : "Not rated — insufficient data";
             const labelStr = rec.label.join(" \u00b7 ");
             const itemsStr = (rec.core_items_names || []).join(" \u2192 ");
 
@@ -471,7 +475,7 @@
                 <div class="aug-row">
                     <span class="aug-rank">${rankText}</span>
                     <span class="aug-name">${esc(rec.augment_name)}</span>
-                    <span class="aug-score">${Number(rec.score).toFixed(1)}/10</span>
+                    <span class="aug-score">${esc(scoreText)}</span>
                 </div>
                 <div class="aug-details">
                     <span class="aug-label">${esc(labelStr)}</span>
@@ -488,8 +492,14 @@
             augmentList.appendChild(card);
         });
 
+        // Defend against stale/incomplete server payloads as well.
+        const completeModelledOffer = data.recommendations.length === 3
+            && new Set(data.recommendations.map(rec => rec.augment_id)).size === 3
+            && data.recommendations.every(rec =>
+                typeof rec.score === "number" && Number.isFinite(rec.score)
+                && rec.modelled !== false);
         // Reroll
-        if (data.suggest_reroll) {
+        if (data.suggest_reroll && completeModelledOffer) {
             rerollBadge.classList.remove("hidden");
             rerollBanner.classList.remove("hidden");
             rerollReason.textContent = data.reroll_reason || "Weak choices — consider rerolling";

@@ -1,5 +1,8 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **2026-11-18 M2 code milestone:** E1 [PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) final CI [44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) green; E2 [PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) final CI [44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) green; E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) at code `5efa3628` CI [44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) green (354 Python, 1 AUD-07 xfailed, 28 JS, 4 TODO). Check E3 final documentation-head CI independently. M2 not Windows/League-accepted. **Next milestone M3 Match Lifecycle F1–F5**, independent stacked draft PR and CI gate per phase, then M4. Source plan in independent draft PR #19.
+
+
 > **Latest M2/E2 checkpoint (2026-11-18):** [draft PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) `fix/m2-e2-augment-provenance-coverage` stacked on green E1 PR #26. E2 7 red [Actions 44409504699](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409504699), code-head [Actions 44409785611](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409785611) green (346 Python, 1 AUD-07 xfailed; 26 JS, 4 TODO). **Verify final docs-head CI before E3.** E3 only: honest null scores and reroll safety. M3, UI redesign, installer and on-device acceptance not part of E2.
 
 
