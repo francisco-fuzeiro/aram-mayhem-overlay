@@ -179,3 +179,5 @@ class PipelineResult:
     build_state: BuildState
     suggest_reroll: bool
     reroll_reason: str = ""
+    enemy_analysis: dict = field(default_factory=dict)
+    ally_analysis: dict = field(default_factory=dict)
