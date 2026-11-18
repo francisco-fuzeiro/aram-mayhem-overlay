@@ -25,22 +25,22 @@ def _fit_score(champion: ChampionMeta, teammate_roles: list[str]) -> tuple[int, 
 
     if role in ("tank", "fighter") and not has_frontline:
         score += 14
-        notes.append("Acrescenta linha da frente")
+        notes.append("Adds a frontline")
     if role == "mage" and not has_magic:
         score += 12
-        notes.append("Acrescenta dano mágico")
+        notes.append("Adds magic damage")
     if role in ("marksman", "assassin") and not has_physical:
         score += 10
-        notes.append("Acrescenta dano físico")
+        notes.append("Adds physical damage")
     if role == "support" and roles["support"] == 0:
         score += 7
-        notes.append("Acrescenta utilidade")
+        notes.append("Adds utility")
     if roles[role] >= 2:
         score -= 6
-        notes.append("Função já repetida na equipa")
+        notes.append("Role already well represented")
 
     if not notes:
-        notes.append("Perfil equilibrado para a equipa")
+        notes.append("Balanced fit for this team")
     return max(0, min(100, score)), notes
 
 
@@ -114,5 +114,5 @@ def summarize_champion_select(
         "candidates": candidates,
         "skipped_ids": skipped_ids,
         "method": "experimental_team_fit",
-        "notice": "Pontuação heurística de encaixe na equipa, não taxa de vitória Mayhem.",
+        "notice": "Experimental team-fit score, not a Mayhem win rate.",
     }
