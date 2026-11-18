@@ -71,6 +71,35 @@ pip install -e ".[webview-overlay]"
 python -m backend.overlay
 ```
 
+### Pre-game Settings and feedback (Qt)
+
+Run `python -m backend.overlay --renderer qt` and choose **Open Settings**
+from the ARAM Oracle icon in the Windows notification area. Alternatively,
+with the local companion running, visit:
+
+- http://127.0.0.1:8765/settings
+
+Settings works before entering League. Choose and save a preferred build
+style (**Balanced**, **Damage**, **Survival**, or **Utility**). It is stored in
+`%USERPROFILE%\\.aram-oracle\\preferences.json`, restored on restart,
+and shared with the open overlay through the local WebSocket. In a match,
+the next live poll re-evaluates the build under the selected style; the
+selection does not change your items or automatically buy anything.
+
+The transparent in-game panel shows the current style rather than a
+dropdown. Use Settings > **Feedback & diagnostics** to save an issue report
+outside the game. Reports are stored as JSON under
+`%USERPROFILE%\\.aram-oracle\\bug-reports`; the report includes the
+submitted description, local diagnostic state and recent application logs.
+If GitHub issue reporting was separately configured, the report can also
+be sent there. An unavailable disk or a 30-second submission cooldown is
+shown as an error and **must not** be presented as a successful save.
+
+Qt **Alt+O** still toggles interaction, **Alt+H** still shows/hides the
+overlay, and clicking through remains the normal in-game mode. The system
+tray action only opens a standard browser tab; it does not alter the
+overlay's transparency or mouse handling.
+
 ### In-game augment options or build items are missing?
 
 If the overlay badge reads **NO OCR**, the local Tesseract executable could

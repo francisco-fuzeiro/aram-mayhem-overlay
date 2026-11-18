@@ -197,3 +197,52 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Required Windows follow-up: verify `Test-Path 'C:\Program Files\Tesseract-OCR\tesseract.exe'`, install via `winget install --id UB-Mannheim.TesseractOCR --exact` if needed, fetch PR #11 branch, restart `python -m backend.overlay --renderer qt`, inspect AUGMENT PICK and DETECT AUGMENTS in a match, confirm Poro-Snax does not occupy a build slot and Phantom Dancer is not repeated.
 - Remaining Mayhem-specific considerations: actual augment name variants, OC R region calibration, eligible levels, item patch/mode availability and enemy catalog provenance.
 
+
+
+## 2026-11-18 Europe/Lisbon — PR #12: pre-game Settings and local feedback (implementation)
+
+- Branch `feat/pregame-settings-feedback` based on `fix/live-augment-detection-item-duplicates` (PR #11); earlier draft PRs and `main` remain untouched.
+- Audited the seven partial commits already present: local preference persistence, API `/settings`, `GET/PUT /api/preferences`, Settings HTML/CSS/JS and display-only in-game build style.
+- Added Qt **Open Settings** tray action via default browser, without altering Qt transparency, Alt+O, Alt+H or click-through flags.
+- Removed dead frontend feedback button/handlers; retained a post-game explanation pointing to Settings. Manual augment search remains available during eligible picks.
+- Fixed diagnostics so user text is actually stored in the local JSON report. Server now emits HTTP 429 for cooldown and 500 for an unsuccessful local save; cooldown is only consumed after a successful file write. Settings displays these errors and preserves unsent text.
+- Added `tests/test_pregame_settings.py`, `tests/js/settings.test.cjs`, and Windows Actions checks for `frontend/settings.js` syntax and browserless Settings interactions. Updated README.
+- Validation: `python -m pytest -q`, `node --check frontend/app.js`, `node --check frontend/settings.js`, `node --test tests/js/settings.test.cjs` **not run at entry**; new PR/CI to be checked. No Windows on-device Settings/feedback/OCR test yet.
+- Pending: create draft PR #12 targeting PR #11 branch, verify Actions and fix failures; afterwards request only necessary real Windows tests.
+
+
+## 2026-11-18 15:04 Europe/Lisbon — PR #12 Windows CI validation
+
+- Opened [draft PR #12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) with head `feat/pregame-settings-feedback`, targeting PR #11 branch `fix/live-augment-detection-item-duplicates`. No merge to `main`.
+- First Windows Actions run [44330933993](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44330933993) **failed**: **214 passed, 1 failed, 1 warning**. The sole failure was in the newly created `test_runtime_pipeline_uses_updated_style_on_next_poll`: its mocked `GameSnapshot` omitted six mandatory constructor fields. Fixed the test fixture at commit `d8dd7c5`; application code was not implicated by this failure.
+- Second Windows Actions run [44331056654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331056654) **succeeded** on feature commit `d8dd7c5`. Results: **215 Python tests passed, 1 warning**, `node --check frontend/app.js` **passed**, `node --check frontend/settings.js` **passed**, and `node --test tests/js/settings.test.cjs` **4 passed, 0 failed**.
+- These are automated Windows-runner results, not evidence of actual Qt tray/browsers, saved preferences after a user's reboot, live in-match build changes, local Tesseract/OCR or Mayhem shop eligibility.
+- Next: recheck Actions at this later documentation-only head, keep PR #12 draft, then ask the user only for necessary on-device checks.
+
+
+## 2026-11-18 Europe/Lisbon — UX audit backlog recovered and persisted
+
+- User requested importing conclusions from the separate **Auditoria UX — ARAM Oracle** project conversation into a permanent checklist and crossing off completed items. The recovered conversation summary describes a contextual/event-driven companion (augment offers > verified shop > optional scoreboard), quiet combat UI, compact choices and validation at 1080p/1440p.
+- Created `docs/TODO.md` with stable UX task IDs, P0/P1/P2 priorities, explicit criteria, known UI-state proposals, existing completed **code-level** milestones, and a separate Windows/live-validation backlog. This is a synthesis of the conversation summary, not a verbatim transcript.
+- Cross-checked historical completion claims against PRs #9–#12 and [Windows Actions run 44331470781](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331470781) (**215 Python passed, 1 warning; 4 Node tests passed; both JS syntax checks passed**). None of this proves live UX outside the already confirmed Qt desktop transparency and visible LCDA screenshot fields.
+- Updated `AGENTS.md` session startup and end-of-work instructions and `docs/PROJECT_STATE.md` to make this backlog mandatory for future development continuity.
+- This commit changes **documentation only**; no Python or JavaScript tests were run locally for these edits. Check the latest Windows CI triggered by the updated PR #12 head. The branch and PR remain draft; `main` is untouched.
+
+## 2026-11-18 Europe/Lisbon — Desktop app and intuitive installer roadmap
+
+- User shared OP.GG Settings and overlay screenshots as a usability reference and proposed a proper Windows installer plus desktop application for ARAM Oracle.
+- Added proposed tasks `UX-D01` through `UX-D10` to `docs/TODO.md`: native Qt Settings window, navigation, overlay preview/configuration, single engine/tray lifecycle, Windows packaging/uninstall, OCR onboarding, distribution safeguards, updates, real Windows acceptance matrix and original branding/licensing.
+- Architecture direction: keep the existing Python/FastAPI engine and two purposeful Qt surfaces (standard desktop window + transparent click-through overlay). Preserve Riot/licensing guardrails; no OP.GG source/assets are reused.
+- Documentation-only change; installer and desktop shell **not implemented**. Do not mark these tasks complete. Source code tests for this change **not run locally**; verify Actions at the updated branch head.
+- PR #12 remains draft targeting PR #11; `main` unchanged.
+
+## 2026-11-18 Europe/Lisbon — Approved desktop architecture, granular phases and continuity skill
+
+- The user approved an intuitive Windows installer, a dedicated desktop Settings/control app and a separate contextual Qt game overlay inspired by the usability of OP.GG (not its source/assets).
+- Added `docs/DESKTOP_ARCHITECTURE.md`: single existing FastAPI/scoring/OCR engine, normal focusable Qt Settings window and separate transparent click-through Qt overlay, configuration/data ownership and safeguards, pending installer/lifecycle gates.
+- Added `docs/IMPLEMENTATION_PHASES.md`: baseline G0, first small implementation D1 desktop Settings shell, separate D2 lifecycle, D3 navigation, D4 preferences/preview, D5 OCR, D6–D8 contextual overlay, and D9–D11 packaging/release. Each phase has a narrow scope, acceptance gates and dependencies.
+- Added `PH-G0.*` and `PH-D1.*` through `PH-D11.*` unchecked task items to `docs/TODO.md`, preserving existing UX-D tasks and completed milestones.
+- Added repository-local skill `.agents/skills/continue-aram-oracle/SKILL.md` and `docs/CONTINUE_PROJECT.md` prompt to restart development from GitHub in another ChatGPT project conversation; documented that repository skill is not an automatically installed ChatGPT skill.
+- Updated `AGENTS.md` and `docs/PROJECT_STATE.md` to require reading these plans in future sessions.
+- This is a **documentation/plan-only** change: no application code implemented, no Windows device tests performed, and no local Python/JS suite run. The prior PR #12 head `b09f736b` passed Windows CI run `44333213842`; verify Actions at the **new documentation head** separately.
+- Remain on draft PR #12 (`feat/pregame-settings-feedback` targeting PR #11), never merge to `main` without user approval. Next development action is **D1** in a new stacked draft feature branch.

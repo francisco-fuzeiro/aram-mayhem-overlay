@@ -14,13 +14,6 @@
     let ocrAvailable = false;
     let scanning = false;
     const buildStyles = ["Balanced", "Damage", "Survival", "Utility"];
-    let selectedBuildStyle = "Balanced";
-    try {
-        const stored = localStorage.getItem("mayhem_build_style");
-        if (buildStyles.includes(stored)) selectedBuildStyle = stored;
-    } catch (e) {
-        // Some embedded browsers disable persistent local storage.
-    }
 
     // -- DOM refs --
     const $ = (id) => document.getElementById(id);
@@ -40,7 +33,7 @@
     const buildList = $("build-list");
     const buildFooter = $("build-footer");
     const buildAlternatives = $("build-alternatives");
-    const buildStyleSelect = $("build-style");
+    const buildStyleCurrent = $("build-style-current");
     const enemyList = $("enemy-list");
     const augmentSearch = $("augment-search");
     const tierFilter = $("tier-filter");
@@ -56,9 +49,6 @@
     const augmentToast = $("augment-toast");
     const augmentProgress = $("augment-progress");
     const feedbackSection = $("section-feedback");
-    const feedbackText = $("feedback-text");
-    const btnSubmitFeedback = $("btn-submit-feedback");
-    const btnDismissFeedback = $("btn-dismiss-feedback");
     let toastTimeout = null;
 
     // -- Init --
@@ -71,10 +61,8 @@
         bindAugmentInput();
         bindOcrControls();
         bindKeyboard();
-        bindBugReport();
-        bindFeedback();
         bindHistorySync();
-        bindBuildStyle();
+        await loadBuildPreference();
         bindNativeWindowControls();
     }
 
@@ -84,6 +72,19 @@
             staticNames = await res.json();
         } catch (e) {
             console.warn("Failed to fetch static names:", e);
+        }
+    }
+
+    async function loadBuildPreference() {
+        try {
+            const response = await fetch("/api/preferences", { cache: "no-store" });
+            if (!response.ok) return;
+            const preferences = await response.json();
+            if (buildStyles.includes(preferences.build_style)) {
+                buildStyleCurrent.textContent = preferences.build_style;
+            }
+        } catch (error) {
+            // Live updates also provide the selected style once the game starts.
         }
     }
 
@@ -124,7 +125,8 @@
         ws.onopen = () => {
             reconnectDelay = 1000;
             setConnected(true);
-            wsSend({ type: "set_build_style", style: selectedBuildStyle });
+            // The server owns the persisted pre-game preference. Do not overwrite
+            // it with a stale per-WebView localStorage value on reconnect.
         };
 
         ws.onmessage = (event) => {
@@ -208,6 +210,13 @@
 
         if (msg.type === "augment_confirm") {
             showConfirmPanel(msg);
+            return;
+        }
+
+        if (msg.type === "preferences_updated") {
+            if (buildStyles.includes(msg.build_style)) {
+                buildStyleCurrent.textContent = msg.build_style;
+            }
             return;
         }
 
@@ -482,23 +491,9 @@
         }
     }
 
-    function bindBuildStyle() {
-        buildStyleSelect.value = selectedBuildStyle;
-        buildStyleSelect.addEventListener("change", () => {
-            if (!buildStyles.includes(buildStyleSelect.value)) return;
-            selectedBuildStyle = buildStyleSelect.value;
-            try {
-                localStorage.setItem("mayhem_build_style", selectedBuildStyle);
-            } catch (e) {
-                // The current session still supports path selection.
-            }
-            wsSend({ type: "set_build_style", style: selectedBuildStyle });
-        });
-    }
-
     function renderBuild(bs) {
         if (bs && buildStyles.includes(bs.selected_style)) {
-            buildStyleSelect.value = bs.selected_style;
+            buildStyleCurrent.textContent = bs.selected_style;
         }
         if (!bs || !bs.full_build || bs.full_build.length === 0) {
             buildList.innerHTML = '<div style="color:var(--text-dim);padding:8px;">No build data</div>';
@@ -762,9 +757,7 @@
         });
     }
 
-    // -- Bug Report --
-
-    // -- Post-game feedback --
+    // -- Post-game guidance (feedback lives in pre-game Settings) --
 
     function showPostGameFeedback() {
         showWaiting(false);
@@ -778,88 +771,6 @@
 
     function hidePostGameFeedback() {
         feedbackSection.classList.add("hidden");
-        if (feedbackText) feedbackText.value = "";
-    }
-
-    function bindFeedback() {
-        if (!btnSubmitFeedback || !btnDismissFeedback) return;
-
-        btnSubmitFeedback.addEventListener("click", async () => {
-            btnSubmitFeedback.disabled = true;
-            btnSubmitFeedback.textContent = "Submitting...";
-            const description = feedbackText.value.trim();
-            try {
-                const res = await fetch("/api/bug-report", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ description }),
-                });
-                const data = await res.json();
-                if (data.github_url) {
-                    showBugReportToast(data.github_url, true);
-                } else {
-                    showBugReportToast(data.path, false);
-                }
-                hidePostGameFeedback();
-            } catch (e) {
-                console.error("Feedback submission failed:", e);
-                showBugReportToast("Failed to submit — saved locally", false);
-            } finally {
-                btnSubmitFeedback.disabled = false;
-                btnSubmitFeedback.textContent = "Submit Report";
-            }
-        });
-
-        btnDismissFeedback.addEventListener("click", () => {
-            hidePostGameFeedback();
-        });
-    }
-
-    // -- Bug Report --
-
-    function bindBugReport() {
-        const btn = $("btn-bug-report");
-        if (!btn) return;
-
-        btn.addEventListener("click", async () => {
-            btn.disabled = true;
-            btn.textContent = "...";
-            try {
-                const res = await fetch("/api/bug-report", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ description: "" }),
-                });
-                const data = await res.json();
-                if (data.github_url) {
-                    showBugReportToast(data.github_url, true);
-                } else {
-                    showBugReportToast(data.path, false);
-                }
-            } catch (e) {
-                console.error("Bug report failed:", e);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = "\u{1F41B}";
-            }
-        });
-    }
-
-    function showBugReportToast(message, isUrl) {
-        augmentToast.classList.remove("hidden");
-        augmentToast.innerHTML = isUrl
-            ? `<div class="toast-inner toast-bug">
-                <span class="toast-icon">&#128027;</span>
-                <span class="toast-text">Bug report filed!<br><a href="${esc(message)}" target="_blank" style="color:var(--cyan);font-size:10px;">${esc(message)}</a></span>
-               </div>`
-            : `<div class="toast-inner toast-bug">
-                <span class="toast-icon">&#128027;</span>
-                <span class="toast-text">Bug report saved:<br><code>${esc(message)}</code></span>
-               </div>`;
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            augmentToast.classList.add("hidden");
-        }, 8000);
     }
 
     // -- Utilities --

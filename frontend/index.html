@@ -20,7 +20,6 @@
             <span class="separator">|</span>
             <span id="phase" class="phase">---</span>
             <span class="spacer"></span>
-            <button id="btn-bug-report" class="btn-bug-report" title="Generate bug report">&#128027;</button>
             <span id="connection-dot" class="dot disconnected" title="Disconnected"></span>
             <span id="qt-window-controls" class="qt-window-controls" aria-label="Desktop overlay controls">
                 <button id="btn-hide-overlay" type="button" class="qt-window-button"
@@ -125,13 +124,10 @@
                 <span class="arrow">&#9660;</span> BUILD PATH
             </div>
             <div class="section-body" id="build-body">
-                <label for="build-style">Preferred build path</label>
-                <select id="build-style" aria-label="Preferred build path">
-                    <option value="Balanced">Balanced</option>
-                    <option value="Damage">Damage</option>
-                    <option value="Survival">Survival</option>
-                    <option value="Utility">Utility</option>
-                </select>
+                <div class="waiting-sub">
+                    Preferred style: <strong id="build-style-current">Balanced</strong>
+                    · Configure before the game in Settings (system tray).
+                </div>
                 <div id="build-list" class="build-list">
                     <!-- Populated by JS -->
                 </div>
@@ -159,13 +155,9 @@
             </div>
             <div class="section-body" id="feedback-body">
                 <div class="feedback-prompt">Noticed any issues this game?</div>
-                <textarea id="feedback-text" class="feedback-textarea"
-                          placeholder="Describe what went wrong (optional)..."
-                          maxlength="2000" rows="3"></textarea>
-                <div class="feedback-actions">
-                    <button id="btn-submit-feedback" class="btn btn-feedback-submit">Submit Report</button>
-                    <button id="btn-dismiss-feedback" class="btn btn-clear">Dismiss</button>
-                </div>
+                <p class="waiting-sub">After the match, open Settings from the
+                    Windows system tray or visit http://127.0.0.1:8765/settings.
+                    Use the Feedback &amp; diagnostics tab to submit a report.</p>
             </div>
         </div>
     </div>

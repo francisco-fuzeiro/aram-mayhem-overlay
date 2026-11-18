@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings · ARAM Oracle</title>
+    <link rel="stylesheet" href="/static/settings.css">
+</head>
+<body>
+    <div class="settings-shell">
+        <header class="settings-header">
+            <div class="identity">
+                <div class="brand">ARAM <span>ORACLE</span></div>
+                <p>Companion settings</p>
+            </div>
+            <div class="runtime">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span>Local companion</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="page-heading">
+                <div>
+                    <div class="eyebrow">PRE-GAME CONFIGURATION</div>
+                    <h1>Set up before you play.</h1>
+                    <p>Choose how the overlay should recommend builds and send feedback here.
+                       In-game, the overlay stays transparent and click-through.</p>
+                </div>
+            </div>
+
+            <nav class="tabs" aria-label="Settings navigation" role="tablist">
+                <button type="button" class="tab active" id="tab-preferences"
+                        role="tab" aria-selected="true" aria-controls="panel-preferences"
+                        data-target="panel-preferences">Preferences</button>
+                <button type="button" class="tab" id="tab-feedback"
+                        role="tab" aria-selected="false" aria-controls="panel-feedback"
+                        data-target="panel-feedback">Feedback &amp; diagnostics</button>
+            </nav>
+
+            <section id="panel-preferences" class="tab-panel" role="tabpanel"
+                     aria-labelledby="tab-preferences">
+                <div class="setting-card">
+                    <div class="setting-details">
+                        <div class="setting-icon" aria-hidden="true">↗</div>
+                        <div>
+                            <h2>Default build style</h2>
+                            <p>This changes the priority of item recommendations, not your items.
+                               The selection is shared with the live overlay.</p>
+                        </div>
+                    </div>
+                    <label for="preferred-build">Preferred style</label>
+                    <select id="preferred-build" name="build_style" aria-label="Preferred build style">
+                        <option value="Balanced">Balanced — adaptable to the match</option>
+                        <option value="Damage">Damage — offensive power</option>
+                        <option value="Survival">Survival — durability</option>
+                        <option value="Utility">Utility — team support and control</option>
+                    </select>
+                    <div class="setting-footer">
+                        <span id="save-status" role="status" aria-live="polite" class="form-status">Loading saved settings…</span>
+                        <button id="save-preferences" type="button" class="button-primary">Save preference</button>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <h3>Augment recognition</h3>
+                    <p id="ocr-summary">Checking local OCR status…</p>
+                    <p class="small">If Tesseract is unavailable, use the manual augment input
+                       in the overlay after pressing Alt+O. This page cannot read
+                       an augment offer that is not visible in the game.</p>
+                </div>
+
+                <div class="info-card">
+                    <h3>Overlay shortcuts</h3>
+                    <div class="shortcut-row"><span>Show or hide overlay</span><kbd>Alt + H</kbd></div>
+                    <div class="shortcut-row"><span>Enable or disable clicking</span><kbd>Alt + O</kbd></div>
+                    <div class="shortcut-row"><span>Open Settings</span><span>System tray menu</span></div>
+                </div>
+            </section>
+
+            <section id="panel-feedback" class="tab-panel hidden" role="tabpanel"
+                     aria-labelledby="tab-feedback">
+                <div class="setting-card">
+                    <div class="setting-details">
+                        <div class="setting-icon" aria-hidden="true">✎</div>
+                        <div>
+                            <h2>Send feedback</h2>
+                            <p>Report a wrong build, missed augment or overlay problem
+                               without trying to type during a match.</p>
+                        </div>
+                    </div>
+                    <label for="feedback-description">What happened?</label>
+                    <textarea id="feedback-description" maxlength="2000" rows="6"
+                              placeholder="Example: Jinx was offered Blunt Force, Erosion and Homeguard, but none appeared in the overlay."></textarea>
+                    <div class="setting-footer">
+                        <span id="feedback-status" role="status" aria-live="polite" class="form-status">
+                            Include the champion and what you expected to see.
+                        </span>
+                        <button id="send-feedback" type="button" class="button-primary">Save report</button>
+                    </div>
+                    <p class="disclosure">This creates a local diagnostic report with recent app
+                       logs and game state. If GitHub reporting is configured, it may also
+                       create an issue in the configured repository.</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="settings-footer">
+            <span>ARAM Oracle · Private experimental companion</span>
+            <span>No in-game purchases or selections are automated.</span>
+        </footer>
+    </div>
+    <script src="/static/settings.js"></script>
+</body>
+</html>

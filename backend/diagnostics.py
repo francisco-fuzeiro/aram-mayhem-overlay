@@ -138,7 +138,9 @@ class DiagnosticsCollector:
 
         return title, body
 
-    def generate_report(self, game_state_dict: dict | None = None) -> Path:
+    def generate_report(
+        self, game_state_dict: dict | None = None, user_description: str = "",
+    ) -> Path:
         """Build a JSON bug report file and return its path."""
         REPORT_DIR.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -146,6 +148,7 @@ class DiagnosticsCollector:
 
         report = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
+            "user_description": user_description.strip(),
             "system": {
                 "python_version": sys.version,
                 "platform": platform.platform(),

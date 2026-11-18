@@ -35,8 +35,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#9](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/9) | `fix/windows-overlay-transparency-fallback` | PR #8 branch | Explicit Qt fallback for Windows transparency; pywebview HWND fix |
 | [#10](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/10) | `feat/qt-overlay-window-controls` | PR #9 branch | Hide/show/quit buttons, Alt+H restore, Qt system tray menu |
 | [#11](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/11) | `fix/live-augment-detection-item-duplicates` | PR #10 branch | Fix early level scan, manual augment fallback, duplicate-name builds and non-equipment trinkets |
+| [#12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) | `feat/pregame-settings-feedback` | PR #11 branch | Out-of-game Settings, persistent live build preferences, Qt tray access and local feedback |
 
-**Active working head: `fix/live-augment-detection-item-duplicates` (draft PR #11)**, stacked on PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/pregame-settings-feedback` (draft PR #12)**, stacked on PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -98,7 +99,19 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - `tests/test_live_mayhem_regressions.py` covers duplicate names, owned aliases, active and enemy trinket filtering, scan triggers, hidden fallback and per-game reset. **Verified Windows Actions run `44325282457`: 200 passed, 1 warning; JavaScript syntax check passed**, at feature+documentation head `df2cf1ba`. Actual in-game OCR recognition and shop eligibility still require user verification.
 - **Immediate user dependency:** install Windows Tesseract OCR (Python `pytesseract` alone is insufficient), restart Qt overlay, and test. Manual three-choice search works without Tesseract. Avoid inferring augment effectiveness from the screenshot alone.
 
+## Current work: PR #12 — out-of-game Settings (in progress)
+
+- Branch `feat/pregame-settings-feedback` is stacked directly on `fix/live-augment-detection-item-duplicates` (PR #11). Neither branch nor any earlier draft PR has been merged to `main`.
+- Local `/settings` serves a full-page Preferences and Feedback & diagnostics UI. The chosen Balanced/Damage/Survival/Utility style is stored atomically under `~/.aram-oracle/preferences.json` and loaded on API startup. `GET/PUT /api/preferences` validate it, broadcast `preferences_updated`, and the game poll applies it to the next build pipeline snapshot. The in-game panel remains a read-only style label.
+- The Qt system tray now includes **Open Settings**, launching `http://127.0.0.1:8765/settings` in the default browser; `Alt+O`, `Alt+H`, Qt window transparency, and click-through implementation were not changed. The local page can also be opened directly before a match while the server is running.
+- Removed obsolete in-game feedback submission handlers/button. The post-game overlay is now guidance to Settings; manual augment fallback is unaffected.
+- Fixed a real persistence defect: the user's feedback description was included in optional GitHub issue text but not the locally saved JSON. The report now includes `user_description`. Submission returns explicit HTTP 429 cooldown / 500 local-write errors, and failed writes do not consume the cooldown. Settings keeps entered feedback on error.
+- Added Python tests covering disk roundtrips, safe defaults, REST preference updates, live poll selection, feedback JSON/error handling and Qt/tray markup. Added Node DOM-stub interaction tests, `node --check frontend/settings.js`, and Node tests to Windows Actions. README updated.
+- **Verified PR #12 Windows Actions run [44331056654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331056654)** at feature head `d8dd7c5`: **215 passed, 1 warning**, `node --check frontend/app.js` and `node --check frontend/settings.js` passed, and **4 Node Settings UI tests passed**. Earlier run `44330933993` failed one newly introduced test due to an incomplete mock snapshot; fixed before the successful run. The later documentation-only head requires separate Actions verification. Actual browser/tray use, persistence after restart, live build recalculation and OCR still require Windows on-device validation.
+
 ## Automated verification (as last observed)
+
+- PR #12 Windows CI run [44331056654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331056654) on feature head `d8dd7c5`: **215 passed, 1 warning**; `node --check` passed for both frontend JS entrypoints; **4 Node Settings interaction tests passed**. Subsequent documentation-only head not yet rechecked.
 
 - PR #11 Windows CI `44325282457` on commit `df2cf1ba`: **200 passed, 1 warning**, `node --check frontend/app.js` passed. Later documentation commits require separate CI validation.
 
@@ -149,9 +162,32 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Third-party datasets (e.g. AramHex CC BY-NC 4.0) have **separate licenses**; do not import without validating provenance and permitted use.
 - User reports separately researching Riot's third-party policy. Avoid definitive claims that converting augment win rates into a 0–10 number makes live recommendations permissible. **Do not expose raw augment win rates**; keep empirically derived augment scoring behind `experimental_augment_evidence=False` until resolved. Use player-visible permitted interfaces; no hidden information, memory injection, or automatic augment/item selection.
 
+## Approved desktop application architecture and delivery phases
+
+- **Approved architectural direction:** Python/FastAPI remains the sole engine, with a normal PyQt6 desktop Settings window and a separate transparent, click-through Qt game overlay; both communicate through the existing local HTTP/WebSocket API.
+- Full component boundaries, state-driven presentation, lifecycle, preference/diagnostics handling and future packaging decisions: [`docs/DESKTOP_ARCHITECTURE.md`](DESKTOP_ARCHITECTURE.md).
+- Small, gated implementation plan and acceptance tests: [`docs/IMPLEMENTATION_PHASES.md`](IMPLEMENTATION_PHASES.md); task checkboxes `PH-G0.*` and `PH-D1.*` through `PH-D11.*` in [`docs/TODO.md`](TODO.md).
+- First development phase after baseline verification: **D1 — native desktop Settings shell** (`backend/desktop`, `python -m backend.desktop`, existing `/settings` UI, tests; **no installer yet**). Next draft branch proposed `feat/desktop-settings-shell` stacked on PR #12, *not main*.
+- Chat-to-chat reusable repository workflow: [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md) and [`docs/CONTINUE_PROJECT.md`](CONTINUE_PROJECT.md). The repository skill is not automatically installed in ChatGPT; future chats must fetch it via GitHub.
+- **Current implementation remains unchanged:** existing Qt renderer, Alt+H/Alt+O, browser Settings and PR #12 are not replaced by this documentation update.
+
+## Desktop packaging direction (planned, not implemented)
+
+- The user wants an intuitive Windows installer, a full desktop Settings/control app and a contextual in-game overlay similar in usability (not appearance/assets) to OP.GG.
+- Proposed architecture: reuse the existing Python/FastAPI engine and PyQt6 renderer, add a separate conventional Qt desktop window for Settings and diagnostics, and retain the verified transparent click-through Qt overlay. Do not duplicate the backend.
+- First validate PR #12 Settings and the P0 OCR/gameplay behavior. Then build the native desktop experience; package a Windows installer only after reliable lifecycle and on-device checks.
+- Tracked as **UX-D01–UX-D10** in [`docs/TODO.md`](TODO.md). These items are proposals, all open, and not proof of an existing installer.
+
+## Canonical product / UX backlog
+
+- [`docs/TODO.md`](TODO.md) contains the persistent, prioritized checklist derived from the **Auditoria UX — ARAM Oracle** discussion plus the current product specification, real match findings and code audit.
+- **Decision:** the target is an event-driven, unobtrusive companion, not a permanent dashboard. Primary states: augment offer (highest priority), verified shop, optional scoreboard; stay quiet in combat. Never claim unknown shop/scoreboard state is observable.
+- Completed **implementation** tasks are explicitly separated from pending **real Windows/League validation**. Each future meaningful feature must update the checklist and include evidence before checking a task off.
+- UX audit created in the existing draft PR #12 branch; no merge to `main`.
+
 ## Highest-priority remaining work
 
-1. **First live match exposed real OCR and build regressions (PR #11).** Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.
+1. **PR #12 automated validation passed (215 Python + 4 Node).** Now check Settings browser/tray, preference persistence and live build updates on Windows, and retest PR #11 OCR/build regressions. Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
@@ -163,8 +199,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #11 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
-3. Continue from PR #11 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #12 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
+3. Continue from PR #12 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.
