@@ -8,7 +8,7 @@ from collections import Counter
 from backend.models import ChampionMeta
 
 
-def _fit_score(champion: ChampionMeta, teammate_roles: list[str]) -> tuple[int, list[str]]:
+def _fit_score(champion: ChampionMeta, teammate_roles: list[str]) -> tuple[float, list[str]]:
     roles = Counter(teammate_roles)
     role = champion.role.lower()
     notes: list[str] = []
@@ -41,7 +41,8 @@ def _fit_score(champion: ChampionMeta, teammate_roles: list[str]) -> tuple[int, 
 
     if not notes:
         notes.append("Balanced fit for this team")
-    return max(0, min(100, score)), notes
+    # Normalize the internal 0–100 heuristic to the user-facing 0.0–10.0 scale.
+    return round(max(0, min(100, score)) / 10.0, 1), notes
 
 
 def summarize_champion_select(
@@ -97,7 +98,7 @@ def summarize_champion_select(
             skipped_ids.append(numeric_id)
             continue
         score, notes = _fit_score(champ, teammates)
-        tier = "S" if score >= 75 else "A" if score >= 70 else "B" if score >= 65 else "C"
+        tier = "S" if score >= 7.5 else "A" if score >= 7.0 else "B" if score >= 6.5 else "C"
         candidates.append({
             "id": champ.id,
             "name": champ.name,
@@ -114,5 +115,5 @@ def summarize_champion_select(
         "candidates": candidates,
         "skipped_ids": skipped_ids,
         "method": "experimental_team_fit",
-        "notice": "Experimental team-fit score, not a Mayhem win rate.",
+        "notice": "Experimental 0.0–10.0 team-fit score, not a Mayhem win rate.",
     }
