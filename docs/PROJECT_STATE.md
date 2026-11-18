@@ -72,9 +72,11 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - `backend/overlay/webview_window.py` now prefers `_window.native.Handle` for the Win32 HWND and retries when the window has just opened; exact-title `FindWindowW` is fallback only.
 - `backend/overlay/window.py` now supports an Alt+O click-through toggle using a Qt timer that observes the global key chord, maintaining access to build style and other UI controls when Qt is used.
 - Added `tests/test_overlay_renderer.py` and a Windows troubleshooting section in README. [Windows CI 44319789943](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44319789943) **passed: 178 tests, 1 warning; JavaScript syntax passed**. On-device Qt/WebView2 comparison **not yet run**.
-- User test: stop the old process, fetch PR #9 branch, install `python -m pip install -e ".[overlay]"`, then `python -m backend.overlay --renderer qt`; compare with `--renderer webview`. Avoid claiming real transparency support until observed.
+- **User Windows desktop validation confirmed on 2026-11-18:** the user ran `python -m backend.overlay --renderer qt`; the screenshot shows fully transparent unused window regions with legible panels, and terminal logs `Using PyQt6 transparent overlay`, `Overlay window started` and `Click-through enabled (HWND=...)`. Their local pytest run reported **178 passed, 2 warnings**. This resolves the reported white-background symptom **on that desktop**. The actual in-game render, Alt+O interactivity and LCDA/OCR remain unverified. The default `auto` renderer still chooses pywebview; Qt must be requested explicitly.
 
 ## Automated verification (as last observed)
+
+- PR #9 latest completed Windows GitHub Actions run `44320104470` on documentation-only head `388fe862`: **success**. The user also ran **178 passed, 2 warnings** locally with the Qt renderer. The warning count differs between environments.
 
 - PR #9 Windows CI `44319789943` at `e93aad6b`: **178 passed, 1 warning**, JavaScript syntax check passed. On-device Qt render remains unconfirmed; later documentation commits need own CI recheck.
 
@@ -121,7 +123,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. Confirm the latest PR #9 CI, compare Qt vs WebView2 transparency on the user's Windows PC, and complete real in-game verification of LCDA roster, OCR choices, persistent build style and in-game overlay behavior.
+1. **Windows desktop transparency has been validated with `--renderer qt`**. Next verify Qt overlay over League in borderless mode, Alt+O interaction, champion-select/LCDA roster, OCR choices, persistent build style and real item updates.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
