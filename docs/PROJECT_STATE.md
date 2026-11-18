@@ -1,5 +1,8 @@
 # Overlay LoL — Project State / Chat Handoff
 
+> **2026-11-18 F1 code-head verified:** [M3/F1 draft PR #33](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/33) on `fix/m3-f1-lcda-nonblocking-status` has green code [CI 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545): **363 Python passed, 1 AUD-07 xfailed, 28 JS passed, 4 JS TODO**. Final documentation-head CI still needs verification. F2–F5 not started; no Windows/League validation.
+
+
 > **2026-11-18 M3/F1 active (not yet CI-approved):** E3 draft PR #28 HEAD `659b20ed` final Actions [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) succeeded. F1 draft [PR #33](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/33), branch `fix/m3-f1-lcda-nonblocking-status`, stacked on E3. Added tests-first LCDA explicit classifications, off-event-loop read, sanitized diagnostics. **F1 final-head CI gate pending; F2–F5 not started.** Legacy AUD-07 remains expected failure until F3. Native Windows/League, Mayhem data source/patch G1/G2, API G4 and Riot/licensing unverified. No merges or main changes.
 
 
