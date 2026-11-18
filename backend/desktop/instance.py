@@ -60,7 +60,7 @@ class InstanceGate:
         self.directory.mkdir(parents=True, exist_ok=True)
         handle = self.lock_path.open("a+b")
         if handle.tell() == 0:
-            handle.write(b"\\0")
+            handle.write(b"\0")
             handle.flush()
         try:
             _lock(handle)
@@ -103,9 +103,10 @@ class InstanceGate:
             raise
 
     def _serve(self) -> None:
+        listener = self._listener
         while not self._closing.is_set():
             try:
-                client, _address = self._listener.accept()
+                client, _address = listener.accept()
             except socket.timeout:
                 continue
             except OSError:
@@ -121,13 +122,13 @@ class InstanceGate:
                             )
                             and command.get("action") in ACTIONS):
                         self.commands.put(command["action"])
-                        client.sendall(b"ok\\n")
+                        client.sendall(b"ok\n")
                     else:
-                        client.sendall(b"denied\\n")
+                        client.sendall(b"denied\n")
                 except (OSError, UnicodeError, ValueError, TypeError):
                     logger.debug("Ignoring invalid local activation request")
 
-    def forward(self, action: str, timeout: float = 3.0) -> bool:
+    def forward(self, action: str, timeout: float = 20.0) -> bool:
         """Ask a primary process to show Settings/overlay during startup races."""
         if action not in ACTIONS:
             raise ValueError("Unsupported activation action")
