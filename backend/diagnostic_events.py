@@ -20,6 +20,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     "lcda": {
         "status": frozenset(("available", "unavailable", "error")),
         "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse")),
+        "result_class": frozenset(("ok", "http_404", "timeout", "refused", "bad_json", "error")),
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
