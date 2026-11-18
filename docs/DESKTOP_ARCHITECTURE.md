@@ -1,6 +1,6 @@
 # ARAM Oracle — Desktop and Contextual Overlay Architecture
 
-Status: **approved architecture; D1 Settings host draft PR #13, D2 single-instance/tray draft PR #14 (Windows lifecycle accepted), D3 Settings navigation draft PR #15 (manual Windows acceptance pending)**. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
+Status: **approved architecture; D1 #13, D2 #14 (Windows lifecycle accepted), D3 #15 (user-reported Settings acceptance), D4a #16 (versioned preferences/data API; no Qt apply), all draft PRs**. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
 
 ## Design principles
 
@@ -43,12 +43,12 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 | Component | Existing implementation | Target responsibility |
 | --- | --- | --- |
 | `backend.api.server` | FastAPI, preferences, WebSocket and bug reports | Exactly one local server, API validation and state synchronization |
-| `backend.preferences` | Atomic `~/.aram-oracle/preferences.json` build style | Versioned validated preferences as UI configuration grows; no secrets |
+| `backend.preferences` | D4a schema v1: atomic `~/.aram-oracle/preferences.json` with build style plus validated anchor, signed offsets, opacity, scale; legacy migration | D4b reads existing values to apply them to the Qt overlay; no secrets |
 | `backend.overlay.window` | Transparent PyQt6 overlay and hotkeys | In managed mode, no separate tray; preserve click-through, transparency, Alt+O and Alt+H. Legacy standalone Qt helpers retain fallback |
 | `backend.overlay.__main__` | Dev launcher and original loopback ASGI startup | Delegate Qt launches to the managed desktop owner; preserve the explicit Qt entrypoint and non-Qt fallback |
 | `backend.desktop` (D1 + D2) | Normal Settings QMainWindow, one QSystemTrayIcon, transparent overlay Qt surface and local activation | Single owner of Qt UI and explicit Quit; separate native window behaviors |
 | `backend.desktop.instance` + `backend.desktop.service` | OS-held per-user lock, local authenticated activation, managed FastAPI ASGI shutdown | Avoid duplicate process owners; never kill pre-existing compatible API; fail safely on port conflict |
-| `frontend/settings.*` | D3 seven-section accessible Settings navigation using the existing preferences/OCR/feedback APIs | D4 will add validated overlay positioning preferences; D5 will add OCR testing; no duplicated JS framework |
+| `frontend/settings.*` | D3 seven-section accessible Settings navigation; D4a pure `overlay-preferences.js` schema helper not yet loaded into the UI | D4b adds appearance controls/preview; D5 adds OCR testing; no duplicated JS framework |
 | `frontend/index.html` + `app.js` | Current multipanel overlay | Future event-driven contextual surfaces with strict data confidence |
 | `backend.collectors.*` | LCDA and Tesseract watcher | Explicit observable offer/shop state only after tested capture/data-source validation |
 | `backend.workflow.pipeline` | Dynamic scoring/build recommendations | No duplicated scoring in UI; consume stable state, preserve rule explanations |
@@ -60,6 +60,13 @@ D1 introduced the Settings Qt shell without duplicating the API. D2 now uses one
 - **Separate sensitive configuration:** GitHub token and credentials must not enter the browser UI, report JSON, or git. Any diagnostic upload requires clear opt-in and disclosure.
 - Desktop preference writes use the existing local HTTP API (not direct unsynchronized JSON writes); overlay receives changes from WebSocket and applies them at the next relevant pipeline update.
 - Support failing dependencies gracefully. Missing Tesseract should not prevent opening Settings; unavailable Qt should report an actionable install error in developer mode.
+
+## D4a persisted overlay preferences contract
+
+- Existing FastAPI, file owner and per-user local JSON remain the only preference store. `schema_version: 1` with `build_style` and `overlay: {anchor, offset_x, offset_y, opacity, scale}`. Supported corners: `top_left`, `top_right`, `bottom_left`, `bottom_right`. Default `top_right`, offsets `24, 24` px, opacity `0.92`, scale `1.0`; signed integer offsets limited to ±500 px, finite opacity 0.40–1.0, scale 0.75–1.50.
+- `GET /api/preferences` includes saved/loaded v1 settings and prior style keys. `PUT /api/preferences` retains the existing style-only request contract, preserving overlay data. `PUT /api/preferences/overlay` requires a complete, validated overlay object and preserves the style. Both writes are serialized by the existing GameState lock; invalid input cannot partially update the live state or file.
+- V0 `{ "build_style": "..." }` preferences are read without an immediate rewrite and migrated on the next successful write. Corrupt saved fields individually use safe defaults, while newer unsupported schema versions are never overwritten. Startup reloads saved values. The D4a WebSocket preference payload can carry overlay data but **no Qt window applies it yet**.
+- D4b owns normal Settings controls, a simulated non-game preview, safe screen-bound positioning, opacity/scale application/reload and actual 1080p/1440p Windows/League behavior checks. Do not assume negative offsets or multiple displays are safe until D4b clamps to the selected screen's available geometry.
 
 ## Window lifecycle contract
 
