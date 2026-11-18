@@ -884,7 +884,11 @@ def _serialize_result(
             {
                 "augment_id": r.augment_id,
                 "augment_name": r.augment_name,
-                "score": round(r.score, 4),
+                "score": round(r.score, 1),
+                "confidence": r.confidence,
+                "sample_size": r.sample_size,
+                "components": r.components,
+                "method": "composite_v1",
                 "label": list(r.label),
                 "core_items": r.core_items,
                 "core_items_names": [_resolve_item_name(i, sd) for i in r.core_items],
