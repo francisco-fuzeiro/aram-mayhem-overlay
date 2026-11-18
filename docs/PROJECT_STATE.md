@@ -162,6 +162,13 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - Third-party datasets (e.g. AramHex CC BY-NC 4.0) have **separate licenses**; do not import without validating provenance and permitted use.
 - User reports separately researching Riot's third-party policy. Avoid definitive claims that converting augment win rates into a 0–10 number makes live recommendations permissible. **Do not expose raw augment win rates**; keep empirically derived augment scoring behind `experimental_augment_evidence=False` until resolved. Use player-visible permitted interfaces; no hidden information, memory injection, or automatic augment/item selection.
 
+## Desktop packaging direction (planned, not implemented)
+
+- The user wants an intuitive Windows installer, a full desktop Settings/control app and a contextual in-game overlay similar in usability (not appearance/assets) to OP.GG.
+- Proposed architecture: reuse the existing Python/FastAPI engine and PyQt6 renderer, add a separate conventional Qt desktop window for Settings and diagnostics, and retain the verified transparent click-through Qt overlay. Do not duplicate the backend.
+- First validate PR #12 Settings and the P0 OCR/gameplay behavior. Then build the native desktop experience; package a Windows installer only after reliable lifecycle and on-device checks.
+- Tracked as **UX-D01–UX-D10** in [`docs/TODO.md`](TODO.md). These items are proposals, all open, and not proof of an existing installer.
+
 ## Canonical product / UX backlog
 
 - [`docs/TODO.md`](TODO.md) contains the persistent, prioritized checklist derived from the **Auditoria UX — ARAM Oracle** discussion plus the current product specification, real match findings and code audit.

@@ -73,6 +73,24 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **UX-207 — Layout refinement only after stable detection.** Improve spacing, card hierarchy, animation and adaptive positioning after real OCR + state-driven modes pass; do not spend the P0 budget on cosmetic polish.
 - [ ] **UX-208 — Scenario-based acceptance recording.** Record for each P0/P1 behavior: screenshot/fixture, expected overlay state, observed state, pass/fail, tested revision and Windows resolution; link evidence to the task ID.
 
+
+## Desktop app and installer roadmap — OP.GG-inspired usability, original implementation
+
+> Added after reviewing the user-provided OP.GG Settings and overlay screenshots (2026-11-18). This is a **proposed product direction**, not a claim that the desktop app or installer already exists. Use familiar Windows UX patterns; do not copy OP.GG assets, protected artwork, code, or distinctive UI.
+
+- [ ] **UX-D01 — Native desktop control center (P1).** Open a normal, resizable Qt desktop window from the tray/Start menu, reusing the existing local Settings page. Keep the transparent overlay as a separate, lightweight Qt window backed by the same local engine; avoid introducing a second backend.
+- [ ] **UX-D02 — Clear Settings navigation (P1).** Organize General, Overlay, Build Preferences, Augment Detection/OCR, Diagnostics, Feedback, and About into a consistent desktop navigation. Persist settings with validation, helpful errors, and clear 'Saved' states; no in-game forms.
+- [ ] **UX-D03 — Overlay customization with preview (P1).** Configure anchor/corner, offsets, opacity, scale, compact vs expanded mode, visibility and safe click-through from the desktop app, with a simulated preview. Never use fake game-state detection in a real match.
+- [ ] **UX-D04 — One-engine lifecycle and tray behavior (P1).** Enforce single instance, no duplicate port 8765 servers, reliable Open Settings/Show Overlay/Quit actions, explicit background-vs-exit behavior, no elevation needed for ordinary use. Preserve Alt+O and Alt+H.
+- [ ] **UX-D05 — Windows installer and uninstaller (P1 after core validation).** Produce a reproducible installer (evaluate PyInstaller onedir + Inno Setup first) with Start menu/desktop shortcuts, sensible install path, clean uninstall and optional user-data retention. User should never need Python, pip or PowerShell.
+- [ ] **UX-D06 — First-run onboarding / OCR readiness (P1).** Detect Tesseract and required executables, explain installation or legally compatible bundling with notices, let the user test OCR, and provide manual fallback. Do not silently download or install third-party packages.
+- [ ] **UX-D07 — Distribution safeguards (P2).** Validate clean Windows install/uninstall/upgrade, antivirus false positives, packaging of local frontend/static assets, process shutdown, minimum permissions, and code signing/SmartScreen strategy before public distribution.
+- [ ] **UX-D08 — Updates and rollback (P2).** Design a versioned, opt-in update path with integrity verification, visible release notes, no disruptive update mid-match and rollback/recovery. Do not introduce auto-updates before a reliable package exists.
+- [ ] **UX-D09 — Desktop/overlay smoke matrix (P1).** Test app launch, minimize to tray, Settings persistence, reopening an overlay, switching modes, exit and restart on real Windows at 1080p/1440p, including League borderless and Alt+Tab. Attach evidence to each item.
+- [ ] **UX-D10 — Branding and licensing (P2).** Build original ARAM Oracle icon, typography, layout and visual hierarchy; use OP.GG only as an interaction reference, check Riot requirements and every bundled dependency's license/attribution.
+
+**Delivery order:** finish current PR #12 Windows checks and P0 augment detection first; then implement the native desktop window and settings structure; package the installer once app start/stop, OCR and contextual overlay are reliable. Do not treat a pretty installer as evidence that live recommendations work.
+
 ## Completed implementation milestones (Windows in-game validation may still be open above)
 
 - [x] ~~**UX-C01 — Baseline transparent Qt renderer.**~~ User confirmed the white desktop rectangle disappeared with `--renderer qt`; PR #9 Windows CI passed. **Real LoL overlay still open:** UX-110.

@@ -227,3 +227,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Cross-checked historical completion claims against PRs #9–#12 and [Windows Actions run 44331470781](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44331470781) (**215 Python passed, 1 warning; 4 Node tests passed; both JS syntax checks passed**). None of this proves live UX outside the already confirmed Qt desktop transparency and visible LCDA screenshot fields.
 - Updated `AGENTS.md` session startup and end-of-work instructions and `docs/PROJECT_STATE.md` to make this backlog mandatory for future development continuity.
 - This commit changes **documentation only**; no Python or JavaScript tests were run locally for these edits. Check the latest Windows CI triggered by the updated PR #12 head. The branch and PR remain draft; `main` is untouched.
+
+## 2026-11-18 Europe/Lisbon — Desktop app and intuitive installer roadmap
+
+- User shared OP.GG Settings and overlay screenshots as a usability reference and proposed a proper Windows installer plus desktop application for ARAM Oracle.
+- Added proposed tasks `UX-D01` through `UX-D10` to `docs/TODO.md`: native Qt Settings window, navigation, overlay preview/configuration, single engine/tray lifecycle, Windows packaging/uninstall, OCR onboarding, distribution safeguards, updates, real Windows acceptance matrix and original branding/licensing.
+- Architecture direction: keep the existing Python/FastAPI engine and two purposeful Qt surfaces (standard desktop window + transparent click-through overlay). Preserve Riot/licensing guardrails; no OP.GG source/assets are reused.
+- Documentation-only change; installer and desktop shell **not implemented**. Do not mark these tasks complete. Source code tests for this change **not run locally**; verify Actions at the updated branch head.
+- PR #12 remains draft targeting PR #11; `main` unchanged.
