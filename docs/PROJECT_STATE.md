@@ -82,10 +82,12 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - The Qt-only header now has small **− Hide** and **× Quit** buttons (requires Alt+O to make the overlay clickable). These buttons issue local same-page URL-fragment actions, interpreted only by the Qt window on `localhost:8765/overlay?mode=overlay`; remote origins and malformed actions do not control the native window.
 - **Alt+H** globally toggles visibility even while hidden. A Windows notification-area tray icon provides Show/Hide, Toggle interaction, and Quit; a double-click also toggles visibility. When the tray is unavailable, Alt+H still works. Hiding preserves the Python process; quitting exits the app.
 - Added local-action parser tests, native UI presence guards and explicit README instructions.
-- **Validation pending**: Windows Actions `pytest -q` and JS check, and real Windows Qt button/hotkey/tray behavior. The previously observed 178 Windows tests belong to PR #9, not this branch.
+- **Validated CI:** [Windows Actions run 44322346286](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44322346286) at feature commit `5c0d82ed`: **191 passed, 1 warning; JavaScript syntax check passed**. Real Windows Qt button/hotkey/tray behavior still requires user validation.
 - Next user verification: `python -m backend.overlay --renderer qt`, Alt+O then click − and restore with Alt+H, finally test × and tray restore.
 
 ## Automated verification (as last observed)
+
+- PR #10 Windows CI `44322346286` on feature commit `5c0d82ed`: **191 passed, 1 warning**, JavaScript syntax check passed. Later documentation-only commits need separate CI confirmation.
 
 - PR #9 latest completed Windows GitHub Actions run `44320104470` on documentation-only head `388fe862`: **success**. The user also ran **178 passed, 2 warnings** locally with the Qt renderer. The warning count differs between environments.
 
