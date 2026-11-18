@@ -1,5 +1,8 @@
 # Continue ARAM Oracle in a New Chat
 
+> **M3/F2 code gate green (2026-11-18):** [draft PR #36](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/36), `fix/m3-f2-gameflow-status-machine` code `6b1bdbb9`, [CI 44420212177](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44420212177) passed (374 Python / 1 xfailed / 28 JS / 4 TODO). After checking final documentation-head green, begin F3 as a NEW stacked branch and draft PR. F3: authoritative end or three consecutive misses over >=6 s; session identity; no 300s post-game timer; regression AUD-07.
+
+
 > **F1 code-head CI green:** PR #33 `fix/m3-f1-lcda-nonblocking-status`, code commit `5489f056`, [CI 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545) passed (363 Python, 1 AUD-07 xfailed, 28 JS, 4 TODO). Verify the newest documentation HEAD CI before branching F2. Continue explicit LCU Gameflow state handling as the next distinct branch/PR only after gate.
 
 
