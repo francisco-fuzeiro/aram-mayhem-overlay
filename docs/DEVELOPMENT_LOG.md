@@ -83,3 +83,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Full suite for this follow-up commit: **not run** at time of entry; awaiting new Windows Actions result.
 - No actual Windows in-game LCDA evidence yet.
 
+
+## 2026-11-18 — PR #6 final automated validation
+
+- Windows GitHub Actions run [44315513781](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44315513781) completed successfully at head `1c7da85`.
+- `python -m pytest -q`: **155 passed, 1 warning**.
+- `node --check frontend/app.js`: **passed**.
+- In-game LCDA capture, actual enemy items and Riot policy: **not run / not resolved**. Keep the PR draft.
+
