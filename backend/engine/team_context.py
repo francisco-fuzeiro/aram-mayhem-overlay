@@ -27,6 +27,7 @@ class EnemyThreatProfile:
     armor_items: int = 0
     magic_resist_items: int = 0
     visible_items: int = 0
+    unknown_items: int = 0
     high_kill_enemies: int = 0
     confidence: str = "low"
 
@@ -37,6 +38,10 @@ class EnemyThreatProfile:
         if not self.enemies_analyzed:
             return ["Enemy composition unavailable"]
         result = []
+        if self.enemies_analyzed < self.enemies_visible:
+            result.append(f"Partial enemy coverage ({self.enemies_analyzed}/{self.enemies_visible} champions)")
+        if self.unknown_items:
+            result.append(f"{self.unknown_items} visible item(s) without catalog data")
         if self.tanks >= 2:
             result.append(f"{self.tanks} frontline threats")
         if self.cc_pressure >= 0.55:
@@ -101,9 +106,25 @@ def analyze_enemies(
         return EnemyThreatProfile()
 
     known = tanks = armor = magic_resist = items_seen = high_kill = 0
+    unknown_items = 0
     magic_sum = physical_sum = cc_sum = sustain_sum = shield_sum = burst_sum = 0.0
 
     for player in enemy_states:
+        # The inventory is visible independently of our champion catalog.
+        # Do not lose verified item observations when a champion is unmapped.
+        player_lifesteal = 0.0
+        for item_id in player.item_ids:
+            items_seen += 1
+            item: ItemData | None = get_item(item_id)
+            if item is None:
+                unknown_items += 1
+                continue
+            tags = {str(tag).lower() for tag in item.tags}
+            armor += int("armor" in tags)
+            magic_resist += int(bool(tags & {"spellblock", "magicresist", "magic_resist"}))
+            if "lifesteal" in tags:
+                player_lifesteal += 0.05
+
         champion: ChampionMeta | None = get_champion(player.champion_id)
         if champion is None:
             continue
@@ -115,7 +136,7 @@ def analyze_enemies(
                                  (0.15 if role in ("marksman", "assassin") else 0))
         cc_sum += _clamp01(max(stats.hard_cc, stats.soft_cc * 0.6,
                                champion.cc_profile.cc_uptime_rating))
-        sustain_sum += _clamp01(stats.heal_power)
+        sustain_sum += _clamp01(stats.heal_power) + player_lifesteal
         shield_sum += _clamp01(stats.shield)
         burst_sum += _clamp01(max(stats.lethality, stats.ap * 0.7))
 
@@ -124,19 +145,12 @@ def analyze_enemies(
         if player.kills >= 6 and player.kills - player.deaths >= 5:
             high_kill += 1
 
-        for item_id in player.item_ids:
-            item: ItemData | None = get_item(item_id)
-            if item is None:
-                continue
-            items_seen += 1
-            tags = {str(tag).lower() for tag in item.tags}
-            armor += int("armor" in tags)
-            magic_resist += int(bool(tags & {"spellblock", "magicresist", "magic_resist"}))
-            if "lifesteal" in tags:
-                sustain_sum += 0.05
-
     if not known:
-        return EnemyThreatProfile(enemies_visible=len(enemy_states))
+        return EnemyThreatProfile(
+            enemies_visible=len(enemy_states), visible_items=items_seen,
+            unknown_items=unknown_items, armor_items=armor,
+            magic_resist_items=magic_resist,
+        )
 
     power_total = magic_sum + physical_sum
     magic_mix = magic_sum / power_total if power_total else 0.5
@@ -154,8 +168,10 @@ def analyze_enemies(
         armor_items=armor,
         magic_resist_items=magic_resist,
         visible_items=items_seen,
+        unknown_items=unknown_items,
         high_kill_enemies=high_kill,
-        confidence="high" if known >= 5 and items_seen >= 5
+        confidence="high" if known >= 5 and known == len(enemy_states)
+                           and items_seen >= 5 and not unknown_items
                    else "medium" if known >= 3 else "low",
     )
 

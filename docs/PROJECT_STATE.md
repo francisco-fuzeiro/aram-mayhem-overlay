@@ -29,8 +29,19 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#3](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/3) | `feat/reuse-mayhem-core` | PR #2 branch | Adapt permissively licensed OCR and client discovery, opt-in own-match history, proprietary composite champion score and CI |
 | [#4](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/4) | `feat/augment-composite-rating` | PR #3 branch | Absolute experimental augment score 0.0–10.0, confidence and source, optional empirical signal **disabled by default** |
 | [#5](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/5) | `feat/dynamic-team-threats` | PR #4 branch | LCDA visible enemy/ally state, original threat profiles, shared augment/build context, Balanced + Damage/Survival/Utility build paths and tests |
+| [#6](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/6) | `feat/team-threat-coverage` | PR #5 branch | Player-inclusive ally roles, catalog coverage safeguards and visible enemy inventory fallback |
 
 **Continue on `feat/dynamic-team-threats`**, unless its PR is merged and a new branch is appropriate. Follow the dependency order; never assume all stacked drafts have been merged.
+
+## Current work: PR #6 — team and enemy observation coverage
+
+- Branch `feat/team-threat-coverage`, stacked on PR #5 `feat/dynamic-team-threats`; `main` is unchanged.
+- The current champion now counts in allied role coverage (exactly once), so allied deficits include the player's own capabilities.
+- Enemy inventories are examined even when an enemy champion is not present in the catalog. `visible_items` now means the observed item count; `unknown_items` indicates IDs lacking our item metadata.
+- High threat confidence requires all visible enemy champions to be recognized and every observed item to resolve, as well as minimum roster/item coverage.
+- New deterministic tests cover partial catalog coverage, item observation without a known champion, and including the player in allied roles.
+- Validation: CI regression run `44314745431` failed (154 passed/1 failed); fixed in `9954041`. Latest PR #6 Windows run `44315513781` **passed: 155 tests, 1 warning, JavaScript syntax check passed**. Real in-game sample still outstanding.
+- Remaining risks: DataDragon tags may not correspond to verified item stats; role vectors approximate threat types; actual LCDA roster must be checked on Windows.
 
 ## Automated verification (as last observed)
 

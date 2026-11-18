@@ -65,3 +65,29 @@ Append-only timeline. Entries are factual snapshots, not future promises. For th
 ## Rule for every future entry
 
 Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command and result (or `not run`), outstanding risks, and next step. Do not silently claim tests passed or functionality is integrated into main until verified.
+
+## 2026-11-18 13:27 Europe/Lisbon — Enemy/ally catalog coverage (PR #6)
+
+- Branch `feat/team-threat-coverage`, based on `feat/dynamic-team-threats` (draft PR #5). Changes remain isolated from `main`.
+- Changed `backend/engine/team_context.py` to count visible enemy items even when champion metadata is missing, surface unresolved item IDs, and avoid high confidence for incomplete catalog coverage.
+- Changed `backend/workflow/pipeline.py` to include the current champion once in allied role analysis.
+- Added regressions in `tests/test_team_context.py` and `tests/test_dynamic_team_pipeline.py`.
+- Tests: `python -m pytest -q` and `node --check frontend/app.js` **not run** at the time of this entry; Windows GitHub Actions is required.
+- Next: verify CI, then tackle item feasibility and purchase recommendations separately. Real LCDA samples and Riot policy review remain open.
+
+
+## 2026-11-18 — PR #6 CI regression and fix
+
+- Windows GitHub Actions run [44314745431](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44314745431) **failed**: 154 passed, 1 failed, 1 warning. The failure proved that observed armor metadata was discarded when no enemy champion was recognized.
+- Fixed `backend/engine/team_context.py` zero-champion return to preserve recognized armor and magic-resist item counts in commit `9954041`.
+- Full suite for this follow-up commit: **not run** at time of entry; awaiting new Windows Actions result.
+- No actual Windows in-game LCDA evidence yet.
+
+
+## 2026-11-18 — PR #6 final automated validation
+
+- Windows GitHub Actions run [44315513781](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44315513781) completed successfully at head `1c7da85`.
+- `python -m pytest -q`: **155 passed, 1 warning**.
+- `node --check frontend/app.js`: **passed**.
+- In-game LCDA capture, actual enemy items and Riot policy: **not run / not resolved**. Keep the PR draft.
+
