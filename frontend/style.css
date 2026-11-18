@@ -134,6 +134,49 @@ body {
     box-shadow: 0 0 4px var(--red);
 }
 
+/* The native window has no title bar. These controls appear only in Qt. */
+.qt-window-controls {
+    display: none;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.qt-native-overlay .qt-window-controls {
+    display: inline-flex;
+}
+
+.qt-window-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-dim);
+    border: 1px solid var(--border-accent);
+    border-radius: 3px;
+    width: 22px;
+    height: 22px;
+    font-size: 17px;
+    line-height: 1;
+    font-family: inherit;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.qt-window-button:hover,
+.qt-window-button:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--text);
+}
+
+.qt-window-button.quit:hover,
+.qt-window-button.quit:focus-visible {
+    background: var(--red-dim);
+    color: #fff;
+}
+
+
 /* -- Waiting state -- */
 
 .waiting {

@@ -20,12 +20,15 @@ from __future__ import annotations
 import ctypes
 import sys
 import logging
+from urllib.parse import urlsplit, parse_qs
 
 logger = logging.getLogger("aram-oracle.overlay")
 
 try:
     from PyQt6.QtCore import Qt, QUrl, QTimer
-    from PyQt6.QtWidgets import QApplication, QMainWindow
+    from PyQt6.QtWidgets import (
+        QApplication, QMainWindow, QMenu, QSystemTrayIcon, QStyle,
+    )
     from PyQt6.QtWebEngineWidgets import QWebEngineView
     from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 
@@ -46,6 +49,27 @@ OVERLAY_MARGIN_RIGHT = 10
 OVERLAY_MARGIN_TOP = 60
 VK_MENU = 0x12
 VK_O = 0x4F
+VK_H = 0x48
+
+
+def _window_action_for_url(value: str) -> str | None:
+    """Accept only deliberate control fragments on our local overlay page."""
+    url = urlsplit(value)
+    try:
+        trusted_origin = (
+            url.scheme == "http"
+            and url.hostname in {"localhost", "127.0.0.1"}
+            and url.port == 8765
+        )
+    except ValueError:
+        return None
+    if (
+        not trusted_origin
+        or url.path != "/overlay"
+        or parse_qs(url.query).get("mode") != ["overlay"]
+    ):
+        return None
+    return {"qt-hide": "hide", "qt-quit": "quit"}.get(url.fragment)
 
 
 # Guard class definitions behind PYQT_AVAILABLE so they don't reference
@@ -100,6 +124,8 @@ if PYQT_AVAILABLE:
             self._view.setStyleSheet("background: transparent;")
 
             self.setCentralWidget(self._view)
+            self._view.loadFinished.connect(self._on_page_loaded)
+            self._view.urlChanged.connect(self._on_url_changed)
 
             # Load the overlay URL
             self._view.setUrl(QUrl(url))
@@ -107,23 +133,100 @@ if PYQT_AVAILABLE:
             # Keep an interaction toggle available while the game has focus.
             self._is_click_through = True
             self._hotkey_was_down = False
+            self._visibility_hotkey_was_down = False
+            self._tray = None
+            self._tray_toggle = None
+            self._setup_tray()
             QTimer.singleShot(100, self._set_click_through)
             self._hotkey_timer = QTimer(self)
             self._hotkey_timer.timeout.connect(self._poll_interaction_hotkey)
             self._hotkey_timer.start(60)
 
+        def _on_page_loaded(self, success: bool):
+            """Expose native-only controls after the local HTML page loads."""
+            if success:
+                self._view.page().runJavaScript(
+                    "document.documentElement.classList.add('qt-native-overlay')"
+                )
+
+        def _on_url_changed(self, url: QUrl):
+            """Route local hash actions without a privileged web API endpoint."""
+            action = _window_action_for_url(url.toString())
+            if action is None:
+                return
+            # Clear the fragment so the same action can be clicked repeatedly.
+            self._view.page().runJavaScript(
+                "history.replaceState(null, '', location.pathname + location.search)"
+            )
+            if action == "hide":
+                self._toggle_visibility()
+            elif action == "quit":
+                self._quit_overlay()
+
+        def _setup_tray(self):
+            """Keep a visible restore/quit route after hiding a frameless window."""
+            if not QSystemTrayIcon.isSystemTrayAvailable():
+                logger.info("System tray unavailable; Alt+H can still restore the overlay")
+                return
+            self._tray = QSystemTrayIcon(self)
+            self._tray.setIcon(
+                self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
+            )
+            self._tray.setToolTip("ARAM Oracle Overlay (Alt+H to show/hide)")
+            menu = QMenu()
+            self._tray_toggle = menu.addAction("Hide overlay (Alt+H)")
+            self._tray_toggle.triggered.connect(self._toggle_visibility)
+            interaction = menu.addAction("Toggle interaction (Alt+O)")
+            interaction.triggered.connect(self._toggle_click_through)
+            menu.addSeparator()
+            quit_action = menu.addAction("Quit overlay")
+            quit_action.triggered.connect(self._quit_overlay)
+            self._tray.setContextMenu(menu)
+            self._tray.activated.connect(self._on_tray_activated)
+            self._tray.show()
+
+        def _on_tray_activated(self, reason):
+            if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+                self._toggle_visibility()
+
+        def _toggle_visibility(self):
+            """Hide the native window without stopping the poller or WebSocket."""
+            if self.isVisible():
+                self.hide()
+                logger.info("Qt overlay hidden (Alt+H or tray to restore)")
+            else:
+                self.show()
+                self.raise_()
+                logger.info("Qt overlay shown")
+            if self._tray_toggle is not None:
+                action = "Hide" if self.isVisible() else "Show"
+                self._tray_toggle.setText(f"{action} overlay (Alt+H)")
+
+        def _quit_overlay(self):
+            """Exit the Qt event loop, stopping the background daemon server."""
+            logger.info("Closing Qt overlay")
+            app = QApplication.instance()
+            if app is not None:
+                app.quit()
+
         def _poll_interaction_hotkey(self):
-            """Toggle passthrough on a fresh Alt+O key chord globally."""
+            """Observe global Alt+O (interact) and Alt+H (show/hide) chords."""
             if sys.platform != "win32":
                 return
             user32 = ctypes.windll.user32
-            down = bool(
-                user32.GetAsyncKeyState(VK_MENU) & 0x8000
-                and user32.GetAsyncKeyState(VK_O) & 0x8000
+            alt_down = bool(user32.GetAsyncKeyState(VK_MENU) & 0x8000)
+            interaction_down = alt_down and bool(
+                user32.GetAsyncKeyState(VK_O) & 0x8000
             )
-            if down and not self._hotkey_was_down:
+            visibility_down = alt_down and bool(
+                user32.GetAsyncKeyState(VK_H) & 0x8000
+            )
+            if interaction_down and not self._hotkey_was_down:
                 self._toggle_click_through()
-            self._hotkey_was_down = down
+            if visibility_down and not self._visibility_hotkey_was_down:
+                self._toggle_visibility()
+            self._hotkey_was_down = interaction_down
+            self._visibility_hotkey_was_down = visibility_down
 
         def _toggle_click_through(self):
             """Enable controls temporarily without affecting transparency."""
@@ -182,6 +285,8 @@ def run_overlay(url: str = "http://localhost:8765/overlay?mode=overlay"):
 
     app = QApplication(sys.argv)
     app.setApplicationName("ARAM Oracle")
+    # Keep the event loop alive while the frameless window is hidden.
+    app.setQuitOnLastWindowClosed(False)
 
     window = OverlayWindow(url)
     window.show()

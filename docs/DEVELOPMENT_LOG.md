@@ -162,3 +162,20 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - The CLI default `--renderer auto` still prefers pywebview. Run `--renderer qt` explicitly for the confirmed working desktop renderer; do not claim default changed.
 - Latest CI at the preceding documentation-only head `388fe862`: [Windows run 44320104470](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44320104470) **success**. Neither draft PR #9 nor prior PRs were merged to `main`.
 
+## 2026-11-18 — PR #10: controllable Qt overlay window
+
+- The user reported the frameless Qt overlay lacked buttons to open or close. Before changes, users could stop the process via terminal or toggle click-through with Alt+O; neither provided direct hide/show.
+- New branch `feat/qt-overlay-window-controls`, stacked on PR #9. `main` unchanged.
+- Added Qt-only header buttons: **− Hide** and **× Quit**. Commands are only accepted from the trusted local overlay origin and are not exposed as network endpoints. A fragment is cleared after Qt dispatch so the user can repeat the action.
+- Added global **Alt+H** show/hide, persisted timer while window is hidden, and Qt system tray Show/Hide, Toggle interaction and Quit actions (double-click toggles).
+- Preserved Alt+O for toggling click-through; must enable interaction to click controls. Browser-only UI hides native buttons.
+- Added `tests/test_overlay_window_controls.py`, with valid/invalid local action URIs and UI contract tests. Updated README with how to hide, restore, and fully close.
+- At writing: Windows Actions full suite and JS syntax check **not yet run**; actual Windows click-through and tray tests **pending**. No claim of real-game validation.
+
+## 2026-11-18 — PR #10 Windows CI verification
+
+- [Windows GitHub Actions run 44322346286](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44322346286) succeeded at PR #10 feature commit `5c0d82ed`.
+- `python -m pytest -q`: **191 passed, 1 warning**; `node --check frontend/app.js`: **passed**.
+- Added tests cover local control fragment origin, markup/JS hooks and Qt hotkey/tray lifecycle as code-level contracts. Actual Windows GUI clicks, Alt+H restore and tray actions are **not yet tested on user machine**.
+- PR #10 remains draft, stacked on PR #9; `main` unchanged.
+

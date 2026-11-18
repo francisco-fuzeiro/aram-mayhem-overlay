@@ -87,6 +87,17 @@ python -m backend.overlay --renderer qt
 
 With either backend, press **Alt+O** to toggle click-through and interact with
 the overlay controls, then press it again to return mouse input to the game.
+
+In the **Qt renderer**, the top-right **−** button hides the overlay without
+stopping the engine, and **×** quits the application. To click these buttons,
+first press **Alt+O** to disable click-through. Press **Alt+H** at any time to
+show/hide the overlay (including while League has focus). A Windows notification
+area (system tray) icon also has **Show/Hide overlay**, **Toggle interaction**
+and **Quit overlay** commands; double-clicking its icon shows/hides the window.
+If the Windows notification area is unavailable, the **Alt+H** shortcut still
+works. Hiding is different from quitting: to reopen after quitting, run the
+launch command again.
+
 If a window shows "Waiting for game..." outside a match, that is normal;
 it is not evidence of failed transparency or working in-game detection.
 
