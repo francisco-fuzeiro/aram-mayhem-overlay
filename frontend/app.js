@@ -111,6 +111,8 @@
             ocrStatusBadge.title = "Tesseract not installed";
             btnScan.disabled = true;
         }
+        const help = $("ocr-manual-help");
+        if (help) help.classList.toggle("hidden", ocrAvailable);
     }
 
     // -- WebSocket --
@@ -307,7 +309,7 @@
         renderRecommendations(data);
         renderBuild(data.build_state);
         renderEnemies(data.enemies || [], data.enemy_analysis || {});
-        autoExpandSections(data.phase);
+        autoExpandSections(data);
     }
 
     function renderHeader(data) {
@@ -331,10 +333,10 @@
         }
 
         // Scan window indicator
-        if (data.scan_window_open) {
+        if (data.scan_window_open && ocrAvailable) {
             ocrStatusBadge.textContent = "SCANNING";
             ocrStatusBadge.className = "ocr-status-badge ocr-scanning";
-            ocrStatusBadge.title = "Augment pick detected — scanning screen";
+            ocrStatusBadge.title = "Augment pick due — scanning screen";
         } else if (ocrAvailable) {
             ocrStatusBadge.textContent = "OCR";
             ocrStatusBadge.className = "ocr-status-badge ocr-ready";
@@ -631,13 +633,18 @@
         });
     }
 
-    function autoExpandSections(phase) {
+    function autoExpandSections(data) {
         const augSection = $("section-augments");
         const buildSection = $("section-build");
         const inputSection = $("section-input");
         const enemySection = $("section-enemies");
 
-        if (phase && phase.startsWith("aug_pick")) {
+        // The live phase is "in_game" during an augment offer, so looking
+        // for "aug_pick" in phase never opened the recommendations.
+        const pickActive = !!data.scan_window_open;
+        const waitingForPick = data.augment_state &&
+            data.augment_state.eligible > data.augment_state.chosen;
+        if (pickActive || (!ocrAvailable && waitingForPick)) {
             augSection.classList.remove("collapsed");
             inputSection.classList.remove("collapsed");
             buildSection.classList.add("collapsed");
@@ -889,8 +896,8 @@
         if (params.get("mode") !== "overlay") return;
 
         document.body.classList.add("overlay-mode");
-        // In overlay mode, hide less critical sections by default
-        $("section-input").classList.add("hidden");
+        // Keep manual augment input accessible when OCR is unavailable.
+        // Collapsed by default; it can be expanded with Alt+O to interact.
     }
 
     // -- Boot --

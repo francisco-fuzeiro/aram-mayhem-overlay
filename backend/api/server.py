@@ -72,12 +72,13 @@ class GameState:
 
     def reset(self) -> None:
         """Reset all game-specific state (called when no game is detected)."""
-        if self.ocr_last_detected or screen_watcher.has_detection:
-            self.ocr_last_detected.clear()
-            self.augment_choices.clear()
-            self.chosen_augments.clear()
-            self.chosen_stat_anvils.clear()
-            screen_watcher.reset()
+        # Clear manually entered picks too. An OCR-less match must not
+        # leak augment choices into the next match.
+        self.ocr_last_detected.clear()
+        self.augment_choices.clear()
+        self.chosen_augments.clear()
+        self.chosen_stat_anvils.clear()
+        screen_watcher.reset()
         self.last_known_level = 0
         self.scan_window_open = False
         self.scan_window_level = 0
@@ -107,6 +108,24 @@ AUGMENT_PICK_LEVELS_SORTED = sorted(AUGMENT_PICK_LEVELS)  # [3, 7, 11, 15]
 def expected_augments_for_level(level: int) -> int:
     """How many augments a player should have picked by this level."""
     return sum(1 for lvl in AUGMENT_PICK_LEVELS_SORTED if level >= lvl)
+
+
+
+def should_open_augment_scan(
+    level: int, previous_level: int, chosen_count: int, just_respawned: bool,
+) -> bool:
+    """Trigger when picks become due, including the initial in-game snapshot.
+
+    Some Mayhem selections appear immediately at an eligible level, before a
+    death/respawn transition. A fresh observed threshold is sufficient to scan.
+    Repeated polls at that level do not reopen a closed scan indefinitely.
+    """
+    due = expected_augments_for_level(level) > chosen_count
+    new_threshold = (
+        expected_augments_for_level(level)
+        > expected_augments_for_level(previous_level)
+    )
+    return due and (new_threshold or just_respawned)
 
 
 @asynccontextmanager
@@ -560,7 +579,7 @@ async def _poll_game_loop(interval: float | None = None):
     """Background task: poll Live Client Data API and push updates to all connected WS clients.
 
     Augment detection state machine:
-    1. Scan window opens when player levels up to 3/7/11/15.
+    1. Scan window opens at an eligible 3/7/11/15 level or on respawn.
        Snapshot champion stats at this point.
     2. ScreenWatcher detects augments on screen (OCR + hash).
     3. ScreenWatcher reports "disappeared" when augment UI goes away.
@@ -589,25 +608,26 @@ async def _poll_game_loop(interval: float | None = None):
                         game_state.post_game = False
                         # -- Scan window management --
                         #
-                        # In ARAM Mayhem, augment selection appears on RESPAWN
-                        # (after dying), not at level-up. The trigger is:
-                        #   was_dead=True → is_dead=False (respawn)
-                        #   AND player has fewer augments than expected for level
+                        # Augment offers may appear when the first eligible
+                        # level is reached or after a respawn. Use only the
+                        # observed local level/death state; no hidden data.
                         #
                         # Track death transitions
+                        previous_level = game_state.last_known_level
                         just_respawned = (
                             game_state.was_dead and not snapshot.is_dead
                         )
                         game_state.was_dead = snapshot.is_dead
                         game_state.last_known_level = current_level
 
-                        # Open scan window on respawn when augments are due
+                        # Open when a new pick level is reached OR on respawn.
                         expected = expected_augments_for_level(current_level)
                         have = len(game_state.chosen_augments)
 
                         if (
-                            just_respawned
-                            and have < expected
+                            should_open_augment_scan(
+                                current_level, previous_level, have, just_respawned
+                            )
                             and not game_state.scan_window_open
                             and not game_state.awaiting_stat_delta
                         ):
@@ -620,7 +640,7 @@ async def _poll_game_loop(interval: float | None = None):
                             )
                             screen_watcher.reset()
                             logger.info(
-                                "Augment pick window OPENED on respawn "
+                                "Augment pick window OPENED at eligible level "
                                 "(level %d, have %d/%d augments)",
                                 current_level, have, expected,
                             )

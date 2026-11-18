@@ -71,6 +71,33 @@ pip install -e ".[webview-overlay]"
 python -m backend.overlay
 ```
 
+### In-game augment options or build items are missing?
+
+If the overlay badge reads **NO OCR**, the local Tesseract executable could
+not be launched. Install Tesseract OCR (separately from the Python packages)
+and restart the overlay:
+
+```powershell
+winget install --id UB-Mannheim.TesseractOCR --exact
+Test-Path 'C:\Program Files\Tesseract-OCR\tesseract.exe'
+python -m backend.overlay --renderer qt
+```
+
+If installed elsewhere, set `TESSERACT_PATH` to the complete path of
+`tesseract.exe` in that PowerShell session before launching.
+
+**Manual fallback:** With the overlay visible, press **Alt+O** to enable
+interaction, expand **DETECT AUGMENTS**, search for the three offered
+augment names and click **Evaluate**. You can then select your actual
+pick using **Choose this**. The manual fallback does not need OCR.
+
+The build planner counts only live-client inventory slots **0–5**.
+Trinket-slot objects like Poro-Snax (slot 6) are not equipment and must
+not consume a build slot or contribute to enemy equipment coverage.
+Different item IDs with the same catalog name are not presented as
+separate build alternatives. Actual Mayhem shop eligibility, component
+costs and contextual item ranking still need match-level verification.
+
 ### Windows overlay has a white background?
 
 The lightweight pywebview/Edge WebView2 backend can render a white rectangle

@@ -34,8 +34,9 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#8](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/8) | `feat/late-game-boots-replacement` | PR #7 branch | Optional full-inventory boots-to-mobility item swap with conservative stat comparison |
 | [#9](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/9) | `fix/windows-overlay-transparency-fallback` | PR #8 branch | Explicit Qt fallback for Windows transparency; pywebview HWND fix |
 | [#10](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/10) | `feat/qt-overlay-window-controls` | PR #9 branch | Hide/show/quit buttons, Alt+H restore, Qt system tray menu |
+| [#11](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/11) | `fix/live-augment-detection-item-duplicates` | PR #10 branch | Fix early level scan, manual augment fallback, duplicate-name builds and non-equipment trinkets |
 
-**Active working head: `feat/qt-overlay-window-controls` (draft PR #10)**, stacked on PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `fix/live-augment-detection-item-duplicates` (draft PR #11)**, stacked on PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
 
 ## Current work: PR #6 — team and enemy observation coverage
 
@@ -85,7 +86,21 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 - **Validated CI:** [Windows Actions run 44322346286](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44322346286) at feature commit `5c0d82ed`: **191 passed, 1 warning; JavaScript syntax check passed**. Real Windows Qt button/hotkey/tray behavior still requires user validation.
 - Next user verification: `python -m backend.overlay --renderer qt`, Alt+O then click − and restore with Alt+H, finally test × and tray restore.
 
+## Current work: PR #11 — first in-game Mayhem findings
+
+- User's first live in-game screenshot on Windows shows a level-4 Jinx with **Blunt Force, Erosion and Homeguard** on screen, while the overlay shows **NO OCR** and no offers scored. Champion, gold and all five opponents are recognized; build incorrectly lists **Poro-Snax as one of six owned items** and **Phantom Dancer twice**. Enemy threat panel reports seven items missing from the scored catalog. This screenshot is evidence of these visible symptoms, not of actual OCR output.
+- **Root causes in source:** Tesseract unavailable to the Python process; overlay mode permanently hid manual input; UI used `phase.startsWith("aug_pick")` despite live messages being `in_game`; backend opened OCR scan only on respawn, missing newly eligible level snapshots; inventory parser counted trinket slot 6 as a build item; planner deduplicated catalog item IDs, not equivalent names.
+- Branch `fix/live-augment-detection-item-duplicates` stacked on PR #10. No merge to `main`.
+- `backend/collectors/lcda.py` now counts only main item slots 0–5, excluding Poro-Snax 2052 as a fallback even if slot missing. The same rule removes non-equipment trinkets from observed enemy inventory counts, reducing noisy "unknown items" without fabricating stats.
+- `backend/engine/build_suggester.py` deduplicates candidate names (casefold + whitespace normalization) across items already owned, planned paths and proposed boot swaps. This avoids listing two different mode-specific catalog IDs with the same name as separate items.
+- `backend/api/server.py` starts OCR scans when an augment becomes due at a newly observed 3/7/11/15 level, including the first in-game snapshot, or on respawn with outstanding offers; avoids repeatedly reopening the same-level scan. Reset clears manual augment state without requiring previous OCR detection.
+- `frontend/app.js` leaves **DETECT AUGMENTS** accessible in overlay mode, opens manual input when a pick is due and OCR is unavailable, does not falsely report SCANNING without OCR. `frontend/index.html` shows install/manual instructions; README provides the Tesseract command and fallback steps.
+- `tests/test_live_mayhem_regressions.py` covers duplicate names, owned aliases, active and enemy trinket filtering, scan triggers, hidden fallback and per-game reset. **Verified Windows Actions run `44325282457`: 200 passed, 1 warning; JavaScript syntax check passed**, at feature+documentation head `df2cf1ba`. Actual in-game OCR recognition and shop eligibility still require user verification.
+- **Immediate user dependency:** install Windows Tesseract OCR (Python `pytesseract` alone is insufficient), restart Qt overlay, and test. Manual three-choice search works without Tesseract. Avoid inferring augment effectiveness from the screenshot alone.
+
 ## Automated verification (as last observed)
+
+- PR #11 Windows CI `44325282457` on commit `df2cf1ba`: **200 passed, 1 warning**, `node --check frontend/app.js` passed. Later documentation commits require separate CI validation.
 
 - PR #10 Windows CI `44322346286` on feature commit `5c0d82ed`: **191 passed, 1 warning**, JavaScript syntax check passed. Later documentation-only commits need separate CI confirmation.
 
@@ -136,7 +151,7 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 
 ## Highest-priority remaining work
 
-1. **Qt desktop transparency is validated.** Verify PR #10 native hide/show/quit, Alt+H recovery and tray on Windows; then verify over League in borderless mode, champion select, LCDA, OCR and build updates.
+1. **First live match exposed real OCR and build regressions (PR #11).** Verify Windows CI, install Tesseract and retest offered augments including manual fallback, while checking Poro-Snax and duplicate items no longer appear.
 2. Review and test enemy/ally parsing against actual LCDA samples on Windows; no unsupported invisible opponent detection.
 3. Validate Mayhem item availability, inventory limits, components, multi-boot/exclusive rules, quest rewards, and shop buyability. Current item matching is **heuristic**, not purchase-path validated.
 4. Improve threat accuracy: champion damage-source metadata vs generic AP/AD vector; enemy resistance items must be recognized from verified item properties, not merely unverified tags. Expose low-confidence cases.
@@ -148,8 +163,8 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 ## How to work in a new chat
 
 1. Read **this file** and `docs/DEVELOPMENT_LOG.md` from the connected private GitHub repository.
-2. Check PR #10 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
-3. Continue from PR #10 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
+2. Check PR #11 head, its stacked dependencies and GitHub Actions live; inspect code before assuming this snapshot is perfectly current.
+3. Continue from PR #11 through the GitHub connector in a new stacked feature branch / draft PR; do not directly edit the user's Windows `D:` path unless confirmed access exists.
 4. Write English code, English UI and English documentation; answer the user in PT-PT.
 5. After a completed task, update this current-state snapshot and append a dated, verifiable entry to the development log. Record tests as `passed`, `failed`, or `not run`, never inferred.
 6. Request Windows in-game testing only when needed; provide exact PowerShell commands to fetch/checkout the branch and run tests/overlay.
