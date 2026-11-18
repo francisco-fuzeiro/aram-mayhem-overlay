@@ -1,4 +1,7 @@
 ---
+
+> **Newest checkpoint (2026-11-18):** E3 [PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) final SHA `659b20ed` passed CI [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780). M3/F1 [draft PR #35](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/35), branch `fix/m3-f1-lcda-classified-nonblocking`, tests-first, currently awaiting final CI. Next step verify F1 latest head and repair as needed; only then start F2 branch/PR. Do not assume F2–F5, Windows/League or Riot acceptance.
+
 name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
