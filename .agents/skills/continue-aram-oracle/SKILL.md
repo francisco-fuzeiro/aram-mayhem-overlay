@@ -10,6 +10,11 @@ description: Resume ARAM Oracle development safely across ChatGPT project conver
 - F2–F5 are still unstarted. Retain an AUD-07 strict xfail until F3 proves recovery, and never equate CI to native Windows/League acceptance. Preserve G1/G2, G4, Riot/licensing and safety flags.
 
 
+## M3/F1 code-gate update (2026-11-18)
+
+- M3/F1 draft PR #33 branch `fix/m3-f1-lcda-nonblocking-status`, code commit `5489f056`, Windows [Actions 44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545) passed: **363 Python passed, 1 AUD-07 xfailed, 28 JavaScript passed, 4 TODO**. Tests-first failure verified in 44418721047; fixed legacy diagnostic regression from 44418797816. Verify **current documentation-head CI** before F2.
+
+
 # Continue ARAM Oracle
 
 Use this repository-local skill when the user asks to continue work on the private League of Legends ARAM Mayhem companion from another ChatGPT conversation. **This file is a reusable repository instruction, not an automatically installed ChatGPT plugin/skill.** The next chat must explicitly fetch/read it from GitHub, along with the current repository files.
