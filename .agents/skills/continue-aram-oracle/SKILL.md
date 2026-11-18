@@ -32,7 +32,7 @@ ChatGPT conversation with the GitHub connector available:
   continue the next uncompleted phase described in the handoff, rather
   than relying on chat memory or a hard-coded PR number.
 
-**One phase = one chat = one new stacked branch = one draft PR.** A rotation
+**One phase = one new stacked branch = one draft PR.** One chat may implement several consecutive phases only after each previous phase passes its independent gates. A rotation
 may also happen mid-phase when context becomes long: record a checkpoint on
 the *same* branch/PR and resume that unfinished phase in the next chat,
 **without creating a new phase branch prematurely**. Never mark a phase
@@ -43,6 +43,10 @@ ChatGPT invocation, scheduled job, or new-chat creator. The user opens the new
 chat and sends the phrase; the assistant explicitly fetches this skill from
 the connected private GitHub repository. If the connector is unavailable,
 request connection rather than inventing state. Always protect `main`.
+
+## Functional fix plan precedence (2026-11-18)
+
+The current functional repair sequence is the [full M1–M8 implementation plan](../../../docs/FUNCTIONAL_FIX_IMPLEMENTATION_PLAN_2026-11-18.md), with *per-phase* P0.1–G6 checkboxes in [TODO](../../../docs/TODO.md). Read it at every new development session and prefer the last unchecked phase backed by real GitHub evidence over this skill's older D5a handoff anchor. See `AGENTS.md` for mandatory tests-first, ≤150/400 changed-line targets, stacked draft PRs, Windows gates, safety, data accuracy and localhost API release rules. **One phase = one branch = one draft PR; one chat may complete multiple sequential phases with separate review evidence.** Mid-phase chat rotation continues the same branch/PR. The old A-FIX numbering is historical planning, not an alternative schedule. PR #18 contains documentation only, not fixes.
 
 ## Startup — mandatory, in order
 
