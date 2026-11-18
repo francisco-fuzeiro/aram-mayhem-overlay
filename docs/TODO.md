@@ -62,6 +62,21 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 - [ ] **A-FUNC.3 (acceptance):** Correct P0 faults and validate three real offered cards, reroll, meaningful/unknown scores and clean game exit on a permitted Windows custom match.
 - [ ] **A-FUNC.4 (UI gate):** Hold game-card-aligned in-game UI until the actual identity/score/offer lifecycle is reliable. Keep D5c **desktop Settings UX audit** a separate later phase.
 
+**A-FUNC post-audit checkpoint (2026-11-18, user-supplied excerpt):** A Claude functional audit report was provided in ChatGPT, based on D4b `9832fb0`, reporting 303 Python + 18 JavaScript passes on the audited head and reproductions of wrong-window OCR, false picks, missed rerolls, score plateau and stale state. The pasted excerpt stops during AUD-11; the complete report and Windows evidence are still needed before claiming the *entire* audit ledger accepted. Planning and code changes remain separate.
+
+**Proposed implementation plan:** [A_FUNC_REMEDIATION_PLAN_2026-11-18.md](A_FUNC_REMEDIATION_PLAN_2026-11-18.md). **A-FIX** labels are new repair slices and do **not** rename existing A-FUNC.3 (Windows acceptance) or A-FUNC.4 (UI gate). All below are **unchecked**, as no application code was changed in the documentation checkpoint.
+
+- [ ] **A-FIX.0 — Output guard:** hide unsupported precision/reroll advice and turn off automatic diagnostic screenshot storage; no phantom pick auto-confirmation.
+- [ ] **A-FIX.1 — Safe capture:** League HWND/foreground/client geometry, DPI/monitor-safe OCR crop, opt-in privacy-preserving diagnostics. (AUD-02a, AUD-09)
+- [ ] **A-FIX.2 — Match/offer state:** authoritative generation/slot model; serialized scans; no stat-delta or health-based false choices; LCDA miss debounce. (AUD-03a/d, AUD-06/07)
+- [ ] **A-FIX.3 — Per-card OCR/rerolls:** slot-ordered OCR, uniqueness thresholds, per-band hashes, retry and fail-closed invalidation. (AUD-02b, AUD-03b/c)
+- [ ] **A-FIX.4 — Catalog/scoring:** Mayhem-only validated IDs, source provenance, cache integrity, unknown ratings and safe reroll advice; later empirical calibration behind policy gate. (AUD-04, AUD-10)
+- [ ] **A-FIX.5 — Game/localhost safety:** LCU/LCDA game status, frontend stale reset, secure Host/Origin/auth, strict WS input validation and privacy. (AUD-01, AUD-05, AUD-08, truncated AUD-11)
+- [ ] **A-FIX.6 — Real Windows gate:** 1080p/1440p, windowed/borderless, rerolls, levels/items, Alt+Tab, game end/reconnect/consecutive matches, private-fixture redaction. (A-FUNC.3)
+- [ ] **A-FUNC.COMPLETE-REPORT:** Obtain and archive full Claude audit including the missing remainder of AUD-11+; reconcile any additional findings before closing A-FUNC.1.
+
+**Urgent security gate:** AUD-08 localhost cross-origin access blocks release even though source audit called it P1. Apply independently of UI schedule; do not distribute before fixing it.
+
 **WIP safety:** `fix/postgame-stale-match-state` was created during this review with preliminary unverified state-cleanup code and one test file; this branch is **unmerged, not part of PR #17, not validated and not a resolved issue**. Do not promote it silently. Review separately during the audit.
 
 ## P1 — Contextual UI and pre-game flow
