@@ -2,6 +2,26 @@
 
 The repository-local continuity skill is [`.agents/skills/continue-aram-oracle/SKILL.md`](../.agents/skills/continue-aram-oracle/SKILL.md). It is a **GitHub repository skill**, not an automatically installed ChatGPT plugin. A new project conversation must explicitly fetch it through the connected GitHub app.
 
+## Trigger phrases (in the ChatGPT project)
+
+Use one phrase per action. These are **conventions interpreted by the
+assistant**, not real slash commands or an automatic new-chat mechanism.
+
+- **`ARAM Oracle: preparar passagem`** in the current chat: persist
+  verified facts, pending tests, branch/PR and actual CI to the GitHub
+  state/log/TODO files; refresh this handoff and give the exact next prompt.
+  A partial/incomplete phase is handed off **on the same branch**, not falsely
+  marked complete.
+- **`ARAM Oracle: continuar`** in a **new chat**: open this private GitHub
+  repository, read `.agents/skills/continue-aram-oracle/SKILL.md` and all
+  mandatory state files, verify the current PR/CI, then follow the
+  `Next phase` instructions below. For an explicit first message use:
+  `ARAM Oracle: continuar. Lê a skill .agents/skills/continue-aram-oracle/SKILL.md diretamente do GitHub francisco-fuzeiro/aram-mayhem-overlay e segue docs/CONTINUE_PROJECT.md.`
+
+The user must manually start the next ChatGPT conversation. When GitHub is
+not connected, ask to reconnect rather than guessing previous work. All
+changes remain stacked drafts unless the user explicitly approves merging.
+
 ## Confirmed handoff — 2026-11-18, Europe/Lisbon
 
 - **Draft PR #13**: [D1 native Settings shell](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13), branch `feat/desktop-settings-shell`, targeting draft PR #12 branch `feat/pregame-settings-feedback` (itself stacked on PR #11). Do **not** merge or edit `main`.
