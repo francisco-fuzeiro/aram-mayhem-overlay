@@ -37,8 +37,19 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 | [#11](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/11) | `fix/live-augment-detection-item-duplicates` | PR #10 branch | Fix early level scan, manual augment fallback, duplicate-name builds and non-equipment trinkets |
 | [#12](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/12) | `feat/pregame-settings-feedback` | PR #11 branch | Out-of-game Settings, persistent live build preferences, Qt tray access and local feedback |
 | [#13](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/13) | `feat/desktop-settings-shell` | PR #12 branch | D1 native normal PyQt6 Settings host, shared API readiness/conflict handling and headless regressions |
+| [#14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14) | `feat/desktop-single-instance-tray` | PR #13 branch | D2 exclusive process lock, repeat-launch IPC, single Qt tray owner and managed API shutdown (Windows acceptance pending) |
 
-**Active working head: `feat/desktop-settings-shell` (draft PR #13)**, stacked on PR #12 -> PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+**Active working head: `feat/desktop-single-instance-tray` (draft PR #14)**, stacked on PR #13 -> PR #12 -> PR #11 -> PR #10 -> PR #9 -> PR #8 -> PR #7 -> PR #6 -> PR #5 -> PR #4 -> PR #3 -> PR #2 -> PR #1. Follow the dependency order; none of these draft changes should be assumed merged into `main`.
+
+## Current work: PR #14 — D2 single instance and tray lifecycle (2026-11-18)
+
+- Branch `feat/desktop-single-instance-tray`, [draft PR #14](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/14), targeting `feat/desktop-settings-shell` (draft PR #13). The earlier drafts and `main` are not merged.
+- New `backend/desktop/instance.py` holds a per-user OS process lock through application lifetime and publishes an authenticated loopback activation channel. Second desktop launches request Settings activation; repeated Qt overlay launches request overlay restoration, without starting a second managed backend or tray. A crashed owner releases the OS lock; stale metadata is replaced on restart. An unresponsive owner is reported, not stolen.
+- New `backend/desktop/service.py` owns the existing FastAPI ASGI application in a stoppable uvicorn thread, or reuses a compatible already-running API without terminating that external owner; unknown port 8765 services are rejected.
+- `backend/desktop/window.py` hosts a single QApplication, one system tray, independent normal Settings and transparent overlay Qt surfaces, explicit hide/restore and Quit. The original Qt overlay keeps the same Win32 transparency/hotkeys; its optional internal tray is disabled in managed mode. `python -m backend.overlay --renderer qt` and auto mode with Qt available delegate to the unified lifecycle. The explicit non-Qt webview renderer remains a legacy developer fallback outside this single-tray Qt path.
+- Headless regressions added in `tests/test_desktop_lifecycle.py`; legacy launcher assertions updated. JavaScript and preference/feedback implementations are unchanged. D2 does not claim real OCR 3-card/reroll detection, verified shop state, or compliance clearance.
+- **Validation at implementation record:** GitHub Actions for PR #14 must be verified on the final head. No Windows native GUI test has yet been supplied for D2. Keep `PH-D2.3` and `PH-D1.5` unchecked; manual Windows test must cover two launchers, one tray/API, close/reopen, port conflicts, Alt+H/Alt+O, and no surviving owned backend after Quit.
+- No third-party external companion source was imported. `docs/REUSE_CANDIDATES.md` remains the license register. Next phase after this D2 gate is **D3 Settings navigation**, not installation or in-game OCR feature development.
 
 ## Current work: PR #13 — D1 native desktop Settings shell (2026-11-18)
 
@@ -217,6 +228,21 @@ The user supplied `funcionalidades.md` in the ChatGPT Overlay LoL project on 202
 6. Validate the new selectable build-style preference in the actual Windows overlay and confirm the selected path updates after purchases and augment picks.
 7. Patch/version-aware data ingestion and confidence; ensure only ARAM Mayhem games are counted (verify actual queue/mode identifiers).
 8. Test champion select, augment OCR, build updates, click-through and resize live on user's Windows; keep interface polishing last.
+
+## Cross-chat session triggers (documented, not native commands)
+
+- `ARAM Oracle: preparar passagem` — in the current conversation, update
+  and verify GitHub state/TODO/log, CI and unresolved acceptance checks, then
+  return the exact prompt for a new chat. An unfinished phase rotates on its
+  existing branch and PR.
+- `ARAM Oracle: continuar` — in a freshly opened ChatGPT Overlay LoL project
+  conversation, load `.agents/skills/continue-aram-oracle/SKILL.md` and
+  `docs/CONTINUE_PROJECT.md` from GitHub, verify live branch and CI, and
+  resume the in-progress/next phase.
+- The phrases are a documented convention, **not** registered ChatGPT
+  commands or automatic creation of new chats. The user opens the next chat.
+  One new stacked branch and draft PR per new phase; no merge to `main`
+  without explicit approval.
 
 ## How to work in a new chat
 
