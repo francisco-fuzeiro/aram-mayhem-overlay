@@ -1,5 +1,8 @@
 # Overlay LoL — Project State / Chat Handoff
 
+> **2026-11-18 M3/F1 in progress:** [draft PR #35](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/35) `fix/m3-f1-lcda-classified-nonblocking`, stacked on E3 PR #28 at `659b20ed`. E3 final CI [44412288780](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44412288780) succeeded. F1 adds LCDAResult, off-loop LCDA reads and classified privacy-safe diagnostics. F1 final CI pending; F2/F3 not yet started. Windows/League validation remains open.
+
+
 > **2026-11-18 M2 code-complete checkpoint:** A3 PR #25 → [E1 draft PR #26](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/26) @ `cc34107b`, final [CI 44409175703](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44409175703) green → [E2 draft PR #27](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/27) @ `a4432f69`, final [CI 44410150004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44410150004) green → [E3 draft PR #28](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/28) branch `fix/m2-e3-unrated-safe-rerolls`, code head `5efa3628` full [CI 44411567599](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44411567599) green (**354 Python, 1 AUD-07 xfailed; 28 JS, 4 TODO**). E3 final documentation-head CI **must be verified after the present documentation commit** before starting M3/F1. All PRs draft/unmerged, `main` untouched. No actual Windows/League/Riot acceptance. Next M3/F1–F5, independent stacked PR and CI gate per phase. G1/G2 patch coverage, G4 local API security, AUD-07, A-FUNC.3/V1 and Riot/licences remain open.
 
 
