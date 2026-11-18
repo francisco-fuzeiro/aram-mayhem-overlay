@@ -1,5 +1,8 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+> **M3/F2 code verified:** [draft PR #36](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/36), code [CI 44420212177](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44420212177) passed (374 Python / 1 AUD-07 xfailed / 28 JS / 4 TODO). F2 status + read-only Gameflow implemented. Final docs-head CI must be green before F3. F3 must resolve transient LCDA termination, match identity, consecutive matches and AUD-07. F4/F5 remain untouched.
+
+
 > **M3/F1 code gate (2026-11-18):** PR #33 @ `5489f056`, Windows Actions [44419072545](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44419072545) passed (363 Python, 1 AUD-07 xfailed, 28 JavaScript, 4 TODO). Final docs-head CI must pass to unlock F2; user-device acceptance remains open.
 
 
