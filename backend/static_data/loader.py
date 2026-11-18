@@ -534,6 +534,15 @@ def _load_items() -> dict[str, ItemData]:
         r.raise_for_status()
         raw = r.json()
     except (requests.RequestException, ValueError):
+        # Keep existing offline builds available when the movement-aware
+        # cache has not yet been fetched; legacy caches have no MS metadata,
+        # therefore boot replacement remains disabled until refreshed.
+        legacy_cache = CACHE_DIR / f"items_{version}.json"
+        if legacy_cache.exists():
+            try:
+                return _parse_item_cache(json.loads(legacy_cache.read_text(encoding="utf-8")))
+            except (OSError, ValueError, KeyError, TypeError):
+                _loader_logger.warning("Unable to load legacy offline item cache")
         return {}
 
     items_raw = raw.get("data", {})
