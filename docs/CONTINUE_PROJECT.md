@@ -1,5 +1,10 @@
 # Continue ARAM Oracle in a New Chat
 
+## 2026-11-18 M3/F2 code complete — F3 next after docs CI
+
+- F2 [draft PR #30](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/30) `fix/m3-f2-explicit-gameflow-status` on F1 PR #29. Red [44415699928](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44415699928); green code [44416355903](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44416355903): 374 Python, 1 strict AUD-07 xfailed, 28 JS, 4 TODO. Code head `0493fad2`.
+- **Verify final F2 documentation-head Windows Actions green before F3.** F3 only: 3 misses over >=6 seconds without contradicting Gameflow, authoritative end, session/fallback match ID, gameTime regression, clear prior session immediately, remove 300s, promote AUD-07. F4 and F5 later separate drafts.
+
 ## 2026-11-18 active handoff — M3/F1 coded; F2 next after final-head gate
 
 - [Draft PR #29](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/29): `fix/m3-f1-classified-lcda-nonblocking`, stacked on E3 PR #28; E3 final CI green `44412288780`.
