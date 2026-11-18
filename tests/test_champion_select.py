@@ -134,10 +134,15 @@ def test_champion_composite_uses_personal_record_when_available():
     assert before["components"]["performance"] is None
 
 
-def test_champion_composite_is_not_rescaled_win_percentage():
-    draft = {"benchChampions": [{"championId": 99}]}
-    output = summarize_champion_select(
-        draft, IDS, get_champion, record_lookup=lambda _: (70, 100)
-    )
-    assert output["method"] == "composite_v1"
-    assert output["candidates"][0]["score"] != 7.0
+def test_champion_composite_depends_on_team_even_with_same_win_evidence():
+    roster = {"benchChampions": [{"championId": 99}]}
+    one = dict(roster, myTeam=[{"championId": 222}])  # No mage yet
+    two = dict(roster, myTeam=[{"championId": 99}])  # Already has a mage
+    lookup = lambda _: (70, 100)
+    rating_a = summarize_champion_select(one, IDS, get_champion, record_lookup=lookup)
+    rating_b = summarize_champion_select(two, IDS, get_champion, record_lookup=lookup)
+    assert rating_a["method"] == "composite_v1"
+    assert rating_b["method"] == "composite_v1"
+    assert rating_a["candidates"][0]["score"] != rating_b["candidates"][0]["score"]
+    assert rating_a["candidates"][0]["sample_size"] == 100
+    assert rating_b["candidates"][0]["sample_size"] == 100
