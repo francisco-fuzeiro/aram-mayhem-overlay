@@ -96,8 +96,8 @@ be sent there. An unavailable disk or a 30-second submission cooldown is
 shown as an error and **must not** be presented as a successful save.
 
 Qt **Alt+O** still toggles interaction, **Alt+H** still shows/hides the
-overlay, and clicking through remains the normal in-game mode. The system
-tray action only opens a standard browser tab; it does not alter the
+overlay, and clicking through remains the normal in-game mode. In the managed Qt app, the system tray opens the native Settings window;
+the browser `/settings` URL remains a fallback. Neither route changes the
 overlay's transparency or mouse handling.
 
 ### Desktop and overlay application (D2 prototype)
