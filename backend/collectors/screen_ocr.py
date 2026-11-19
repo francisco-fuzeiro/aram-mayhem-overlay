@@ -74,7 +74,7 @@ MAX_SCREENSHOTS = 15
 MAX_SCREENSHOT_AGE_SECONDS = 3 * 24 * 3600
 
 # Perceptual hash size (NxN grid). Higher = more sensitive to small changes.
-HASH_SIZE = 16
+HASH_SIZE = 32
 
 
 
