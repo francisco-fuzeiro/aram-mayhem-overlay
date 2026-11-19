@@ -3,6 +3,12 @@ name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
 
+
+## 2026-11-19 active handoff — M4/B1 to B2
+
+- **2026-11-19 M4/B1 — [draft PR #37](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/37)** on `fix/m4-b1-league-window-locator` stacked on F5 PR #34 (`0ba8d161`). Tests-first `7f759279` reproduced a missing module in [RED Windows CI 44425838372](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44425838372). Read-only Win32 process-identity/client-rect/focus selector `1799def5` passed [code CI 44426045251](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44426045251): **405 Python passed (one warning), 37 JS passed, zero failures/TODO/xfail**. Final documentation-head CI must be checked before B2. No native League/Windows capture acceptance yet; B2 focused capture and B3 privacy are not implemented. G1/G2, G4, A-FUNC.3/V1 and Riot/licensing remain open.
+- On resume: inspect live PR #37 and its final docs-head Actions. Do not start B2 until this CI succeeds. B2 must be tests-first, use B1's real League client rectangle (never whole monitor), skip capture/OCR and emit `not_focused` on Alt+Tab, preserve old slots as explicitly stale. B3 remains separate. No on-device Mayhem acceptance.
+
 # Continue ARAM Oracle
 
 Use this repository-local skill when the user asks to continue work on the private League of Legends ARAM Mayhem companion from another ChatGPT conversation. **This file is a reusable repository instruction, not an automatically installed ChatGPT plugin/skill.** The next chat must explicitly fetch/read it from GitHub, along with the current repository files.
