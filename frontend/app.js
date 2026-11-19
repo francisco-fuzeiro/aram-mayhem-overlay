@@ -792,12 +792,12 @@
     function renderOcrResult(detected, augmentChoices) {
         if (!detected || detected.length === 0) {
             ocrDetected.classList.add("hidden");
-            ocrDetected.innerHTML = "";
+            ocrDetected.replaceChildren();
             return;
         }
 
         ocrDetected.classList.remove("hidden");
-        ocrDetected.innerHTML = "";
+        ocrDetected.replaceChildren();
 
         const title = document.createElement("div");
         title.className = "ocr-title";
