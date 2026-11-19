@@ -316,3 +316,11 @@ def test_actual_slot_hash_sees_glyph_sized_changes_without_whole_strip():
     after = _perceptual_hash(synthetic_title(10))
     assert _hamming_distance(before, after) > CHANGE_THRESHOLD
     assert _hamming_distance(before, before) == 0
+
+
+def test_two_changed_slots_confirm_independently_without_touching_third():
+    t = baseline()
+    assert observe(t, left=11, centre=21) is None
+    assert_ids(observe(t, left=11, centre=21),
+               ["new_left", "new_centre", "kill"])
+    assert READS == Counter({"left": 4, "centre": 4, "right": 2})
