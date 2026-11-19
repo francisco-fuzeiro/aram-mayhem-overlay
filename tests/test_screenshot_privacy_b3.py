@@ -100,13 +100,18 @@ def test_removed_fullscreen_capture_api_cannot_be_called():
     assert not hasattr(screen_ocr, "capture_full_screen")
 
 
-def test_manual_rest_and_ws_ocr_obey_explicit_debug_switch(monkeypatch):
+@pytest.mark.asyncio
+async def test_manual_rest_and_ws_ocr_obey_explicit_debug_switch(monkeypatch):
     seen = []
+    state = server.GameState()
+    state.scan_window_open = True
+    state.offer_lifecycle.open()
+    monkeypatch.setattr(server, "game_state", state)
     monkeypatch.setattr(server, "ocr_available", lambda: True)
     monkeypatch.setitem(config._data, "ocr_debug_screenshots", True)
     monkeypatch.setattr(server, "detect_augments",
                         lambda names, *, save: seen.append(save) or [])
-    server.ocr_scan()
+    await server.ocr_scan()
     server._run_ocr_scan_manual()
     assert seen == [True, True]
 
