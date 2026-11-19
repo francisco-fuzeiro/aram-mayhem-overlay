@@ -380,22 +380,18 @@ def ocr_scan():
     augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
     matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
 
-    if matches:
+    detected = _slot_detection_payload(matches)
+    slots = _slots_from_detected(detected)
+    if matches or slots is not None:
         ids = [m[0] for m in matches]
-        game_state.augment_choices.clear()
-        game_state.augment_choices.extend(ids)
-        game_state.ocr_last_detected.clear()
-        game_state.ocr_last_detected.extend(ids)
-        game_state.ocr_slot_choices = _slots_from_detected(
-            _slot_detection_payload(matches)
-        )
+        game_state.augment_choices[:] = ids
+        game_state.ocr_last_detected[:] = ids
+        game_state.ocr_slot_choices = slots
 
     return {
-        "detected": [
-            {"id": aid, "name": name, "confidence": score}
-            for aid, name, score in matches
-        ],
+        "detected": detected,
         "augment_choices_set": list(game_state.augment_choices),
+        "ocr_slots": game_state.ocr_slot_choices,
     }
 
 

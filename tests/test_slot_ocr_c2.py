@@ -149,3 +149,65 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
     assert action == "detected"
     assert matches.slots["left"][0] == "1"
     assert [m[0] for m in matches] == ["1","2","3"]
+
+
+def test_rest_scan_all_unknowns_clear_stale_previous_card_ids(monkeypatch):
+    from backend.api import server
+    monkeypatch.setattr(server, "game_state", server.GameState())
+    monkeypatch.setattr(server, "ocr_available", lambda: True)
+    monkeypatch.setattr(server, "detect_augments", lambda names, *, save: SlotMatches(
+        {"left": None, "centre": None, "right": None},
+    ))
+    server.game_state.augment_choices = ["previous"]
+    server.game_state.ocr_last_detected = ["previous"]
+    server.game_state.ocr_slot_choices = {
+        "left": "previous", "centre": None, "right": None,
+    }
+    result = server.ocr_scan()
+    assert result["augment_choices_set"] == []
+    assert result["ocr_slots"] == dict.fromkeys(SLOTS)
+    assert [d["slot"] for d in result["detected"]] == list(SLOTS)
+    assert all(d["id"] is None for d in result["detected"])
+    assert server.game_state.ocr_last_detected == []
+
+
+def test_manual_scan_labels_partial_offer_without_shifting_slots(monkeypatch):
+    from backend.api import server
+    monkeypatch.setattr(server, "detect_augments", lambda names, *, save: SlotMatches(
+        {"left": None, "centre": ("2", "Ravenous Bind", 100),
+         "right": ("3", "It's Killing Time", 99)},
+    ))
+    ids, detected = server._run_ocr_scan_manual()
+    assert ids == ["2", "3"]
+    assert [d["slot"] for d in detected] == list(SLOTS)
+    assert [d["id"] for d in detected] == [None, "2", "3"]
+
+
+@pytest.mark.asyncio
+async def test_live_poll_serializes_explicit_unknown_position_without_stealing_next_card():
+    from tests.test_poll_tick_m1 import make_harness, make_snapshot
+    from backend.api.server import poll_tick
+    state, deps, messages = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("detected", ["2", "3"], [
+            {"slot": "left", "id": None, "name": None, "confidence": 0},
+            {"slot": "centre", "id": "2", "name": "Ravenous Bind", "confidence": 100},
+            {"slot": "right", "id": "3", "name": "It's Killing Time", "confidence": 99},
+        ]),
+    )
+    await poll_tick(state, deps, 30.0)
+    assert state.augment_choices == ["2", "3"]
+    assert state.ocr_slot_choices == {
+        "left": None, "centre": "2", "right": "3",
+    }
+    assert messages[0]["type"] == "ocr_result"
+    assert [d["id"] for d in messages[0]["detected"]] == [None, "2", "3"]
+
+
+def test_duplicate_slot_payload_is_rejected_before_mapping_to_ui():
+    from backend.api.server import _slots_from_detected
+    assert _slots_from_detected([
+        {"slot": "left", "id": "same"},
+        {"slot": "centre", "id": "same"},
+        {"slot": "right", "id": "other"},
+    ]) is None
