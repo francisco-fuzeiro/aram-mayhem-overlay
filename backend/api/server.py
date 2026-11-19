@@ -426,28 +426,63 @@ def ocr_status():
 
 
 @app.post("/api/ocr/scan")
-def ocr_scan():
-    """Manually trigger an OCR scan for augment names."""
+async def ocr_scan():
+    """Manual diagnostic OCR; never capture/inject outside a current offer.
+
+    Uses the exact C3 temporal watcher shared with WS/automatic scans.
+    The active match and offer epoch are captured under the state lock,
+    and checked again after blocking OCR completes in a worker thread.
+    """
+    async with game_state.lock:
+        request_match = game_state.match_id
+        request_epoch = game_state.offer_epoch
+        allowed = (
+            game_state.scan_window_open and game_state.ocr_enabled
+            and not game_state.confirmation_pending
+            and not game_state.awaiting_stat_delta
+        )
+        if not allowed:
+            return {
+                "status": "unavailable",
+                "error": "No active augment offer scan",
+                "detected": [],
+                "augment_choices_set": list(game_state.augment_choices),
+                "ocr_slots": game_state.ocr_slot_choices,
+            }
     if not ocr_available():
-        return {"error": "OCR not available — is Tesseract installed?", "detected": []}
+        return {
+            "status": "unavailable",
+            "error": "OCR not available — is Tesseract installed?",
+            "detected": [],
+        }
 
-    augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
-    augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
-
-    detected = _slot_detection_payload(matches)
-    slots = _slots_from_detected(detected)
-    if matches or slots is not None:
-        ids = [m[0] for m in matches]
-        game_state.augment_choices[:] = ids
-        game_state.ocr_last_detected[:] = ids
-        game_state.ocr_slot_choices = slots
-
-    return {
-        "detected": detected,
-        "augment_choices_set": list(game_state.augment_choices),
-        "ocr_slots": game_state.ocr_slot_choices,
-    }
+    ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+    async with game_state.lock:
+        applied = game_state.accept_manual_ocr(
+            ids, detected, match_id=request_match, offer_epoch=request_epoch,
+        )
+        if applied:
+            status = "detected"
+        elif (
+            game_state.scan_window_open and game_state.ocr_enabled
+            and game_state.offer_epoch == request_epoch
+            and game_state.match_id == request_match
+            and not game_state.confirmation_pending
+            and not game_state.awaiting_stat_delta
+        ):
+            game_state.offer_lifecycle.observe("transition")
+            status = "transition"
+        else:
+            status = "superseded"
+        return {
+            "status": status,
+            "detected": detected if applied else [],
+            "augment_choices_set": list(game_state.augment_choices),
+            "ocr_slots": game_state.ocr_slot_choices,
+            "offer_state": game_state.offer_state,
+            "offer_epoch": game_state.offer_epoch,
+            "match_id": game_state.match_id,
+        }
 
 
 @app.get("/api/ocr/screenshots")
