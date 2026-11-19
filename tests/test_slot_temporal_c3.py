@@ -276,3 +276,23 @@ def test_interleaved_ocr_failure_and_new_title_needs_two_matching_readings():
     assert_ids(t.observe(frame(11), {}, flickering, hash_image, distance),
                ["new_left", "bind", "kill"])
     assert calls == 3
+
+
+def test_unreadable_confirmed_slot_is_retried_without_other_slot_ocr():
+    t = baseline()
+    assert observe(t, left=90) is None
+    assert_ids(observe(t, left=90), [None, "bind", "kill"])
+    previous = READS.copy()
+    # Tesseract may recover on identical pixels after a temporary failure.
+    TITLES[90] = ("recovered", "Synthetic Recovered Title", 95)
+    try:
+        eventual = None
+        for _ in range(10):
+            eventual = observe(t, left=90)
+            if eventual is not None:
+                break
+        assert_ids(eventual, ["recovered", "bind", "kill"])
+        assert READS["left"] > previous["left"]
+        assert READS["centre"] == READS["right"] == 2
+    finally:
+        del TITLES[90]
