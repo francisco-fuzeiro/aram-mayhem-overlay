@@ -85,29 +85,38 @@ def crop_title_slots(
     return {slot: image.crop(bounds[slot]) for slot in SLOTS}
 
 
+def recognize_title_slot(
+    slot: str, crop: Image.Image, augment_names: dict[str, str],
+) -> tuple[str, str, int] | None:
+    """Read one physical title with the same C2 strict matching contract."""
+    if slot not in SLOTS:
+        raise ValueError("invalid physical card slot")
+    from backend.collectors.screen_ocr import preprocess_for_ocr
+
+    processed = preprocess_for_ocr(crop)
+    for psm in (7, 6):
+        try:
+            raw = pytesseract.image_to_string(
+                processed, lang="eng", config=f"--psm {psm} --oem 3",
+            )
+        except (OSError, RuntimeError):
+            raw = ""
+        match = strict_match_title(raw, augment_names)
+        if match is not None:
+            return match
+    return None
+
+
 def recognize_title_slots(
     crops: dict[str, Image.Image], augment_names: dict[str, str],
 ) -> SlotMatches:
     """Use PSM 7 for a line, then PSM 6 if a wrapped title was unreadable."""
     if list(crops) != list(SLOTS):
         raise ValueError("exactly three ordered title crops required")
-    from backend.collectors.screen_ocr import preprocess_for_ocr
-
-    matches = {}
-    for slot, crop in crops.items():
-        processed = preprocess_for_ocr(crop)
-        match = None
-        for psm in (7, 6):
-            try:
-                raw = pytesseract.image_to_string(
-                    processed, lang="eng", config=f"--psm {psm} --oem 3",
-                )
-            except (OSError, RuntimeError):
-                raw = ""
-            match = strict_match_title(raw, augment_names)
-            if match:
-                break
-        matches[slot] = match
+    matches = {
+        slot: recognize_title_slot(slot, crop, augment_names)
+        for slot, crop in crops.items()
+    }
 
     # If two slots look identical, do not assign either guessed position.
     locations = {}
