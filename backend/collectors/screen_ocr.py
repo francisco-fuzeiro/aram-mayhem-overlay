@@ -289,7 +289,9 @@ class ScreenWatcher:
                 # animating. Withhold the entire snapshot until ALL pending
                 # slots have settled, retaining old IDs only for diagnostics.
                 if self._refocus_pending:
-                    return ("unchanged", None)  # server already marks focus stale
+                    # B2: never claim an unchanged verified offer if no
+                    # historical C3 snapshot exists on this focus recovery.
+                    return ("unchanged" if current is not None else "no_augments", None)
                 if current is not None:
                     self._transition_open = True
                     return ("transition", None)
