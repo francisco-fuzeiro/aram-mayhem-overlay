@@ -21,6 +21,7 @@ Match = tuple[str, str, int] | None
 CHANGE_THRESHOLD = 10
 STABLE_THRESHOLD = 5
 REQUIRED_CONSECUTIVE_READS = 2
+UNKNOWN_RETRY_INTERVAL_TICKS = 4  # bounded polling, not a busy OCR loop
 
 
 @dataclass
@@ -42,6 +43,7 @@ class SlotTemporalTracker:
         self._pending: dict[str, _Pending] = {}
         self._has_identified_card = False
         self._refresh_required = False
+        self._unknown_retry_ticks: dict[str, int] = {}
 
     def suspend(self) -> None:
         """On focus/capture loss preserve old identities, but distrust old hashes.
@@ -81,8 +83,20 @@ class SlotTemporalTracker:
             image_hash = hash_image(crop)
             baseline = self._baselines.get(slot)
             if baseline is not None and hash_distance(image_hash, baseline) <= CHANGE_THRESHOLD:
-                self._pending.pop(slot, None)
-                continue
+                if self._accepted[slot] is not None:
+                    self._pending.pop(slot, None)
+                    continue
+                # OCR can fail temporarily on an unchanged image. Retry the
+                # unknown slot at a bounded rate, never the valid neighbours.
+                remaining = self._unknown_retry_ticks.get(
+                    slot, UNKNOWN_RETRY_INTERVAL_TICKS,
+                )
+                if remaining > 0:
+                    self._unknown_retry_ticks[slot] = remaining - 1
+                    self._pending.pop(slot, None)
+                    continue
+                self._unknown_retry_ticks[slot] = UNKNOWN_RETRY_INTERVAL_TICKS
+                self._baselines.pop(slot, None)
 
             # No old baseline (new offer/refocus) or a changed card: sample OCR.
             # This uses the same strict C2 matcher irrespective of the trigger.
@@ -135,6 +149,10 @@ class SlotTemporalTracker:
         self._accepted = proposed
         for slot, (_match, image_hash) in verified.items():
             self._baselines[slot] = image_hash
+            if proposed[slot] is None:
+                self._unknown_retry_ticks[slot] = UNKNOWN_RETRY_INTERVAL_TICKS
+            else:
+                self._unknown_retry_ticks.pop(slot, None)
 
         if any(value is not None for value in proposed.values()):
             self._has_identified_card = True
