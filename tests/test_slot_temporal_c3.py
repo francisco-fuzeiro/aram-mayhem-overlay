@@ -296,3 +296,23 @@ def test_unreadable_confirmed_slot_is_retried_without_other_slot_ocr():
         assert READS["centre"] == READS["right"] == 2
     finally:
         del TITLES[90]
+
+
+def test_actual_slot_hash_sees_glyph_sized_changes_without_whole_strip():
+    from PIL import ImageDraw
+    from backend.collectors.screen_ocr import _perceptual_hash, _hamming_distance
+    from backend.collectors.slot_temporal import CHANGE_THRESHOLD
+
+    def synthetic_title(shift):
+        band = Image.new("RGB", (340, 90), (35, 36, 62))
+        draw = ImageDraw.Draw(band)
+        draw.rectangle((30, 30, 300, 62), fill=(50, 45, 69))
+        for x in (42, 81, 133, 184, 236):
+            dx = shift if x == 133 else 0
+            draw.rectangle((x+dx, 38, x+dx+9, 57), fill=(230, 230, 210))
+        return band
+
+    before = _perceptual_hash(synthetic_title(0))
+    after = _perceptual_hash(synthetic_title(10))
+    assert _hamming_distance(before, after) > CHANGE_THRESHOLD
+    assert _hamming_distance(before, before) == 0
