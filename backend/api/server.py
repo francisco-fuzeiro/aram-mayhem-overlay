@@ -1161,11 +1161,24 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     await deps.broadcast(missing_message)
             if scan_due and ready:
                 try:
+                    # A user decision or a settings toggle may happen while
+                    # the blocking OCR worker is still reading this frame.
+                    # Never apply a result to a different offer generation.
+                    observed_epoch = state.offer_epoch
+                    observed_match = state.match_id
                     action, ids, detected = await deps.to_thread(
                         deps.run_watcher_check
                     )
                     ocr_message = None
                     async with state.lock:
+                        if (
+                            state.offer_epoch != observed_epoch
+                            or state.match_id != observed_match
+                            or not state.scan_window_open
+                            or not state.ocr_enabled
+                            or state.awaiting_stat_delta
+                        ):
+                            action = "superseded"
                         if action == "detected" and detected:
                             state.offer_lifecycle.observe(
                                 "detected", identified=sum(
