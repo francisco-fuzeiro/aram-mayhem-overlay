@@ -486,3 +486,32 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
     assert.match(rows()[1].innerHTML, /Ravenous Bind/);
     assert.match(rows()[2].innerHTML, /Killing Time/);
 });
+
+// M5/C4: levels and unknown frames are not evidence of an actionable offer.
+test("M5/C4: pending and uncertain states do not expand in-game augment advice", () => {
+    const h = harness();
+    const due = {...gameUpdate("Jinx"), scan_window_open: true, offer_state: "pending"};
+    h.api.handleMessage(due);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({...due, offer_state: "present"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    h.api.handleMessage({...due, offer_state: "uncertain"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({...due, offer_state: "suspended", ocr_stale: true});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+});
+
+test("M5/C4: verified gone hides advice without auto-choosing an augment", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    h.api.handleMessage({type: "ocr_result", status: "detected", offer_state: "present", detected: [
+        {slot: "left", id: "en", name: "En Passant", confidence: 98},
+        {slot: "centre", id: null, name: null, confidence: 0},
+        {slot: "right", id: null, name: null, confidence: 0},
+    ]});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    h.api.handleMessage({type: "ocr_result", status: "disappeared", offer_state: "gone"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("ocr-detected").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
+});
