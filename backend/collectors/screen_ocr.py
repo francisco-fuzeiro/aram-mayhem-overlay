@@ -16,22 +16,19 @@ Requires Tesseract OCR installed:
   Or download from: https://github.com/UB-Mannheim/tesseract/wiki
 """
 import hashlib
+import math
 import re
 import logging
-import sys
 import time
 from pathlib import Path
 from backend.collectors.league_window import find_league_window, LeagueWindow
 
 logger = logging.getLogger("aram-oracle.ocr")
 
-# App root for resolving data paths (PyInstaller sets sys._MEIPASS)
-_APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
-
 try:
     import mss
     import pytesseract
-    from PIL import Image, ImageFilter, ImageEnhance, ImageOps, ImageDraw, ImageFont
+    from PIL import Image, ImageFilter, ImageEnhance, ImageOps
     from rapidfuzz import fuzz, process
 
     OCR_AVAILABLE = True
@@ -49,8 +46,13 @@ if OCR_AVAILABLE and Path(_tess_path).exists():
     pytesseract.pytesseract.tesseract_cmd = _tess_path
 
 
-# -- Paths --
-SCREENSHOT_DIR = _APP_ROOT / "data" / "screenshots"
+# -- Paths: screenshots are never stored in the installed bundle or git checkout --
+def default_screenshot_dir() -> Path:
+    from backend.diagnostic_events import default_log_dir
+    return default_log_dir().parent / "screenshots"
+
+
+SCREENSHOT_DIR = default_screenshot_dir()
 
 # -- Screen regions --
 # Region as fractions of screen: (left%, top%, right%, bottom%)
@@ -68,7 +70,8 @@ MATCH_THRESHOLD = 65
 MIN_TEXT_LEN = 3
 
 # Max screenshots to keep (oldest get cleaned up)
-MAX_SCREENSHOTS = 50
+MAX_SCREENSHOTS = 15
+MAX_SCREENSHOT_AGE_SECONDS = 3 * 24 * 3600
 
 # Perceptual hash size (NxN grid). Higher = more sensitive to small changes.
 HASH_SIZE = 16
@@ -87,8 +90,18 @@ def get_augment_region(screen_width: int, screen_height: int) -> tuple[float, fl
     try:
         from backend.config import config
         override = config.get("ocr_region")
-        if override and len(override) == 4:
-            return tuple(override)
+        if isinstance(override, (list, tuple)) and len(override) == 4:
+            try:
+                fracs = tuple(float(x) for x in override)
+            except (TypeError, ValueError):
+                fracs = ()
+            if len(fracs) == 4 and all(math.isfinite(v) for v in fracs):
+                left, top, right, bottom = fracs
+                area = (right - left) * (bottom - top)
+                if (0 <= left < right <= 1 and 0 <= top < bottom <= 1
+                        and area <= 0.5):
+                    return fracs
+            logger.warning("OCR region override rejected: must remain inside League client")
     except Exception:
         pass
 
@@ -314,38 +327,35 @@ def is_available() -> bool:
         return False
 
 
-def _ensure_screenshot_dir() -> Path:
-    """Create screenshot directory if needed, clean old files."""
-    SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+def screenshot_opted_in() -> bool:
+    """Only a strict opt-in in config enables diagnostic card images."""
+    from backend.config import config
+    return config.get("ocr_debug_screenshots", False) is True
 
-    pngs = sorted(SCREENSHOT_DIR.glob("*.png"), key=lambda p: p.stat().st_mtime)
-    while len(pngs) > MAX_SCREENSHOTS:
-        oldest = pngs.pop(0)
+
+def _prune_screenshots(directory: Path) -> None:
+    """Bound retention by both 72-hour age and maximum crop-file count."""
+    now = time.time()
+    paths = sorted(directory.glob("card_*.png"), key=lambda p: p.stat().st_mtime)
+    for path in list(paths):
         try:
-            oldest.unlink()
+            if now - path.stat().st_mtime > MAX_SCREENSHOT_AGE_SECONDS:
+                path.unlink()
+                paths.remove(path)
+        except OSError:
+            pass
+    while len(paths) > MAX_SCREENSHOTS:
+        path = paths.pop(0)
+        try:
+            path.unlink()
         except OSError:
             pass
 
+
+def _ensure_screenshot_dir() -> Path:
+    SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+    _prune_screenshots(SCREENSHOT_DIR)
     return SCREENSHOT_DIR
-
-
-def capture_full_screen(monitor_index: int = 1) -> "Image.Image | None":
-    """Capture the entire screen."""
-    if not OCR_AVAILABLE:
-        return None
-
-    try:
-        with mss.mss() as sct:
-            monitors = sct.monitors
-            if monitor_index >= len(monitors):
-                monitor_index = 1
-            mon = monitors[monitor_index]
-
-            screenshot = sct.grab(mon)
-            return Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-    except (OSError, ValueError) as e:
-        logger.error("Full screen capture failed: %s", e)
-        return None
 
 
 def capture_augment_region(
@@ -363,6 +373,11 @@ def capture_augment_region(
     game = league_window if league_window is not None else find_league_window()
     if game is None or not game.focused:
         return None
+    if league_window is not None:
+        # A watcher may have cached the HWND just before an Alt+Tab.
+        current = find_league_window()
+        if current is None or not current.focused or current.hwnd != game.hwnd:
+            return None
     left, top, right, bottom = game.rect
     w, h = right - left, bottom - top
     if w <= 0 or h <= 0:
@@ -394,44 +409,52 @@ def save_screenshot(
     ocr_texts: list[str] | None = None,
     matches: list[tuple[str, str, int]] | None = None,
 ) -> Path | None:
-    """Save a screenshot with optional OCR annotation for debugging."""
-    if not OCR_AVAILABLE:
+    """Save only bounded card title crops from a focused League region.
+
+    Legacy label/OCR text/matches arguments are intentionally ignored:
+    they never enter filenames, images or logs. Full window/screen images
+    cannot pass the exact focused client augment-region dimension check.
+    """
+    if not OCR_AVAILABLE or not screenshot_opted_in():
+        return None
+    game = find_league_window()
+    if game is None or not game.focused:
+        return None
+    left, top, right, bottom = game.rect
+    width, height = right - left, bottom - top
+    if width <= 0 or height <= 0:
+        return None
+    a, b, c, d = get_augment_region(width, height)
+    expected_size = (int(width * (c - a)), int(height * (d - b)))
+    if img.size != expected_size or img.width < 150 or img.height < 50:
+        logger.warning("Diagnostic image rejected: not a focused League augment region")
         return None
 
     try:
-        out_dir = _ensure_screenshot_dir()
-        ts = int(time.time())
-        prefix = f"{label}_" if label else ""
-        filename = f"{prefix}{ts}.png"
-
-        annotated = img.copy()
-        if ocr_texts or matches:
-            draw = ImageDraw.Draw(annotated)
-            y = 5
-            try:
-                font = ImageFont.truetype("arial.ttf", 14)
-            except OSError:
-                font = ImageFont.load_default()
-
-            if matches:
-                for aug_id, name, score in matches:
-                    text = f"MATCH: {name} ({score}%)"
-                    draw.text((5, y), text, fill=(0, 255, 0), font=font)
-                    y += 18
-
-            if ocr_texts:
-                draw.text((5, y), "--- OCR lines ---", fill=(255, 255, 0), font=font)
-                y += 18
-                for line in ocr_texts[:15]:
-                    draw.text((5, y), line, fill=(255, 255, 255), font=font)
-                    y += 16
-
-        path = out_dir / filename
-        annotated.save(str(path), "PNG")
-        logger.info("Screenshot saved: %s", path)
-        return path
-    except OSError as e:
-        logger.error("Failed to save screenshot: %s", e)
+        directory = _ensure_screenshot_dir()
+        stamp = time.time_ns()
+        first: Path | None = None
+        # Provisional title bands, pending M5 real screenshot calibration.
+        # The larger augment strip and HUD are never persisted.
+        for index, card in enumerate(("left", "centre", "right")):
+            slot_left = (index * img.width) // 3
+            slot_right = ((index + 1) * img.width) // 3
+            margin = int((slot_right - slot_left) * 0.12)
+            bounds = (
+                slot_left + margin, int(img.height * 0.12),
+                slot_right - margin, int(img.height * 0.40),
+            )
+            if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+                return None
+            crop = img.crop(bounds)
+            path = directory / f"card_{card}_{stamp}_{index}.png"
+            crop.save(path, "PNG")
+            if first is None:
+                first = path
+        _prune_screenshots(directory)
+        return first
+    except OSError as exc:
+        logger.warning("Card crop save failed: %s", type(exc).__name__)
         return None
 
 
