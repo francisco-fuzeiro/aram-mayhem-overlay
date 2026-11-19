@@ -140,11 +140,15 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
     monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *a, **kw: strip)
     monkeypatch.setattr(screen_ocr, "extract_text", lambda *a, **kw:
                         pytest.fail("legacy whole-ROI OCR was called"))
-    monkeypatch.setattr(screen_ocr, "recognize_title_slots", lambda _c, _n:
-                        SlotMatches({"left": ("1","En Passant",96),
-                                     "centre": ("2","Ravenous Bind",100),
-                                     "right": ("3","It's Killing Time",100)}))
+    known = {"left": ("1", "En Passant", 96),
+             "centre": ("2", "Ravenous Bind", 100),
+             "right": ("3", "It's Killing Time", 100)}
+    monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda _im: "same")
+    monkeypatch.setattr(screen_ocr, "recognize_title_slot",
+                        lambda slot, _crop, _names: known[slot])
+    # C3: one provisional frame cannot be published as three confirmed cards.
     watcher = screen_ocr.ScreenWatcher()
+    assert watcher.check(NAMES)[0] == "no_augments"
     action, matches = watcher.check(NAMES)
     assert action == "detected"
     assert matches.slots["left"][0] == "1"
