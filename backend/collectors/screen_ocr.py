@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 from backend.collectors.league_window import find_league_window, LeagueWindow
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
+from backend.collectors.slot_title_ocr import SlotMatches, crop_title_slots, recognize_title_slots
 
 logger = logging.getLogger("aram-oracle.ocr")
 
@@ -166,6 +167,7 @@ class ScreenWatcher:
         self._had_detection: bool = False  # True after augments were successfully detected
         self._disappear_confirm: int = 0   # consecutive ticks with no augments after detection
         self._capture_stale: bool = False
+        self._title_client_rect: tuple[int, int, int, int] | None = None
 
     def reset(self) -> None:
         """Reset state (e.g., when game ends or augment confirmed)."""
@@ -175,6 +177,7 @@ class ScreenWatcher:
         self._had_detection = False
         self._disappear_confirm = 0
         self._capture_stale = False
+        self._title_client_rect = None
 
     def check(
         self,
@@ -210,6 +213,7 @@ class ScreenWatcher:
             # After focus returns, don't trust the hash captured before Alt+Tab.
             self._frozen_hash = None
             self._capture_stale = False
+        self._title_client_rect = game.rect
         current_hash = _perceptual_hash(img)
 
         # Case 1: No prior detection — this is the first scan
@@ -248,56 +252,29 @@ class ScreenWatcher:
         augment_names: dict[str, str],
         save: bool,
     ) -> tuple[str, list[tuple[str, str, int]] | None]:
-        """Run full OCR pipeline and update frozen hash."""
-        texts = extract_text(img)
-
-        if not texts:
-            if save:
-                save_screenshot(img, label="no_text")
-            # No text found — check if augments just disappeared
-            if self._had_detection:
-                self._disappear_confirm += 1
-                if self._disappear_confirm >= 2:
-                    # Confirmed: augments were showing, now gone = player chose
-                    logger.info(
-                        "Augment UI disappeared (confirmed after %d ticks)",
-                        self._disappear_confirm,
-                    )
-                    self._disappear_confirm = 0
-                    return ("disappeared", None)
-                return ("unchanged", None)  # wait for confirmation tick
-            return ("no_augments", None)
-
-        # Text found — reset disappear counter (augments are still on screen)
-        self._disappear_confirm = 0
-
-        matches = match_augments(texts, augment_names)
-
+        """Read individual padded title bands, retaining physical slot identity."""
+        rect = self._title_client_rect
+        if rect is None:
+            self._capture_stale = True
+            return ("unavailable", None)
+        w, h = rect[2] - rect[0], rect[3] - rect[1]
+        crops = crop_title_slots(img, rect, get_augment_region(w, h))
+        if crops is None:
+            self._capture_stale = True
+            return ("unavailable", None)
+        matches = recognize_title_slots(crops, augment_names)
         if save:
-            save_screenshot(img, label="ocr", ocr_texts=texts, matches=matches)
-
+            save_screenshot(img, label="title_slots")
+        self._frozen_hash = img_hash
+        self._last_detected = list(matches)
         if matches:
-            self._frozen_hash = img_hash
-            self._last_detected = matches
             self._had_detection = True
-            logger.info(
-                "Detected augments: %s",
-                [(name, score) for _, name, score in matches],
-            )
+        if matches or self._had_detection:
+            # Obscuration is not an actual pick or offer disappearance.
+            # Unknown slots replace previously guessed names instead of
+            # allowing a stale position to masquerade as a current reading.
+            self._disappear_confirm = 0
             return ("detected", matches)
-
-        # OCR found text but no augment name matches.
-        # If we previously had a detection, this likely means a reroll
-        # showed new augments that OCR couldn't fuzzy-match. Keep trying
-        # rather than declaring "disappeared".
-        if self._had_detection:
-            logger.info(
-                "OCR found text but no augment matches — retrying next tick "
-                "(found: %s)",
-                texts[:5],
-            )
-            return ("unchanged", None)
-
         return ("no_augments", None)
 
     @property
@@ -617,30 +594,20 @@ def detect_augments(
         logger.warning("OCR not available — Tesseract installed?")
         return []
 
-    # Never capture a full desktop, including a manually requested OCR scan.
-    img = capture_augment_region(monitor_index)
+    # Manual scans use the same strict position-locked OCR as the watcher.
+    # Never infer card position from whole-region confidence-sorted matches.
+    game = find_league_window()
+    if game is None or not game.focused:
+        return []
+    img = capture_augment_region(monitor_index, league_window=game)
     if img is None:
         return []
-
-    texts = extract_text(img)
-
-    if not texts:
-        if save and img:
-            save_screenshot(img, label="region_no_text")
-        logger.debug("No text found in screenshot")
+    width = game.rect[2] - game.rect[0]
+    height = game.rect[3] - game.rect[1]
+    crops = crop_title_slots(img, game.rect, get_augment_region(width, height))
+    if crops is None:
         return []
-
-    logger.debug("OCR found %d text lines: %s", len(texts), texts[:10])
-
-    matches = match_augments(texts, augment_names)
-
+    matches = recognize_title_slots(crops, augment_names)
     if save:
-        save_screenshot(img, label="region", ocr_texts=texts, matches=matches)
-
-    if matches:
-        logger.info(
-            "Detected augments: %s",
-            [(name, score) for _, name, score in matches],
-        )
-
+        save_screenshot(img, label="manual_title_slots")
     return matches
