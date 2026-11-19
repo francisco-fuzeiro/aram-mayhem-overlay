@@ -3,6 +3,10 @@ name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
 
+## Durable user-verified issue index — MUST read first (2026-11-19)
+
+Read `docs/OBSERVED_ISSUES_2026-11-19.md` and `docs/TODO.md` at current live branch head on every handoff. The ledger contains PL-01…14 actual gameplay faults, UXL-01…10 UX/catalog risks, OPS-01…04 setup/process failures, native acceptance and safety gates. It prevents forgotten details and fixes being falsely called game-validated. Keep the historical user screenshots outside Git. **The user expressly forbids asking them to open League for another partial implementation; C3 + C4 and offline/final-head CI must be green before offering one grouped Windows acceptance test.**
+
 ## 2026-11-19 current handoff — M5/C3 code implemented, C4 next; device gates OPEN
 
 - [Draft PR #43](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/43), branch `feat/m5-c3-temporal-slot-rerolls`, stacked on C2 [draft PR #42](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/42) @ `6fd745af`. M5/C3 adds `backend/collectors/slot_temporal.py` with independent 32x32 hashes for three title crops, two stable OCR reads per changed slot, preservation of other slot IDs, fail-closed unknown and bounded retries, transient animation protection and two fresh readings on focus recovery. Manual and automatic paths share serialized watcher, no global hash reset. C2 whole-title >=90 and runner-up >=8, PSM7 with guarded wrapped-title PSM6 remain intact; no gameplay actions, scoring or UI redesign.
