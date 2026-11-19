@@ -433,3 +433,56 @@ test("M5/C2: OCR reroll updates only changed physical card mapping", () => {
     assert.match(rows[1].innerHTML, /Ravenous Bind/);
     assert.match(rows[2].innerHTML, /Killing Time/);
 });
+
+
+test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
+    const h = harness();
+    const rec = (augment_id, augment_name) => ({
+        augment_id, augment_name, score: null, modelled: false,
+        label: ["Not rated", "Insufficient data"],
+        core_items_names: [], explanation: "No catalog data",
+    });
+    const initial = gameUpdate();
+    initial.recommendations = [
+        rec("kill", "It's Killing Time"), rec("bind", "Ravenous Bind"),
+        rec("en", "En Passant"),
+    ];
+    initial.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    h.api.handleMessage(initial);
+    const rows = () => h.element("augment-list").children;
+    assert.match(rows()[0].innerHTML, /En Passant/);
+    assert.match(rows()[1].innerHTML, /Ravenous Bind/);
+    assert.match(rows()[2].innerHTML, /Killing Time/);
+
+    // A pending/animated frame has no verified OCR WS message.
+    assert.match(rows()[0].innerHTML, /En Passant/);
+    h.api.handleMessage({type: "ocr_result", status: "detected", detected: [
+        {slot: "left", id: null, name: null, confidence: 0},
+        {slot: "centre", id: "bind", name: "Ravenous Bind", confidence: 99},
+        {slot: "right", id: "kill", name: "It's Killing Time", confidence: 99},
+    ], augment_choices: ["bind", "kill"]});
+    assert.match(rows()[0].textContent, /Left: Unknown/);
+    assert.match(rows()[1].innerHTML, /Ravenous Bind/);
+    assert.match(rows()[2].innerHTML, /Killing Time/);
+    assert.equal(rows()[0].innerHTML.includes("Choose this"), false);
+
+    const afterFirst = gameUpdate();
+    afterFirst.recommendations = [
+        rec("bind", "Ravenous Bind"), rec("left_1", "Synthetic Left 1"),
+        rec("kill", "It's Killing Time"),
+    ];
+    afterFirst.ocr_slots = {left: "left_1", centre: "bind", right: "kill"};
+    h.api.handleMessage(afterFirst);
+    assert.match(rows()[0].innerHTML, /Synthetic Left 1/);
+    const afterSecond = {...afterFirst,
+        recommendations: [
+            rec("left_2", "Synthetic Left 2"), rec("kill", "It's Killing Time"),
+            rec("bind", "Ravenous Bind"),
+        ],
+        ocr_slots: {left: "left_2", centre: "bind", right: "kill"},
+    };
+    h.api.handleMessage(afterSecond);
+    assert.match(rows()[0].innerHTML, /Synthetic Left 2/);
+    assert.match(rows()[1].innerHTML, /Ravenous Bind/);
+    assert.match(rows()[2].innerHTML, /Killing Time/);
+});
