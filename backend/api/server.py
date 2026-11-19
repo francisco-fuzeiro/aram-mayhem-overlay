@@ -417,8 +417,11 @@ def champ_select_status():
 
 @app.get("/api/ocr/status")
 def ocr_status():
+    readiness = ocr_capture.readiness_status()
     return {
-        "available": ocr_available(),
+        "available": readiness["available"],
+        "reason": readiness["reason"],
+        "next_step": readiness["next_step"],
         "enabled": game_state.ocr_enabled,
         "last_detected": game_state.ocr_last_detected,
         "offer_state": game_state.offer_state,

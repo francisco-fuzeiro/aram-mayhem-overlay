@@ -338,16 +338,50 @@ watcher = ScreenWatcher()
 # -- Standalone functions (unchanged API for backwards compat) --
 
 
-def is_available() -> bool:
-    """Check if OCR system is ready."""
+def readiness_status() -> dict[str, bool | str]:
+    """Pre-game dependency preflight; never claims League OCR accuracy.
+
+    Return only fixed, safe reason codes and setup instructions. In
+    particular, do not expose installed paths, environment values or raw
+    subprocess errors through the local API.
+    """
     if not OCR_AVAILABLE:
-        return False
+        return {
+            "available": False,
+            "reason": "python_dependencies_missing",
+            "next_step": "Install the application OCR Python dependencies and restart ARAM Oracle.",
+        }
     try:
         pytesseract.get_tesseract_version()
-        return True
-    except (OSError, ImportError) as e:
-        logger.debug("Tesseract not available: %s", e)
-        return False
+    except Exception as exc:
+        # A malformed/broken executable should not crash Settings. Paths and
+        # subprocess output can include private local data: log the type only.
+        logger.debug("Tesseract preflight failed: %s", type(exc).__name__)
+        if _os.environ.get("TESSERACT_PATH"):
+            return {
+                "available": False,
+                "reason": "configured_executable_unavailable",
+                "next_step": "Check TESSERACT_PATH points to a working tesseract.exe and restart ARAM Oracle.",
+            }
+        return {
+            "available": False,
+            "reason": "executable_unavailable",
+            "next_step": (
+                "Install Tesseract with winget install UB-Mannheim.TesseractOCR "
+                "(Windows), then restart ARAM Oracle. If already installed, "
+                "set TESSERACT_PATH to its executable and restart."
+            ),
+        }
+    return {
+        "available": True,
+        "reason": "ready",
+        "next_step": "Tesseract is available. In-game card recognition still requires Windows validation.",
+    }
+
+
+def is_available() -> bool:
+    """Backward-compatible boolean dependency gate, sharing Settings preflight."""
+    return bool(readiness_status()["available"])
 
 
 def screenshot_opted_in() -> bool:

@@ -377,3 +377,30 @@ test("D4b unsupported schema disables writes until successful retry", async () =
     assert.equal(h.element("overlay-anchor").disabled, false);
     assert.equal(h.element("retry-overlay").hidden, true);
 });
+
+
+test("D5a missing Tesseract gives an actionable setup step without claiming game accuracy", async () => {
+    const h = harness((url, options) => {
+        if (url === "/api/ocr/status") {
+            return {body: {
+                available: false,
+                reason: "executable_unavailable",
+                next_step: "Install Tesseract with winget install UB-Mannheim.TesseractOCR, then restart ARAM Oracle.",
+            }};
+        }
+        return successful(url, options);
+    });
+    await ready();
+    assert.match(html, /id="ocr-next-step"/);
+    assert.match(h.element("ocr-summary").textContent, /OCR unavailable/);
+    assert.match(h.element("ocr-next-step").textContent, /winget install UB-Mannheim.TesseractOCR/);
+    assert.match(h.element("diagnostics-ocr").textContent, /Tesseract executable/);
+    assert.match(html, /Manual fallback/);
+});
+
+test("D5a older boolean-only OCR response keeps the fallback useful", async () => {
+    const h = harness(successful);
+    await ready();
+    assert.match(h.element("ocr-summary").textContent, /OCR unavailable/);
+    assert.match(h.element("ocr-next-step").textContent, /Install Tesseract/);
+});
