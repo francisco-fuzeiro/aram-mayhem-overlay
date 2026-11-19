@@ -322,3 +322,26 @@ test("F4 loading screen and champion select do not inherit old champion or gold"
     assert.equal(h.element("game-time").textContent, "--:--");
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
 });
+
+
+test("M4/B2 Alt+Tab marks existing cards stale, normal updates do not revive them", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, ocr_stale: false});
+    h.api.handleMessage({
+        type: "ocr_result", detected: [{id: "old", name: "Old", confidence: 95}],
+        augment_choices: ["old"],
+    });
+    assert.equal(h.element("ocr-detected").children.length, 2);
+    h.api.handleMessage({type: "ocr_result", status: "not_focused", stale: true});
+    assert.equal(h.element("ocr-detected").children.length, 2);
+    assert.equal(h.element("section-augments").classList.contains("ocr-focus-stale"), true);
+    assert.equal(h.element("ocr-status").textContent, "NOT FOCUSED");
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, ocr_stale: true});
+    assert.equal(h.element("ocr-status").textContent, "NOT FOCUSED");
+    h.api.handleMessage({
+        type: "ocr_result", detected: [{id: "current", name: "Current", confidence: 95}],
+        augment_choices: ["current"], stale: false,
+    });
+    assert.equal(h.element("section-augments").classList.contains("ocr-focus-stale"), false);
+    assert.equal(h.element("ocr-detected").children[1].innerHTML.includes("Current"), true);
+});

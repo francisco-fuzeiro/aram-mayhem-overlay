@@ -1073,3 +1073,7 @@ body.overlay-mode:not(.interactive-mode)::after {
 
 /* F4: when the socket is stale, no old match header is presented as live. */
 #app.data-stale #header { opacity: 0.65; }
+
+/* M4/B2: old OCR evidence must not look like current cards after Alt+Tab. */
+.ocr-focus-stale #ocr-detected, .ocr-focus-stale #augment-list { opacity: 0.45; }
+.ocr-status-badge.ocr-paused { opacity: 0.8; }

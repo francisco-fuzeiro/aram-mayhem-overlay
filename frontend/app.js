@@ -11,6 +11,7 @@
     let lastResult = null;
     let activeMatchId = null;
     let stale = false;
+    let ocrFocusStale = false;
     let selectedAugmentIds = [];
     let searchDebounce = null;
     let ocrAvailable = false;
@@ -103,6 +104,13 @@
     }
 
     function updateOcrStatusBadge() {
+        if (ocrFocusStale) {
+            ocrStatusBadge.textContent = "NOT FOCUSED";
+            ocrStatusBadge.className = "ocr-status-badge ocr-paused";
+            ocrStatusBadge.title = "League is not focused — previous cards are stale";
+            btnScan.disabled = true;
+            return;
+        }
         if (ocrAvailable) {
             ocrStatusBadge.textContent = "OCR";
             ocrStatusBadge.className = "ocr-status-badge ocr-ready";
@@ -116,6 +124,12 @@
         }
         const help = $("ocr-manual-help");
         if (help) help.classList.toggle("hidden", ocrAvailable);
+    }
+
+    function setOcrFocusStale(value) {
+        ocrFocusStale = Boolean(value);
+        $("section-augments").classList.toggle("ocr-focus-stale", ocrFocusStale);
+        updateOcrStatusBadge();
     }
 
     // -- WebSocket --
@@ -179,6 +193,8 @@
         selectedAugmentIds = [];
         scanning = false;
         stale = false;
+        ocrFocusStale = false;
+        $("section-augments").classList.remove("ocr-focus-stale");
         $("app").classList.remove("data-stale");
         champName.textContent = "---";
         gameTime.textContent = "--:--";
@@ -345,6 +361,15 @@
         }
 
         if (msg.type === "ocr_result") {
+            if (msg.status === "not_focused" || msg.status === "unavailable") {
+                setOcrFocusStale(true);
+                scanning = false;
+                btnScan.textContent = "Scan Screen";
+                return;
+            }
+            if (msg.detected && msg.detected.length > 0) {
+                setOcrFocusStale(false);
+            }
             renderOcrResult(msg.detected, msg.augment_choices);
             if (msg.detected && msg.detected.length > 0) {
                 $("section-augments").classList.remove("collapsed");
@@ -493,8 +518,12 @@
             phaseEl.textContent = `Lv ${data.level}`;
         }
 
+        // Focus loss never makes previously observed cards current again.
+        if (typeof data.ocr_stale === "boolean") setOcrFocusStale(data.ocr_stale);
         // Scan window indicator
-        if (data.scan_window_open && ocrAvailable) {
+        if (ocrFocusStale) {
+            updateOcrStatusBadge();
+        } else if (data.scan_window_open && ocrAvailable) {
             ocrStatusBadge.textContent = "SCANNING";
             ocrStatusBadge.className = "ocr-status-badge ocr-scanning";
             ocrStatusBadge.title = "Augment pick due — scanning screen";
@@ -763,12 +792,12 @@
     function renderOcrResult(detected, augmentChoices) {
         if (!detected || detected.length === 0) {
             ocrDetected.classList.add("hidden");
-            ocrDetected.innerHTML = "";
+            ocrDetected.replaceChildren();
             return;
         }
 
         ocrDetected.classList.remove("hidden");
-        ocrDetected.innerHTML = "";
+        ocrDetected.replaceChildren();
 
         const title = document.createElement("div");
         title.className = "ocr-title";

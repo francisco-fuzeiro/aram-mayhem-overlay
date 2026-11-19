@@ -61,6 +61,7 @@ class GameState:
         # OCR state
         self.ocr_enabled: bool = True
         self.ocr_last_detected: list[str] = []
+        self.ocr_stale: bool = False
         # Augment pick window
         self.last_known_level: int = 0
         self.scan_window_open: bool = False
@@ -99,6 +100,7 @@ class GameState:
         if self.scan_window_open:
             event_log.emit("ocr_window", state="closed", reason="reset", level=self.scan_window_level)
         self.ocr_last_detected.clear()
+        self.ocr_stale = False
         self.augment_choices.clear()
         self.chosen_augments.clear()
         self.chosen_stat_anvils.clear()
@@ -372,7 +374,7 @@ def ocr_scan():
 
     augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
     augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    matches = detect_augments(augment_names, save=True)
+    matches = detect_augments(augment_names, save=False)
 
     if matches:
         ids = [m[0] for m in matches]
@@ -1007,6 +1009,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     ocr_message = None
                     async with state.lock:
                         if action == "detected" and detected:
+                            state.ocr_stale = False
                             state.augment_choices.clear()
                             state.augment_choices.extend(ids)
                             state.ocr_last_detected.clear()
@@ -1014,11 +1017,19 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             logger.info("OCR detected augments: %s", detected)
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
+                                "status": "detected", "stale": False,
                                 "detected": detected,
                                 "augment_choices": list(state.augment_choices),
                             })
                             ocr_message = ocr_msg
 
+                        elif action in ("not_focused", "unavailable"):
+                            state.ocr_stale = True
+                            ocr_message = json.dumps({
+                                "type": "ocr_result", "status": action,
+                                "stale": True,
+                                "augment_choices": list(state.augment_choices),
+                            })
                         elif action == "disappeared":
                             # Offer vanished; which card was chosen is unverified.
                             logger.info("Augment offer disappeared — confirmation pending")
@@ -1045,8 +1056,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
             result = state.pipeline.run(snapshot) if state.pipeline else None
             if result:
                 update = deps.serialize_result(result, deps.static_data, snapshot)
-                if isinstance(update, dict) and state.match_id:
-                    update = {**update, "match_id": state.match_id}
+                if isinstance(update, dict):
+                    update = {**update, "ocr_stale": state.ocr_stale}
+                    if state.match_id:
+                        update["match_id"] = state.match_id
                 await deps.broadcast(json.dumps(update))
             if has_gameflow:
                 status = (
