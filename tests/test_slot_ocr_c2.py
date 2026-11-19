@@ -144,7 +144,8 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
              "centre": ("2", "Ravenous Bind", 100),
              "right": ("3", "It's Killing Time", 100)}
     monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda _im: "same")
-    monkeypatch.setattr(screen_ocr, "recognize_title_slot",
+    from backend.collectors import slot_title_ocr
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot",
                         lambda slot, _crop, _names: known[slot])
     # C3: one provisional frame cannot be published as three confirmed cards.
     watcher = screen_ocr.ScreenWatcher()
