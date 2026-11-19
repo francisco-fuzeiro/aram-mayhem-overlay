@@ -99,3 +99,19 @@ opt-in, defaults off, and the local diagnostic folder retains at most 15
 crops / 72 hours. Disable the setting after collection. No accuracy or C1
 completion may be claimed until these measurements are real and reviewed.
 16:10 and 21:9 remain explicitly unsupported.
+
+## M5/C1 measured real-game coordinates (2026-11-19; implementation, pending device gate)
+
+The user provided a real Windows League client desktop rectangle `(8,31,2552,1384)`, which is **2544x1353 physical pixels**. They also provided full-window in-game captures of a three-card offer and centre-card reroll, together with 15 opt-in B3 diagnostics that proved B3's provisional title bands persisted **icons and occasionally HUD**, not title text. Those full/window inputs **must not be checked into Git**. The previous chat preview's glyph margins were too tight; this was corrected in the observed title-only crops before C1 implementation.
+
+Padded boxes, in physical **client-relative** `x,y,width,height` pixels (not desktop offsets, not scaled chat screenshot pixels):
+
+| Slot | Rectangle | Observed text after centre reroll |
+| --- | --- | --- |
+| left | `[643,490,340,90]` | `Take'em Down Down Down` (wrapped) |
+| centre | `[1100,490,340,90]` | `Ravenous Bind` |
+| right | `[1567,490,340,90]` | `Shrink Engine` |
+
+These bounds were visually reviewed in two source captures. The pure function scales them relative to the observed client width/height and fails closed on 16:10, 21:9, undersized and invalid windows; the screenshot saver maps them back into the opt-in, focused League augment-region image, rejecting any incomplete crop. A nominal 16:9 League windowed mode can have a physical client ratio of `2544/1353 ~= 1.88` due to non-client decorations. **1920x1080 is currently a headless scale test only, not observed native geometry**. DPI scale, independent catalog IDs, full dialog/absent/reroll fixture matrix and actual new on-device C1 PNGs remain OPEN.
+
+The numeric source observations are also stored in `windowed-offer-2544x1353-01.geometry.json`. Only title names and numeric rectangles are persisted; no raw/screens/window image or private player data. The numeric annotation does **not** replace the required real redacted triplet and approved catalog ID/null truth. User must inspect the generated PNGs: absence of cards can still cause crops of background until C4 adds verified offer-presence handling.
