@@ -172,3 +172,72 @@ def test_reset_makes_next_offer_require_two_new_readings():
     assert t.snapshot() is None
     assert observe(t) is None
     assert_ids(observe(t), ["en", "bind", "kill"])
+
+
+def test_manual_and_automatic_scans_share_timeline_without_single_read_bypass(monkeypatch):
+    from backend.collectors import screen_ocr
+    from backend.collectors.league_window import LeagueWindow
+    from backend.api import server
+
+    window = LeagueWindow(7, 8, 31, 2552, 1384, True)
+    state = {"left": 10}
+    tracker = screen_ocr.ScreenWatcher()
+    monkeypatch.setattr(screen_ocr, "watcher", tracker)
+    monkeypatch.setattr(server, "screen_watcher", tracker)
+    monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: "focused synthetic")
+    monkeypatch.setattr(screen_ocr, "crop_title_slots",
+                        lambda *_a: frame(state["left"]))
+    monkeypatch.setattr(screen_ocr, "_perceptual_hash", hash_image)
+    monkeypatch.setattr(screen_ocr, "_hamming_distance", distance)
+    monkeypatch.setattr(screen_ocr, "recognize_title_slot", read_slot)
+    READS.clear()
+
+    # Manual button cannot publish a guessed, single-frame offer.
+    assert screen_ocr.detect_augments({}) == []
+    action, ids, rows = server._run_watcher_check()
+    assert action == "detected"
+    assert ids == ["en", "bind", "kill"]
+    assert [row["slot"] for row in rows] == list(SLOTS)
+
+    state["left"] = 11
+    # Manual starts confirmation; returns the last verified snapshot.
+    assert [v[0] for v in screen_ocr.detect_augments({})] == ["en", "bind", "kill"]
+    action, ids, rows = server._run_watcher_check()
+    assert action == "detected"
+    assert ids == ["new_left", "bind", "kill"]
+    assert [row["id"] for row in rows] == ids
+    assert READS == Counter({"left": 4, "centre": 2, "right": 2})
+
+
+def test_watcher_on_alt_tab_never_captures_and_refocus_requires_fresh_confirmation(monkeypatch):
+    from backend.collectors import screen_ocr
+    from backend.collectors.league_window import LeagueWindow
+
+    focused = {"value": True}
+    monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: LeagueWindow(
+        7, 8, 31, 2552, 1384, focused["value"],
+    ))
+    captures = []
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_kw:
+                        captures.append("focused") or "focused synthetic")
+    monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_a: frame())
+    monkeypatch.setattr(screen_ocr, "_perceptual_hash", hash_image)
+    monkeypatch.setattr(screen_ocr, "_hamming_distance", distance)
+    monkeypatch.setattr(screen_ocr, "recognize_title_slot", read_slot)
+
+    t = screen_ocr.ScreenWatcher()
+    assert t.check({})[0] == "no_augments"
+    assert t.check({})[0] == "detected"
+    focused["value"] = False
+    before = len(captures)
+    assert t.check({}) == ("not_focused", None)
+    assert len(captures) == before
+    assert t.current_slots.slots["centre"][0] == "bind"
+    focused["value"] = True
+    assert t.check({})[0] == "unchanged"
+    action, result = t.check({})
+    assert action == "detected"
+    assert_ids(result, ["en", "bind", "kill"])
