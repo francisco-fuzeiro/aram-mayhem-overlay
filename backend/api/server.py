@@ -23,6 +23,7 @@ from backend.collectors import screen_ocr as ocr_capture
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
+from backend.collectors.offer_lifecycle import OfferLifecycle
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
 from backend import preferences
@@ -65,6 +66,7 @@ class GameState:
         self.ocr_last_detected: list[str] = []
         self.ocr_slot_choices: dict[str, str | None] | None = None
         self.ocr_stale: bool = False
+        self.offer_lifecycle = OfferLifecycle()
         # Augment pick window
         self.last_known_level: int = 0
         self.scan_window_open: bool = False
@@ -93,6 +95,10 @@ class GameState:
         self.first_lcda_miss_at: float | None = None
 
     @property
+    def offer_state(self) -> str:
+        return self.offer_lifecycle.state
+
+    @property
     def lock(self) -> asyncio.Lock:
         return self._lock
 
@@ -105,6 +111,7 @@ class GameState:
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
         self.ocr_stale = False
+        self.offer_lifecycle.close()
         self.augment_choices.clear()
         self.chosen_augments.clear()
         self.chosen_stat_anvils.clear()
@@ -367,6 +374,7 @@ def ocr_status():
         "available": ocr_available(),
         "enabled": game_state.ocr_enabled,
         "last_detected": game_state.ocr_last_detected,
+        "offer_state": game_state.offer_state,
     }
 
 
@@ -605,6 +613,7 @@ async def game_ws(websocket: WebSocket):
                         event_log.emit("ocr_window", state="closed", reason="manual_choice",
                                        level=game_state.scan_window_level)
                     game_state.scan_window_open = False
+                    game_state.offer_lifecycle.close()
                     game_state.confirmation_pending = False
                     game_state.awaiting_stat_delta = False
                     game_state.delta_wait_ticks = 0
@@ -653,11 +662,19 @@ async def game_ws(websocket: WebSocket):
                         game_state.ocr_slot_choices = _slots_from_detected(detected)
                         game_state.augment_choices[:] = ids
                         game_state.ocr_last_detected[:] = ids
+                    if game_state.scan_window_open and detected:
+                        game_state.offer_lifecycle.observe(
+                            "detected", identified=sum(
+                                isinstance(row.get("id"), str) for row in detected
+                            ),
+                        )
                     choices_snapshot = list(game_state.augment_choices)
+                    offer_snapshot = game_state.offer_state
                 await _send_ws_message(websocket, json.dumps({
                     "type": "ocr_result",
                     "detected": detected,
                     "augment_choices": choices_snapshot,
+                    "offer_state": offer_snapshot,
                 }))
 
             elif msg_type == "set_build_style":
@@ -998,6 +1015,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
+                    state.offer_lifecycle.open()
                     event_log.emit(
                         "ocr_window", state="opened", reason="level_due",
                         level=current_level,
@@ -1052,6 +1070,11 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     ocr_message = None
                     async with state.lock:
                         if action == "detected" and detected:
+                            state.offer_lifecycle.observe(
+                                "detected", identified=sum(
+                                    isinstance(row.get("id"), str) for row in detected
+                                ),
+                            )
                             state.ocr_stale = False
                             state.augment_choices.clear()
                             state.augment_choices.extend(ids)
@@ -1062,21 +1085,30 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
                                 "status": "detected", "stale": False,
+                                "offer_state": state.offer_state,
                                 "detected": detected,
                                 "augment_choices": list(state.augment_choices),
                             })
                             ocr_message = ocr_msg
 
                         elif action in ("not_focused", "unavailable"):
+                            state.offer_lifecycle.observe(action)
                             state.ocr_stale = True
                             ocr_message = json.dumps({
                                 "type": "ocr_result", "status": action,
+                                "offer_state": state.offer_state,
                                 "stale": True,
                                 "augment_choices": list(state.augment_choices),
                             })
                         elif action == "disappeared":
-                            # Offer vanished; which card was chosen is unverified.
-                            logger.info("Augment offer disappeared — confirmation pending")
+                            # Compatibility with a separately VERIFIED negative
+                            # signal. The C3 watcher never emits this from blank
+                            # titles or dialogue/animation/focus changes.
+                            # Never infer a chosen card from this action.
+                            state.offer_lifecycle.observe(
+                                "disappeared", verified_absence=True,
+                            )
+                            logger.info("Verified offer gone — confirmation pending")
                             state.scan_window_open = False
                             state.confirmation_pending = True
                             state.awaiting_stat_delta = True
@@ -1086,6 +1118,14 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                                 reason="offer_disappeared",
                                 level=state.scan_window_level,
                             )
+                            ocr_message = json.dumps({
+                                "type": "ocr_result", "status": "disappeared",
+                                "offer_state": state.offer_state,
+                                "stale": False,
+                                "augment_choices": list(state.augment_choices),
+                            })
+                        elif action in ("no_augments", "unchanged"):
+                            state.offer_lifecycle.observe(action)
                     if ocr_message is not None:
                         await deps.broadcast(ocr_message)
 
@@ -1102,7 +1142,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 update = deps.serialize_result(result, deps.static_data, snapshot)
                 if isinstance(update, dict):
                     update = {**update, "ocr_stale": state.ocr_stale,
-                              "ocr_slots": state.ocr_slot_choices}
+                              "ocr_slots": state.ocr_slot_choices,
+                              "offer_state": state.offer_state}
                     if state.match_id:
                         update["match_id"] = state.match_id
                 await deps.broadcast(json.dumps(update))

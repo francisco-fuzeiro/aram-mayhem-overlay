@@ -14,6 +14,7 @@
     let ocrFocusStale = false;
     let selectedAugmentIds = [];
     let currentOcrSlots = null;
+    let offerState = "inactive";
     let searchDebounce = null;
     let ocrAvailable = false;
     let scanning = false;
@@ -193,6 +194,7 @@
         lastResult = null;
         selectedAugmentIds = [];
         currentOcrSlots = null;
+        offerState = "inactive";
         scanning = false;
         stale = false;
         ocrFocusStale = false;
@@ -354,6 +356,7 @@
             if (Object.prototype.hasOwnProperty.call(msg, "ocr_slots")) {
                 currentOcrSlots = normalizedOcrSlots(msg.ocr_slots);
             }
+            if (typeof msg.offer_state === "string") offerState = msg.offer_state;
             lastResult = msg;
             renderUpdate(msg);
             return;
@@ -366,13 +369,37 @@
         }
 
         if (msg.type === "ocr_result") {
+            if (typeof msg.offer_state === "string") offerState = msg.offer_state;
             if (msg.status === "not_focused" || msg.status === "unavailable") {
+                offerState = "suspended";
                 setOcrFocusStale(true);
+                $("section-augments").classList.add("collapsed");
+                $("section-input").classList.add("collapsed");
                 scanning = false;
                 btnScan.textContent = "Scan Screen";
                 return;
             }
-            if (msg.detected && msg.detected.length > 0) {
+            if (msg.status === "disappeared" || offerState === "gone") {
+                // Only an independently verified negative signal may report gone.
+                // Never interpret it as a selected augment.
+                offerState = "gone";
+                currentOcrSlots = null;
+                renderOcrResult([], []);
+                $("section-augments").classList.add("collapsed");
+                $("section-input").classList.add("collapsed");
+                augmentConfirm.classList.add("hidden");
+                scanning = false;
+                btnScan.textContent = "Scan Screen";
+                btnScan.disabled = !ocrAvailable;
+                return;
+            }
+            if (Array.isArray(msg.detected) && msg.detected.length) {
+                // Legacy OCR messages without the state contract can only
+                // establish presence from a positively identified title.
+                if (typeof msg.offer_state !== "string") {
+                    offerState = msg.detected.some(d => d && typeof d.id === "string")
+                        ? "present" : "uncertain";
+                }
                 setOcrFocusStale(false);
             }
             if (Array.isArray(msg.detected) && msg.detected.length) {
@@ -385,9 +412,12 @@
                 if (lastResult) renderRecommendations(lastResult);
             }
             renderOcrResult(msg.detected, msg.augment_choices);
-            if (msg.detected && msg.detected.length > 0) {
+            if (offerState === "present") {
                 $("section-augments").classList.remove("collapsed");
                 $("section-input").classList.remove("collapsed");
+            } else {
+                $("section-augments").classList.add("collapsed");
+                $("section-input").classList.add("collapsed");
             }
             scanning = false;
             btnScan.textContent = "Scan Screen";
@@ -886,7 +916,9 @@
 
         // The live phase is "in_game" during an augment offer, so looking
         // for "aug_pick" in phase never opened the recommendations.
-        const pickActive = !!data.scan_window_open;
+        // A due level is only a scan opportunity; titles must be verified
+        // before the live augment panel is shown.
+        const pickActive = offerState === "present" && !ocrFocusStale;
         const waitingForPick = data.augment_state &&
             data.augment_state.eligible > data.augment_state.chosen;
         if (pickActive || (!ocrAvailable && waitingForPick)) {
@@ -894,6 +926,8 @@
             inputSection.classList.remove("collapsed");
             buildSection.classList.add("collapsed");
         } else {
+            augSection.classList.add("collapsed");
+            inputSection.classList.add("collapsed");
             buildSection.classList.remove("collapsed");
             enemySection.classList.remove("collapsed");
         }
