@@ -3,8 +3,16 @@ name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
 
+## 2026-11-19 current handoff — M5/C3 code implemented, C4 next; device gates OPEN
 
-## 2026-11-19 active handoff — M5/C2 implemented, C3/C4 and native gates OPEN
+- [Draft PR #43](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/43), branch `feat/m5-c3-temporal-slot-rerolls`, stacked on C2 [draft PR #42](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/42) @ `6fd745af`. M5/C3 adds `backend/collectors/slot_temporal.py` with independent 32x32 hashes for three title crops, two stable OCR reads per changed slot, preservation of other slot IDs, fail-closed unknown and bounded retries, transient animation protection and two fresh readings on focus recovery. Manual and automatic paths share serialized watcher, no global hash reset. C2 whole-title >=90 and runner-up >=8, PSM7 with guarded wrapped-title PSM6 remain intact; no gameplay actions, scoring or UI redesign.
+- [RED Windows 44450326654](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44450326654) at `7df82abe` failed on the missing module; initial [GREEN 44451255411](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44451255411) at `88a6c200` passed **496 Python (16 warnings) and 42 JS**. Later unknown-retry and hash-sensitivity changes require verification of the latest code and final documentation HEAD Windows workflow. Do not mistake a passing earlier SHA for the latest CI result.
+- **Next C4 only after C3 final CI:** separate branch/draft on #43, reliable offer present/gone/dialogue handling and focus-safe lifecycle; never infer a chosen card merely from disappearance. Add synthetic RED/GREEN tests, Python/JS and final docs-head CI; keep 10 offers/30 cards, native 1080p/DPI/windowed/borderless, C1 title-crop acceptance, G1/G2/G4, Riot/licensing OPEN. No League playtest until C3+C4 offline passes and a concise controlled final validation plan; no installer, redesign, merge or `main` changes.
+
+
+
+
+## 2026-11-19 historical handoff — M5/C2 implemented, C3/C4 and native gates then OPEN
 
 - [Draft PR #42](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/42) on `feat/m5-c2-slot-locked-ocr` stacked on C1 draft PR #41. User's current League example: left En Passant, centre Ravenous Bind, right It's Killing Time; old overlay showed left/right/centre because OCR sorted confidence/name and recommendation engine sorted score. C2 adds title-only strict per-slot OCR and explicit `left/centre/right` in server/REST/WS/UI, with unknown/duplicate fail-closed. PSM7 first, guarded PSM6 for wrapped titles, >=90 full title + >=8 runner-up. Frontend physically locates cards instead of relying on ranking order; no gameplay input changed.
 - Tests-first [RED 44446773105](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44446773105); [GREEN code CI 44447689233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44447689233) at `b31da976` **474 Python passed (17 warnings), 41 JS passed**. Follow-up test+REST `62d50fc1`: final code/doc SHA and CI must be checked live. No user Windows run of C2 has occurred. The original 15 B3 debug PNGs were invalid; C1 diagnostic crops were calibrated using real 2544x1353 client but still require native acceptance; do not use images containing HUD as fixtures.
