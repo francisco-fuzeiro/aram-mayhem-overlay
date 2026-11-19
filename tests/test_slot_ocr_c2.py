@@ -77,7 +77,7 @@ def test_wrapped_title_psm7_failure_uses_psm6_in_same_slot(monkeypatch):
 
 def test_unknown_card_cannot_shift_other_identified_slots(monkeypatch):
     crops = {slot: Image.new("RGB", (340, 90)) for slot in SLOTS}
-    texts = iter(["Dialogue obscures title", "Ravenous Bind", "It's Killing Time"])
+    texts = iter(["Dialogue obscures title", "Still obscured", "Ravenous Bind", "It's Killing Time"])
     monkeypatch.setattr(screen_ocr.pytesseract, "image_to_string", lambda *_a, **_k: next(texts))
     result = recognize_title_slots(crops, NAMES)
     assert list(result.slots) == ["left", "centre", "right"]

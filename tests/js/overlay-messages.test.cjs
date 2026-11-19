@@ -345,3 +345,81 @@ test("M4/B2 Alt+Tab marks existing cards stale, normal updates do not revive the
     assert.equal(h.element("section-augments").classList.contains("ocr-focus-stale"), false);
     assert.equal(h.element("ocr-detected").children[1].innerHTML.includes("Current"), true);
 });
+
+test("M5/C2: OCR slot order wins over confidence/score sorting", () => {
+    const h = harness();
+    const rec = (augment_id, augment_name) => ({
+        augment_id, augment_name, score: null, modelled: false,
+        label: ["Not rated", "Insufficient data"],
+        core_items_names: [], explanation: "No catalog data",
+    });
+    const update = gameUpdate();
+    // Deliberately ranked in the wrong physical order.
+    update.recommendations = [
+        rec("en", "En Passant"),
+        rec("kill", "It's Killing Time"),
+        rec("bind", "Ravenous Bind"),
+    ];
+    update.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    h.api.handleMessage(update);
+    const rows = h.element("augment-list").children;
+    assert.equal(rows.length, 3);
+    assert.match(rows[0].innerHTML, /En Passant/);
+    assert.match(rows[1].innerHTML, /Ravenous Bind/);
+    assert.match(rows[2].innerHTML, /Killing Time/);
+    assert.match(rows[0].innerHTML, /class="aug-rank">L/);
+    assert.match(rows[1].innerHTML, /class="aug-rank">C/);
+    assert.match(rows[2].innerHTML, /class="aug-rank">R/);
+});
+
+test("M5/C2: obscured card stays unknown and cannot borrow another recommendation", () => {
+    const h = harness();
+    const rec = (augment_id, augment_name) => ({
+        augment_id, augment_name, score: null, modelled: false,
+        label: ["Not rated", "Insufficient data"],
+        core_items_names: [], explanation: "No catalog data",
+    });
+    const update = gameUpdate();
+    update.recommendations = [
+        rec("kill", "It's Killing Time"),
+        rec("bind", "Ravenous Bind"),
+    ];
+    update.ocr_slots = {left: null, centre: "bind", right: "kill"};
+    h.api.handleMessage(update);
+    const rows = h.element("augment-list").children;
+    assert.equal(rows.length, 3);
+    assert.match(rows[0].textContent, /Left: Unknown/);
+    assert.match(rows[1].innerHTML, /Ravenous Bind/);
+    assert.match(rows[2].innerHTML, /Killing Time/);
+    assert.equal(rows[0].innerHTML.includes("Choose this"), false);
+    assert.equal(h.element("reroll-badge").classList.contains("hidden"), true);
+});
+
+test("M5/C2: OCR reroll updates only changed physical card mapping", () => {
+    const h = harness();
+    const rec = (augment_id, augment_name) => ({
+        augment_id, augment_name, score: null, modelled: false,
+        label: ["Not rated", "Insufficient data"],
+        core_items_names: [], explanation: "No catalog data",
+    });
+    const update = gameUpdate();
+    update.recommendations = [rec("en", "En Passant"), rec("bind", "Ravenous Bind"),
+        rec("kill", "It's Killing Time")];
+    update.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    h.api.handleMessage(update);
+    h.api.handleMessage({type: "ocr_result", status: "detected",
+        detected: [
+            {slot: "left", id: "new", name: "New Left", confidence: 98},
+            {slot: "centre", id: "bind", name: "Ravenous Bind", confidence: 100},
+            {slot: "right", id: "kill", name: "It's Killing Time", confidence: 100},
+        ]});
+    const after = gameUpdate();
+    after.recommendations = [rec("kill", "It's Killing Time"),
+        rec("new", "New Left"), rec("bind", "Ravenous Bind")];
+    after.ocr_slots = {left: "new", centre: "bind", right: "kill"};
+    h.api.handleMessage(after);
+    const rows = h.element("augment-list").children;
+    assert.match(rows[0].innerHTML, /New Left/);
+    assert.match(rows[1].innerHTML, /Ravenous Bind/);
+    assert.match(rows[2].innerHTML, /Killing Time/);
+});
