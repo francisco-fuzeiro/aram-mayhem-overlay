@@ -22,6 +22,7 @@ import logging
 import time
 from pathlib import Path
 from backend.collectors.league_window import find_league_window, LeagueWindow
+from backend.collectors.card_title_geometry import title_bands_from_client_rect
 
 logger = logging.getLogger("aram-oracle.ocr")
 
@@ -430,25 +431,36 @@ def save_screenshot(
         logger.warning("Diagnostic image rejected: not a focused League augment region")
         return None
 
+    # Pure, reviewed client-relative title geometry. The OCR *region* may
+    # contain icons and other screen elements; persist only verified bounds.
+    bands = title_bands_from_client_rect(game.rect)
+    if bands is None:
+        logger.debug("Diagnostic title crops unavailable for this client geometry")
+        return None
+
+    # The captured image origin is the OCR region within the focused client,
+    # not the desktop or a third of the OCR strip.
+    region_left = int(width * a)
+    region_top = int(height * b)
+    crops = []
+    for slot, (x, y, band_width, band_height) in bands.items():
+        lx, ly = x - region_left, y - region_top
+        bounds = (lx, ly, lx + band_width, ly + band_height)
+        if (lx < 0 or ly < 0 or bounds[2] > img.width
+                or bounds[3] > img.height):
+            # Fail closed if a custom OCR region excludes any title; never
+            # silently clip or persist a non-title portion of the game.
+            logger.debug("Diagnostic title band outside captured League region")
+            return None
+        crops.append((slot, bounds))
+
     try:
         directory = _ensure_screenshot_dir()
         stamp = time.time_ns()
         first: Path | None = None
-        # Provisional title bands, pending M5 real screenshot calibration.
-        # The larger augment strip and HUD are never persisted.
-        for index, card in enumerate(("left", "centre", "right")):
-            slot_left = (index * img.width) // 3
-            slot_right = ((index + 1) * img.width) // 3
-            margin = int((slot_right - slot_left) * 0.12)
-            bounds = (
-                slot_left + margin, int(img.height * 0.12),
-                slot_right - margin, int(img.height * 0.40),
-            )
-            if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
-                return None
-            crop = img.crop(bounds)
-            path = directory / f"card_{card}_{stamp}_{index}.png"
-            crop.save(path, "PNG")
+        for index, (slot, bounds) in enumerate(crops):
+            path = directory / f"card_{slot}_{stamp}_{index}.png"
+            img.crop(bounds).save(path, "PNG")
             if first is None:
                 first = path
         _prune_screenshots(directory)
