@@ -104,7 +104,7 @@
     }
 
     function updateOcrStatusBadge() {
-        if (ocrFocusStale && ocrAvailable) {
+        if (ocrFocusStale) {
             ocrStatusBadge.textContent = "NOT FOCUSED";
             ocrStatusBadge.className = "ocr-status-badge ocr-paused";
             ocrStatusBadge.title = "League is not focused — previous cards are stale";
@@ -521,7 +521,7 @@
         // Focus loss never makes previously observed cards current again.
         if (typeof data.ocr_stale === "boolean") setOcrFocusStale(data.ocr_stale);
         // Scan window indicator
-        if (ocrFocusStale && ocrAvailable) {
+        if (ocrFocusStale) {
             updateOcrStatusBadge();
         } else if (data.scan_window_open && ocrAvailable) {
             ocrStatusBadge.textContent = "SCANNING";
