@@ -120,3 +120,9 @@ The desktop interface is built progressively in D3 (navigation), D4a/D4b (valida
 ## Non-goals for the first desktop phase
 
 No installer; no global app startup integration; no full Settings redesign; no new scoring algorithm; no shop detector; no forced migration from the existing Qt overlay; no auto-updater; no use of OP.GG assets/code.
+
+## M5/C4 offer visibility contract (code gate, 2026-11-19)
+
+The OCR engine reports `offer_state` from a read-only, evidence-gated lifecycle: `inactive` (no due scan/closed), `pending` (eligible level but no positively verified offer), `present` (one or more strict, C3 two-read-confirmed physical title slots), `uncertain` (OCR unreadable/occluded/animated, cannot infer absent), `suspended` (League focus/capture lost; old identities are stale), and `gone` (only independently **verified** disappearance, not from blank OCR). The server emits this in OCR WebSocket messages, OCR status REST and live update snapshots; the frontend collapses in-game augment advice outside verified `present`. Manual player selection or match reset returns to inactive. No automatic gameplay input or augment inference occurs.
+
+This is only a **conservative presence gate**, not a production-grade disappearance/dialogue classifier: the current watcher emits no `disappeared` action. Positively verified title OCR is not a negative visual cue, and no real League absent/dialogue calibration samples are present. The C4b negative classifier and native Windows (C1/M4, display resolution/DPI/origin, ten offers/thirty cards) tests stay OPEN. C3 and C4a code CI do not prove in-game OCR or transparency. The user requested one scoped native acceptance session only after offline gates are satisfied.
