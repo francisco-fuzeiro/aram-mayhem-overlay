@@ -382,3 +382,40 @@ async def test_c4_legacy_verified_disappearance_never_auto_selects_a_card():
     assert state.chosen_augments == []
     assert events[0]["status"] == "disappeared"
     assert events[0]["offer_state"] == "gone"
+
+@pytest.mark.asyncio
+async def test_c4b_pending_title_change_hides_unverified_old_offer_without_pick():
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(), make_snapshot()],
+        ocr=True,
+        watcher_result=("transition", [], None),
+    )
+    await poll_tick(state, deps, 42.0)
+    assert state.scan_window_open
+    assert state.offer_state == "pending"
+    await poll_tick(state, deps, 43.0)
+    assert state.offer_state == "pending"
+    assert not state.confirmation_pending
+    assert not state.chosen_augments
+
+
+@pytest.mark.asyncio
+async def test_c4b_transition_after_valid_offer_sends_uncertain_without_clearing_picks():
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(), make_snapshot()],
+        ocr=True,
+        watcher_result=("transition", [], None),
+    )
+    state.scan_window_open = True
+    state.offer_lifecycle.open()
+    state.offer_lifecycle.observe("detected", identified=3)
+    state.augment_choices[:] = ["en", "bind", "kill"]
+    await poll_tick(state, deps, 44.0)
+    assert state.offer_state == "uncertain"
+    assert state.scan_window_open
+    assert state.augment_choices == ["en", "bind", "kill"]
+    assert state.chosen_augments == []
+    assert any(e.get("status") == "transition" and
+               e.get("offer_state") == "uncertain" for e in events)

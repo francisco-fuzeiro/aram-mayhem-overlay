@@ -324,3 +324,101 @@ def test_two_changed_slots_confirm_independently_without_touching_third():
     assert_ids(observe(t, left=11, centre=21),
                ["new_left", "new_centre", "kill"])
     assert READS == Counter({"left": 4, "centre": 4, "right": 2})
+
+def _c4b_watcher(monkeypatch, state, *, independent_observer=None, calibration=None):
+    """Synthetic focused 2544x1353 window, no actual screen capture."""
+    from backend.collectors import screen_ocr, slot_title_ocr
+    from backend.collectors.league_window import LeagueWindow
+
+    window = LeagueWindow(7, 8, 31, 2552, 1384, True)
+    monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: "synthetic")
+    monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_a: frame(
+        state["left"], state["centre"], state["right"],
+    ))
+    monkeypatch.setattr(screen_ocr, "_perceptual_hash", hash_image)
+    monkeypatch.setattr(screen_ocr, "_hamming_distance", distance)
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read_slot)
+    return screen_ocr.ScreenWatcher(
+        independent_observer=independent_observer,
+        approved_calibration=calibration,
+    )
+
+
+def test_c4b_first_changed_frame_marks_previous_cards_unverified(monkeypatch):
+    state = {"left": 10, "centre": 20, "right": 30}
+    watcher = _c4b_watcher(monkeypatch, state)
+    assert watcher.check({})[0] == "no_augments"
+    assert watcher.check({})[0] == "detected"
+    state["left"] = 11
+    assert watcher.check({}) == ("transition", None)
+    # Historical C3 snapshot remains available, but not publishable as current.
+    assert_ids(watcher.current_slots, ["en", "bind", "kill"])
+    status, verified = watcher.check({})
+    assert status == "detected"
+    assert_ids(verified, ["new_left", "bind", "kill"])
+
+
+def test_c4b_multiple_pending_slots_must_not_publish_partial_current_offer(monkeypatch):
+    state = {"left": 10, "centre": 20, "right": 30}
+    watcher = _c4b_watcher(monkeypatch, state)
+    assert watcher.check({})[0] == "no_augments"
+    assert watcher.check({})[0] == "detected"
+    state["left"], state["centre"] = 11, 21
+    assert watcher.check({})[0] == "transition"
+    state["centre"] = 90
+    assert watcher.check({})[0] == "transition"  # left verified, centre NOT
+    state["centre"] = 21
+    assert watcher.check({})[0] == "transition"
+    action, result = watcher.check({})
+    assert action == "detected"
+    assert_ids(result, ["new_left", "new_centre", "kill"])
+
+
+def test_c4b_transient_frame_requires_two_fresh_reads_to_restore_visibility(monkeypatch):
+    state = {"left": 10, "centre": 20, "right": 30}
+    watcher = _c4b_watcher(monkeypatch, state)
+    assert watcher.check({})[0] == "no_augments"
+    assert watcher.check({})[0] == "detected"
+    state["left"] = 90
+    assert watcher.check({})[0] == "transition"
+    state["left"] = 10
+    assert watcher.check({})[0] == "transition"
+    assert watcher.check({})[0] == "transition"
+    action, restored = watcher.check({})
+    assert action == "detected"
+    assert_ids(restored, ["en", "bind", "kill"])
+
+
+def test_c4b_uncalibrated_blank_titles_can_never_emit_gone(monkeypatch):
+    state = {"left": 10, "centre": 20, "right": 30}
+    watcher = _c4b_watcher(monkeypatch, state)
+    assert watcher.check({})[0] == "no_augments"
+    assert watcher.check({})[0] == "detected"
+    state.update(left=90, centre=90, right=90)
+    actions = [watcher.check({})[0] for _ in range(8)]
+    assert "disappeared" not in actions
+    assert "transition" in actions
+
+
+def test_c4b_explicit_synthetic_cue_triggers_only_after_calibrated_streak(monkeypatch):
+    from backend.collectors.offer_visibility import IndependentCue
+    state = {"left": 10, "centre": 20, "right": 30}
+    decision = {"verdict": "unknown"}
+    key = (7, (8, 31, 2552, 1384))
+
+    def observer(_image, _window):
+        return IndependentCue(decision["verdict"], "fixture-only", key)
+
+    watcher = _c4b_watcher(
+        monkeypatch, state, independent_observer=observer,
+        calibration="fixture-only",
+    )
+    assert watcher.check({})[0] == "no_augments"
+    assert watcher.check({})[0] == "detected"
+    state.update(left=90, centre=90, right=90)
+    decision["verdict"] = "absent"
+    assert watcher.check({})[0] == "transition"
+    assert watcher.check({})[0] != "disappeared"
+    assert watcher.check({}) == ("disappeared", None)

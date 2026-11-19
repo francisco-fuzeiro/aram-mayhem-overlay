@@ -515,3 +515,18 @@ test("M5/C4: verified gone hides advice without auto-choosing an augment", () =>
     assert.equal(h.element("ocr-detected").classList.contains("hidden"), true);
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
 });
+
+test("M5/C4b: first unverified visual transition collapses old advice immediately", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    h.api.handleMessage({type: "ocr_result", status: "transition", offer_state: "uncertain"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("section-input").classList.contains("collapsed"), true);
+    assert.notEqual(h.element("ocr-status").textContent, "NOT FOCUSED");
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "uncertain"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+});
