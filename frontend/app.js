@@ -15,6 +15,7 @@
     let selectedAugmentIds = [];
     let currentOcrSlots = null;
     let offerState = "inactive";
+    let offerEpoch = null;
     let searchDebounce = null;
     let ocrAvailable = false;
     let scanning = false;
@@ -195,6 +196,7 @@
         selectedAugmentIds = [];
         currentOcrSlots = null;
         offerState = "inactive";
+        offerEpoch = null;
         scanning = false;
         stale = false;
         ocrFocusStale = false;
@@ -340,7 +342,15 @@
         }
 
         if (msg.type === "update") {
+            // A delayed update from the previous offer cannot reopen its
+            // advice after a newer offer generation was received.
+            const incomingEpoch = Number.isSafeInteger(msg.offer_epoch) && msg.offer_epoch >= 0
+                ? msg.offer_epoch : null;
+            const sameMatch = !msg.match_id || msg.match_id === activeMatchId;
+            if (sameMatch && incomingEpoch !== null && offerEpoch !== null &&
+                incomingEpoch < offerEpoch) return;
             observeMatchIdentity(msg);
+            if (incomingEpoch !== null) offerEpoch = incomingEpoch;
             // Legacy clients may lack match_id. Champion changes cannot
             // preserve an earlier game's pending offer or recommendations.
             const oldChampion = lastResult?.build_state?.champion_id;
@@ -369,8 +379,17 @@
         }
 
         if (msg.type === "ocr_result") {
+            // Never accept an out-of-order OCR packet from a previous game,
+            // an earlier offer, or before an authoritative current update.
+            if (!lastResult) return;
+            if (typeof msg.match_id === "string" && activeMatchId &&
+                msg.match_id !== activeMatchId) return;
+            if (Number.isSafeInteger(msg.offer_epoch) && offerEpoch !== null &&
+                msg.offer_epoch !== offerEpoch) return;
+            if (msg.status === "superseded") return;
             if (typeof msg.offer_state === "string") offerState = msg.offer_state;
-            if (msg.status === "not_focused" || msg.status === "unavailable") {
+            if (msg.status === "not_focused" || msg.status === "unavailable" ||
+                msg.status === "disabled") {
                 offerState = "suspended";
                 setOcrFocusStale(true);
                 $("section-augments").classList.add("collapsed");
@@ -385,6 +404,9 @@
                 if (typeof msg.offer_state !== "string") offerState = "uncertain";
                 $("section-augments").classList.add("collapsed");
                 $("section-input").classList.add("collapsed");
+                augmentList.replaceChildren();
+                rerollBadge.classList.add("hidden");
+                rerollBanner.classList.add("hidden");
                 augmentConfirm.classList.add("hidden");
                 ocrStatusBadge.textContent = "VERIFYING";
                 ocrStatusBadge.className = "ocr-status-badge ocr-scanning";
@@ -402,6 +424,7 @@
                 renderOcrResult([], []);
                 $("section-augments").classList.add("collapsed");
                 $("section-input").classList.add("collapsed");
+                augmentList.replaceChildren();
                 augmentConfirm.classList.add("hidden");
                 scanning = false;
                 btnScan.textContent = "Scan Screen";
@@ -459,6 +482,25 @@
             return;
         }
 
+        if (msg.type === "ack" && msg.action === "toggle_ocr") {
+            // A settings change invalidates every old OCR observation.
+            if (typeof msg.match_id === "string" && activeMatchId &&
+                msg.match_id !== activeMatchId) return;
+            if (Number.isSafeInteger(msg.offer_epoch) &&
+                (offerEpoch === null || msg.offer_epoch >= offerEpoch)) {
+                offerEpoch = msg.offer_epoch;
+            }
+            if (msg.enabled === false) {
+                offerState = "suspended";
+                setOcrFocusStale(true);
+                $("section-augments").classList.add("collapsed");
+                $("section-input").classList.add("collapsed");
+                augmentList.replaceChildren();
+                rerollBadge.classList.add("hidden");
+                rerollBanner.classList.add("hidden");
+            }
+            return;
+        }
         if (msg.type === "ack" && msg.action === "choose_augment") {
             augmentConfirm.classList.add("hidden");
         }
@@ -703,6 +745,13 @@
 
     function renderRecommendations(data) {
         augmentList.innerHTML = "";
+        // A user-expanded section must never reveal scores from a pending,
+        // stale, obstructed or finished offer. Historical IDs stay backend-only.
+        if (typeof data.offer_state === "string" && data.offer_state !== "present") {
+            rerollBadge.classList.add("hidden");
+            rerollBanner.classList.add("hidden");
+            return;
+        }
 
         if ((!data.recommendations || data.recommendations.length === 0) && !currentOcrSlots) {
             augmentList.innerHTML = '<div class="aug-empty" style="color:var(--text-dim);padding:8px;">No augment choices to evaluate</div>';
@@ -934,9 +983,8 @@
         // A due level is only a scan opportunity; titles must be verified
         // before the live augment panel is shown.
         const pickActive = offerState === "present" && !ocrFocusStale;
-        const waitingForPick = data.augment_state &&
-            data.augment_state.eligible > data.augment_state.chosen;
-        if (pickActive || (!ocrAvailable && waitingForPick)) {
+        // Neither a level threshold nor missing OCR proves an offer is open.
+        if (pickActive) {
             augSection.classList.remove("collapsed");
             inputSection.classList.remove("collapsed");
             buildSection.classList.add("collapsed");
@@ -1132,6 +1180,8 @@
                 stale,
                 selectedAugmentIds: [...selectedAugmentIds],
                 scanning,
+                offerState,
+                offerEpoch,
             }),
         });
     } else {
