@@ -1,0 +1,41 @@
+{
+  "case_id": "windowed-offer-2544x1353-01",
+  "client_rect_desktop_xywh_px": [
+    8,
+    31,
+    2544,
+    1353
+  ],
+  "titles_client_xywh_px": {
+    "left": [
+      643,
+      490,
+      340,
+      90
+    ],
+    "centre": [
+      1100,
+      490,
+      340,
+      90
+    ],
+    "right": [
+      1567,
+      490,
+      340,
+      90
+    ]
+  },
+  "observed_title_names": {
+    "left": "Take'em Down Down Down",
+    "centre": "Ravenous Bind",
+    "right": "Shrink Engine"
+  },
+  "display_mode": "windowed_indicated_by_nonzero_client_offset",
+  "dpi_scale_percent": null,
+  "observed_state": "three_card_offer_after_centre_reroll",
+  "redaction_reviewed": true,
+  "raw_source_committed": false,
+  "catalog_ids_verified": false,
+  "normalized_1080p_native_verified": false
+}
