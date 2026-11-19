@@ -61,7 +61,7 @@ def test_refocus_forces_fresh_ocr_even_if_hash_would_match_previous_frame(monkey
     state = {"focused": False}
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=state["focused"]))
     monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *args, **kw: "frame")
-    monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda img: "same")
+    monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda img: "0" * 64)
     monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_args: {
         slot: "synthetic" for slot in ("left", "centre", "right")
     })
