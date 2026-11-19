@@ -144,7 +144,9 @@ def test_focus_return_same_cards_is_not_falsely_a_reroll():
     t = baseline()
     t.suspend()
     assert observe(t) is None
-    assert observe(t) is None
+    # Same identities are republished once as a fresh, non-reroll refocus
+    # verification so the backend can clear its stale-focus flag.
+    assert_ids(observe(t), ["en", "bind", "kill"])
     assert_ids(t.snapshot(), ["en", "bind", "kill"])
     assert READS == Counter({"left": 4, "centre": 4, "right": 4})
 
