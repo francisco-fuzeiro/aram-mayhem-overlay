@@ -73,7 +73,7 @@ def test_opted_in_images_are_three_narrow_card_title_crops_only(debug_env):
             assert crop.width < image.width // 2
             assert 0 < crop.height < image.height // 2
             # No arbitrary text or OCR annotation may be burnt into images.
-            assert all(pixel == (21, 37, 99) for pixel in crop.getdata())
+            assert crop.tobytes() == Image.new("RGB", crop.size, (21, 37, 99)).tobytes()
 
 
 def test_even_opted_in_rejects_full_monitor_and_other_untrusted_input(debug_env):
