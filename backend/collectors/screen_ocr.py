@@ -21,6 +21,7 @@ import logging
 import sys
 import time
 from pathlib import Path
+from backend.collectors.league_window import find_league_window, LeagueWindow
 
 logger = logging.getLogger("aram-oracle.ocr")
 
@@ -150,6 +151,7 @@ class ScreenWatcher:
         self._no_augment_hash: str | None = None  # hash of "normal gameplay" screen
         self._had_detection: bool = False  # True after augments were successfully detected
         self._disappear_confirm: int = 0   # consecutive ticks with no augments after detection
+        self._capture_stale: bool = False
 
     def reset(self) -> None:
         """Reset state (e.g., when game ends or augment confirmed)."""
@@ -158,6 +160,7 @@ class ScreenWatcher:
         self._no_augment_hash = None
         self._had_detection = False
         self._disappear_confirm = 0
+        self._capture_stale = False
 
     def check(
         self,
@@ -171,13 +174,28 @@ class ScreenWatcher:
             Tuple of (action, matches_or_none).
         """
         if not is_available():
+            self._capture_stale = True
             return ("unavailable", None)
 
-        # Capture the augment region (fast, ~5-10ms)
-        img = capture_augment_region(monitor_index)
+        game = find_league_window()
+        if game is None:
+            self._capture_stale = True
+            return ("unavailable", None)
+        if not game.focused:
+            # Alt+Tab is not offer disappearance: preserve last detected cards.
+            self._capture_stale = True
+            return ("not_focused", None)
+
+        # Capture only League's client area, never another monitor/desktop.
+        img = capture_augment_region(monitor_index, league_window=game)
         if img is None:
+            self._capture_stale = True
             return ("unavailable", None)
 
+        if self._capture_stale:
+            # After focus returns, don't trust the hash captured before Alt+Tab.
+            self._frozen_hash = None
+            self._capture_stale = False
         current_hash = _perceptual_hash(img)
 
         # Case 1: No prior detection — this is the first scan
@@ -330,42 +348,43 @@ def capture_full_screen(monitor_index: int = 1) -> "Image.Image | None":
         return None
 
 
-def capture_augment_region(monitor_index: int = 1) -> "Image.Image | None":
-    """Capture the augment selection area of the screen."""
+def capture_augment_region(
+    monitor_index: int = 1, *, league_window: LeagueWindow | None = None,
+) -> "Image.Image | None":
+    """Capture the augment region relative to the focused League client rect.
+
+    The legacy monitor_index positional argument is ignored deliberately:
+    never fall back to whole-monitor capture on lookup or focus failures.
+    """
     global _logged_resolution
     if not OCR_AVAILABLE:
         return None
 
+    game = league_window if league_window is not None else find_league_window()
+    if game is None or not game.focused:
+        return None
+    left, top, right, bottom = game.rect
+    w, h = right - left, bottom - top
+    if w <= 0 or h <= 0:
+        return None
+    region_fracs = get_augment_region(w, h)
+    region = {
+        "left": left + int(w * region_fracs[0]),
+        "top": top + int(h * region_fracs[1]),
+        "width": int(w * (region_fracs[2] - region_fracs[0])),
+        "height": int(h * (region_fracs[3] - region_fracs[1])),
+    }
+    if region["width"] <= 0 or region["height"] <= 0:
+        return None
     try:
         with mss.mss() as sct:
-            monitors = sct.monitors
-            if monitor_index >= len(monitors):
-                monitor_index = 1
-            mon = monitors[monitor_index]
-
-            w = mon["width"]
-            h = mon["height"]
-
-            region_fracs = get_augment_region(w, h)
-
-            if not _logged_resolution:
-                logger.info(
-                    "Screen: %dx%d, aspect=%.2f, region=%s",
-                    w, h, w / h if h > 0 else 0, region_fracs,
-                )
-                _logged_resolution = True
-
-            region = {
-                "left": mon["left"] + int(w * region_fracs[0]),
-                "top": mon["top"] + int(h * region_fracs[1]),
-                "width": int(w * (region_fracs[2] - region_fracs[0])),
-                "height": int(h * (region_fracs[3] - region_fracs[1])),
-            }
-
             screenshot = sct.grab(region)
+            if not _logged_resolution:
+                logger.info("League client: %dx%d, augment fractions=%s", w, h, region_fracs)
+                _logged_resolution = True
             return Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
     except (OSError, ValueError) as e:
-        logger.error("Screen capture failed: %s", e)
+        logger.error("League client capture failed: %s", e)
         return None
 
 
@@ -563,11 +582,7 @@ def detect_augments(
         logger.warning("OCR not available — Tesseract installed?")
         return []
 
-    if save:
-        full = capture_full_screen(monitor_index)
-        if full:
-            save_screenshot(full, label="full")
-
+    # Never capture a full desktop, including a manually requested OCR scan.
     img = capture_augment_region(monitor_index)
     if img is None:
         return []

@@ -35,7 +35,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     "ocr_recognition": {
         "outcome": frozenset((
             "detected", "unchanged", "disappeared", "no_augments", "unavailable",
-            "error", "manual_detected", "manual_empty",
+            "error", "manual_detected", "manual_empty", "not_focused",
         )),
         "count": "int",
         "confidence": "confidence100",
