@@ -27,6 +27,7 @@ _TYPE_SPECS: dict[str, type | tuple[type, ...]] = {
     "github_repo": str,
     "ocr_region": list,
     "experimental_augment_evidence": bool,
+    "ocr_debug_screenshots": bool,
 }
 
 DEFAULTS: dict = {
@@ -52,6 +53,8 @@ DEFAULTS: dict = {
     "port": 8765,
     # Disabled pending separate Riot review of derived augment statistics.
     "experimental_augment_evidence": False,
+    # Diagnostic images require explicit opt-in; no screenshots by default.
+    "ocr_debug_screenshots": False,
 
     # GitHub bug report integration
     "github_token": "",   # personal access token (repo scope)

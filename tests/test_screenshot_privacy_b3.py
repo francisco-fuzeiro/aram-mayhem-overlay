@@ -102,6 +102,7 @@ def test_removed_fullscreen_capture_api_cannot_be_called():
 
 def test_manual_rest_and_ws_ocr_obey_explicit_debug_switch(monkeypatch):
     seen = []
+    monkeypatch.setattr(server, "ocr_available", lambda: True)
     monkeypatch.setitem(config._data, "ocr_debug_screenshots", True)
     monkeypatch.setattr(server, "detect_augments",
                         lambda names, *, save: seen.append(save) or [])

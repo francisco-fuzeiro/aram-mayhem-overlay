@@ -19,6 +19,7 @@ from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
+from backend.collectors import screen_ocr as ocr_capture
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
@@ -374,7 +375,7 @@ def ocr_scan():
 
     augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
     augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    matches = detect_augments(augment_names, save=False)
+    matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
 
     if matches:
         ids = [m[0] for m in matches]
@@ -395,17 +396,21 @@ def ocr_scan():
 @app.get("/api/ocr/screenshots")
 def list_screenshots():
     """List saved screenshots for debugging OCR region calibration."""
-    ss_dir = _APP_ROOT / "data" / "screenshots"
+    if config.get("ocr_debug_screenshots", False) is not True:
+        return []
+    ss_dir = ocr_capture.SCREENSHOT_DIR
     if not ss_dir.exists():
         return []
-    files = sorted(ss_dir.glob("*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
+    files = sorted(ss_dir.glob("card_*.png"), key=lambda p: p.stat().st_mtime, reverse=True)
     return [{"name": f.name, "url": f"/api/ocr/screenshots/{f.name}"} for f in files[:20]]
 
 
 @app.get("/api/ocr/screenshots/{filename}")
 def get_screenshot(filename: str):
     """Serve a saved screenshot."""
-    ss_dir = _APP_ROOT / "data" / "screenshots"
+    if config.get("ocr_debug_screenshots", False) is not True or not filename.startswith("card_"):
+        return {"error": "not found"}
+    ss_dir = ocr_capture.SCREENSHOT_DIR
     path = (ss_dir / filename).resolve()
     if not path.is_relative_to(ss_dir.resolve()):
         return {"error": "not found"}
@@ -703,7 +708,7 @@ def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
     """
     augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
     augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    matches = detect_augments(augment_names, save=False)
+    matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
     event_log.emit(
         "ocr_recognition", outcome="manual_detected" if matches else "manual_empty",
         count=len(matches or []),
@@ -726,7 +731,7 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
     """
     augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
     augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    action, matches = screen_watcher.check(augment_names, save=False)
+    action, matches = screen_watcher.check(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
     if action != "unchanged":
         event_log.emit(
             "ocr_recognition", outcome=action, count=len(matches or []),
