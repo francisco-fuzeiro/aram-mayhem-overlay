@@ -63,6 +63,7 @@ class GameState:
         # OCR state
         self.ocr_enabled: bool = True
         self.ocr_last_detected: list[str] = []
+        self.ocr_slot_choices: dict[str, str | None] | None = None
         self.ocr_stale: bool = False
         # Augment pick window
         self.last_known_level: int = 0
@@ -102,6 +103,7 @@ class GameState:
         if self.scan_window_open:
             event_log.emit("ocr_window", state="closed", reason="reset", level=self.scan_window_level)
         self.ocr_last_detected.clear()
+        self.ocr_slot_choices = None
         self.ocr_stale = False
         self.augment_choices.clear()
         self.chosen_augments.clear()
@@ -384,6 +386,9 @@ def ocr_scan():
         game_state.augment_choices.extend(ids)
         game_state.ocr_last_detected.clear()
         game_state.ocr_last_detected.extend(ids)
+        game_state.ocr_slot_choices = _slots_from_detected(
+            _slot_detection_payload(matches)
+        )
 
     return {
         "detected": [
@@ -580,6 +585,7 @@ async def game_ws(websocket: WebSocket):
                 async with game_state.lock:
                     game_state.augment_choices.clear()
                     game_state.augment_choices.extend(augment_ids)
+                    game_state.ocr_slot_choices = None
                 await _send_ws_message(websocket, json.dumps({
                     "type": "ack",
                     "action": "set_augment_choices",
@@ -598,6 +604,7 @@ async def game_ws(websocket: WebSocket):
                             game_state.chosen_augments.append(aug_id)
                     game_state.augment_choices.clear()
                     game_state.ocr_last_detected.clear()
+                    game_state.ocr_slot_choices = None
                     if game_state.scan_window_open:
                         event_log.emit("ocr_window", state="closed", reason="manual_choice",
                                        level=game_state.scan_window_level)
@@ -623,6 +630,7 @@ async def game_ws(websocket: WebSocket):
             elif msg_type == "clear_augments":
                 async with game_state.lock:
                     game_state.augment_choices.clear()
+                    game_state.ocr_slot_choices = None
                     game_state.chosen_augments.clear()
                     game_state.chosen_stat_anvils.clear()
                     game_state.confirmation_pending = False
@@ -645,6 +653,11 @@ async def game_ws(websocket: WebSocket):
                         game_state.augment_choices.extend(ids)
                         game_state.ocr_last_detected.clear()
                         game_state.ocr_last_detected.extend(ids)
+                        screen_watcher._frozen_hash = None
+                    if _slots_from_detected(detected) is not None:
+                        game_state.ocr_slot_choices = _slots_from_detected(detected)
+                        game_state.augment_choices[:] = ids
+                        game_state.ocr_last_detected[:] = ids
                         screen_watcher._frozen_hash = None
                     choices_snapshot = list(game_state.augment_choices)
                 await _send_ws_message(websocket, json.dumps({
@@ -701,6 +714,42 @@ async def game_ws(websocket: WebSocket):
 # -- Polling loop --
 
 
+def _slot_detection_payload(matches) -> list[dict]:
+    """Serialize three observed positions, including explicit unknown slots."""
+    from backend.collectors.slot_title_ocr import SlotMatches
+    if isinstance(matches, SlotMatches):
+        return [
+            {
+                "slot": slot,
+                "id": value[0] if value else None,
+                "name": value[1] if value else None,
+                "confidence": value[2] if value else 0,
+            }
+            for slot, value in matches.slots.items()
+        ]
+    # Legacy mocked/manual test inputs never authorise slot mapping.
+    return [
+        {"id": aid, "name": name, "confidence": score}
+        for aid, name, score in matches or []
+    ]
+
+
+def _slots_from_detected(detected: list[dict] | None) -> dict[str, str | None] | None:
+    from backend.collectors.slot_title_ocr import SLOTS
+    if not isinstance(detected, list) or len(detected) != len(SLOTS):
+        return None
+    if [row.get("slot") for row in detected] != list(SLOTS):
+        return None
+    values = [row.get("id") for row in detected]
+    if any(value is not None and not isinstance(value, str) for value in values):
+        return None
+    if len([value for value in values if value is not None]) != len(set(
+        value for value in values if value is not None
+    )):
+        return None
+    return dict(zip(SLOTS, values))
+
+
 def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
     """Run a full OCR scan (manual trigger, bypasses hash check).
 
@@ -717,10 +766,7 @@ def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
     )
 
     ids = [m[0] for m in matches] if matches else []
-    detected = [
-        {"id": aid, "name": name, "confidence": score}
-        for aid, name, score in matches
-    ]
+    detected = _slot_detection_payload(matches)
     return ids, detected
 
 
@@ -739,12 +785,9 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
             confidence=float(max((m[2] for m in matches or []), default=0)),
         )
 
-    if action == "detected" and matches:
+    if action == "detected" and (matches or hasattr(matches, "slots")):
         ids = [m[0] for m in matches]
-        detected = [
-            {"id": aid, "name": name, "confidence": score}
-            for aid, name, score in matches
-        ]
+        detected = _slot_detection_payload(matches)
         return (action, ids, detected)
 
     return (action, [], None)
@@ -1020,6 +1063,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             state.augment_choices.extend(ids)
                             state.ocr_last_detected.clear()
                             state.ocr_last_detected.extend(ids)
+                            state.ocr_slot_choices = _slots_from_detected(detected)
                             logger.info("OCR detected augments: %s", detected)
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
@@ -1063,7 +1107,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
             if result:
                 update = deps.serialize_result(result, deps.static_data, snapshot)
                 if isinstance(update, dict):
-                    update = {**update, "ocr_stale": state.ocr_stale}
+                    update = {**update, "ocr_stale": state.ocr_stale,
+                              "ocr_slots": state.ocr_slot_choices}
                     if state.match_id:
                         update["match_id"] = state.match_id
                 await deps.broadcast(json.dumps(update))
