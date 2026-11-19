@@ -134,3 +134,24 @@ def test_screenshot_routes_only_serve_active_user_data_directory(debug_env, monk
     monkeypatch.setitem(config._data, "ocr_debug_screenshots", False)
     assert server.list_screenshots() == []
     assert server.get_screenshot("card_left_test.png") == {"error": "not found"}
+
+
+def test_custom_ocr_region_cannot_escape_game_or_request_full_window(monkeypatch):
+    invalid = [
+        [-0.5, 0.22, 1.4, 0.5],
+        [0, 0, 1, 1],
+        ["invalid", 0.22, 0.85, 0.5],
+        [float("nan"), 0.22, 0.85, 0.5],
+    ]
+    for override in invalid:
+        monkeypatch.setitem(config._data, "ocr_region", override)
+        assert screen_ocr.get_augment_region(1920, 1080) == screen_ocr.AUGMENT_REGION_16_9
+    monkeypatch.setitem(config._data, "ocr_region", [0.1, 0.2, 0.9, 0.45])
+    assert screen_ocr.get_augment_region(1920, 1080) == (0.1, 0.2, 0.9, 0.45)
+
+
+def test_cached_game_handle_rechecks_foreground_before_mss(monkeypatch):
+    monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr.mss, "mss", lambda: pytest.fail("captured after focus loss"))
+    assert screen_ocr.capture_augment_region(league_window=league(True)) is None

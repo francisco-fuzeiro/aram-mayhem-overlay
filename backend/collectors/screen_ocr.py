@@ -16,6 +16,7 @@ Requires Tesseract OCR installed:
   Or download from: https://github.com/UB-Mannheim/tesseract/wiki
 """
 import hashlib
+import math
 import re
 import logging
 import time
@@ -89,8 +90,18 @@ def get_augment_region(screen_width: int, screen_height: int) -> tuple[float, fl
     try:
         from backend.config import config
         override = config.get("ocr_region")
-        if override and len(override) == 4:
-            return tuple(override)
+        if isinstance(override, (list, tuple)) and len(override) == 4:
+            try:
+                fracs = tuple(float(x) for x in override)
+            except (TypeError, ValueError):
+                fracs = ()
+            if len(fracs) == 4 and all(math.isfinite(v) for v in fracs):
+                left, top, right, bottom = fracs
+                area = (right - left) * (bottom - top)
+                if (0 <= left < right <= 1 and 0 <= top < bottom <= 1
+                        and area <= 0.5):
+                    return fracs
+            logger.warning("OCR region override rejected: must remain inside League client")
     except Exception:
         pass
 
@@ -362,6 +373,11 @@ def capture_augment_region(
     game = league_window if league_window is not None else find_league_window()
     if game is None or not game.focused:
         return None
+    if league_window is not None:
+        # A watcher may have cached the HWND just before an Alt+Tab.
+        current = find_league_window()
+        if current is None or not current.focused or current.hwnd != game.hwnd:
+            return None
     left, top, right, bottom = game.rect
     w, h = right - left, bottom - top
     if w <= 0 or h <= 0:
