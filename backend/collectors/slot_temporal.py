@@ -55,6 +55,15 @@ class SlotTemporalTracker:
         self._pending.clear()
         self._refresh_required = True
 
+    @property
+    def has_unverified_changes(self) -> bool:
+        """Some title slot is still awaiting a second C3 verification read.
+
+        This is NOT offer disappearance evidence; C4 uses it only to withhold
+        old recommendations during animation, reroll or occlusion.
+        """
+        return bool(self._pending)
+
     def snapshot(self) -> SlotMatches | None:
         """Last confirmed physical slots; not proof the window is still focused."""
         if not self._has_identified_card:

@@ -203,8 +203,9 @@ def test_manual_and_automatic_scans_share_timeline_without_single_read_bypass(mo
     assert [row["slot"] for row in rows] == list(SLOTS)
 
     state["left"] = 11
-    # Manual starts confirmation; returns the last verified snapshot.
-    assert [v[0] for v in screen_ocr.detect_augments({})] == ["en", "bind", "kill"]
+    # Manual starts confirmation but must not publish old IDs as current while
+    # a new visual title is pending C3 verification.
+    assert screen_ocr.detect_augments({}) == []
     action, ids, rows = server._run_watcher_check()
     assert action == "detected"
     assert ids == ["new_left", "bind", "kill"]

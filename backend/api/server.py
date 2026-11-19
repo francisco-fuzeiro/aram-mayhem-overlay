@@ -1100,6 +1100,17 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                                 "stale": True,
                                 "augment_choices": list(state.augment_choices),
                             })
+                        elif action == "transition":
+                            # The current focused frame changed, but C3 has not
+                            # verified all physical slots yet. Keep historical
+                            # names for diagnostics only, never current advice.
+                            state.offer_lifecycle.observe("transition")
+                            ocr_message = json.dumps({
+                                "type": "ocr_result", "status": "transition",
+                                "offer_state": state.offer_state,
+                                "stale": state.ocr_stale,
+                                "augment_choices": list(state.augment_choices),
+                            })
                         elif action == "disappeared":
                             # Compatibility with a separately VERIFIED negative
                             # signal. The C3 watcher never emits this from blank

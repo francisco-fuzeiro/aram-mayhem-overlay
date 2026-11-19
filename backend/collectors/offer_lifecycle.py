@@ -14,7 +14,7 @@ class OfferLifecycle:
 
     _VALID_ACTIONS = frozenset({
         "detected", "no_augments", "unchanged", "not_focused",
-        "unavailable", "disappeared",
+        "unavailable", "disappeared", "transition",
     })
 
     def __init__(self) -> None:
@@ -48,6 +48,10 @@ class OfferLifecycle:
             self.state = "suspended"
         elif action == "disappeared":
             self.state = "gone" if verified_absence else "uncertain"
+        elif action == "transition" and self.state == "present":
+            # A changed/unreadable frame may be a reroll, dialogue, or true
+            # disappearance. Hide old advice, but never assert a picked card.
+            self.state = "uncertain"
         elif action == "no_augments" and self.state == "present":
             self.state = "uncertain"
         # A static frame is not positive or negative evidence.

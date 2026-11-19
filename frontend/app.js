@@ -379,6 +379,21 @@
                 btnScan.textContent = "Scan Screen";
                 return;
             }
+            if (msg.status === "transition") {
+                // A provisional visual change is not a new recognized card.
+                // Do not display previous L/C/R scores while OCR re-verifies.
+                if (typeof msg.offer_state !== "string") offerState = "uncertain";
+                $("section-augments").classList.add("collapsed");
+                $("section-input").classList.add("collapsed");
+                augmentConfirm.classList.add("hidden");
+                ocrStatusBadge.textContent = "VERIFYING";
+                ocrStatusBadge.className = "ocr-status-badge ocr-scanning";
+                ocrStatusBadge.title = "Card transition: waiting for verified titles";
+                scanning = false;
+                btnScan.textContent = "Scan Screen";
+                btnScan.disabled = !ocrAvailable;
+                return;
+            }
             if (msg.status === "disappeared" || offerState === "gone") {
                 // Only an independently verified negative signal may report gone.
                 // Never interpret it as a selected augment.
