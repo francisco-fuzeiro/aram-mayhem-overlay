@@ -16,9 +16,9 @@ from backend.collectors.slot_title_ocr import SLOTS, SlotMatches
 
 Match = tuple[str, str, int] | None
 
-# 16x16 average hashes: <=10 changed pixels is regarded as screen jitter.
+# 32x32 average hashes: keep jitter tolerance below visibly changed glyph strokes.
 # Separate much stricter threshold confirms that two pending frames are stable.
-CHANGE_THRESHOLD = 10
+CHANGE_THRESHOLD = 6
 STABLE_THRESHOLD = 5
 REQUIRED_CONSECUTIVE_READS = 2
 UNKNOWN_RETRY_INTERVAL_TICKS = 4  # bounded polling, not a busy OCR loop
