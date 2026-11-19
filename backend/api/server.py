@@ -641,7 +641,7 @@ async def game_ws(websocket: WebSocket):
                 }))
 
             elif msg_type == "scan_augments":
-                # Manual scan — full OCR, resets watcher hash
+                # Manual and automatic OCR share the same two-read slot state
                 ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
                 async with game_state.lock:
                     if ids:
@@ -649,12 +649,10 @@ async def game_ws(websocket: WebSocket):
                         game_state.augment_choices.extend(ids)
                         game_state.ocr_last_detected.clear()
                         game_state.ocr_last_detected.extend(ids)
-                        screen_watcher._frozen_hash = None
                     if _slots_from_detected(detected) is not None:
                         game_state.ocr_slot_choices = _slots_from_detected(detected)
                         game_state.augment_choices[:] = ids
                         game_state.ocr_last_detected[:] = ids
-                        screen_watcher._frozen_hash = None
                     choices_snapshot = list(game_state.augment_choices)
                 await _send_ws_message(websocket, json.dumps({
                     "type": "ocr_result",
@@ -747,7 +745,7 @@ def _slots_from_detected(detected: list[dict] | None) -> dict[str, str | None] |
 
 
 def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
-    """Run a full OCR scan (manual trigger, bypasses hash check).
+    """Run a manual scan through the shared per-slot temporal gate.
 
     Pure function — returns (ids, detected_dicts) without mutating game_state.
     Caller must apply results under the lock.
@@ -767,7 +765,7 @@ def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
 
 
 def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
-    """Run the ScreenWatcher.check() — hash comparison + OCR if changed.
+    """Run the ScreenWatcher.check() — independent slot hashes + stable OCR.
 
     Pure function — returns (action, ids, detected_dicts) without mutating
     game_state. Caller must apply results under the lock.

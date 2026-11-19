@@ -61,20 +61,26 @@ def test_refocus_forces_fresh_ocr_even_if_hash_would_match_previous_frame(monkey
     state = {"focused": False}
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=state["focused"]))
     monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *args, **kw: "frame")
-    monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda img: "same")
+    monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda img: "0" * 64)
+    monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_args: {
+        slot: "synthetic" for slot in ("left", "centre", "right")
+    })
+    reads = []
+    def read(slot, _crop, _names):
+        reads.append(slot)
+        return ("new", "New", 95) if slot == "left" else None
+    from backend.collectors import slot_title_ocr
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read)
     watcher = screen_ocr.ScreenWatcher()
-    watcher._frozen_hash = "same"
     watcher._last_detected = [("old", "Old", 90)]
-    calls = []
-    def read(img, hash_value, names, save):
-        calls.append(img)
-        watcher._last_detected = [("new", "New", 95)]
-        return "detected", list(watcher._last_detected)
-    monkeypatch.setattr(watcher, "_run_full_ocr", read)
     assert watcher.check({})[0] == "not_focused"
     state["focused"] = True
-    assert watcher.check({})[0] == "detected"
-    assert calls == ["frame"]
+    # Refocus does not reuse the previous hash or accept one frame.
+    assert watcher.check({})[0] == "no_augments"
+    action, matches = watcher.check({})
+    assert action == "detected"
+    assert matches.slots["left"][0] == "new"
+    assert reads == ["left", "centre", "right"] * 2
 
 
 def test_manual_scan_cannot_ocr_an_unfocused_window(monkeypatch):

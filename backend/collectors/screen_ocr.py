@@ -4,10 +4,8 @@ ARAM Oracle — Screen OCR Augment Detection
 Captures a screenshot of the augment selection area, runs OCR,
 and fuzzy-matches detected text against known augment names.
 
-Uses perceptual image hashing for cheap change detection:
-- After a successful OCR scan, the region hash is stored.
-- On subsequent ticks, only the hash is recomputed (fast).
-- If the hash changes significantly, a reroll happened and OCR re-runs.
+Uses per-title-slot perceptual hashing and two consecutive consistent OCR
+readings. Unchanged physical slots retain their verified names across rerolls.
 
 Screenshots are never stored by default; explicitly opted-in debugging can save images.
 
@@ -76,11 +74,8 @@ MAX_SCREENSHOTS = 15
 MAX_SCREENSHOT_AGE_SECONDS = 3 * 24 * 3600
 
 # Perceptual hash size (NxN grid). Higher = more sensitive to small changes.
-HASH_SIZE = 16
+HASH_SIZE = 32
 
-# Hamming distance threshold: if distance > this, the image changed (reroll).
-# With HASH_SIZE=16, total bits = 256. Threshold ~30 means ~12% difference.
-HASH_CHANGE_THRESHOLD = 30
 
 
 _logged_resolution = False
@@ -145,145 +140,105 @@ def _hamming_distance(hash1: str, hash2: str) -> int:
 
 
 class ScreenWatcher:
-    """Stateful screen watcher that uses hashing to detect augment changes.
+    """Focused League-only title watcher with three independent temporal slots.
 
-    Usage in the poll loop:
-        watcher = ScreenWatcher()
-
-        # Each tick:
-        action = watcher.check(augment_names)
-        # action is one of:
-        #   ("detected", matches)  — first detection or reroll detected, OCR ran
-        #   ("unchanged", None)    — same augments still showing, no action needed
-        #   ("no_augments", None)  — no augment UI detected on screen
-        #   ("disappeared", None)  — augments were showing but are now gone (player chose)
-        #   ("unavailable", None)  — OCR not ready
+    A slot's title is accepted only after two stable, matching OCR readings.
+    Focus loss suspends comparisons instead of interpreting a changed desktop
+    frame as a reroll. C4 will separately implement offer visibility.
     """
 
     def __init__(self) -> None:
-        self._frozen_hash: str | None = None  # hash after successful detection
+        import threading
+        from backend.collectors.slot_temporal import SlotTemporalTracker
+
+        self._lock = threading.RLock()
+        self._temporal = SlotTemporalTracker()
+        self._capture_stale = False
         self._last_detected: list[tuple[str, str, int]] = []
-        self._no_augment_hash: str | None = None  # hash of "normal gameplay" screen
-        self._had_detection: bool = False  # True after augments were successfully detected
-        self._disappear_confirm: int = 0   # consecutive ticks with no augments after detection
-        self._capture_stale: bool = False
-        self._title_client_rect: tuple[int, int, int, int] | None = None
 
     def reset(self) -> None:
-        """Reset state (e.g., when game ends or augment confirmed)."""
-        self._frozen_hash = None
-        self._last_detected = []
-        self._no_augment_hash = None
-        self._had_detection = False
-        self._disappear_confirm = 0
-        self._capture_stale = False
-        self._title_client_rect = None
+        """Forget the completed offer, without altering any player action."""
+        with self._lock:
+            self._temporal.reset()
+            self._capture_stale = False
+            self._last_detected = []
 
     def check(
         self,
         augment_names: dict[str, str],
         monitor_index: int = 1,
         save: bool = False,
-    ) -> tuple[str, list[tuple[str, str, int]] | None]:
-        """Check the screen for augment changes.
+    ) -> tuple[str, SlotMatches | None]:
+        """Observe each changed title crop and return only verified slot changes.
 
-        Returns:
-            Tuple of (action, matches_or_none).
+        This synchronous operation is invoked via to_thread by the poll loop;
+        locking also serializes manual scans and prevents overlapping OCR
+        calls from mixing their temporal order.
         """
-        if not is_available():
-            self._capture_stale = True
-            return ("unavailable", None)
+        from backend.collectors.slot_title_ocr import recognize_title_slot
 
-        game = find_league_window()
-        if game is None:
-            self._capture_stale = True
-            return ("unavailable", None)
-        if not game.focused:
-            # Alt+Tab is not offer disappearance: preserve last detected cards.
-            self._capture_stale = True
-            return ("not_focused", None)
+        with self._lock:
+            if not is_available():
+                self._capture_stale = True
+                self._temporal.suspend()
+                return ("unavailable", None)
 
-        # Capture only League's client area, never another monitor/desktop.
-        img = capture_augment_region(monitor_index, league_window=game)
-        if img is None:
-            self._capture_stale = True
-            return ("unavailable", None)
+            game = find_league_window()
+            if game is None:
+                self._capture_stale = True
+                self._temporal.suspend()
+                return ("unavailable", None)
+            if not game.focused:
+                self._capture_stale = True
+                self._temporal.suspend()
+                return ("not_focused", None)
 
-        if self._capture_stale:
-            # After focus returns, don't trust the hash captured before Alt+Tab.
-            self._frozen_hash = None
-            self._capture_stale = False
-        self._title_client_rect = game.rect
-        current_hash = _perceptual_hash(img)
+            # Capture only the verified foreground League client ROI.
+            img = capture_augment_region(monitor_index, league_window=game)
+            if img is None:
+                self._capture_stale = True
+                self._temporal.suspend()
+                return ("unavailable", None)
+            if self._capture_stale:
+                self._temporal.suspend()
+                self._capture_stale = False
 
-        # Case 1: No prior detection — this is the first scan
-        if self._frozen_hash is None:
-            # Store hash even if OCR fails, so subsequent checks can
-            # detect when the screen changes (augments appearing).
-            self._frozen_hash = current_hash
-            return self._run_full_ocr(img, current_hash, augment_names, save)
+            rect = game.rect
+            width, height = rect[2] - rect[0], rect[3] - rect[1]
+            crops = crop_title_slots(img, rect, get_augment_region(width, height))
+            if crops is None:
+                self._capture_stale = True
+                self._temporal.suspend()
+                return ("unavailable", None)
 
-        # Case 2: Compare hash to frozen reference
-        distance = _hamming_distance(current_hash, self._frozen_hash)
+            result = self._temporal.observe(
+                crops, augment_names, recognize_title_slot,
+                _perceptual_hash, _hamming_distance,
+            )
+            if result is not None:
+                self._last_detected = list(result)
+                if save:
+                    save_screenshot(img, label="verified_title_slots")
+                return ("detected", result)
 
-        if distance <= HASH_CHANGE_THRESHOLD:
-            # Screen looks the same — augments unchanged
-            return ("unchanged", None)
+            # A pending animation, focus recovery or a static frame must not
+            # manufacture a new offer or erase still-verified other positions.
+            return ("unchanged" if self._temporal.snapshot() else "no_augments", None)
 
-        # Case 3: Hash changed significantly — reroll detected
-        logger.info(
-            "Screen changed (hamming distance=%d, threshold=%d) — reroll, rescanning",
-            distance, HASH_CHANGE_THRESHOLD,
-        )
-        if save:
-            save_screenshot(img, label="reroll_detected")
-
-        # Reset disappear counter — this is a reroll, not a disappearance
-        self._disappear_confirm = 0
-        # Update frozen hash so next check compares against the new screen
-        self._frozen_hash = current_hash
-
-        return self._run_full_ocr(img, current_hash, augment_names, save)
-
-    def _run_full_ocr(
-        self,
-        img: "Image.Image",
-        img_hash: str,
-        augment_names: dict[str, str],
-        save: bool,
-    ) -> tuple[str, list[tuple[str, str, int]] | None]:
-        """Read individual padded title bands, retaining physical slot identity."""
-        rect = self._title_client_rect
-        if rect is None:
-            self._capture_stale = True
-            return ("unavailable", None)
-        w, h = rect[2] - rect[0], rect[3] - rect[1]
-        crops = crop_title_slots(img, rect, get_augment_region(w, h))
-        if crops is None:
-            self._capture_stale = True
-            return ("unavailable", None)
-        matches = recognize_title_slots(crops, augment_names)
-        if save:
-            save_screenshot(img, label="title_slots")
-        self._frozen_hash = img_hash
-        self._last_detected = list(matches)
-        if matches:
-            self._had_detection = True
-        if matches or self._had_detection:
-            # Obscuration is not an actual pick or offer disappearance.
-            # Unknown slots replace previously guessed names instead of
-            # allowing a stale position to masquerade as a current reading.
-            self._disappear_confirm = 0
-            return ("detected", matches)
-        return ("no_augments", None)
+    @property
+    def current_slots(self) -> SlotMatches | None:
+        with self._lock:
+            return self._temporal.snapshot()
 
     @property
     def last_detected(self) -> list[tuple[str, str, int]]:
-        return list(self._last_detected)
+        with self._lock:
+            return list(self._last_detected)
 
     @property
     def has_detection(self) -> bool:
-        return self._frozen_hash is not None
+        with self._lock:
+            return self._temporal.snapshot() is not None
 
 
 # -- Module-level singleton --
@@ -585,29 +540,17 @@ def detect_augments(
     monitor_index: int = 1,
     save: bool = False,
 ) -> list[tuple[str, str, int]]:
-    """Full pipeline: capture screen -> OCR -> match augments.
+    """Manual capture uses exactly the automatic two-read temporal gate.
 
-    For poll-loop usage, prefer ScreenWatcher.check() instead — it uses
-    hashing to avoid redundant OCR calls.
+    A single manual request may return no fresh result while the second
+    observation is pending. A later automatic/manual tick finishes the gate.
+    Never bypass strict OCR or publish provisional single-frame matches.
     """
-    if not is_available():
-        logger.warning("OCR not available — Tesseract installed?")
-        return []
-
-    # Manual scans use the same strict position-locked OCR as the watcher.
-    # Never infer card position from whole-region confidence-sorted matches.
-    game = find_league_window()
-    if game is None or not game.focused:
-        return []
-    img = capture_augment_region(monitor_index, league_window=game)
-    if img is None:
-        return []
-    width = game.rect[2] - game.rect[0]
-    height = game.rect[3] - game.rect[1]
-    crops = crop_title_slots(img, game.rect, get_augment_region(width, height))
-    if crops is None:
-        return []
-    matches = recognize_title_slots(crops, augment_names)
-    if save:
-        save_screenshot(img, label="manual_title_slots")
-    return matches
+    action, matches = watcher.check(
+        augment_names, monitor_index=monitor_index, save=save,
+    )
+    if action == "detected" and matches is not None:
+        return matches
+    if action == "unchanged":
+        return watcher.current_slots or []
+    return []
