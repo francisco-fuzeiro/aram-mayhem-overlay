@@ -4,6 +4,15 @@
 > Incorporates the **"Auditoria UX — ARAM Oracle"** discussion in the ChatGPT Overlay LoL project, the user-supplied `funcionalidades.md` specification, the first real in-game Jinx screenshot, and the current stacked PR history.
 > The UX audit was recovered from the cross-chat discussion summary; this is an actionable synthesis, **not** a verbatim export of that conversation.
 
+## Observed defect ledger — mandatory cross-session reference (2026-11-19)
+
+> [`docs/OBSERVED_ISSUES_2026-11-19.md`](OBSERVED_ISSUES_2026-11-19.md) is the durable record of all identified Windows gameplay, OCR, reroll, UI, catalog and setup faults, with status and validation gates. **Do not silently close an observed issue because a tests-only PR passed.** Preserve the user-reported examples and C1/C2 partial-validation limits. The existing UX/F-AUD/M1–M5 items below remain canonical for implementation.
+
+- [ ] **OBS-GATE-01 (P0):** Complete C3 per-card temporal detection and C4 reliable offer/dialogue presence; pass RED/GREEN and final-head CI before asking the user to enter another League match.
+- [ ] **OBS-GATE-02 (P0):** Validate new C1 title PNGs and C2 L/C/R assignments on real Windows once C3/C4 are green; all title names correct or explicit `unknown`, no stale/misassigned card.
+- [ ] **OBS-GATE-03 (P0):** Address all on-device P0 regression observations PL-01…PL-13 or record honest blockers; native matrix 10 offers/30 cards with individual and double rerolls, focus, dialogue, end/new game. No repeated exploratory match requests.
+- [ ] **OBS-GATE-04 (P1):** Audit UI/data issues UXL-01…UXL-10 and process failures OPS-01…OPS-04 before installer/public release; distinguish code green, device open and incomplete catalog.
+
 ## Working rules
 
 - **Priority:** P0 = missing core behavior or unsafe/confusing output; P1 = contextual experience and usefulness; P2 = polish/robustness.

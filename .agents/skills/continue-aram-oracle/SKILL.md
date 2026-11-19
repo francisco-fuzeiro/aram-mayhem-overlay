@@ -4,6 +4,10 @@ description: Resume ARAM Oracle development safely across ChatGPT project conver
 ---
 
 
+## Durable user-verified issue index — MUST read first (2026-11-19)
+
+Read `docs/OBSERVED_ISSUES_2026-11-19.md` and `docs/TODO.md` at current live branch head on every handoff. The ledger contains PL-01…14 actual gameplay faults, UXL-01…10 UX/catalog risks, OPS-01…04 setup/process failures, native acceptance and safety gates. It prevents forgotten details and fixes being falsely called game-validated. Keep the historical user screenshots outside Git. **The user expressly forbids asking them to open League for another partial implementation; C3 + C4 and offline/final-head CI must be green before offering one grouped Windows acceptance test.**
+
 ## 2026-11-19 active handoff — M5/C2 implemented, C3/C4 and native gates OPEN
 
 - [Draft PR #42](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/42) on `feat/m5-c2-slot-locked-ocr` stacked on C1 draft PR #41. User's current League example: left En Passant, centre Ravenous Bind, right It's Killing Time; old overlay showed left/right/centre because OCR sorted confidence/name and recommendation engine sorted score. C2 adds title-only strict per-slot OCR and explicit `left/centre/right` in server/REST/WS/UI, with unknown/duplicate fail-closed. PSM7 first, guarded PSM6 for wrapped titles, >=90 full title + >=8 runner-up. Frontend physically locates cards instead of relying on ranking order; no gameplay input changed.
