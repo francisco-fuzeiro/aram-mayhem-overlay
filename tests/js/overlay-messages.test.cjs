@@ -36,6 +36,16 @@ function harness() {
             replaceChildren(...items) { this.children = [...items]; },
             querySelector() { return node("button"); },
         };
+        // In a real DOM, assigning innerHTML replaces the old children.
+        // Resetting the list is critical for testing successive OCR rerolls.
+        let htmlText = "";
+        Object.defineProperty(element, "innerHTML", {
+            get() { return htmlText; },
+            set(value) {
+                htmlText = String(value ?? "");
+                this.children = [];
+            },
+        });
         // A browser turns textContent into escaped innerHTML. The overlay's
         // esc() helper relies on this DOM contract; the stub must model it.
         let plainText = "";
