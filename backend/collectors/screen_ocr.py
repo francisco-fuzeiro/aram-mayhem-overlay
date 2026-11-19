@@ -22,6 +22,7 @@ from pathlib import Path
 from backend.collectors.league_window import find_league_window, LeagueWindow
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
 from backend.collectors.slot_title_ocr import SlotMatches, crop_title_slots, recognize_title_slots
+from backend.collectors.offer_visibility import VerifiedAbsenceGate, IndependentCue
 
 logger = logging.getLogger("aram-oracle.ocr")
 
@@ -147,20 +148,31 @@ class ScreenWatcher:
     frame as a reroll. C4 will separately implement offer visibility.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self, *, independent_observer=None, approved_calibration: str | None = None,
+    ) -> None:
         import threading
         from backend.collectors.slot_temporal import SlotTemporalTracker
 
         self._lock = threading.RLock()
         self._temporal = SlotTemporalTracker()
+        # Production passes neither observer nor calibration: no automatic
+        # disappearance. Tests may inject only synthetic independent cues.
+        self._independent_observer = independent_observer
+        self._absence_gate = VerifiedAbsenceGate(approved_calibration)
         self._capture_stale = False
+        self._refocus_pending = False
+        self._transition_open = False
         self._last_detected: list[tuple[str, str, int]] = []
 
     def reset(self) -> None:
         """Forget the completed offer, without altering any player action."""
         with self._lock:
             self._temporal.reset()
+            self._absence_gate.suspend()
             self._capture_stale = False
+            self._refocus_pending = False
+            self._transition_open = False
             self._last_detected = []
 
     def check(
@@ -181,16 +193,25 @@ class ScreenWatcher:
             if not is_available():
                 self._capture_stale = True
                 self._temporal.suspend()
+                self._absence_gate.suspend()
+                self._refocus_pending = True
+                self._transition_open = False
                 return ("unavailable", None)
 
             game = find_league_window()
             if game is None:
                 self._capture_stale = True
                 self._temporal.suspend()
+                self._absence_gate.suspend()
+                self._refocus_pending = True
+                self._transition_open = False
                 return ("unavailable", None)
             if not game.focused:
                 self._capture_stale = True
                 self._temporal.suspend()
+                self._absence_gate.suspend()
+                self._refocus_pending = True
+                self._transition_open = False
                 return ("not_focused", None)
 
             # Capture only the verified foreground League client ROI.
@@ -198,10 +219,14 @@ class ScreenWatcher:
             if img is None:
                 self._capture_stale = True
                 self._temporal.suspend()
+                self._absence_gate.suspend()
+                self._refocus_pending = True
+                self._transition_open = False
                 return ("unavailable", None)
             if self._capture_stale:
                 self._temporal.suspend()
                 self._capture_stale = False
+                self._refocus_pending = True
 
             rect = game.rect
             width, height = rect[2] - rect[0], rect[3] - rect[1]
@@ -209,21 +234,86 @@ class ScreenWatcher:
             if crops is None:
                 self._capture_stale = True
                 self._temporal.suspend()
+                self._absence_gate.suspend()
+                self._refocus_pending = True
+                self._transition_open = False
                 return ("unavailable", None)
 
+            # A separate classifier may be plugged in ONLY after real native
+            # absent/dialogue fixtures validate a code-reviewed calibration.
+            # OCR title absence, changing hashes and time are never negative
+            # evidence. In production this remains None (disabled).
+            key = (game.hwnd, game.rect)
+            cue = None
+            if self._independent_observer is not None:
+                try:
+                    cue = self._independent_observer(img, game)
+                except Exception:
+                    logger.exception("Independent offer visual cue failed closed")
             result = self._temporal.observe(
                 crops, augment_names, recognize_title_slot,
                 _perceptual_hash, _hamming_distance,
             )
+            pending = self._temporal.has_unverified_changes
+            current = self._temporal.snapshot()
+            fresh_named = (
+                result is not None and not pending and
+                any(value is not None for value in result.slots.values())
+            )
+
+            if fresh_named:
+                self._absence_gate.confirm_present(key)
+            elif pending or (
+                current is not None and
+                all(value is None for value in current.slots.values())
+            ):
+                # Three independently approved negative scans may close an
+                # already positively verified offer. No approved production
+                # observer exists yet, so this cannot fire in actual games.
+                if self._absence_gate.observe(cue, key):
+                    self._transition_open = False
+                    return ("disappeared", None)
+            else:
+                self._absence_gate.observe(None, key)
+
+            if self._absence_gate.is_approved(cue, key) and cue.verdict == "occluded":
+                # Independent dialogue/occlusion evidence hides advice now.
+                # Force two fresh C3 reads before accepting the cards again.
+                self._temporal.suspend()
+                self._transition_open = False
+                self._refocus_pending = False
+                return ("transition", None)
+
+            if pending:
+                # C3 may have already verified one slot while another is still
+                # animating. Withhold the entire snapshot until ALL pending
+                # slots have settled, retaining old IDs only for diagnostics.
+                if self._refocus_pending:
+                    # B2: never claim an unchanged verified offer if no
+                    # historical C3 snapshot exists on this focus recovery.
+                    return ("unchanged" if current is not None else "no_augments", None)
+                if current is not None:
+                    self._transition_open = True
+                    return ("transition", None)
+                return ("no_augments", None)
+
             if result is not None:
+                self._transition_open = False
+                self._refocus_pending = False
                 self._last_detected = list(result)
                 if save:
                     save_screenshot(img, label="verified_title_slots")
                 return ("detected", result)
 
-            # A pending animation, focus recovery or a static frame must not
-            # manufacture a new offer or erase still-verified other positions.
-            return ("unchanged" if self._temporal.snapshot() else "no_augments", None)
+            if self._transition_open:
+                # A one-frame animation returned to the old visual baseline,
+                # but that historical identity must not become current without
+                # two fresh OCR confirmations across the three physical slots.
+                self._temporal.suspend()
+                self._transition_open = False
+                return ("transition", None)
+
+            return ("unchanged" if current is not None else "no_augments", None)
 
     @property
     def current_slots(self) -> SlotMatches | None:

@@ -23,6 +23,7 @@ from backend.collectors import screen_ocr as ocr_capture
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
+from backend.collectors.offer_lifecycle import OfferLifecycle
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
 from backend import preferences
@@ -65,6 +66,10 @@ class GameState:
         self.ocr_last_detected: list[str] = []
         self.ocr_slot_choices: dict[str, str | None] | None = None
         self.ocr_stale: bool = False
+        self.offer_lifecycle = OfferLifecycle()
+        # Monotonic offer generation fences OCR results from old windows and
+        # manual scans that finish after a match transition or player action.
+        self.offer_epoch: int = 0
         # Augment pick window
         self.last_known_level: int = 0
         self.scan_window_open: bool = False
@@ -93,6 +98,10 @@ class GameState:
         self.first_lcda_miss_at: float | None = None
 
     @property
+    def offer_state(self) -> str:
+        return self.offer_lifecycle.state
+
+    @property
     def lock(self) -> asyncio.Lock:
         return self._lock
 
@@ -105,6 +114,8 @@ class GameState:
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
         self.ocr_stale = False
+        self.offer_lifecycle.close()
+        self.offer_epoch += 1
         self.augment_choices.clear()
         self.chosen_augments.clear()
         self.chosen_stat_anvils.clear()
@@ -119,6 +130,49 @@ class GameState:
         self.awaiting_stat_delta = False
         self.delta_wait_ticks = 0
         self.confirmation_pending = False
+
+    def set_ocr_enabled(self, enabled: bool, *, watcher=None) -> None:
+        """Require fresh C3 reads whenever OCR is toggled during an offer.
+
+        Called while holding GameState.lock by the WS handler. Historical
+        choices remain diagnostics-only; disabling never confirms a pick.
+        """
+        enabled = bool(enabled)
+        if enabled == self.ocr_enabled:
+            return
+        self.ocr_enabled = enabled
+        self.offer_epoch += 1
+        if watcher is not None:
+            watcher.reset()
+        if self.scan_window_open:
+            self.offer_lifecycle.observe("unavailable")
+            self.ocr_stale = True
+
+    def accept_manual_ocr(
+        self, ids: list[str], detected: list[dict], *,
+        match_id: str | None, offer_epoch: int,
+    ) -> bool:
+        """Apply only an in-window, current-generation C3-verified scan.
+
+        The caller holds GameState.lock. A stale async scan cannot recreate
+        a closed or already confirmed offer or cross into a new match.
+        """
+        if (not self.scan_window_open or not self.ocr_enabled
+                or self.awaiting_stat_delta or self.confirmation_pending
+                or self.match_id != match_id or self.offer_epoch != offer_epoch):
+            return False
+        slots = _slots_from_detected(detected)
+        if slots is None:
+            return False
+        current_ids = [value for value in slots.values() if value is not None]
+        if ids != current_ids:
+            return False
+        self.offer_lifecycle.observe("detected", identified=len(current_ids))
+        self.augment_choices[:] = current_ids
+        self.ocr_last_detected[:] = current_ids
+        self.ocr_slot_choices = slots
+        self.ocr_stale = False
+        return True
 
     def get_augment_state(self) -> dict:
         """Current augment tracking state for the frontend."""
@@ -367,32 +421,68 @@ def ocr_status():
         "available": ocr_available(),
         "enabled": game_state.ocr_enabled,
         "last_detected": game_state.ocr_last_detected,
+        "offer_state": game_state.offer_state,
     }
 
 
 @app.post("/api/ocr/scan")
-def ocr_scan():
-    """Manually trigger an OCR scan for augment names."""
+async def ocr_scan():
+    """Manual diagnostic OCR; never capture/inject outside a current offer.
+
+    Uses the exact C3 temporal watcher shared with WS/automatic scans.
+    The active match and offer epoch are captured under the state lock,
+    and checked again after blocking OCR completes in a worker thread.
+    """
+    async with game_state.lock:
+        request_match = game_state.match_id
+        request_epoch = game_state.offer_epoch
+        allowed = (
+            game_state.scan_window_open and game_state.ocr_enabled
+            and not game_state.confirmation_pending
+            and not game_state.awaiting_stat_delta
+        )
+        if not allowed:
+            return {
+                "status": "unavailable",
+                "error": "No active augment offer scan",
+                "detected": [],
+                "augment_choices_set": list(game_state.augment_choices),
+                "ocr_slots": game_state.ocr_slot_choices,
+            }
     if not ocr_available():
-        return {"error": "OCR not available — is Tesseract installed?", "detected": []}
+        return {
+            "status": "unavailable",
+            "error": "OCR not available — is Tesseract installed?",
+            "detected": [],
+        }
 
-    augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
-    augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
-    matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
-
-    detected = _slot_detection_payload(matches)
-    slots = _slots_from_detected(detected)
-    if matches or slots is not None:
-        ids = [m[0] for m in matches]
-        game_state.augment_choices[:] = ids
-        game_state.ocr_last_detected[:] = ids
-        game_state.ocr_slot_choices = slots
-
-    return {
-        "detected": detected,
-        "augment_choices_set": list(game_state.augment_choices),
-        "ocr_slots": game_state.ocr_slot_choices,
-    }
+    ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+    async with game_state.lock:
+        applied = game_state.accept_manual_ocr(
+            ids, detected, match_id=request_match, offer_epoch=request_epoch,
+        )
+        if applied:
+            status = "detected"
+        elif (
+            game_state.scan_window_open and game_state.ocr_enabled
+            and game_state.offer_epoch == request_epoch
+            and game_state.match_id == request_match
+            and not game_state.confirmation_pending
+            and not game_state.awaiting_stat_delta
+        ):
+            game_state.offer_lifecycle.observe("transition")
+            status = "transition"
+        else:
+            status = "superseded"
+        return {
+            "status": status,
+            "detected": detected if applied else [],
+            "augment_choices_set": list(game_state.augment_choices),
+            "ocr_slots": game_state.ocr_slot_choices,
+            "offer_state": game_state.offer_state,
+            "offer_epoch": game_state.offer_epoch,
+            "match_id": game_state.match_id,
+        }
 
 
 @app.get("/api/ocr/screenshots")
@@ -605,6 +695,8 @@ async def game_ws(websocket: WebSocket):
                         event_log.emit("ocr_window", state="closed", reason="manual_choice",
                                        level=game_state.scan_window_level)
                     game_state.scan_window_open = False
+                    game_state.offer_lifecycle.close()
+                    game_state.offer_epoch += 1
                     game_state.confirmation_pending = False
                     game_state.awaiting_stat_delta = False
                     game_state.delta_wait_ticks = 0
@@ -641,24 +733,46 @@ async def game_ws(websocket: WebSocket):
                 }))
 
             elif msg_type == "scan_augments":
-                # Manual and automatic OCR share the same two-read slot state
-                ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+                # Manual OCR cannot run or publish outside a current pick
+                # window. The generation is captured BEFORE async OCR so
+                # a completed/changed offer cannot receive late results.
                 async with game_state.lock:
-                    if ids:
-                        game_state.augment_choices.clear()
-                        game_state.augment_choices.extend(ids)
-                        game_state.ocr_last_detected.clear()
-                        game_state.ocr_last_detected.extend(ids)
-                    if _slots_from_detected(detected) is not None:
-                        game_state.ocr_slot_choices = _slots_from_detected(detected)
-                        game_state.augment_choices[:] = ids
-                        game_state.ocr_last_detected[:] = ids
-                    choices_snapshot = list(game_state.augment_choices)
-                await _send_ws_message(websocket, json.dumps({
-                    "type": "ocr_result",
-                    "detected": detected,
-                    "augment_choices": choices_snapshot,
-                }))
+                    request_match = game_state.match_id
+                    request_epoch = game_state.offer_epoch
+                    allowed = (
+                        game_state.scan_window_open and game_state.ocr_enabled
+                        and not game_state.confirmation_pending
+                        and not game_state.awaiting_stat_delta
+                    )
+                ids, detected = ([], [])
+                if allowed:
+                    ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+                async with game_state.lock:
+                    applied = allowed and game_state.accept_manual_ocr(
+                        ids, detected, match_id=request_match,
+                        offer_epoch=request_epoch,
+                    )
+                    if applied:
+                        status = "detected"
+                    elif (allowed and game_state.match_id == request_match
+                          and game_state.offer_epoch == request_epoch
+                          and game_state.scan_window_open
+                          and game_state.ocr_enabled):
+                        # The watcher may be verifying a changed title.
+                        # Never republish historical card identities.
+                        game_state.offer_lifecycle.observe("transition")
+                        status = "transition"
+                    else:
+                        status = "superseded"
+                    message = {
+                        "type": "ocr_result", "status": status,
+                        "detected": detected if applied else [],
+                        "augment_choices": list(game_state.augment_choices),
+                        "offer_state": game_state.offer_state,
+                        "offer_epoch": game_state.offer_epoch,
+                        "match_id": game_state.match_id,
+                    }
+                await _send_ws_message(websocket, json.dumps(message))
 
             elif msg_type == "set_build_style":
                 # Backward-compatible preference action for older overlay clients.
@@ -684,12 +798,32 @@ async def game_ws(websocket: WebSocket):
 
             elif msg_type == "toggle_ocr":
                 async with game_state.lock:
-                    game_state.ocr_enabled = msg.get("enabled", not game_state.ocr_enabled)
-                await _send_ws_message(websocket, json.dumps({
-                    "type": "ack",
-                    "action": "toggle_ocr",
-                    "enabled": game_state.ocr_enabled,
-                }))
+                    requested = msg.get("enabled", not game_state.ocr_enabled)
+                    if not isinstance(requested, bool):
+                        await _send_ws_message(websocket, json.dumps({
+                            "error": "OCR enabled must be boolean",
+                        }))
+                        continue
+                    game_state.set_ocr_enabled(requested, watcher=screen_watcher)
+                    response = {
+                        "type": "ack", "action": "toggle_ocr",
+                        "enabled": game_state.ocr_enabled,
+                        "offer_state": game_state.offer_state,
+                        "offer_epoch": game_state.offer_epoch,
+                        "match_id": game_state.match_id,
+                    }
+                    stale_message = {
+                        "type": "ocr_result",
+                        "status": "disabled" if not requested else "unavailable",
+                        "stale": game_state.ocr_stale,
+                        "offer_state": game_state.offer_state,
+                        "offer_epoch": game_state.offer_epoch,
+                        "match_id": game_state.match_id,
+                    }
+                await _send_ws_message(websocket, json.dumps(response))
+                # Every connected overlay needs this invalidation, not just
+                # the Settings client which initiated the toggle.
+                await _broadcast(json.dumps(stale_message))
 
             else:
                 await _send_ws_message(websocket, json.dumps({"error": "unknown message type"}))
@@ -998,6 +1132,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
+                    state.offer_epoch += 1
+                    state.offer_lifecycle.open()
                     event_log.emit(
                         "ocr_window", state="opened", reason="level_due",
                         level=current_level,
@@ -1038,20 +1174,52 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 await deps.try_stat_delta_match(snapshot)
 
             # -- Auto OCR (only while scan window is open) --
-            # Run outside the lock since OCR is blocking I/O
-            if (
-                state.scan_window_open
-                and not state.awaiting_stat_delta
-                and state.ocr_enabled
-                and deps.ocr_available()
-            ):
+            # A missing/disabled OCR dependency must invalidate current
+            # presence instead of freezing the previous confirmed cards.
+            # Only watcher.check() performs blocking screen capture.
+            scan_due = state.scan_window_open and not state.awaiting_stat_delta
+            ready = state.ocr_enabled and deps.ocr_available() if scan_due else False
+            if scan_due and not ready:
+                missing_message = None
+                async with state.lock:
+                    if state.offer_state != "suspended" or not state.ocr_stale:
+                        state.offer_lifecycle.observe("unavailable")
+                        state.ocr_stale = True
+                        missing_message = json.dumps({
+                            "type": "ocr_result", "status": "unavailable",
+                            "stale": True, "offer_state": state.offer_state,
+                            "offer_epoch": state.offer_epoch,
+                            "match_id": state.match_id,
+                        })
+                if missing_message is not None:
+                    deps.screen_watcher.reset()
+                    await deps.broadcast(missing_message)
+            if scan_due and ready:
                 try:
+                    # A user decision or a settings toggle may happen while
+                    # the blocking OCR worker is still reading this frame.
+                    # Never apply a result to a different offer generation.
+                    observed_epoch = state.offer_epoch
+                    observed_match = state.match_id
                     action, ids, detected = await deps.to_thread(
                         deps.run_watcher_check
                     )
                     ocr_message = None
                     async with state.lock:
+                        if (
+                            state.offer_epoch != observed_epoch
+                            or state.match_id != observed_match
+                            or not state.scan_window_open
+                            or not state.ocr_enabled
+                            or state.awaiting_stat_delta
+                        ):
+                            action = "superseded"
                         if action == "detected" and detected:
+                            state.offer_lifecycle.observe(
+                                "detected", identified=sum(
+                                    isinstance(row.get("id"), str) for row in detected
+                                ),
+                            )
                             state.ocr_stale = False
                             state.augment_choices.clear()
                             state.augment_choices.extend(ids)
@@ -1062,22 +1230,49 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
                                 "status": "detected", "stale": False,
+                                "offer_state": state.offer_state,
                                 "detected": detected,
                                 "augment_choices": list(state.augment_choices),
+                                "offer_epoch": state.offer_epoch,
+                                "match_id": state.match_id,
                             })
                             ocr_message = ocr_msg
 
                         elif action in ("not_focused", "unavailable"):
+                            state.offer_lifecycle.observe(action)
                             state.ocr_stale = True
                             ocr_message = json.dumps({
                                 "type": "ocr_result", "status": action,
+                                "offer_state": state.offer_state,
                                 "stale": True,
                                 "augment_choices": list(state.augment_choices),
+                                "offer_epoch": state.offer_epoch,
+                                "match_id": state.match_id,
+                            })
+                        elif action == "transition":
+                            # The current focused frame changed, but C3 has not
+                            # verified all physical slots yet. Keep historical
+                            # names for diagnostics only, never current advice.
+                            state.offer_lifecycle.observe("transition")
+                            ocr_message = json.dumps({
+                                "type": "ocr_result", "status": "transition",
+                                "offer_state": state.offer_state,
+                                "stale": state.ocr_stale,
+                                "augment_choices": list(state.augment_choices),
+                                "offer_epoch": state.offer_epoch,
+                                "match_id": state.match_id,
                             })
                         elif action == "disappeared":
-                            # Offer vanished; which card was chosen is unverified.
-                            logger.info("Augment offer disappeared — confirmation pending")
+                            # Compatibility with a separately VERIFIED negative
+                            # signal. The C3 watcher never emits this from blank
+                            # titles or dialogue/animation/focus changes.
+                            # Never infer a chosen card from this action.
+                            state.offer_lifecycle.observe(
+                                "disappeared", verified_absence=True,
+                            )
+                            logger.info("Verified offer gone — confirmation pending")
                             state.scan_window_open = False
+                            state.offer_epoch += 1
                             state.confirmation_pending = True
                             state.awaiting_stat_delta = True
                             state.delta_wait_ticks = 0
@@ -1086,6 +1281,16 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                                 reason="offer_disappeared",
                                 level=state.scan_window_level,
                             )
+                            ocr_message = json.dumps({
+                                "type": "ocr_result", "status": "disappeared",
+                                "offer_state": state.offer_state,
+                                "stale": False,
+                                "augment_choices": list(state.augment_choices),
+                                "offer_epoch": state.offer_epoch,
+                                "match_id": state.match_id,
+                            })
+                        elif action in ("no_augments", "unchanged"):
+                            state.offer_lifecycle.observe(action)
                     if ocr_message is not None:
                         await deps.broadcast(ocr_message)
 
@@ -1102,7 +1307,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 update = deps.serialize_result(result, deps.static_data, snapshot)
                 if isinstance(update, dict):
                     update = {**update, "ocr_stale": state.ocr_stale,
-                              "ocr_slots": state.ocr_slot_choices}
+                              "ocr_slots": state.ocr_slot_choices,
+                              "offer_state": state.offer_state,
+                              "offer_epoch": state.offer_epoch}
                     if state.match_id:
                         update["match_id"] = state.match_id
                 await deps.broadcast(json.dumps(update))

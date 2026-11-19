@@ -486,3 +486,106 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
     assert.match(rows()[1].innerHTML, /Ravenous Bind/);
     assert.match(rows()[2].innerHTML, /Killing Time/);
 });
+
+// M5/C4: levels and unknown frames are not evidence of an actionable offer.
+test("M5/C4: pending and uncertain states do not expand in-game augment advice", () => {
+    const h = harness();
+    const due = {...gameUpdate("Jinx"), scan_window_open: true, offer_state: "pending"};
+    h.api.handleMessage(due);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({...due, offer_state: "present"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    h.api.handleMessage({...due, offer_state: "uncertain"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({...due, offer_state: "suspended", ocr_stale: true});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+});
+
+test("M5/C4: verified gone hides advice without auto-choosing an augment", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    h.api.handleMessage({type: "ocr_result", status: "detected", offer_state: "present", detected: [
+        {slot: "left", id: "en", name: "En Passant", confidence: 98},
+        {slot: "centre", id: null, name: null, confidence: 0},
+        {slot: "right", id: null, name: null, confidence: 0},
+    ]});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    h.api.handleMessage({type: "ocr_result", status: "disappeared", offer_state: "gone"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("ocr-detected").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
+});
+
+test("M5/C4b: first unverified visual transition collapses old advice immediately", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    h.api.handleMessage({type: "ocr_result", status: "transition", offer_state: "uncertain"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("section-input").classList.contains("collapsed"), true);
+    assert.notEqual(h.element("ocr-status").textContent, "NOT FOCUSED");
+    assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "uncertain"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+});
+
+test("M5/C4c: a due level with missing OCR cannot expand an unverified offer", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true,
+        offer_state: "pending", ocr_stale: false,
+        augment_state: {eligible: 1, chosen: 0, max: 4}});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("section-input").classList.contains("collapsed"), true);
+});
+
+test("M5/C4c: stale recommendation rows cannot be expanded during a transition", () => {
+    const h = harness();
+    const rec = {augment_id: "en", augment_name: "En Passant",
+        score: 9.5, modelled: true, label: ["Safe"], core_items_names: [],
+        explanation: "Synthetic evidence"};
+    h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:1", offer_epoch: 2,
+        offer_state: "present", scan_window_open: true, ocr_slots: {left: "en", centre: null, right: null},
+        recommendations: [rec]});
+    assert.match(h.element("augment-list").children[0].innerHTML, /9.5/);
+    h.api.handleMessage({type: "ocr_result", status: "transition",
+        match_id: "lcu:1", offer_epoch: 2, offer_state: "uncertain"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("augment-list").children.length, 0);
+    h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:1", offer_epoch: 2,
+        offer_state: "uncertain", scan_window_open: true,
+        ocr_slots: {left: "en", centre: null, right: null}, recommendations: [rec]});
+    assert.equal(h.element("augment-list").children.length, 0);
+});
+
+test("M5/C4c: OCR results from old matches or old offer epochs are ignored", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:22",
+        offer_epoch: 8, offer_state: "pending", scan_window_open: true});
+    const detected = [
+        {slot: "left", id: "en", name: "En Passant", confidence: 99},
+        {slot: "centre", id: null, name: null, confidence: 0},
+        {slot: "right", id: null, name: null, confidence: 0},
+    ];
+    h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:21",
+        offer_epoch: 8, offer_state: "present", detected});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:22",
+        offer_epoch: 7, offer_state: "present", detected});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:22",
+        offer_epoch: 8, offer_state: "present", detected});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+});
+
+test("M5/C4c: disabling OCR collapses old advice immediately even without a game update", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:4",
+        offer_epoch: 2, offer_state: "present", scan_window_open: true});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    h.api.handleMessage({type: "ack", action: "toggle_ocr", enabled: false,
+        offer_epoch: 3, offer_state: "suspended", match_id: "lcu:4"});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("section-input").classList.contains("collapsed"), true);
+});

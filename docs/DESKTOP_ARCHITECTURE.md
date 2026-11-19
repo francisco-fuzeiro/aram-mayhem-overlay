@@ -120,3 +120,59 @@ The desktop interface is built progressively in D3 (navigation), D4a/D4b (valida
 ## Non-goals for the first desktop phase
 
 No installer; no global app startup integration; no full Settings redesign; no new scoring algorithm; no shop detector; no forced migration from the existing Qt overlay; no auto-updater; no use of OP.GG assets/code.
+
+## M5/C4 offer visibility contract (code gate, 2026-11-19)
+
+The OCR engine reports `offer_state` from a read-only, evidence-gated lifecycle: `inactive` (no due scan/closed), `pending` (eligible level but no positively verified offer), `present` (one or more strict, C3 two-read-confirmed physical title slots), `uncertain` (OCR unreadable/occluded/animated, cannot infer absent), `suspended` (League focus/capture lost; old identities are stale), and `gone` (only independently **verified** disappearance, not from blank OCR). The server emits this in OCR WebSocket messages, OCR status REST and live update snapshots; the frontend collapses in-game augment advice outside verified `present`. Manual player selection or match reset returns to inactive. No automatic gameplay input or augment inference occurs.
+
+This is only a **conservative presence gate**, not a production-grade disappearance/dialogue classifier: the current watcher emits no `disappeared` action. Positively verified title OCR is not a negative visual cue, and no real League absent/dialogue calibration samples are present. The C4b negative classifier and native Windows (C1/M4, display resolution/DPI/origin, ten offers/thirty cards) tests stay OPEN. C3 and C4a code CI do not prove in-game OCR or transparency. The user requested one scoped native acceptance session only after offline gates are satisfied.
+
+## M5/C4b independent negative evidence boundary (2026-11-19)
+
+The C4b read-only watcher now surfaces `transition` immediately when a
+physical title-slot hash changes before C3's second confirming OCR read.
+While several slots transition independently, old slot names remain only
+historical; the backend sends `offer_state: uncertain` and the overlay hides
+augment suggestions rather than ranking stale cards. A transient frame that
+returns to the same visual hash requires fresh C3 revalidation before the UI
+can claim `present` again. M4 no-offer-on-first-focus semantics remain intact.
+
+`backend.collectors.offer_visibility.VerifiedAbsenceGate` is intentionally
+**disabled by default**. It allows an approved independent client-visual cue
+after a real title-confirmed offer, and requires three consecutive negative
+observations on the same focused client and exact approved calibration.
+Any dialogue/occlusion, unknown cue, wrong calibration, lost focus or
+different window cancels the streak. These checks are not a trained detector:
+no reviewed negative/dialogue marker or real calibration exists, and the
+production `ScreenWatcher()` supplies no independent observer. It therefore
+cannot auto-publish `disappeared` or auto-select a card.
+
+The evidence requirements are in
+`tests/fixtures/offer_visibility/README.md`. No raw game/window captures,
+personal data or assumed UI coordinates may be introduced. Remain on PR #44
+draft until independent real Windows/League evidence and final CI are proven.
+
+## M5/C4c offer-session and stale-message contract (2026-11-19)
+
+A single `GameState.offer_epoch` generation counter advances on match reset,
+new augment selection scan, confirmed choice, independently verified closure
+and OCR Settings changes. An automatic OCR scan takes the epoch plus opaque
+match ID **before** blocking capture, then checks both again under the game
+state lock after the thread returns. A late scan cannot repopulate a closed
+window or resurrect an old chosen card. Manual WebSocket and REST scan requests
+are similarly gated to a due, still-open, OCR-enabled window and rechecked
+after OCR; superseded results are discarded. REST uses an async worker and
+does not capture the screen when no active offer exists.
+
+The server emits `offer_state`, `offer_epoch` and `match_id` with OCR
+messages and current live update snapshots. The frontend rejects older
+epochs and wrong matches, clears ranked advice during provisional transitions
+and when `offer_state` is not positively verified `present`, and no longer
+expands augments because a level threshold was reached while OCR is missing.
+An OCR dependency outage or Settings disable suspends the observed offer
+instead of freezing the last verified title identities as current.
+
+This guards data ownership and UI rendering; it does **not** provide a
+calibrated League client marker for offer-closed/dialogue detection. Keep
+production negative classification disabled. All future native acceptance
+is grouped in `docs/M5_FINAL_WINDOWS_ACCEPTANCE.md` and remains OPEN.

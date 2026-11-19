@@ -306,3 +306,116 @@ async def test_a3_level_change_while_confirmation_pending_does_not_reopen_scan()
     assert state.confirmation_pending
     assert not state.scan_window_open
     assert state.chosen_augments == []
+
+
+@pytest.mark.asyncio
+async def test_c4_due_level_is_not_an_offer():
+    state, deps, events = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("no_augments", [], None),
+    )
+    await poll_tick(state, deps, 42.0)
+    assert state.scan_window_open
+    assert state.offer_state == "pending"
+    assert not state.chosen_augments
+
+
+@pytest.mark.asyncio
+async def test_c4_confirmed_title_offer_has_explicit_visible_ws_state():
+    state, deps, events = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("detected", ["en"], [
+            {"slot": "left", "id": "en", "name": "En Passant", "confidence": 98},
+            {"slot": "centre", "id": None, "name": None, "confidence": 0},
+            {"slot": "right", "id": None, "name": None, "confidence": 0},
+        ]),
+    )
+    await poll_tick(state, deps, 42.0)
+    assert state.offer_state == "present"
+    assert events[0]["offer_state"] == "present"
+    assert events[0]["status"] == "detected"
+    assert state.chosen_augments == []
+
+
+@pytest.mark.asyncio
+async def test_c4_all_unknown_titles_are_uncertain_not_gone_or_picked():
+    state, deps, events = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("detected", [], [
+            {"slot": "left", "id": None, "name": None, "confidence": 0},
+            {"slot": "centre", "id": None, "name": None, "confidence": 0},
+            {"slot": "right", "id": None, "name": None, "confidence": 0},
+        ]),
+    )
+    await poll_tick(state, deps, 42.0)
+    assert state.offer_state == "uncertain"
+    assert state.scan_window_open
+    assert not state.confirmation_pending
+    assert not state.chosen_augments
+    assert events[0]["offer_state"] == "uncertain"
+
+
+@pytest.mark.asyncio
+async def test_c4_unfocused_watcher_suspends_without_clearing_or_choosing():
+    state, deps, events = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("not_focused", [], None),
+    )
+    await poll_tick(state, deps, 42.0)
+    assert state.offer_state == "suspended"
+    assert state.ocr_stale is True
+    assert state.scan_window_open
+    assert not state.chosen_augments
+    assert events[0]["offer_state"] == "suspended"
+
+
+@pytest.mark.asyncio
+async def test_c4_legacy_verified_disappearance_never_auto_selects_a_card():
+    state, deps, events = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("disappeared", [], None),
+    )
+    await poll_tick(state, deps, 42.0)
+    assert state.offer_state == "gone"
+    assert not state.scan_window_open
+    assert state.confirmation_pending
+    assert state.chosen_augments == []
+    assert events[0]["status"] == "disappeared"
+    assert events[0]["offer_state"] == "gone"
+
+@pytest.mark.asyncio
+async def test_c4b_pending_title_change_hides_unverified_old_offer_without_pick():
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(), make_snapshot()],
+        ocr=True,
+        watcher_result=("transition", [], None),
+    )
+    await poll_tick(state, deps, 42.0)
+    assert state.scan_window_open
+    assert state.offer_state == "pending"
+    await poll_tick(state, deps, 43.0)
+    assert state.offer_state == "pending"
+    assert not state.confirmation_pending
+    assert not state.chosen_augments
+
+
+@pytest.mark.asyncio
+async def test_c4b_transition_after_valid_offer_sends_uncertain_without_clearing_picks():
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(), make_snapshot()],
+        ocr=True,
+        watcher_result=("transition", [], None),
+    )
+    state.scan_window_open = True
+    state.offer_lifecycle.open()
+    state.offer_lifecycle.observe("detected", identified=3)
+    state.augment_choices[:] = ["en", "bind", "kill"]
+    await poll_tick(state, deps, 44.0)
+    assert state.offer_state == "uncertain"
+    assert state.scan_window_open
+    assert state.augment_choices == ["en", "bind", "kill"]
+    assert state.chosen_augments == []
+    assert any(e.get("status") == "transition" and
+               e.get("offer_state") == "uncertain" for e in events)
