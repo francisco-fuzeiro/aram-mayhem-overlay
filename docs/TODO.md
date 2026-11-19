@@ -232,7 +232,8 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 
 ### D5 — OCR diagnostics and onboarding
 
-- [ ] **PH-D5a.1:** Detect Tesseract availability/path and show helpful first-run status; no silent installation.
+- [x] **PH-D5a.1 (offline code/CI only):** Reuse the existing OCR dependency probe and `/api/ocr/status`; distinguish absent Python OCR dependencies, unavailable Tesseract and a non-working `TESSERACT_PATH`, with fixed privacy-safe setup instructions in the existing Settings OCR/Diagnostics sections. Manual input remains the fallback. No installer, auto-capture or game action. [Draft PR #45](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/45) stacked on #44; [expected RED 44639937927](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44639937927) (five new failures, 541 previous passing), [GREEN code 44640112417](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44640112417) at `9b9fb570` (**546 Python/51 JS passed**). Final documentation-HEAD CI and Windows acceptance tracked separately.
+- [ ] **PH-D5a.2 (Windows, deferred to grouped acceptance):** Verify installed/missing/misconfigured Tesseract and restart/Recheck guidance on the actual Windows desktop, without opening League for interim testing. Dependency readiness does not prove three-card OCR accuracy.
 - [ ] **PH-D5b.1:** Add a user-triggered OCR diagnostic/preview with confidence and safe manual fallback.
 - [ ] **PH-D5b.2 (Windows):** Confirm three real Mayhem cards and rerolls at the actual user's HUD scaling.
 
