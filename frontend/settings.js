@@ -252,12 +252,25 @@
             }
             $("ocr-summary").textContent = status.available
                 ? "Tesseract detected. Live augment recognition is not yet verified."
-                : "OCR unavailable. Install Tesseract to enable automatic scanning.";
+                : "OCR unavailable. Automatic scanning needs attention.";
+            const setup = typeof status.next_step === "string" && status.next_step.length <= 300
+                ? status.next_step
+                : status.available
+                    ? "No setup action needed. In-game recognition remains unverified."
+                    : "Install Tesseract, restart ARAM Oracle, then select Recheck. If already installed, configure TESSERACT_PATH.";
+            $("ocr-next-step").textContent = setup;
+            const reasons = {
+                python_dependencies_missing: "OCR Python dependencies unavailable.",
+                executable_unavailable: "Tesseract executable unavailable.",
+                configured_executable_unavailable: "Configured Tesseract executable unavailable.",
+            };
             $("diagnostics-ocr").textContent = status.available
                 ? "Tesseract detected (dependency readiness only)."
-                : "Tesseract not detected; manual augment input remains available.";
+                : (reasons[status.reason] || "Tesseract not detected.") +
+                    " Manual augment input remains available.";
         } catch (error) {
             $("ocr-summary").textContent = "Unable to check OCR status: " + error.message;
+            $("ocr-next-step").textContent = "Check the local API connection, then select Recheck.";
             $("diagnostics-ocr").textContent = "OCR status check failed: " + error.message;
         } finally {
             refreshOcrButton.disabled = false;
