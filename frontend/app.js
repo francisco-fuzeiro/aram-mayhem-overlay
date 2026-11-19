@@ -13,6 +13,7 @@
     let stale = false;
     let ocrFocusStale = false;
     let selectedAugmentIds = [];
+    let currentOcrSlots = null;
     let searchDebounce = null;
     let ocrAvailable = false;
     let scanning = false;
@@ -191,6 +192,7 @@
         // Clear only browser-side state from the previous match.
         lastResult = null;
         selectedAugmentIds = [];
+        currentOcrSlots = null;
         scanning = false;
         stale = false;
         ocrFocusStale = false;
@@ -349,6 +351,9 @@
             hidePostGameFeedback();
             showWaiting(false);
             setWaitingTitle("Waiting for game...");
+            if (Object.prototype.hasOwnProperty.call(msg, "ocr_slots")) {
+                currentOcrSlots = normalizedOcrSlots(msg.ocr_slots);
+            }
             lastResult = msg;
             renderUpdate(msg);
             return;
@@ -369,6 +374,15 @@
             }
             if (msg.detected && msg.detected.length > 0) {
                 setOcrFocusStale(false);
+            }
+            if (Array.isArray(msg.detected) && msg.detected.length) {
+                const candidates = Object.fromEntries(
+                    msg.detected
+                        .filter(d => d && ["left", "centre", "right"].includes(d.slot))
+                        .map(d => [d.slot, typeof d.id === "string" ? d.id : null]),
+                );
+                currentOcrSlots = normalizedOcrSlots(candidates);
+                if (lastResult) renderRecommendations(lastResult);
             }
             renderOcrResult(msg.detected, msg.augment_choices);
             if (msg.detected && msg.detected.length > 0) {
@@ -630,23 +644,59 @@
         });
     }
 
+    function normalizedOcrSlots(candidate) {
+        const keys = ["left", "centre", "right"];
+        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate) ||
+            Object.keys(candidate).length !== 3 ||
+            !keys.every(k => Object.prototype.hasOwnProperty.call(candidate, k)) ||
+            !keys.every(k => candidate[k] === null || typeof candidate[k] === "string"))
+            return null;
+        const known = keys.map(k => candidate[k]).filter(Boolean);
+        if (new Set(known).size !== known.length) return null;
+        return Object.fromEntries(keys.map(k => [k, candidate[k]]));
+    }
+
     function renderRecommendations(data) {
         augmentList.innerHTML = "";
 
-        if (!data.recommendations || data.recommendations.length === 0) {
+        if ((!data.recommendations || data.recommendations.length === 0) && !currentOcrSlots) {
             augmentList.innerHTML = '<div class="aug-empty" style="color:var(--text-dim);padding:8px;">No augment choices to evaluate</div>';
             rerollBadge.classList.add("hidden");
             rerollBanner.classList.add("hidden");
             return;
         }
 
-        data.recommendations.forEach((rec, i) => {
+        // A ranking is not a physical card slot. Never guess a missing title.
+        const candidates = Array.isArray(data.recommendations) ? data.recommendations : [];
+        const rows = currentOcrSlots
+            ? ["left", "centre", "right"].map(slot => ({
+                slot,
+                rec: candidates.find(r => r.augment_id === currentOcrSlots[slot]) || null,
+            }))
+            : candidates.map(rec => ({slot: null, rec}));
+        const ratedScores = candidates
+            .filter(r => typeof r.score === "number" && Number.isFinite(r.score) &&
+                r.modelled !== false)
+            .map(r => r.score);
+        const bestScore = ratedScores.length ? Math.max(...ratedScores) : null;
+        rows.forEach(({slot, rec}, i) => {
+            if (!rec) {
+                const missing = document.createElement("div");
+                missing.className = "augment-card";
+                missing.textContent = slot[0].toUpperCase() + slot.slice(1) +
+                    ": Unknown — title not verified";
+                augmentList.appendChild(missing);
+                return;
+            }
             const card = document.createElement("div");
             const rated = typeof rec.score === "number" && Number.isFinite(rec.score)
                 && rec.modelled !== false;
-            card.className = "augment-card" + (i === 0 && rated ? " top-pick" : "");
+            card.className = "augment-card" +
+                (rated && bestScore !== null && rec.score === bestScore
+                    ? " top-pick" : "");
 
-            const rankText = i === 0 && rated ? ">>>" : `${i + 1}.`;
+            const rankText = slot ? ({left: "L", centre: "C", right: "R"}[slot])
+                : (i === 0 && rated ? ">>>" : `${i + 1}.`);
             const scoreText = rated ? rec.score.toFixed(1) + "/10"
                 : "Not rated — insufficient data";
             const labelStr = rec.label.join(" \u00b7 ");
@@ -674,9 +724,10 @@
         });
 
         // Defend against stale/incomplete server payloads as well.
-        const completeModelledOffer = data.recommendations.length === 3
-            && new Set(data.recommendations.map(rec => rec.augment_id)).size === 3
-            && data.recommendations.every(rec =>
+        const completeModelledOffer = candidates.length === 3
+            && new Set(candidates.map(rec => rec.augment_id)).size === 3
+            && (!currentOcrSlots || Object.values(currentOcrSlots).every(Boolean))
+            && candidates.every(rec =>
                 typeof rec.score === "number" && Number.isFinite(rec.score)
                 && rec.modelled !== false);
         // Reroll
@@ -809,7 +860,7 @@
             row.className = "ocr-detected-item";
             const confClass = d.confidence >= 80 ? "high" : d.confidence >= 65 ? "med" : "low";
             row.innerHTML = `
-                <span class="ocr-name">${esc(d.name)}</span>
+                <span class="ocr-name">${d.slot ? esc(d.slot + ": ") : ""}${esc(d.name || "Unknown")}</span>
                 <span class="ocr-conf ${confClass}">${d.confidence}%</span>
             `;
             ocrDetected.appendChild(row);
