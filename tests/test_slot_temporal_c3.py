@@ -191,7 +191,8 @@ def test_manual_and_automatic_scans_share_timeline_without_single_read_bypass(mo
                         lambda *_a: frame(state["left"]))
     monkeypatch.setattr(screen_ocr, "_perceptual_hash", hash_image)
     monkeypatch.setattr(screen_ocr, "_hamming_distance", distance)
-    monkeypatch.setattr(screen_ocr, "recognize_title_slot", read_slot)
+    from backend.collectors import slot_title_ocr
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read_slot)
     READS.clear()
 
     # Manual button cannot publish a guessed, single-frame offer.
@@ -226,7 +227,8 @@ def test_watcher_on_alt_tab_never_captures_and_refocus_requires_fresh_confirmati
     monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_a: frame())
     monkeypatch.setattr(screen_ocr, "_perceptual_hash", hash_image)
     monkeypatch.setattr(screen_ocr, "_hamming_distance", distance)
-    monkeypatch.setattr(screen_ocr, "recognize_title_slot", read_slot)
+    from backend.collectors import slot_title_ocr
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read_slot)
 
     t = screen_ocr.ScreenWatcher()
     assert t.check({})[0] == "no_augments"
