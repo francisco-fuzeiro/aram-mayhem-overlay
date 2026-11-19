@@ -151,3 +151,28 @@ The evidence requirements are in
 `tests/fixtures/offer_visibility/README.md`. No raw game/window captures,
 personal data or assumed UI coordinates may be introduced. Remain on PR #44
 draft until independent real Windows/League evidence and final CI are proven.
+
+## M5/C4c offer-session and stale-message contract (2026-11-19)
+
+A single `GameState.offer_epoch` generation counter advances on match reset,
+new augment selection scan, confirmed choice, independently verified closure
+and OCR Settings changes. An automatic OCR scan takes the epoch plus opaque
+match ID **before** blocking capture, then checks both again under the game
+state lock after the thread returns. A late scan cannot repopulate a closed
+window or resurrect an old chosen card. Manual WebSocket and REST scan requests
+are similarly gated to a due, still-open, OCR-enabled window and rechecked
+after OCR; superseded results are discarded. REST uses an async worker and
+does not capture the screen when no active offer exists.
+
+The server emits `offer_state`, `offer_epoch` and `match_id` with OCR
+messages and current live update snapshots. The frontend rejects older
+epochs and wrong matches, clears ranked advice during provisional transitions
+and when `offer_state` is not positively verified `present`, and no longer
+expands augments because a level threshold was reached while OCR is missing.
+An OCR dependency outage or Settings disable suspends the observed offer
+instead of freezing the last verified title identities as current.
+
+This guards data ownership and UI rendering; it does **not** provide a
+calibrated League client marker for offer-closed/dialogue detection. Keep
+production negative classification disabled. All future native acceptance
+is grouped in `docs/M5_FINAL_WINDOWS_ACCEPTANCE.md` and remains OPEN.
