@@ -69,7 +69,8 @@ def test_refocus_forces_fresh_ocr_even_if_hash_would_match_previous_frame(monkey
     def read(slot, _crop, _names):
         reads.append(slot)
         return ("new", "New", 95) if slot == "left" else None
-    monkeypatch.setattr(screen_ocr, "recognize_title_slot", read)
+    from backend.collectors import slot_title_ocr
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read)
     watcher = screen_ocr.ScreenWatcher()
     watcher._last_detected = [("old", "Old", 90)]
     assert watcher.check({})[0] == "not_focused"
