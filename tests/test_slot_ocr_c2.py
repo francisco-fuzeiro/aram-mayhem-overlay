@@ -156,7 +156,8 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
     assert [m[0] for m in matches] == ["1","2","3"]
 
 
-def test_rest_scan_all_unknowns_clear_stale_previous_card_ids(monkeypatch):
+@pytest.mark.asyncio
+async def test_rest_scan_all_unknowns_clear_stale_previous_card_ids(monkeypatch):
     from backend.api import server
     monkeypatch.setattr(server, "game_state", server.GameState())
     monkeypatch.setattr(server, "ocr_available", lambda: True)
@@ -168,7 +169,9 @@ def test_rest_scan_all_unknowns_clear_stale_previous_card_ids(monkeypatch):
     server.game_state.ocr_slot_choices = {
         "left": "previous", "centre": None, "right": None,
     }
-    result = server.ocr_scan()
+    server.game_state.scan_window_open = True
+    server.game_state.offer_lifecycle.open()
+    result = await server.ocr_scan()
     assert result["augment_choices_set"] == []
     assert result["ocr_slots"] == dict.fromkeys(SLOTS)
     assert [d["slot"] for d in result["detected"]] == list(SLOTS)

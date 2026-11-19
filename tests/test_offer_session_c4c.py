@@ -189,3 +189,79 @@ async def test_c4c_late_auto_ocr_after_settings_disable_stays_suspended():
     assert state.chosen_augments == []
     assert not any(e.get("type") == "ocr_result" and
                    e.get("status") == "detected" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_c4c_rest_manual_scan_off_window_cannot_capture_or_inject(monkeypatch):
+    from backend.api import server
+    state = GameState()
+    state.match_id = "lcu:5"
+    state.augment_choices = ["historical"]
+    monkeypatch.setattr(server, "game_state", state)
+    monkeypatch.setattr(server, "ocr_available", lambda: True)
+    monkeypatch.setattr(server, "_run_ocr_scan_manual", Mock(
+        side_effect=AssertionError("Rest scan must not capture off window"),
+    ))
+    response = await server.ocr_scan()
+    assert response["detected"] == []
+    assert response["status"] == "unavailable"
+    assert state.augment_choices == ["historical"]
+    assert state.offer_state == "inactive"
+
+
+@pytest.mark.asyncio
+async def test_c4c_rest_manual_scan_accepts_current_confirmed_slots(monkeypatch):
+    from backend.api import server
+    state = GameState()
+    state.match_id = "lcu:5"
+    state.offer_epoch = 13
+    state.scan_window_open = True
+    state.offer_lifecycle.open()
+    monkeypatch.setattr(server, "game_state", state)
+    monkeypatch.setattr(server, "ocr_available", lambda: True)
+    monkeypatch.setattr(server, "_run_ocr_scan_manual", lambda: (
+        ["en", "bind", "kill"], _rows(),
+    ))
+    response = await server.ocr_scan()
+    assert response["status"] == "detected"
+    assert response["offer_state"] == "present"
+    assert response["offer_epoch"] == 13
+    assert response["ocr_slots"] == {"left": "en", "centre": "bind", "right": "kill"}
+    assert state.chosen_augments == []
+
+
+@pytest.mark.asyncio
+async def test_c4c_rest_manual_scan_late_result_does_not_reopen_closed_offer(monkeypatch):
+    import asyncio
+    import threading
+    from backend.api import server
+
+    state = GameState()
+    state.match_id = "lcu:5"
+    state.offer_epoch = 7
+    state.scan_window_open = True
+    state.offer_lifecycle.open()
+    monkeypatch.setattr(server, "game_state", state)
+    monkeypatch.setattr(server, "ocr_available", lambda: True)
+    arrived = threading.Event()
+    release = threading.Event()
+
+    def delayed_scan():
+        arrived.set()
+        if not release.wait(timeout=5):
+            raise AssertionError("Test gate timed out")
+        return ["en", "bind", "kill"], _rows()
+
+    monkeypatch.setattr(server, "_run_ocr_scan_manual", delayed_scan)
+    task = asyncio.create_task(server.ocr_scan())
+    assert await asyncio.to_thread(arrived.wait, 5)
+    async with state.lock:
+        state.scan_window_open = False
+        state.offer_lifecycle.close()
+        state.offer_epoch += 1
+    release.set()
+    response = await task
+    assert response["status"] == "superseded"
+    assert state.offer_state == "inactive"
+    assert state.ocr_slot_choices is None
+    assert state.chosen_augments == []
