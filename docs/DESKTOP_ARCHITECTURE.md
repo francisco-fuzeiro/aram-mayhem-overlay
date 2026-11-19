@@ -126,3 +126,28 @@ No installer; no global app startup integration; no full Settings redesign; no n
 The OCR engine reports `offer_state` from a read-only, evidence-gated lifecycle: `inactive` (no due scan/closed), `pending` (eligible level but no positively verified offer), `present` (one or more strict, C3 two-read-confirmed physical title slots), `uncertain` (OCR unreadable/occluded/animated, cannot infer absent), `suspended` (League focus/capture lost; old identities are stale), and `gone` (only independently **verified** disappearance, not from blank OCR). The server emits this in OCR WebSocket messages, OCR status REST and live update snapshots; the frontend collapses in-game augment advice outside verified `present`. Manual player selection or match reset returns to inactive. No automatic gameplay input or augment inference occurs.
 
 This is only a **conservative presence gate**, not a production-grade disappearance/dialogue classifier: the current watcher emits no `disappeared` action. Positively verified title OCR is not a negative visual cue, and no real League absent/dialogue calibration samples are present. The C4b negative classifier and native Windows (C1/M4, display resolution/DPI/origin, ten offers/thirty cards) tests stay OPEN. C3 and C4a code CI do not prove in-game OCR or transparency. The user requested one scoped native acceptance session only after offline gates are satisfied.
+
+## M5/C4b independent negative evidence boundary (2026-11-19)
+
+The C4b read-only watcher now surfaces `transition` immediately when a
+physical title-slot hash changes before C3's second confirming OCR read.
+While several slots transition independently, old slot names remain only
+historical; the backend sends `offer_state: uncertain` and the overlay hides
+augment suggestions rather than ranking stale cards. A transient frame that
+returns to the same visual hash requires fresh C3 revalidation before the UI
+can claim `present` again. M4 no-offer-on-first-focus semantics remain intact.
+
+`backend.collectors.offer_visibility.VerifiedAbsenceGate` is intentionally
+**disabled by default**. It allows an approved independent client-visual cue
+after a real title-confirmed offer, and requires three consecutive negative
+observations on the same focused client and exact approved calibration.
+Any dialogue/occlusion, unknown cue, wrong calibration, lost focus or
+different window cancels the streak. These checks are not a trained detector:
+no reviewed negative/dialogue marker or real calibration exists, and the
+production `ScreenWatcher()` supplies no independent observer. It therefore
+cannot auto-publish `disappeared` or auto-select a card.
+
+The evidence requirements are in
+`tests/fixtures/offer_visibility/README.md`. No raw game/window captures,
+personal data or assumed UI coordinates may be introduced. Remain on PR #44
+draft until independent real Windows/League evidence and final CI are proven.
