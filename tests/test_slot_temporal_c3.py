@@ -243,3 +243,36 @@ def test_watcher_on_alt_tab_never_captures_and_refocus_requires_fresh_confirmati
     action, result = t.check({})
     assert action == "detected"
     assert_ids(result, ["en", "bind", "kill"])
+
+
+def test_stable_visual_change_with_identical_title_is_not_a_false_reroll():
+    t = baseline()
+    TITLES[13] = ("en", "En Passant", 98)
+    try:
+        assert observe(t, left=13) is None
+        assert observe(t, left=13) is None
+        reads = READS.copy()
+        assert observe(t, left=13) is None
+        assert READS == reads, "revalidated same-title image must become new hash baseline"
+        assert_ids(t.snapshot(), ["en", "bind", "kill"])
+    finally:
+        del TITLES[13]
+
+
+def test_interleaved_ocr_failure_and_new_title_needs_two_matching_readings():
+    t = baseline()
+    calls = 0
+    def flickering(slot, crop, names):
+        nonlocal calls
+        if slot == "left":
+            calls += 1
+            if calls == 1:
+                return None
+        return read_slot(slot, crop, names)
+
+    for tick in range(2):
+        assert t.observe(frame(11), {}, flickering, hash_image, distance) is None
+        assert_ids(t.snapshot(), ["en", "bind", "kill"])
+    assert_ids(t.observe(frame(11), {}, flickering, hash_image, distance),
+               ["new_left", "bind", "kill"])
+    assert calls == 3
