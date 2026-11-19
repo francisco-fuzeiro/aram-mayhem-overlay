@@ -121,3 +121,71 @@ def test_c4c_reset_advances_epoch_and_clears_old_offer():
     assert state.offer_state == "inactive"
     assert state.ocr_slot_choices is None
     assert not state.chosen_augments
+
+
+@pytest.mark.asyncio
+async def test_c4c_late_auto_ocr_cannot_resurrect_a_manually_closed_offer():
+    import asyncio
+
+    rows = _rows()
+    state, deps, events = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("detected", ["en", "bind", "kill"], rows),
+    )
+    arrived = asyncio.Event()
+    proceed = asyncio.Event()
+    original_thread = deps.to_thread
+
+    async def delayed_thread(fn):
+        if fn is deps.run_watcher_check:
+            arrived.set()
+            await proceed.wait()
+        return await original_thread(fn)
+
+    deps.to_thread = delayed_thread
+    polling = asyncio.create_task(poll_tick(state, deps, 99.0))
+    await asyncio.wait_for(arrived.wait(), timeout=5)
+    async with state.lock:
+        state.scan_window_open = False
+        state.offer_lifecycle.close()
+        state.offer_epoch += 1
+        state.augment_choices.clear()
+        state.ocr_slot_choices = None
+    proceed.set()
+    await polling
+    assert state.offer_state == "inactive"
+    assert state.ocr_slot_choices is None
+    assert state.chosen_augments == []
+    assert not any(e.get("type") == "ocr_result" and
+                   e.get("status") == "detected" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_c4c_late_auto_ocr_after_settings_disable_stays_suspended():
+    import asyncio
+
+    state, deps, events = make_harness(
+        [{"tick": 1}], [make_snapshot()], ocr=True,
+        watcher_result=("detected", ["en", "bind", "kill"], _rows()),
+    )
+    arrived, proceed = asyncio.Event(), asyncio.Event()
+    original_thread = deps.to_thread
+
+    async def delayed_thread(fn):
+        if fn is deps.run_watcher_check:
+            arrived.set()
+            await proceed.wait()
+        return await original_thread(fn)
+
+    deps.to_thread = delayed_thread
+    polling = asyncio.create_task(poll_tick(state, deps, 99.0))
+    await asyncio.wait_for(arrived.wait(), timeout=5)
+    async with state.lock:
+        state.set_ocr_enabled(False, watcher=deps.screen_watcher)
+    proceed.set()
+    await polling
+    assert state.offer_state == "suspended"
+    assert state.ocr_enabled is False
+    assert state.chosen_augments == []
+    assert not any(e.get("type") == "ocr_result" and
+                   e.get("status") == "detected" for e in events)
