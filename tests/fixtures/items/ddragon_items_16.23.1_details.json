@@ -1,0 +1,3351 @@
+{
+"source": "ddragon 16.23.1 en_US item.json, maps[12] and id \\d{4}|12\\d{4}, fetched 2026-11-20",
+"items": {
+"1001": {
+"n": "Boots",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMovementSpeedMod": 25
+},
+"from": [],
+"into": [
+"3005",
+"3047",
+"3008",
+"3006",
+"3009",
+"3010",
+"3020",
+"3111",
+"3117",
+"3158"
+]
+},
+"1004": {
+"n": "Faerie Charm",
+"passives": [],
+"actives": [],
+"stats": {},
+"from": [],
+"into": [
+"3114",
+"3012",
+"4642"
+]
+},
+"1006": {
+"n": "Rejuvenation Bead",
+"passives": [],
+"actives": [],
+"stats": {},
+"from": [],
+"into": [
+"3109",
+"3211",
+"323109",
+"3801"
+]
+},
+"1011": {
+"n": "Giant's Belt",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 350
+},
+"from": [
+"1028"
+],
+"into": [
+"4637",
+"3084",
+"2525",
+"3039",
+"3083",
+"3116",
+"3119",
+"3143",
+"323119",
+"3748",
+"6665",
+"6609",
+"6667",
+"8001"
+]
+},
+"1018": {
+"n": "Cloak of Agility",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.15
+},
+"from": [],
+"into": [
+"123430",
+"667666",
+"3031",
+"3086",
+"6670",
+"3033",
+"3039",
+"3508",
+"3095",
+"6676"
+]
+},
+"1026": {
+"n": "Blasting Wand",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 45
+},
+"from": [],
+"into": [
+"2522",
+"3100",
+"326621",
+"4637",
+"3135",
+"3165",
+"3115",
+"324005",
+"2510",
+"3116",
+"3118",
+"326657",
+"6621",
+"6657"
+]
+},
+"1027": {
+"n": "Sapphire Crystal",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 300
+},
+"from": [],
+"into": [
+"3024",
+"3802",
+"3803"
+]
+},
+"1028": {
+"n": "Ruby Crystal",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 150
+},
+"from": [],
+"into": [
+"3742",
+"1011",
+"3068",
+"2021",
+"323222",
+"323075",
+"326617",
+"323107",
+"3012",
+"3147",
+"3067",
+"3211",
+"2502",
+"322526",
+"2526",
+"3023",
+"3044",
+"3053",
+"3066",
+"3075",
+"3152",
+"3161",
+"3801",
+"3803",
+"4401",
+"4635",
+"6035",
+"6660",
+"6662"
+]
+},
+"1029": {
+"n": "Cloth Armor",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatArmorMod": 15
+},
+"from": [],
+"into": [
+"2421",
+"2420",
+"1031",
+"323050",
+"323190",
+"2019",
+"3193",
+"3047",
+"3024",
+"3050",
+"2524",
+"3023",
+"3076",
+"3082",
+"3105",
+"3190"
+]
+},
+"1031": {
+"n": "Chain Vest",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatArmorMod": 40
+},
+"from": [
+"1029"
+],
+"into": [
+"3742",
+"3068",
+"323002",
+"3109",
+"323075",
+"2502",
+"3002",
+"3075",
+"323109",
+"6665",
+"6662"
+]
+},
+"1033": {
+"n": "Null-Magic Mantle",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 20
+},
+"from": [],
+"into": [
+"1057",
+"3140",
+"323050",
+"323190",
+"3193",
+"3050",
+"3001",
+"3211",
+"2524",
+"3155",
+"3105",
+"3111",
+"3190",
+"4632"
+]
+},
+"1036": {
+"n": "Long Sword",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 10
+},
+"from": [],
+"into": [
+"1053",
+"4003",
+"6701",
+"2015",
+"2019",
+"2021",
+"3077",
+"6670",
+"3133",
+"2517",
+"323004",
+"3142",
+"3004",
+"2523",
+"3032",
+"3035",
+"3044",
+"3051",
+"3155",
+"6690",
+"3123",
+"3134",
+"6699",
+"6671",
+"6692"
+]
+},
+"1037": {
+"n": "Pickaxe",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 25
+},
+"from": [],
+"into": [
+"667666",
+"3071",
+"6333",
+"3031",
+"3153",
+"6701",
+"2020",
+"2517",
+"3087",
+"6695",
+"2523",
+"3053",
+"3072",
+"3124",
+"3181",
+"3139",
+"3161",
+"6029",
+"6035",
+"6673",
+"6676",
+"6692"
+]
+},
+"1038": {
+"n": "B. F. Sword",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 40
+},
+"from": [],
+"into": [
+"3031",
+"3026",
+"3032",
+"3072",
+"3095",
+"4403",
+"6671"
+]
+},
+"1042": {
+"n": "Dagger",
+"passives": [],
+"actives": [],
+"stats": {
+"PercentAttackSpeedMod": 0.1
+},
+"from": [],
+"into": [
+"1043",
+"3086",
+"2510",
+"3006",
+"3046",
+"3051",
+"3073",
+"3131",
+"3144",
+"6631",
+"6675",
+"6677"
+]
+},
+"1043": {
+"n": "Recurve Bow",
+"passives": [
+"Sting"
+],
+"actives": [],
+"stats": {
+"PercentAttackSpeedMod": 0.15
+},
+"from": [
+"1042"
+],
+"into": [
+"3302",
+"3153",
+"3115",
+"6672",
+"3091",
+"3124"
+]
+},
+"1052": {
+"n": "Amplifying Tome",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 20
+},
+"from": [],
+"into": [
+"3113",
+"2421",
+"2420",
+"3145",
+"124011",
+"4637",
+"3916",
+"6656",
+"3147",
+"3146",
+"3802",
+"4005",
+"2508",
+"326616",
+"3108",
+"3116",
+"3124",
+"4630",
+"323504",
+"4628",
+"4632",
+"4635",
+"4642",
+"4644"
+]
+},
+"1053": {
+"n": "Vampiric Scepter",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 15,
+"PercentLifeStealMod": 0.07
+},
+"from": [
+"1036"
+],
+"into": [
+"3153",
+"3146",
+"3072",
+"3074",
+"3139",
+"4403"
+]
+},
+"1054": {
+"n": "Doran's Shield",
+"passives": [
+"Enduring Focus",
+"Helping Hand"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 110,
+"FlatHPRegenMod": 0.8
+},
+"from": [],
+"into": []
+},
+"1055": {
+"n": "Doran's Blade",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 80,
+"FlatPhysicalDamageMod": 10
+},
+"from": [],
+"into": []
+},
+"1056": {
+"n": "Doran's Ring",
+"passives": [
+"Drain",
+"Helping Hand"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 90,
+"FlatMagicDamageMod": 18
+},
+"from": [],
+"into": []
+},
+"1057": {
+"n": "Negatron Cloak",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 45
+},
+"from": [
+"1033"
+],
+"into": [
+"2504",
+"8020",
+"328020",
+"3091",
+"6665",
+"4401"
+]
+},
+"1058": {
+"n": "Needlessly Large Rod",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 65
+},
+"from": [],
+"into": [
+"3157",
+"4645",
+"3089",
+"3102",
+"3128",
+"4403"
+]
+},
+"1086": {
+"n": "Doran's Bow",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 7,
+"PercentAttackSpeedMod": 0.15
+},
+"from": [],
+"into": []
+},
+"1120": {
+"n": "Doran's Helm",
+"passives": [
+"Helping Hand"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 8,
+"FlatHPPoolMod": 150,
+"FlatArmorMod": 8
+},
+"from": [],
+"into": []
+},
+"2019": {
+"n": "Steel Sigil",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatArmorMod": 30,
+"FlatPhysicalDamageMod": 15
+},
+"from": [
+"1029",
+"1036",
+"1029"
+],
+"into": [
+"6333",
+"6700",
+"3026"
+]
+},
+"2020": {
+"n": "The Brutalizer",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 25
+},
+"from": [
+"2022",
+"1037"
+],
+"into": [
+"6698",
+"2520",
+"6699",
+"6696"
+]
+},
+"2021": {
+"n": "Tunneler",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 250,
+"FlatPhysicalDamageMod": 15
+},
+"from": [
+"1036",
+"1028"
+],
+"into": [
+"2501",
+"3053",
+"3073",
+"3814",
+"3181",
+"3161",
+"3748",
+"6610"
+]
+},
+"2022": {
+"n": "Glowing Mote",
+"passives": [],
+"actives": [],
+"stats": {},
+"from": [],
+"into": [
+"2020",
+"3024",
+"3133",
+"3802",
+"3067",
+"3057",
+"3108",
+"3158",
+"4642",
+"6660"
+]
+},
+"2051": {
+"n": "Guardian's Horn",
+"passives": [
+"Recovery:",
+"Undaunted:"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 150,
+"FlatHPRegenMod": 4
+},
+"from": [],
+"into": []
+},
+"2065": {
+"n": "Shurelya's Battlesong",
+"passives": [],
+"actives": [
+"Inspiring Speech"
+],
+"stats": {
+"FlatMagicDamageMod": 50,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3113",
+"4642"
+],
+"into": []
+},
+"2420": {
+"n": "Seeker's Armguard",
+"passives": [],
+"actives": [
+"Time Stop"
+],
+"stats": {
+"FlatMagicDamageMod": 40,
+"FlatArmorMod": 25
+},
+"from": [
+"1052",
+"1029",
+"1052"
+],
+"into": [
+"3157"
+]
+},
+"2501": {
+"n": "Overlord's Bloodmail",
+"passives": [
+"Tyranny",
+"Retribution"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 550,
+"FlatPhysicalDamageMod": 40
+},
+"from": [
+"2021",
+"2021"
+],
+"into": []
+},
+"2502": {
+"n": "Unending Despair",
+"passives": [
+"Anguish"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 400,
+"FlatArmorMod": 50
+},
+"from": [
+"1031",
+"3067",
+"1028"
+],
+"into": []
+},
+"2503": {
+"n": "Blackfire Torch",
+"passives": [
+"Baleful Blaze",
+"Blackfire",
+"Baleful Blaze"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 600,
+"FlatMagicDamageMod": 80
+},
+"from": [
+"3802",
+"2508"
+],
+"into": []
+},
+"2504": {
+"n": "Kaenic Rookern",
+"passives": [
+"Magebane"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 80,
+"FlatHPPoolMod": 400
+},
+"from": [
+"3211",
+"1057"
+],
+"into": []
+},
+"2508": {
+"n": "Fated Ashes",
+"passives": [
+"Inflame"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 30
+},
+"from": [
+"1052"
+],
+"into": [
+"2503",
+"6653"
+]
+},
+"2510": {
+"n": "Dusk and Dawn",
+"passives": [
+"Spellblade"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 300,
+"FlatMagicDamageMod": 60,
+"PercentAttackSpeedMod": 0.2
+},
+"from": [
+"3057",
+"1026",
+"3067",
+"1042"
+],
+"into": []
+},
+"2512": {
+"n": "Fiendhunter Bolts",
+"passives": [
+"Night Vigil",
+"Opening Barrage"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"PercentAttackSpeedMod": 0.45,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3086",
+"3144"
+],
+"into": []
+},
+"2517": {
+"n": "Endless Hunger",
+"passives": [
+"Famine",
+"Feast"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 65
+},
+"from": [
+"3133",
+"1037",
+"1036"
+],
+"into": []
+},
+"2522": {
+"n": "Actualizer",
+"passives": [],
+"actives": [
+"Mana Made Real"
+],
+"stats": {
+"FlatMPPoolMod": 300,
+"FlatMagicDamageMod": 90
+},
+"from": [
+"3802",
+"1026"
+],
+"into": []
+},
+"2523": {
+"n": "Hexoptics C44",
+"passives": [
+"Magnification",
+"Arcane Aim"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 55
+},
+"from": [
+"1037",
+"6670",
+"1036"
+],
+"into": []
+},
+"2524": {
+"n": "Bandlepipes",
+"passives": [
+"Fanfare"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 20,
+"FlatHPPoolMod": 200,
+"FlatArmorMod": 20
+},
+"from": [
+"3067",
+"1029",
+"1033"
+],
+"into": []
+},
+"2525": {
+"n": "Protoplasm Harness",
+"passives": [
+"Lifeline"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 600
+},
+"from": [
+"3067",
+"1011"
+],
+"into": []
+},
+"2526": {
+"n": "Whispering Circlet",
+"passives": [
+"Harmony",
+"Manaflow"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 300,
+"FlatHPPoolMod": 200
+},
+"from": [
+"3114",
+"1028",
+"3070"
+],
+"into": [
+"2530"
+]
+},
+"3003": {
+"n": "Archangel's Staff",
+"passives": [
+"Awe",
+"Manaflow"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 600,
+"FlatMagicDamageMod": 70
+},
+"from": [
+"3070",
+"3802",
+"3108"
+],
+"into": []
+},
+"3004": {
+"n": "Manamune",
+"passives": [
+"Awe",
+"Manaflow"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 500,
+"FlatPhysicalDamageMod": 35
+},
+"from": [
+"3070",
+"3133",
+"1036"
+],
+"into": []
+},
+"3006": {
+"n": "Berserker's Greaves",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMovementSpeedMod": 45,
+"PercentAttackSpeedMod": 0.3
+},
+"from": [
+"1001",
+"1042",
+"1042"
+],
+"into": [
+"3172"
+]
+},
+"3008": {
+"n": "Gluttonous Greaves",
+"passives": [
+"Slay"
+],
+"actives": [],
+"stats": {
+"FlatMovementSpeedMod": 45
+},
+"from": [
+"1001"
+],
+"into": [
+"3168"
+]
+},
+"3009": {
+"n": "Boots of Swiftness",
+"passives": [
+"Fleetfooted"
+],
+"actives": [],
+"stats": {
+"FlatMovementSpeedMod": 55
+},
+"from": [
+"1001"
+],
+"into": [
+"3170"
+]
+},
+"3020": {
+"n": "Sorcerer's Shoes",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMovementSpeedMod": 45
+},
+"from": [
+"1001"
+],
+"into": [
+"3175"
+]
+},
+"3024": {
+"n": "Glacial Buckler",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 300,
+"FlatArmorMod": 25
+},
+"from": [
+"1029",
+"1027",
+"2022"
+],
+"into": [
+"323110",
+"3110"
+]
+},
+"3031": {
+"n": "Infinity Edge",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 75
+},
+"from": [
+"1038",
+"1037",
+"1018"
+],
+"into": []
+},
+"3032": {
+"n": "Yun Tal Wildarrows",
+"passives": [
+"Practice Makes Lethal",
+"Flurry"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 50,
+"PercentAttackSpeedMod": 0.45
+},
+"from": [
+"1038",
+"3144",
+"1036"
+],
+"into": []
+},
+"3033": {
+"n": "Mortal Reminder",
+"passives": [
+"Grievous Wounds"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 35
+},
+"from": [
+"3123",
+"3035",
+"1018"
+],
+"into": []
+},
+"3035": {
+"n": "Last Whisper",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 20
+},
+"from": [
+"1036",
+"1036"
+],
+"into": [
+"3033",
+"3036",
+"6694"
+]
+},
+"3036": {
+"n": "Lord Dominik's Regards",
+"passives": [
+"Giant Slayer"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 35
+},
+"from": [
+"3035",
+"6670"
+],
+"into": []
+},
+"3044": {
+"n": "Phage",
+"passives": [
+"Rage"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 200,
+"FlatPhysicalDamageMod": 15
+},
+"from": [
+"1028",
+"1036"
+],
+"into": [
+"3071",
+"3078",
+"3073",
+"6630",
+"6631"
+]
+},
+"3046": {
+"n": "Phantom Dancer",
+"passives": [
+"Spectral Waltz"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"PercentAttackSpeedMod": 0.65,
+"PercentMovementSpeedMod": 0.1
+},
+"from": [
+"1042",
+"3086",
+"1042"
+],
+"into": []
+},
+"3047": {
+"n": "Plated Steelcaps",
+"passives": [
+"Plating"
+],
+"actives": [],
+"stats": {
+"FlatMovementSpeedMod": 45,
+"FlatArmorMod": 25
+},
+"from": [
+"1001",
+"1029"
+],
+"into": [
+"3174"
+]
+},
+"3050": {
+"n": "Zeke's Convergence",
+"passives": [
+"Frostfire Tempest"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 25,
+"FlatHPPoolMod": 300,
+"FlatArmorMod": 25
+},
+"from": [
+"3067",
+"1029",
+"1033"
+],
+"into": []
+},
+"3051": {
+"n": "Hearthbound Axe",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 20,
+"PercentAttackSpeedMod": 0.2
+},
+"from": [
+"1036",
+"1042",
+"1036"
+],
+"into": [
+"3078",
+"3302",
+"6672"
+]
+},
+"3053": {
+"n": "Sterak's Gage",
+"passives": [
+"The Claws that Catch",
+"Lifeline"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 400
+},
+"from": [
+"1037",
+"2021",
+"1028"
+],
+"into": []
+},
+"3057": {
+"n": "Sheen",
+"passives": [
+"Spellblade"
+],
+"actives": [],
+"stats": {},
+"from": [
+"2022"
+],
+"into": [
+"3078",
+"3100",
+"2510",
+"3508",
+"6632",
+"6662"
+]
+},
+"3065": {
+"n": "Spirit Visage",
+"passives": [
+"Boundless Vitality"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 50,
+"FlatHPPoolMod": 400
+},
+"from": [
+"3211",
+"3067"
+],
+"into": []
+},
+"3066": {
+"n": "Winged Moonplate",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 200,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"1028"
+],
+"into": [
+"3742",
+"323002",
+"3002",
+"3181",
+"4401"
+]
+},
+"3067": {
+"n": "Kindlegem",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 200
+},
+"from": [
+"1028",
+"2022"
+],
+"into": [
+"3071",
+"8020",
+"323050",
+"328020",
+"124011",
+"323190",
+"323222",
+"3165",
+"6620",
+"3050",
+"3109",
+"6656",
+"326617",
+"323107",
+"2502",
+"2510",
+"2524",
+"2525",
+"6617",
+"3065",
+"3152",
+"3119",
+"326620",
+"3190",
+"3222",
+"323109",
+"323119",
+"4403",
+"4629",
+"4644",
+"6630",
+"6632",
+"8001"
+]
+},
+"3068": {
+"n": "Sunfire Aegis",
+"passives": [
+"Immolate"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 350,
+"FlatArmorMod": 50
+},
+"from": [
+"6660",
+"1031",
+"1028"
+],
+"into": []
+},
+"3070": {
+"n": "Tear of the Goddess",
+"passives": [
+"Manaflow",
+"Helping Hand"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 240
+},
+"from": [],
+"into": [
+"3003",
+"3004",
+"2526",
+"3119"
+]
+},
+"3071": {
+"n": "Black Cleaver",
+"passives": [
+"Carve",
+"Fervor"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 400,
+"FlatPhysicalDamageMod": 45
+},
+"from": [
+"3044",
+"3067",
+"1037"
+],
+"into": []
+},
+"3072": {
+"n": "Bloodthirster",
+"passives": [
+"Ichorshield"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 80,
+"PercentLifeStealMod": 0.15
+},
+"from": [
+"1038",
+"1037",
+"1053"
+],
+"into": []
+},
+"3073": {
+"n": "Experimental Hexplate",
+"passives": [
+"Hexcharged",
+"Overdrive"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 450,
+"FlatPhysicalDamageMod": 40,
+"PercentAttackSpeedMod": 0.2
+},
+"from": [
+"2021",
+"1042",
+"3044"
+],
+"into": []
+},
+"3074": {
+"n": "Ravenous Hydra",
+"passives": [
+"Cleave"
+],
+"actives": [
+"Ravenous Crescent"
+],
+"stats": {
+"FlatPhysicalDamageMod": 65,
+"PercentLifeStealMod": 0.12
+},
+"from": [
+"3077",
+"1053",
+"3133"
+],
+"into": []
+},
+"3075": {
+"n": "Thornmail",
+"passives": [
+"Thorns"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 150,
+"FlatArmorMod": 75
+},
+"from": [
+"3076",
+"1031",
+"1028"
+],
+"into": []
+},
+"3076": {
+"n": "Bramble Vest",
+"passives": [
+"Thorns"
+],
+"actives": [],
+"stats": {
+"FlatArmorMod": 30
+},
+"from": [
+"1029",
+"1029"
+],
+"into": [
+"323075",
+"3075"
+]
+},
+"3077": {
+"n": "Tiamat",
+"passives": [
+"Cleave"
+],
+"actives": [
+"Crescent"
+],
+"stats": {
+"FlatPhysicalDamageMod": 25
+},
+"from": [
+"1036",
+"1036"
+],
+"into": [
+"3074",
+"3748",
+"6698",
+"6631"
+]
+},
+"3078": {
+"n": "Trinity Force",
+"passives": [
+"Spellblade",
+"Quicken"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 333,
+"FlatPhysicalDamageMod": 36,
+"PercentAttackSpeedMod": 0.3
+},
+"from": [
+"3057",
+"3044",
+"3051"
+],
+"into": []
+},
+"3082": {
+"n": "Warden's Mail",
+"passives": [
+"Rock Solid"
+],
+"actives": [],
+"stats": {
+"FlatArmorMod": 40
+},
+"from": [
+"1029",
+"1029"
+],
+"into": [
+"323110",
+"3110",
+"3143"
+]
+},
+"3083": {
+"n": "Warmog's Armor",
+"passives": [
+"Warmog's Heart",
+"Warmog's Vitality"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 1000
+},
+"from": [
+"1011",
+"1011",
+"3801"
+],
+"into": []
+},
+"3084": {
+"n": "Heartsteel",
+"passives": [
+"Colossal Consumption",
+"Goliath"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 900
+},
+"from": [
+"1011",
+"3801",
+"1011"
+],
+"into": []
+},
+"3085": {
+"n": "Runaan's Hurricane",
+"passives": [
+"Wind's Fury"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"PercentAttackSpeedMod": 0.4,
+"PercentMovementSpeedMod": 0.05
+},
+"from": [
+"3086",
+"3144"
+],
+"into": []
+},
+"3086": {
+"n": "Zeal",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.15,
+"PercentAttackSpeedMod": 0.15,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"1018",
+"1042"
+],
+"into": [
+"2512",
+"3094",
+"3046",
+"3085",
+"4403",
+"6671",
+"6675"
+]
+},
+"3087": {
+"n": "Statikk Shiv",
+"passives": [
+"Electrospark",
+"Electroshock"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 45,
+"FlatPhysicalDamageMod": 45,
+"PercentAttackSpeedMod": 0.3,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3144",
+"3113",
+"1037"
+],
+"into": []
+},
+"3089": {
+"n": "Rabadon's Deathcap",
+"passives": [
+"Magical Opus"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 130
+},
+"from": [
+"1058",
+"1058"
+],
+"into": []
+},
+"3091": {
+"n": "Wit's End",
+"passives": [
+"Fray"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 45,
+"PercentAttackSpeedMod": 0.5
+},
+"from": [
+"1043",
+"1057",
+"1043"
+],
+"into": []
+},
+"3094": {
+"n": "Rapid Firecannon",
+"passives": [
+"Sharpshooter"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"PercentAttackSpeedMod": 0.35,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3086",
+"3144"
+],
+"into": []
+},
+"3095": {
+"n": "Stormrazor",
+"passives": [
+"Energized",
+"Bolt"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 50,
+"PercentAttackSpeedMod": 0.25
+},
+"from": [
+"1038",
+"1018",
+"3144"
+],
+"into": []
+},
+"3100": {
+"n": "Lich Bane",
+"passives": [
+"Spellblade"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 100,
+"PercentMovementSpeedMod": 0.06
+},
+"from": [
+"3057",
+"3113",
+"1026"
+],
+"into": []
+},
+"3102": {
+"n": "Banshee's Veil",
+"passives": [
+"Annul"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 40,
+"FlatMagicDamageMod": 105
+},
+"from": [
+"1058",
+"4632"
+],
+"into": []
+},
+"3107": {
+"n": "Redemption",
+"passives": [],
+"actives": [
+"Intervention"
+],
+"stats": {
+"FlatMagicDamageMod": 30
+},
+"from": [
+"3108",
+"3114"
+],
+"into": []
+},
+"3108": {
+"n": "Fiendish Codex",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 25
+},
+"from": [
+"1052",
+"2022"
+],
+"into": [
+"123430",
+"4636",
+"323003",
+"3115",
+"3003",
+"326616",
+"3107",
+"3128",
+"3137",
+"8010",
+"6616",
+"4628",
+"4629",
+"4633"
+]
+},
+"3109": {
+"n": "Knight's Vow",
+"passives": [
+"Sacrifice"
+],
+"actives": [
+"Pledge"
+],
+"stats": {
+"FlatHPPoolMod": 200,
+"FlatArmorMod": 40
+},
+"from": [
+"3067",
+"1031",
+"1006"
+],
+"into": []
+},
+"3110": {
+"n": "Frozen Heart",
+"passives": [
+"Winter's Caress"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 400,
+"FlatArmorMod": 75
+},
+"from": [
+"3082",
+"3024"
+],
+"into": []
+},
+"3111": {
+"n": "Mercury's Treads",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 20,
+"FlatMovementSpeedMod": 45
+},
+"from": [
+"1001",
+"1033"
+],
+"into": [
+"3173"
+]
+},
+"3112": {
+"n": "Guardian's Orb",
+"passives": [
+"Recovery:"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 150,
+"FlatMagicDamageMod": 50
+},
+"from": [],
+"into": []
+},
+"3113": {
+"n": "Aether Wisp",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 30,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"1052"
+],
+"into": [
+"123430",
+"3100",
+"2065",
+"322065",
+"3087",
+"323504",
+"3504",
+"4629",
+"4646"
+]
+},
+"3114": {
+"n": "Forbidden Idol",
+"passives": [],
+"actives": [],
+"stats": {},
+"from": [
+"1004"
+],
+"into": [
+"124011",
+"326621",
+"223011",
+"323222",
+"323107",
+"322526",
+"2526",
+"3011",
+"326616",
+"3107",
+"3222",
+"323504",
+"3504",
+"6616",
+"6621"
+]
+},
+"3115": {
+"n": "Nashor's Tooth",
+"passives": [
+"Icathian Bite"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 80,
+"PercentAttackSpeedMod": 0.5
+},
+"from": [
+"1043",
+"1026",
+"3108"
+],
+"into": []
+},
+"3116": {
+"n": "Rylai's Crystal Scepter",
+"passives": [
+"Rimefrost"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 400,
+"FlatMagicDamageMod": 65
+},
+"from": [
+"1026",
+"1011",
+"1052"
+],
+"into": []
+},
+"3118": {
+"n": "Malignance",
+"passives": [
+"Scorn",
+"Hatefog"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 600,
+"FlatMagicDamageMod": 90
+},
+"from": [
+"3802",
+"1026"
+],
+"into": []
+},
+"3119": {
+"n": "Winter's Approach",
+"passives": [
+"Awe",
+"Manaflow"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 500,
+"FlatHPPoolMod": 550
+},
+"from": [
+"3070",
+"1011",
+"3067"
+],
+"into": []
+},
+"3123": {
+"n": "Executioner's Calling",
+"passives": [
+"Grievous Wounds"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 15
+},
+"from": [
+"1036"
+],
+"into": [
+"3033",
+"6609"
+]
+},
+"3124": {
+"n": "Guinsoo's Rageblade",
+"passives": [
+"Wrath",
+"Seething Strike"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 30,
+"FlatPhysicalDamageMod": 30,
+"PercentAttackSpeedMod": 0.25
+},
+"from": [
+"1052",
+"1043",
+"1037"
+],
+"into": []
+},
+"3133": {
+"n": "Caulfield's Warhammer",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 20
+},
+"from": [
+"1036",
+"2022",
+"1036"
+],
+"into": [
+"6333",
+"126697",
+"6697",
+"4402",
+"3156",
+"2517",
+"323004",
+"6693",
+"3004",
+"3508",
+"3074",
+"3179",
+"6691",
+"6609",
+"6610",
+"6632",
+"6692",
+"6694",
+"6696"
+]
+},
+"3134": {
+"n": "Serrated Dirk",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 20
+},
+"from": [
+"1036",
+"1036"
+],
+"into": [
+"3142",
+"667666",
+"126697",
+"6697",
+"6701",
+"6693",
+"2520",
+"4004",
+"6695",
+"3814",
+"3131",
+"3179",
+"6691",
+"6676"
+]
+},
+"3135": {
+"n": "Void Staff",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 95
+},
+"from": [
+"4630",
+"1026"
+],
+"into": []
+},
+"3137": {
+"n": "Cryptbloom",
+"passives": [
+"Life from Death"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 75
+},
+"from": [
+"4630",
+"3108",
+"3108"
+],
+"into": []
+},
+"3139": {
+"n": "Mercurial Scimitar",
+"passives": [],
+"actives": [
+"ACTIVE",
+"Quicksilver"
+],
+"stats": {
+"FlatSpellBlockMod": 35,
+"FlatPhysicalDamageMod": 50,
+"PercentLifeStealMod": 0.1
+},
+"from": [
+"3140",
+"1037",
+"1053"
+],
+"into": []
+},
+"3140": {
+"n": "Quicksilver Sash",
+"passives": [],
+"actives": [
+"Quicksilver"
+],
+"stats": {
+"FlatSpellBlockMod": 30
+},
+"from": [
+"1033"
+],
+"into": [
+"3139",
+"6035"
+]
+},
+"3142": {
+"n": "Youmuu's Ghostblade",
+"passives": [
+"Haunt"
+],
+"actives": [
+"Wraith Step"
+],
+"stats": {
+"FlatPhysicalDamageMod": 55,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3134",
+"6690",
+"1036"
+],
+"into": []
+},
+"3143": {
+"n": "Randuin's Omen",
+"passives": [
+"Resilience"
+],
+"actives": [
+"Humility"
+],
+"stats": {
+"FlatHPPoolMod": 350,
+"FlatArmorMod": 75
+},
+"from": [
+"3082",
+"1011"
+],
+"into": []
+},
+"3144": {
+"n": "Scout's Slingshot",
+"passives": [
+"Bullseye"
+],
+"actives": [],
+"stats": {
+"PercentAttackSpeedMod": 0.2
+},
+"from": [
+"1042",
+"1042"
+],
+"into": [
+"2512",
+"3094",
+"3087",
+"3032",
+"3085",
+"3095"
+]
+},
+"3145": {
+"n": "Hextech Alternator",
+"passives": [
+"Revved"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 45
+},
+"from": [
+"1052",
+"1052"
+],
+"into": [
+"4645",
+"4636",
+"3146",
+"6655",
+"3152",
+"4646"
+]
+},
+"3146": {
+"n": "Hextech Gunblade",
+"passives": [],
+"actives": [
+"ACTIVE",
+"Lightning Bolt"
+],
+"stats": {
+"FlatMagicDamageMod": 80,
+"FlatPhysicalDamageMod": 40
+},
+"from": [
+"1053",
+"3145",
+"1052"
+],
+"into": []
+},
+"3147": {
+"n": "Haunting Guise",
+"passives": [
+"Madness"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 200,
+"FlatMagicDamageMod": 30
+},
+"from": [
+"1052",
+"1028"
+],
+"into": [
+"8010",
+"4633",
+"6653"
+]
+},
+"3152": {
+"n": "Hextech Rocketbelt",
+"passives": [],
+"actives": [
+"Supersonic"
+],
+"stats": {
+"FlatHPPoolMod": 350,
+"FlatMagicDamageMod": 60
+},
+"from": [
+"3145",
+"3067",
+"1028"
+],
+"into": []
+},
+"3153": {
+"n": "Blade of The Ruined King",
+"passives": [
+"Mist's Edge",
+"Clawing Shadows"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 40,
+"PercentAttackSpeedMod": 0.25,
+"PercentLifeStealMod": 0.1
+},
+"from": [
+"1053",
+"1043",
+"1037"
+],
+"into": []
+},
+"3155": {
+"n": "Hexdrinker",
+"passives": [
+"Lifeline"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 25,
+"FlatPhysicalDamageMod": 25
+},
+"from": [
+"1036",
+"1033",
+"1036"
+],
+"into": [
+"3156"
+]
+},
+"3156": {
+"n": "Maw of Malmortius",
+"passives": [
+"Lifeline"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 40,
+"FlatPhysicalDamageMod": 60
+},
+"from": [
+"3155",
+"3133"
+],
+"into": []
+},
+"3157": {
+"n": "Zhonya's Hourglass",
+"passives": [],
+"actives": [
+"Time Stop"
+],
+"stats": {
+"FlatMagicDamageMod": 105,
+"FlatArmorMod": 50
+},
+"from": [
+"1058",
+"2420"
+],
+"into": []
+},
+"3158": {
+"n": "Ionian Boots of Lucidity",
+"passives": [
+"Ionian Insight"
+],
+"actives": [],
+"stats": {
+"FlatMovementSpeedMod": 45
+},
+"from": [
+"1001",
+"2022"
+],
+"into": [
+"3171"
+]
+},
+"3161": {
+"n": "Spear of Shojin",
+"passives": [
+"Dragonforce",
+"Focused Will"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 450,
+"FlatPhysicalDamageMod": 45
+},
+"from": [
+"1037",
+"2021",
+"1028"
+],
+"into": []
+},
+"3165": {
+"n": "Morellonomicon",
+"passives": [
+"Grievous Wounds"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 350,
+"FlatMagicDamageMod": 75
+},
+"from": [
+"3916",
+"1026",
+"3067"
+],
+"into": []
+},
+"3177": {
+"n": "Guardian's Blade",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 150,
+"FlatPhysicalDamageMod": 30
+},
+"from": [],
+"into": []
+},
+"3179": {
+"n": "Umbral Glaive",
+"passives": [
+"Nightstalker",
+"Blackout"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 60
+},
+"from": [
+"3134",
+"3133"
+],
+"into": []
+},
+"3181": {
+"n": "Hullbreaker",
+"passives": [
+"Skipper",
+"Boarding Party"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 500,
+"FlatPhysicalDamageMod": 40,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"2021",
+"3066",
+"1037"
+],
+"into": []
+},
+"3184": {
+"n": "Guardian's Hammer",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 150,
+"FlatPhysicalDamageMod": 25,
+"PercentLifeStealMod": 0.05
+},
+"from": [],
+"into": []
+},
+"3190": {
+"n": "Locket of the Iron Solari",
+"passives": [],
+"actives": [
+"Devotion"
+],
+"stats": {
+"FlatSpellBlockMod": 30,
+"FlatHPPoolMod": 200,
+"FlatArmorMod": 30
+},
+"from": [
+"3067",
+"1029",
+"1033"
+],
+"into": []
+},
+"3211": {
+"n": "Spectre's Cowl",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 35,
+"FlatHPPoolMod": 200
+},
+"from": [
+"1028",
+"1033",
+"1006"
+],
+"into": [
+"2504",
+"3065",
+"6664"
+]
+},
+"3222": {
+"n": "Mikael's Blessing",
+"passives": [],
+"actives": [
+"Purify"
+],
+"stats": {
+"FlatHPPoolMod": 250
+},
+"from": [
+"3067",
+"3114"
+],
+"into": []
+},
+"3302": {
+"n": "Terminus",
+"passives": [
+"Shadow",
+"Juxtaposition"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 30,
+"PercentAttackSpeedMod": 0.35
+},
+"from": [
+"3051",
+"1043"
+],
+"into": []
+},
+"3504": {
+"n": "Ardent Censer",
+"passives": [
+"Sanctify"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 45,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3113",
+"3114"
+],
+"into": []
+},
+"3508": {
+"n": "Essence Reaver",
+"passives": [
+"Spellblade"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 50
+},
+"from": [
+"3057",
+"3133",
+"1018"
+],
+"into": []
+},
+"3742": {
+"n": "Dead Man's Plate",
+"passives": [
+"Shipwrecker",
+"Unsinkable"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 350,
+"FlatArmorMod": 55,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3066",
+"1028",
+"1031"
+],
+"into": []
+},
+"3748": {
+"n": "Titanic Hydra",
+"passives": [
+"Cleave",
+"Cleave"
+],
+"actives": [
+"Titanic Crescent"
+],
+"stats": {
+"FlatHPPoolMod": 600,
+"FlatPhysicalDamageMod": 40
+},
+"from": [
+"3077",
+"2021",
+"1011"
+],
+"into": []
+},
+"3801": {
+"n": "Crystalline Bracer",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 200
+},
+"from": [
+"1028",
+"1006"
+],
+"into": [
+"3084",
+"3083"
+]
+},
+"3802": {
+"n": "Lost Chapter",
+"passives": [
+"Enlighten"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 300,
+"FlatMagicDamageMod": 40
+},
+"from": [
+"1052",
+"1027",
+"2022"
+],
+"into": [
+"2522",
+"323003",
+"6656",
+"3003",
+"6655",
+"2503",
+"3118",
+"4644"
+]
+},
+"3803": {
+"n": "Catalyst of Aeons",
+"passives": [
+"Eternity"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 375,
+"FlatHPPoolMod": 300
+},
+"from": [
+"1028",
+"1028",
+"1027"
+],
+"into": [
+"4402",
+"326657",
+"6657"
+]
+},
+"3814": {
+"n": "Edge of Night",
+"passives": [
+"Annul"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 250,
+"FlatPhysicalDamageMod": 50
+},
+"from": [
+"3134",
+"2021"
+],
+"into": []
+},
+"3916": {
+"n": "Oblivion Orb",
+"passives": [
+"Grievous Wounds"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 25
+},
+"from": [
+"1052"
+],
+"into": [
+"223011",
+"3165",
+"3011"
+]
+},
+"4005": {
+"n": "Imperial Mandate",
+"passives": [
+"Control",
+"Command"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 60
+},
+"from": [
+"1052",
+"4642",
+"1052"
+],
+"into": []
+},
+"4401": {
+"n": "Force of Nature",
+"passives": [
+"Steadfast"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 55,
+"FlatHPPoolMod": 400,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"1057",
+"1028",
+"3066"
+],
+"into": []
+},
+"4628": {
+"n": "Horizon Focus",
+"passives": [
+"Hypershot",
+"Focus",
+"Hypershot"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 75
+},
+"from": [
+"3108",
+"3108",
+"1052"
+],
+"into": []
+},
+"4629": {
+"n": "Cosmic Drive",
+"passives": [
+"Spelldance"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 350,
+"FlatMagicDamageMod": 70,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"3067",
+"3113",
+"3108"
+],
+"into": []
+},
+"4630": {
+"n": "Blighting Jewel",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 25
+},
+"from": [
+"1052"
+],
+"into": [
+"3135",
+"3137"
+]
+},
+"4632": {
+"n": "Verdant Barrier",
+"passives": [
+"Annul"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 25,
+"FlatMagicDamageMod": 40
+},
+"from": [
+"1052",
+"1033",
+"1052"
+],
+"into": [
+"3102"
+]
+},
+"4633": {
+"n": "Riftmaker",
+"passives": [
+"Void Corruption",
+"Void Infusion"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 350,
+"FlatMagicDamageMod": 70
+},
+"from": [
+"3147",
+"3108"
+],
+"into": []
+},
+"4642": {
+"n": "Bandleglass Mirror",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 20
+},
+"from": [
+"1004",
+"1052",
+"2022"
+],
+"into": [
+"2065",
+"322065",
+"6620",
+"326617",
+"324005",
+"4005",
+"6617",
+"326620"
+]
+},
+"4645": {
+"n": "Shadowflame",
+"passives": [
+"Cinderbloom"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 110
+},
+"from": [
+"3145",
+"1058"
+],
+"into": []
+},
+"4646": {
+"n": "Stormsurge",
+"passives": [
+"Stormraider",
+"Squall",
+"Squall",
+"Squall"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 90,
+"PercentMovementSpeedMod": 0.06
+},
+"from": [
+"3145",
+"3113"
+],
+"into": []
+},
+"6333": {
+"n": "Death's Dance",
+"passives": [
+"Ignore Pain",
+"Defy",
+"Ignore Pain's"
+],
+"actives": [],
+"stats": {
+"FlatArmorMod": 50,
+"FlatPhysicalDamageMod": 60
+},
+"from": [
+"2019",
+"1037",
+"3133"
+],
+"into": []
+},
+"6609": {
+"n": "Chempunk Chainsword",
+"passives": [
+"Hackshorn"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 450,
+"FlatPhysicalDamageMod": 45
+},
+"from": [
+"3123",
+"1011",
+"3133"
+],
+"into": []
+},
+"6610": {
+"n": "Sundered Sky",
+"passives": [
+"Lightshield Strike"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 400,
+"FlatPhysicalDamageMod": 40
+},
+"from": [
+"2021",
+"3133"
+],
+"into": []
+},
+"6616": {
+"n": "Staff of Flowing Water",
+"passives": [
+"Rapids"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 35
+},
+"from": [
+"3108",
+"3114"
+],
+"into": []
+},
+"6617": {
+"n": "Moonstone Renewer",
+"passives": [
+"Starlit Grace"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 200,
+"FlatMagicDamageMod": 25
+},
+"from": [
+"3067",
+"4642"
+],
+"into": []
+},
+"6620": {
+"n": "Echoes of Helia",
+"passives": [
+"Soul Siphon",
+"Soul Charges"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 200,
+"FlatMagicDamageMod": 35
+},
+"from": [
+"3067",
+"4642"
+],
+"into": []
+},
+"6621": {
+"n": "Dawncore",
+"passives": [
+"First Light"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 45
+},
+"from": [
+"1026",
+"3114",
+"3114"
+],
+"into": []
+},
+"6631": {
+"n": "Stridebreaker",
+"passives": [
+"Cleave"
+],
+"actives": [
+"Breaking Shockwave"
+],
+"stats": {
+"FlatHPPoolMod": 450,
+"FlatPhysicalDamageMod": 40,
+"PercentAttackSpeedMod": 0.25
+},
+"from": [
+"3077",
+"3044",
+"1042"
+],
+"into": []
+},
+"6653": {
+"n": "Liandry's Torment",
+"passives": [
+"Torment",
+"Suffering"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 300,
+"FlatMagicDamageMod": 60
+},
+"from": [
+"3147",
+"2508"
+],
+"into": []
+},
+"6655": {
+"n": "Luden's Echo",
+"passives": [
+"Echo"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 600,
+"FlatMagicDamageMod": 100
+},
+"from": [
+"3802",
+"3145"
+],
+"into": []
+},
+"6657": {
+"n": "Rod of Ages",
+"passives": [
+"Timeless",
+"Eternity"
+],
+"actives": [],
+"stats": {
+"FlatMPPoolMod": 500,
+"FlatHPPoolMod": 350,
+"FlatMagicDamageMod": 45
+},
+"from": [
+"1026",
+"3803"
+],
+"into": []
+},
+"6660": {
+"n": "Bami's Cinder",
+"passives": [
+"Immolate"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 150
+},
+"from": [
+"1028",
+"2022"
+],
+"into": [
+"3068",
+"6664"
+]
+},
+"6662": {
+"n": "Iceborn Gauntlet",
+"passives": [
+"Spellblade"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 300,
+"FlatArmorMod": 50
+},
+"from": [
+"3057",
+"1028",
+"1031"
+],
+"into": []
+},
+"6664": {
+"n": "Hollow Radiance",
+"passives": [
+"Immolate",
+"Desolate"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 40,
+"FlatHPPoolMod": 400
+},
+"from": [
+"6660",
+"3211"
+],
+"into": []
+},
+"6665": {
+"n": "Jak'Sho, The Protean",
+"passives": [
+"Voidborn Resilience"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 45,
+"FlatHPPoolMod": 350,
+"FlatArmorMod": 45
+},
+"from": [
+"1011",
+"1031",
+"1057"
+],
+"into": []
+},
+"6670": {
+"n": "Noonquiver",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.2,
+"FlatPhysicalDamageMod": 15
+},
+"from": [
+"1036",
+"1018"
+],
+"into": [
+"2523",
+"3036",
+"6673"
+]
+},
+"6672": {
+"n": "Kraken Slayer",
+"passives": [
+"Bring It Down"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 45,
+"PercentAttackSpeedMod": 0.4,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"6690",
+"3051",
+"1043"
+],
+"into": []
+},
+"6673": {
+"n": "Immortal Shieldbow",
+"passives": [
+"Lifeline"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 55
+},
+"from": [
+"1037",
+"6670"
+],
+"into": []
+},
+"6675": {
+"n": "Navori Flickerblade",
+"passives": [
+"Transcendence"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"PercentAttackSpeedMod": 0.4,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"1042",
+"3086",
+"1042"
+],
+"into": []
+},
+"6676": {
+"n": "The Collector",
+"passives": [
+"Death",
+"Taxes"
+],
+"actives": [],
+"stats": {
+"FlatCritChanceMod": 0.25,
+"FlatPhysicalDamageMod": 50
+},
+"from": [
+"1037",
+"3134",
+"1018"
+],
+"into": []
+},
+"6690": {
+"n": "Rectrix",
+"passives": [],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 15,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"1036"
+],
+"into": [
+"4003",
+"6700",
+"6672",
+"3142"
+]
+},
+"6692": {
+"n": "Eclipse",
+"passives": [
+"Ever Rising Moon"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 60
+},
+"from": [
+"3133",
+"1037",
+"1036"
+],
+"into": []
+},
+"6694": {
+"n": "Serylda's Grudge",
+"passives": [
+"Bitter Cold"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 45
+},
+"from": [
+"3133",
+"3035"
+],
+"into": []
+},
+"6695": {
+"n": "Serpent's Fang",
+"passives": [
+"Shield Reaver",
+"Shield Reaver"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 55
+},
+"from": [
+"3134",
+"1037"
+],
+"into": []
+},
+"6696": {
+"n": "Axiom Arc",
+"passives": [
+"Flux"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 55
+},
+"from": [
+"2020",
+"3133"
+],
+"into": []
+},
+"6698": {
+"n": "Profane Hydra",
+"passives": [
+"Cleave"
+],
+"actives": [
+"Heretical Cleave"
+],
+"stats": {
+"FlatPhysicalDamageMod": 55
+},
+"from": [
+"3077",
+"2020"
+],
+"into": []
+},
+"6699": {
+"n": "Voltaic Cyclosword",
+"passives": [
+"Galvanize",
+"Firmament"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 55
+},
+"from": [
+"2020",
+"1036",
+"1036"
+],
+"into": []
+},
+"8010": {
+"n": "Bloodletter's Curse",
+"passives": [
+"Vile Decay"
+],
+"actives": [],
+"stats": {
+"FlatHPPoolMod": 400,
+"FlatMagicDamageMod": 65
+},
+"from": [
+"3147",
+"3108"
+],
+"into": []
+},
+"8020": {
+"n": "Abyssal Mask",
+"passives": [
+"Unmake"
+],
+"actives": [],
+"stats": {
+"FlatSpellBlockMod": 45,
+"FlatHPPoolMod": 350
+},
+"from": [
+"3067",
+"1057"
+],
+"into": []
+},
+"123430": {
+"n": "Rite of Ruin",
+"passives": [
+"Wrath and Ruin",
+"Salvage the Wreckage"
+],
+"actives": [],
+"stats": {
+"FlatMagicDamageMod": 55,
+"FlatCritChanceMod": 0.25,
+"PercentMovementSpeedMod": 0.04
+},
+"from": [
+"1018",
+"3113",
+"3108"
+],
+"into": []
+},
+"126697": {
+"n": "Hubris",
+"passives": [
+"Eminence"
+],
+"actives": [],
+"stats": {
+"FlatPhysicalDamageMod": 55
+},
+"from": [
+"3134",
+"3133"
+],
+"into": []
+}
+}
+}
