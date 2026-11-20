@@ -9,6 +9,7 @@ Title OCR failure, blank crop hashes and elapsed time are NOT negative proof.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 # Policy debounce, not a measured classifier accuracy or a League-specific
 # animation duration. Every observation must come from a separate focused scan.
@@ -112,7 +113,9 @@ def card_teal_fraction(title_crop: "Image.Image") -> float:
     return matched / total
 
 
-def card_background_cue(crops: dict[str, "Image.Image"]) -> str:
+def card_background_cue(
+    crops: dict[str, "Image.Image"],
+) -> Literal["present", "absent", "mixed"]:
     """Pure three-slot cue: present, absent or mixed; never an offer decision."""
     if not isinstance(crops, dict) or set(crops) != set(_CARD_SLOTS):
         return "mixed"
