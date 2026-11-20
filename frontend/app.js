@@ -466,6 +466,13 @@
         }
 
         if (msg.type === "preferences_updated") return;
+        if (msg.type === "toggle_build") {
+            if (lastResult && !stale) {
+                buildPinnedByHotkey = !buildPinnedByHotkey;
+                autoExpandSections(lastResult);
+            }
+            return;
+        }
 
         if (msg.type === "ack" && msg.action === "toggle_ocr") {
             // A settings change invalidates every old OCR observation.
@@ -951,8 +958,6 @@
                 likely.className = "aug-explain";
                 likely.textContent = "Likely: " + name + " · confirm with Alt+" + (index + 1);
                 row.appendChild(likely);
-                // DOM-stub tests inspect row.innerHTML; production uses textContent.
-                row.innerHTML += '<span class="confirm-hint">Likely: ' + esc(name) + '</span>';
             }
             if (interactive && !id && offer.state === "visible") {
                 appendSlotSearch(row, offer, slot);
@@ -983,8 +988,15 @@
     }
 
     function renderBuild(bs) {
-        if (bs && buildStyles.includes(bs.selected_style)) {
-            buildStyleCurrent.textContent = bs.selected_style;
+        const nextName = bs && (bs.next_item_name || bs.next_item_id);
+        if (bs && bs.slot_blocked && !nextName) {
+            buildNext.textContent = "Inventory full";
+        } else if (nextName) {
+            const cost = Number(bs.gold_to_next);
+            buildNext.textContent = "Next: " + nextName +
+                (Number.isFinite(cost) && cost >= 0 ? " (" + cost + "g)" : "");
+        } else {
+            buildNext.textContent = "Next: unavailable";
         }
         if (!bs || !bs.full_build || bs.full_build.length === 0) {
             buildList.innerHTML = '<div style="color:var(--text-dim);padding:8px;">No build data</div>';
@@ -1051,43 +1063,10 @@
 
     // -- OCR --
 
-    function bindOcrControls() {
-        btnScan.addEventListener("click", () => {
-            if (scanning) return;
-            scanning = true;
-            btnScan.textContent = "Scanning...";
-            wsSend({ type: "scan_augments" });
-        });
-
-        ocrAutoCheckbox.addEventListener("change", () => {
-            wsSend({ type: "toggle_ocr", enabled: ocrAutoCheckbox.checked });
-        });
-    }
-
-    function renderOcrResult(detected, augmentChoices) {
-        if (!detected || detected.length === 0) {
-                ocrDetected.replaceChildren();
-            return;
-        }
-
-        ocrDetected.classList.remove("hidden");
-        ocrDetected.replaceChildren();
-
-        const title = document.createElement("div");
-        title.className = "ocr-title";
-        title.textContent = "Detected augments:";
-        ocrDetected.appendChild(title);
-
-        detected.forEach((d) => {
-            const row = document.createElement("div");
-            row.className = "ocr-detected-item";
-            const confClass = d.confidence >= 80 ? "high" : d.confidence >= 65 ? "med" : "low";
-            row.innerHTML = `
-                <span class="ocr-name">${d.slot ? esc(d.slot + ": ") : ""}${esc(d.name || "Unknown")}</span>
-                <span class="ocr-conf ${confClass}">${d.confidence}%</span>
-            `;
-            ocrDetected.appendChild(row);
-        });
+    // OCR scan and enable/disable controls live in desktop Settings.
+    // Keep this export for compatibility with existing offline message tests.
+    function renderOcrResult(_detected, _augmentChoices) {
+        // The one AUGMENTS panel renders only epoch-fenced ledger identities.
     }
 
     // -- Section toggling --
@@ -1096,186 +1075,58 @@
         document.querySelectorAll(".section-header[data-toggle]").forEach((header) => {
             header.addEventListener("click", () => {
                 const section = header.closest(".section");
-                section.classList.toggle("collapsed");
+                if (section.id === "section-enemies") {
+                    if (!document.body.classList.contains("interactive-mode")) return;
+                    enemyManuallyOpen = !enemyManuallyOpen;
+                    section.classList.toggle("collapsed", !enemyManuallyOpen);
+                } else if (section.id === "section-augments") {
+                    // D2 advice cannot be expanded from a due level alone.
+                    section.classList.toggle("collapsed",
+                        !offerCanOpen(activeOffer(), lastResult || {}));
+                }
             });
         });
     }
 
     function autoExpandSections(data) {
         const augSection = $("section-augments");
-        const buildSection = $("section-build");
         const enemySection = $("section-enemies");
-
-        // The live phase is "in_game" during an augment offer, so looking
-        // for "aug_pick" in phase never opened the recommendations.
-        // A due level is only a scan opportunity; titles must be verified
-        // before the live augment panel is shown.
-        const pickActive = offerState === "present" && ocrPhase === "detected" && !ocrStale;
-        // Neither a level threshold nor missing OCR proves an offer is open.
-        if (pickActive) {
-            augSection.classList.remove("collapsed");
-            inputSection.classList.remove("collapsed");
-            buildSection.classList.add("collapsed");
-        } else {
-            augSection.classList.add("collapsed");
-            inputSection.classList.add("collapsed");
-            buildSection.classList.remove("collapsed");
-            enemySection.classList.remove("collapsed");
-        }
+        const offer = activeOffer();
+        const offerOpen = offerCanOpen(offer, data);
+        augSection.classList.toggle("collapsed", !offerOpen);
+        const due = currentOffers.filter((entry) => entry && entry.state === "due")
+            .sort((a, b) => b.offer_id - a.offer_id)[0];
+        dueHint.classList.toggle("hidden", offerOpen || !due);
+        dueHint.textContent = due && !offerOpen
+            ? "Augment " + due.offer_id + " available · Alt+S to read" : "";
+        const interactive = Boolean(document.body && document.body.classList &&
+            document.body.classList.contains("interactive-mode"));
+        augmentRecover.classList.toggle("hidden", !interactive || !due);
+        const details = data.is_dead === true || buildPinnedByHotkey;
+        buildList.classList.toggle("hidden", !details);
+        buildFooter.classList.toggle("hidden", !details);
+        buildAlternatives.classList.toggle("hidden", !details);
+        enemySection.classList.toggle("collapsed", !interactive || !enemyManuallyOpen);
     }
 
-    // -- Augment quick-select input --
+    // -- Deliberate interaction: no global game input or automatic picks --
 
-    function bindAugmentInput() {
-        // Manual identity is deliberately not a pick. This button is only
-        // usable after enabling voluntary overlay interaction with Alt+O.
-        const host = btnEvaluate.parentNode;
-        if (host && typeof host.appendChild === "function") {
-            const identifyButton = document.createElement("button");
-            identifyButton.type = "button";
-            identifyButton.id = "btn-identify-offer";
-            identifyButton.className = "btn-secondary";
-            identifyButton.textContent = "Identify cards (left → right, not a pick)";
-            host.appendChild(identifyButton);
-            identifyButton.addEventListener("click", async () => {
-                if (selectedAugmentIds.length < 1 || selectedAugmentIds.length > 3) return;
-                const available = currentOffers.filter(offer =>
-                    offer && Number.isSafeInteger(offer.offer_id) &&
-                    Number.isSafeInteger(offer.epoch) &&
-                    ["due", "visible", "awaiting_confirm"].includes(offer.state));
-                const target = available.sort((x, y) => y.offer_id - x.offer_id)[0];
-                if (!target) {
-                    identifyButton.textContent = "No active offer to identify";
-                    return;
-                }
-                const originalMatch = activeMatchId;
-                let epoch = target.epoch;
-                identifyButton.disabled = true;
-                try {
-                    if (target.state === "due") {
-                        const recovery = await fetch("/api/offers/recover", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ offer_id: target.offer_id }),
-                        });
-                        if (!recovery.ok) throw new Error("Offer recovery rejected");
-                        const recovered = await recovery.json();
-                        epoch = recovered.epoch;
-                    }
-                    if (activeMatchId !== originalMatch) throw new Error("Match changed");
-                    for (const [index, augmentId] of selectedAugmentIds.entries()) {
-                        if (activeMatchId !== originalMatch) throw new Error("Match changed");
-                        const response = await fetch("/api/offers/identify", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                offer_id: target.offer_id, epoch,
-                                slot: ["left", "centre", "right"][index],
-                                augment_id: augmentId,
-                            }),
-                        });
-                        if (!response.ok) throw new Error("Identity not accepted");
-                        const updated = await response.json();
-                        if (Array.isArray(updated.offers)) currentOffers = updated.offers;
-                    }
-                    identifyButton.textContent = "Identity saved — not confirmed";
-                } catch (_) {
-                    identifyButton.textContent = "Identity not saved (offer changed or invalid)";
-                } finally {
-                    identifyButton.disabled = false;
-                }
-            });
-        }
-        augmentSearch.addEventListener("input", () => {
-            clearTimeout(searchDebounce);
-            searchDebounce = setTimeout(doAugmentSearch, 200);
-        });
-
-        tierFilter.addEventListener("change", doAugmentSearch);
-
-        btnEvaluate.addEventListener("click", () => {
-            if (selectedAugmentIds.length > 0) {
-                wsSend({ type: "set_augment_choices", augment_ids: selectedAugmentIds });
-                $("section-augments").classList.remove("collapsed");
+    function bindOfferRecovery() {
+        augmentRecover.addEventListener("click", () => {
+            if (document.body && document.body.classList &&
+                document.body.classList.contains("interactive-mode")) {
+                recoverOffer();
             }
         });
-
-        btnClearInput.addEventListener("click", () => {
-            selectedAugmentIds = [];
-                searchResults.innerHTML = "";
-            augmentSearch.value = "";
-            wsSend({ type: "clear_augments" });
-        });
     }
 
-    async function doAugmentSearch() {
-        const query = augmentSearch.value.trim();
-        const tier = tierFilter.value;
-
-        if (query.length < 2 && !tier) {
-            searchResults.innerHTML = "";
-            return;
-        }
-
-        let url = `/api/augments/search?q=${encodeURIComponent(query)}`;
-        if (tier) url += `&tier=${tier}`;
-
-        try {
-            const res = await fetch(url);
-            const results = await res.json();
-            renderSearchResults(results);
-        } catch (e) {
-            searchResults.innerHTML = '<div style="color:var(--red);padding:4px;">Search failed</div>';
-        }
-    }
-
-    function renderSearchResults(results) {
-        searchResults.innerHTML = "";
-
-        if (results.length === 0) {
-            searchResults.innerHTML = '<div style="color:var(--text-dim);padding:4px;">No matches</div>';
-            return;
-        }
-
-        results.forEach((aug) => {
-            if (selectedAugmentIds.includes(aug.id)) return;
-
-            const tierLabels = { 0: "Stat", 1: "Silver", 2: "Gold", 3: "Prismatic" };
-            const item = document.createElement("div");
-            item.className = "search-result-item";
-            item.innerHTML = `
-                <span class="sr-name">${esc(aug.name)}</span>
-                <span class="sr-tier tier-${aug.tier}">${tierLabels[aug.tier] || ""}</span>
-            `;
-            item.addEventListener("click", () => {
-                if (selectedAugmentIds.length < 3 && !selectedAugmentIds.includes(aug.id)) {
-                    selectedAugmentIds.push(aug.id);
-                                renderSearchResults(results);
-                }
-            });
-            searchResults.appendChild(item);
+    function bindWindowMessages() {
+        // Qt Alt+B posts this local UI-only message to the WebView.
+        window.addEventListener("message", (event) => {
+            if (event && event.data && event.data.type === "toggle_build") {
+                handleMessage(event.data);
+            }
         });
-    }
-
-    function renderSelectedAugments() {
-        selectedAugments.innerHTML = "";
-
-        selectedAugmentIds.forEach((id) => {
-            const name = (staticNames.augments[id] && staticNames.augments[id].name) || id;
-            const chip = document.createElement("div");
-            chip.className = "selected-aug-chip";
-            chip.innerHTML = `
-                <span>${esc(name)}</span>
-                <span class="chip-remove" data-id="${esc(id)}">&times;</span>
-            `;
-            chip.querySelector(".chip-remove").addEventListener("click", () => {
-                selectedAugmentIds = selectedAugmentIds.filter((a) => a !== id);
-                    });
-            selectedAugments.appendChild(chip);
-        });
-
-        btnEvaluate.disabled = selectedAugmentIds.length === 0;
-        btnEvaluate.textContent = `Evaluate (${selectedAugmentIds.length}/3)`;
     }
 
     // -- Keyboard --
