@@ -266,3 +266,62 @@ def test_direct_verified_boot_swap_and_exclusive_conflict():
         exclusive_item_groups=groups,
     )
     assert state.boot_replacement is None
+
+
+def test_boot_swap_ignores_reward_variants_and_occupied_spellblade_group():
+    boots = _item("3047", item_class="boots_tier2", boots=True, ms_flat=45)
+    owned = [_item("3078", ad=0.1)] + [
+        _item(f"owned-{n}", ad=0.1) for n in range(4)
+    ]
+    selected = [boots.id, *(item.id for item in owned)]
+    variant = _item("773142", ap=20.0, ms_pct=0.2, item_class="mode_variant")
+    reward = _item("226668", ap=20.0, ms_pct=0.2, item_class="augment_reward")
+    conflicted = _item("3100", ap=20.0, ms_pct=0.2)
+    result = suggest_build(
+        _champion(), [], selected, 5000,
+        [boots, *owned, variant, reward, conflicted],
+        catalog_verified=True,
+        exclusive_item_groups={"Spellblade": frozenset({"3078", "3100"})},
+    )
+    assert result.boot_replacement is None
+
+
+def test_offered_candidate_augment_never_acts_as_a_confirmed_augment():
+    from backend.models import AugmentData, AugmentTier
+
+    champion = ChampionMeta("empty", "Empty", StatVector(), role="mage")
+    boots = _item("3047", item_class="boots_tier2", boots=True, ms_flat=45)
+    owned = [_item(f"owned-{n}") for n in range(5)]
+    candidate_item = _item("ap-mobility", ap=1.0, ms_pct=0.05)
+    selected = [boots.id, *(item.id for item in owned)]
+    offer_candidate = AugmentData(
+        "offer-only", "AP Candidate", AugmentTier.GOLD, "",
+        StatVector(ap=10.0),
+    )
+
+    def choose(confirmed_augments):
+        return suggest_build(
+            champion, confirmed_augments, selected, 5000,
+            [boots, *owned, candidate_item], build_style="Damage",
+            catalog_verified=True,
+        ).boot_replacement
+
+    no_confirmation = choose([])
+    # Merely recognizing offer_candidate does not add it to active augments.
+    unconfirmed_offer = choose([])
+    confirmed = choose([offer_candidate])
+    assert no_confirmation is None
+    assert unconfirmed_offer is None
+    assert confirmed is not None
+    assert confirmed.buy_item_id == "ap-mobility"
+
+
+def test_unknown_inventory_disables_precise_next_purchase(monkeypatch, tmp_path):
+    sd = _verified_data(monkeypatch, tmp_path)
+    state = _build(sd, ["3047", "999999"], gold=6000)
+    assert state.full_build[0] == "3047"
+    assert state.next_item_id is None
+    assert state.next_item_gold_needed == 0
+    assert state.gold_to_next == 0
+    assert state.build_unavailable_reason == "inventory_unknown"
+    assert state.boot_replacement is None
