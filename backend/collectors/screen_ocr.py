@@ -78,6 +78,7 @@ MAX_SCREENSHOT_AGE_SECONDS = 3 * 24 * 3600
 
 # Perceptual hash size (NxN grid). Higher = more sensitive to small changes.
 HASH_SIZE = 32
+BURST_SECOND_READ_DELAY_S = 0.5  # A4: one fresh, proven second capture in the same tick
 
 
 
@@ -152,11 +153,13 @@ class ScreenWatcher:
 
     def __init__(
         self, *, independent_observer=None, approved_calibration: str | None = None,
+        sleep_fn=None,
     ) -> None:
         import threading
         from backend.collectors.slot_temporal import SlotTemporalTracker
 
         self._lock = threading.RLock()
+        self._sleep = sleep_fn if sleep_fn is not None else time.sleep
         self._temporal = SlotTemporalTracker()
         # Production passes neither observer nor calibration: no automatic
         # disappearance. Tests may inject only synthetic independent cues.
@@ -193,6 +196,40 @@ class ScreenWatcher:
             self._set_scan_stage("not_scanned")
             reset_capture_state()  # End of offer/match closes the WGC HWND session.
 
+    @staticmethod
+    def _verified_region(capture: "RegionCapture", game: LeagueWindow) -> bool:
+        """Defensively require A3 source evidence for each OCR observation."""
+        if (not isinstance(capture, RegionCapture) or capture.reason != "ok"
+                or capture.image is None or not isinstance(capture.proof, CaptureProof)):
+            return False
+        proof = capture.proof
+        return (
+            proof.backend in ("wgc", "mss_zorder")
+            and proof.hwnd == game.hwnd
+            and proof.client_rect == game.rect
+            and isinstance(proof.captured_at, (int, float))
+            and math.isfinite(proof.captured_at)
+            and proof.captured_at > 0
+        )
+
+    def _capture_failure(self, reason: str) -> tuple[str, None]:
+        """Discard pending OCR and preserve A3's conservative failure mapping."""
+        self._capture_stale = True
+        self._temporal.suspend()
+        self._absence_gate.suspend()
+        self._refocus_pending = True
+        self._transition_open = False
+        if reason in ("no_window", "minimized", "unsupported_platform"):
+            stage, action = "game_window_unavailable", "unavailable"
+        elif reason == "occluded":
+            stage, action = "game_occluded", "occluded"
+        else:
+            stage, action = "capture_invalid", "capture_unavailable"
+        self._set_scan_stage(stage)
+        from backend.diagnostic_events import events
+        events.transition("ocr_recognition", outcome=action)
+        return (action, None)
+
     def check(
         self,
         augment_names: dict[str, str],
@@ -227,25 +264,14 @@ class ScreenWatcher:
                 self._set_scan_stage("game_window_unavailable")
                 return ("unavailable", None)
             result = capture_augment_region(monitor_index, league_window=game)
-            if (not isinstance(result, RegionCapture) or result.reason != "ok"
-                    or result.image is None or not isinstance(result.proof, CaptureProof)):
-                self._capture_stale = True
-                self._temporal.suspend()
-                self._absence_gate.suspend()
-                self._refocus_pending = True
-                self._transition_open = False
-                reason = result.reason if isinstance(result, RegionCapture) else "invalid_frame"
-                if reason in ("no_window", "minimized", "unsupported_platform"):
-                    stage, action = "game_window_unavailable", "unavailable"
-                elif reason == "occluded":
-                    stage, action = "game_occluded", "occluded"
-                else:
-                    stage, action = "capture_invalid", "capture_unavailable"
-                self._set_scan_stage(stage)
-                from backend.diagnostic_events import events
-                events.transition("ocr_recognition", outcome=action)
-                return (action, None)
-            img = result.image
+            if not self._verified_region(result, game):
+                reason = (
+                    result.reason if isinstance(result, RegionCapture) and result.reason != "ok"
+                    else "invalid_frame"
+                )
+                return self._capture_failure(reason)
+            capture = result
+            img = capture.image
             if self._capture_stale:
                 self._temporal.suspend()
                 self._capture_stale = False
@@ -274,10 +300,66 @@ class ScreenWatcher:
                     cue = self._independent_observer(img, game)
                 except Exception:
                     logger.exception("Independent offer visual cue failed closed")
+            # A4 must not discard a calibrated first-frame occlusion when
+            # the next frame becomes readable: the provisional title scan
+            # cannot be allowed to confirm a possibly obstructed offer.
+            if self._absence_gate.is_approved(cue, key) and cue.verdict == "occluded":
+                self._temporal.suspend()
+                self._transition_open = False
+                self._refocus_pending = False
+                self._set_scan_stage("titles_transition")
+                return ("transition", None)
+
             result = self._temporal.observe(
                 crops, augment_names, recognize_title_slot,
                 _perceptual_hash, _hamming_distance,
             )
+            if result is None and self._temporal.has_pending:
+                # Reverting to a historical baseline within this burst must
+                # not make an interrupted offer current without fresh proof.
+                if self._temporal.snapshot() is not None and not self._refocus_pending:
+                    self._transition_open = True
+                # Do not carry one pending frame across occlusion to complete
+                # temporal verification. Re-capture and independently prove
+                # the second frame in this serialized, worker-thread tick.
+                try:
+                    self._sleep(BURST_SECOND_READ_DELAY_S)
+                except (OSError, RuntimeError):
+                    return self._capture_failure("invalid_frame")
+                second = capture_augment_region(monitor_index, league_window=game)
+                if not self._verified_region(second, game):
+                    reason = (
+                        second.reason if isinstance(second, RegionCapture) and second.reason != "ok"
+                        else "invalid_frame"
+                    )
+                    return self._capture_failure(reason)
+                # A3 can return the latest WGC callback more than once. A
+                # previously observed callback must never count as a new read.
+                if second.proof.captured_at <= capture.proof.captured_at:
+                    return self._capture_failure("invalid_frame")
+                second_crops = crop_title_slots(
+                    second.image, rect, get_augment_region(width, height),
+                )
+                if second_crops is None:
+                    self._capture_stale = True
+                    self._temporal.suspend()
+                    self._absence_gate.suspend()
+                    self._refocus_pending = True
+                    self._transition_open = False
+                    self._set_scan_stage("geometry_unsupported")
+                    return ("unavailable", None)
+                capture = second
+                img = capture.image
+                if self._independent_observer is not None:
+                    try:
+                        cue = self._independent_observer(img, game)
+                    except Exception:
+                        logger.exception("Independent offer visual cue failed closed")
+                        cue = None
+                result = self._temporal.observe(
+                    second_crops, augment_names, recognize_title_slot,
+                    _perceptual_hash, _hamming_distance,
+                )
             pending = self._temporal.has_unverified_changes
             current = self._temporal.snapshot()
             fresh_named = (
@@ -332,7 +414,7 @@ class ScreenWatcher:
                 self._last_detected = list(result)
                 if save:
                     save_screenshot(
-                        img, label="verified_title_slots", proof=result.proof,
+                        img, label="verified_title_slots", proof=capture.proof,
                     )
                 self._set_scan_stage("titles_detected")
                 return ("detected", result)

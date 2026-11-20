@@ -56,6 +56,11 @@ class SlotTemporalTracker:
         self._refresh_required = True
 
     @property
+    def has_pending(self) -> bool:
+        """True while any physical title slot awaits a confirming OCR read."""
+        return bool(self._pending)
+
+    @property
     def has_unverified_changes(self) -> bool:
         """Some title slot is still awaiting a second C3 verification read.
 

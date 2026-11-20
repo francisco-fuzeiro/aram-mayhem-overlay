@@ -2,6 +2,8 @@
 
 A detected Tesseract binary is not proof a Mayhem offer was recognized.
 """
+from itertools import count
+
 from PIL import Image
 
 from backend.api import server
@@ -15,9 +17,12 @@ WINDOW = LeagueWindow(7, 8, 31, 2552, 1384, True)
 NAMES = {"1": "En Passant", "2": "Ravenous Bind", "3": "It's Killing Time"}
 
 
+_PROOF_TIMES = count(10)
+
+
 def proven(region, game=WINDOW):
     return screen_ocr.RegionCapture(
-        region, CaptureProof("wgc", game.hwnd, game.rect, 10.0, "other"), "ok",
+        region, CaptureProof("wgc", game.hwnd, game.rect, float(next(_PROOF_TIMES)), "other"), "ok",
     )
 
 
@@ -52,22 +57,18 @@ def test_ocr_scan_stage_separates_capture_failure_and_geometry(monkeypatch):
 
 
 def test_ocr_scan_stage_distinguishes_unreadable_text_from_verified_offer(monkeypatch):
-    watcher = screen_ocr.ScreenWatcher()
+    watcher = screen_ocr.ScreenWatcher(sleep_fn=lambda _: None)
     region = screen_ocr.get_augment_region(2544, 1353)
     strip = Image.new("RGB", (int(2544 * (region[2] - region[0])), int(1353 * (region[3] - region[1]))))
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: WINDOW)
     monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: proven(strip))
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", lambda *_a: None)
-    watcher.check(NAMES)
-    assert watcher.last_scan_stage == "titles_verifying"
     assert watcher.check(NAMES)[0] == "no_augments"
     assert watcher.last_scan_stage == "titles_unidentified"
     watcher.reset()
     matches = {"left": ("1", "En Passant", 100), "centre": ("2", "Ravenous Bind", 100), "right": ("3", "It's Killing Time", 100)}
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", lambda slot, *_a: matches[slot])
-    watcher.check(NAMES)
-    assert watcher.last_scan_stage == "titles_verifying"
     action, result = watcher.check(NAMES)
     assert action == "detected"
     assert [r[0] for r in result] == ["1", "2", "3"]

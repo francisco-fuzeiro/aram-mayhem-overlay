@@ -138,10 +138,12 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
     from backend.collectors.window_capture import CaptureProof
+    from itertools import count
+    proof_times = count(10)
     monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *a, **kw:
                         screen_ocr.RegionCapture(
                             strip, CaptureProof("wgc", window.hwnd, window.rect,
-                                                10.0, "league"), "ok"))
+                                                float(next(proof_times)), "league"), "ok"))
     monkeypatch.setattr(screen_ocr, "extract_text", lambda *a, **kw:
                         pytest.fail("legacy whole-ROI OCR was called"))
     known = {"left": ("1", "En Passant", 96),
@@ -151,9 +153,8 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
     from backend.collectors import slot_title_ocr
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot",
                         lambda slot, _crop, _names: known[slot])
-    # C3: one provisional frame cannot be published as three confirmed cards.
-    watcher = screen_ocr.ScreenWatcher()
-    assert watcher.check(NAMES)[0] == "no_augments"
+    # A4 still rejects one read; two proven frames confirm in one tick.
+    watcher = screen_ocr.ScreenWatcher(sleep_fn=lambda _: None)
     action, matches = watcher.check(NAMES)
     assert action == "detected"
     assert matches.slots["left"][0] == "1"

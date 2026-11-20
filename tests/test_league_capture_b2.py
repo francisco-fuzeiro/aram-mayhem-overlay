@@ -1,5 +1,6 @@
 """M4/B2: League-window-only crop and focus/stale OCR regression tests."""
 from unittest.mock import Mock
+from itertools import count
 
 from backend.collectors import screen_ocr
 from backend.collectors.league_window import LeagueWindow
@@ -14,13 +15,16 @@ def league(*, focused=True):
     )
 
 
+_PROOF_TIMES = count(10)
+
+
 def _verified_client(*, foreground="other"):
     from PIL import Image
     from backend.collectors.window_capture import CaptureProof, CaptureResult
     game = league(focused=False)
     return CaptureResult(
         Image.new("RGB", (1920, 1080), (21, 37, 99)),
-        CaptureProof("wgc", game.hwnd, game.rect, 10.0, foreground), "ok",
+        CaptureProof("wgc", game.hwnd, game.rect, float(next(_PROOF_TIMES)), foreground), "ok",
     )
 
 
@@ -74,10 +78,10 @@ def test_foreground_loss_does_not_block_verified_wgc_ocr(monkeypatch):
         reads.append(slot)
         return ("new", "New", 95) if slot == "left" else None
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read)
-    watcher = screen_ocr.ScreenWatcher()
-    assert watcher.check({})[0] == "no_augments"
+    watcher = screen_ocr.ScreenWatcher(sleep_fn=lambda _: None)
     action, matches = watcher.check({})
     assert action == "detected"
+    assert watcher.check({}) == ("unchanged", None)
     assert matches.slots["left"][0] == "new"
     assert reads == ["left", "centre", "right"] * 2
 
