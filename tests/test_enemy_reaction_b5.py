@@ -105,6 +105,7 @@ def test_all_181_item_properties_match_versioned_fixture():
     ("<main>Magic Penetration</main> and <i>Omnivamp</i>",
      frozenset({"magic_pen", "omnivamp"})),
     ("Shield &amp; Tenacity", frozenset({"shield", "tenacity"})),
+    ("Omnivamp and Grievous&nbsp;Wounds", frozenset({"omnivamp", "anti_heal"})),
 ])
 def test_text_classifier_strips_html_and_uses_complete_wounds_word(description, expected):
     assert item_properties({"stats": {}, "description": description}) == expected
