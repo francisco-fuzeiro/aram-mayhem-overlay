@@ -1007,13 +1007,16 @@ def _run_ocr_scan_manual() -> _ManualScanEvidence:
     concurrent automatic read cannot change the evidence before it is copied.
     """
     augment_names = _ocr_title_catalog()
-    with screen_watcher._lock:
+    with getattr(screen_watcher, "_lock", nullcontext()):
         matches = detect_augments(
             augment_names, save=config.get("ocr_debug_screenshots", False) is True,
         )
-        proven = bool(matches) and screen_watcher.last_scan_stage == "titles_detected"
-        reverified = bool(proven and screen_watcher._temporal.last_emit_reverified)
-        foreground = screen_watcher._last_foreground
+        proven = bool(matches) and getattr(
+            screen_watcher, "last_scan_stage", "not_scanned",
+        ) == "titles_detected"
+        temporal = getattr(screen_watcher, "_temporal", None)
+        reverified = bool(proven and getattr(temporal, "last_emit_reverified", False))
+        foreground = getattr(screen_watcher, "_last_foreground", "other")
     event_log.emit(
         "ocr_recognition", outcome="manual_detected" if proven else "manual_empty",
         count=len(matches or []),
