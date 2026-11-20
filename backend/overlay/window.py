@@ -525,7 +525,8 @@ if PYQT_AVAILABLE:
                     style & ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE),
                 )
                 self._view.page().runJavaScript(
-                    "document.body.classList.add('interactive-mode')"
+                    "document.body.classList.add('interactive-mode');"
+                    "window.dispatchEvent(new Event('aram-interaction-changed'))"
                 )
             else:
                 self._is_click_through = True
@@ -533,7 +534,8 @@ if PYQT_AVAILABLE:
                 self.show()
                 self._apply_capture_exclusion()
                 self._view.page().runJavaScript(
-                    "document.body.classList.remove('interactive-mode')"
+                    "document.body.classList.remove('interactive-mode');"
+                    "window.dispatchEvent(new Event('aram-interaction-changed'))"
                 )
                 # Qt may recreate its HWND during the flag change.
                 QTimer.singleShot(0, self._set_click_through)
