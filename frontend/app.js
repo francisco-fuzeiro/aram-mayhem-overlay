@@ -48,7 +48,6 @@
     const offerActionStatus = $("augment-action-status");
     const buildFooter = $("build-footer");
     const buildAlternatives = $("build-alternatives");
-    const buildStyleCurrent = $("build-style-current");
     const enemyList = $("enemy-list");
     const ocrStatusBadge = $("ocr-status");
     const augmentConfirm = $("augment-confirm");
@@ -377,8 +376,9 @@
             return;
         }
 
+
         if (msg.type === "ocr_result") {
-            // Never use a previous match or offer generation to clear stale.
+            // An older game/offer cannot modify current on-screen identities.
             if (!lastResult) return;
             if (typeof msg.match_id === "string" && activeMatchId &&
                 msg.match_id !== activeMatchId) return;
@@ -387,8 +387,6 @@
             if (msg.status === "superseded") return;
             if (typeof msg.offer_state === "string") offerState = msg.offer_state;
             if (Array.isArray(msg.offers)) currentOffers = msg.offers;
-
-            // Legacy packets cannot turn a focus indicator into a capture gate.
             const phase = OCR_PHASE_LABELS[msg.phase] ? msg.phase
                 : msg.status === "not_focused" ? "capture_unavailable"
                 : msg.status === "unavailable" ? "no_game"
@@ -399,64 +397,24 @@
                 : Array.isArray(msg.detected) && msg.detected.length ? "detected" : "no_offer";
             const closed = msg.status === "disappeared" && offerState === "gone";
             updateOcrPhase(phase, msg.stale, msg.reverified === true, closed);
-
-            if (closed) {
-                // Only a verified negative offer observation closes this view.
-                currentOcrSlots = null;
-                renderOcrResult([], []);
-                augmentList.replaceChildren();
-                augmentConfirm.classList.add("hidden");
+            if (closed) currentOcrSlots = null;
+            if (phase === "detected" && !ocrStale &&
+                Array.isArray(msg.detected) && msg.detected.length) {
+                const slots = Object.fromEntries(msg.detected
+                    .filter(d => d && ["left", "centre", "right"].includes(d.slot))
+                    .map(d => [d.slot, typeof d.id === "string" ? d.id : null]));
+                currentOcrSlots = normalizedOcrSlots(slots);
             }
-
-            if (phase === "occluded" || phase === "capture_unavailable" ||
-                phase === "no_game" || phase === "disabled" ||
-                phase === "ocr_missing" || phase === "verifying" ||
-                phase === "unreadable" || phase === "no_offer" || closed) {
-                $("section-augments").classList.add("collapsed");
-                $("section-input").classList.add("collapsed");
-                // Keep the historical names available with STALE, never rank
-                // them while capture is missing or C3 is still confirming.
-                augmentList.replaceChildren();
-                rerollBadge.classList.add("hidden");
-                rerollBanner.classList.add("hidden");
-                augmentConfirm.classList.add("hidden");
-                scanning = false;
-                btnScan.textContent = "Scan Screen";
-                updateOcrStatusBadge();
-                return;
-            }
-
-            if (Array.isArray(msg.detected) && msg.detected.length && !ocrStale) {
-                if (typeof msg.offer_state !== "string") {
-                    offerState = msg.detected.some(d => d && typeof d.id === "string")
-                        ? "present" : "uncertain";
-                }
-                const candidates = Object.fromEntries(
-                    msg.detected
-                        .filter(d => d && ["left", "centre", "right"].includes(d.slot))
-                        .map(d => [d.slot, typeof d.id === "string" ? d.id : null]),
-                );
-                currentOcrSlots = normalizedOcrSlots(candidates);
-                if (lastResult) renderRecommendations(lastResult);
-                renderOcrResult(msg.detected, msg.augment_choices);
-            }
-            if (offerState === "present" && ocrPhase === "detected" && !ocrStale) {
-                $("section-augments").classList.remove("collapsed");
-                $("section-input").classList.remove("collapsed");
-            } else {
-                $("section-augments").classList.add("collapsed");
-                $("section-input").classList.add("collapsed");
-            }
+            renderRecommendations({...lastResult, ocr_phase: ocrPhase,
+                ocr_stale: ocrStale, offers: currentOffers});
+            autoExpandSections({...lastResult, ocr_phase: ocrPhase,
+                ocr_stale: ocrStale, offers: currentOffers});
             scanning = false;
-            btnScan.textContent = "Scan Screen";
-            updateOcrStatusBadge();
             return;
         }
 
         if (msg.type === "augment_auto_chosen") {
-            showAutoChosenToast(msg);
-            updateAugmentProgress(msg.augment_state);
-            augmentConfirm.classList.add("hidden");
+            // Historical suggestions never confirm a C2 pick or update a build.
             return;
         }
 
@@ -486,7 +444,6 @@
                 offerState = "suspended";
                 updateOcrPhase("disabled", true);
                 $("section-augments").classList.add("collapsed");
-                $("section-input").classList.add("collapsed");
                 augmentList.replaceChildren();
                 rerollBadge.classList.add("hidden");
                 rerollBanner.classList.add("hidden");
@@ -636,25 +593,6 @@
         augmentProgress.classList.remove("hidden");
         augmentProgress.className = "augment-progress" +
             (state.chosen >= max ? " complete" : "");
-    }
-
-    function showAutoChosenToast(msg) {
-        augmentToast.classList.remove("hidden");
-        const confPct = Math.round(msg.confidence * 100);
-        const isStatAnvil = !!(staticNames.stat_anvils && staticNames.stat_anvils[msg.augment_id]);
-        const label = isStatAnvil ? "Stat anvil" : "Auto-detected";
-        augmentToast.innerHTML = `
-            <div class="toast-inner${isStatAnvil ? " toast-stat-anvil" : ""}">
-                <span class="toast-icon">${isStatAnvil ? "&#9879;" : "&#10003;"}</span>
-                <span class="toast-text">${label}: <strong>${esc(msg.augment_name)}</strong> (${confPct}%)</span>
-            </div>
-        `;
-        $("section-augments").classList.remove("collapsed");
-
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            augmentToast.classList.add("hidden");
-        }, 4000);
     }
 
     function confirmTarget(augmentId) {
