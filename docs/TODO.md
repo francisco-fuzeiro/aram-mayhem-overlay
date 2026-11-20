@@ -1,5 +1,8 @@
 # ARAM Oracle — Product and UX TODO
 
+> **2026-11-20 D2 v3 progress:** [draft #68](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/68) stacked directly on verified D1 [draft #67](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/67) at `64980f7098efeaa9bb128d4df8aff877857d4d9d`; tests-only `3115cae57b22f2368f78b439fe6c205120eed7ea` intentionally RED (six D2 failures, 57 previous JS pass) at [Windows #44839445847](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44839445847). Code and test migration are on the child branch; final combined Python/Node/syntax and exact final-doc HEAD CI must be verified before ticking the D2 gate. N1 native and Riot approval remain open. No merges, no installer, C3/S1 or new gameplay; Settings Alt+S rebinding is deferred.
+
+
 ## Correction blueprints v3 — approved for phased implementation (2026-11-20); FEATURES DEFERRED
 
 **Master blueprint:** [docs/plans/ARAM_2026-11-20/README.md](plans/ARAM_2026-11-20/README.md); [v3 audit](plans/ARAM_2026-11-20/corrections/AUDITORIA_E_PLANO_v3_2026-11-20.md); [original ZIP](plans/ARAM_2026-11-20/sources/ARAM_blueprints_GPT_2026-11-20_v3.zip). These are source plans, NOT completed native fixes. The user explicitly prioritizes **corrections before new features**. Use a separate small stacked draft PR per phase and RED/GREEN/final-head Windows CI. Never merge `main` or request more League games before N1 gates.
