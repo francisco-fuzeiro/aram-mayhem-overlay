@@ -356,11 +356,13 @@ async def test_c4_all_unknown_titles_are_uncertain_not_gone_or_picked():
 
 
 @pytest.mark.asyncio
-async def test_c4_unfocused_watcher_suspends_without_clearing_or_choosing():
+async def test_c4_verified_offer_occlusion_suspends_without_clearing_or_choosing():
     state, deps, events = make_harness(
         [{"tick": 1}], [make_snapshot()], ocr=True,
-        watcher_result=("not_focused", [], None),
+        watcher_result=("occluded", [], None),
     )
+    state.scan_window_open = True
+    state.set_ocr_phase("detected")
     await poll_tick(state, deps, 42.0)
     assert state.offer_state == "suspended"
     assert state.ocr_stale is True
