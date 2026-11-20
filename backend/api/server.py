@@ -1514,9 +1514,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         state.offer_ledger.offers[-1].epoch + 1,
                     )
                     state.offer_ledger.set_current_epoch(state.offer_epoch)
-                    state.augment_choices.clear()
-                    state.ocr_slot_choices = None
-                    deps.screen_watcher.reset()
+                    # Historical OCR names stay stale until A3/A4 reverify;
+                    # the ledger keeps them separate from this new due offer.
+                    # Existing scan opening owns the single watcher reset.
                 # Open when a new pick level is reached OR on respawn.
                 expected = expected_augments_for_level(current_level)
                 have = len(state.offer_ledger.active_augment_ids())
