@@ -111,33 +111,76 @@ def _rank_items(
 
 
 def _fill_slots(
-    ranked: list[ItemData], owned: list[str] | Inventory,
-    all_items: list[ItemData], size: int,
+    ranked: list[ItemData],
+    owned: list[str] | Inventory,
+    all_items: list[ItemData],
+    size: int,
+    exclusive_item_groups: dict[str, frozenset[str]] | None = None,
 ) -> list[str]:
-    # B2: a component/reward occupies a physical inventory slot but is
-    # not a completed item in the recommended six-item build.
+    """Preserve acquired finals and fill only legal, distinct build slots."""
     finals = list(owned.finals) if isinstance(owned, Inventory) else list(owned)
+    selected = list(finals)
     by_id = {item.id: item for item in all_items}
-    selected = finals
+    groups = exclusive_item_groups or {}
+    memberships: dict[str, set[str]] = {}
+    for name, members in groups.items():
+        for ident in members:
+            memberships.setdefault(str(ident), set()).add(name)
+
     seen = set(finals)
-    # Avoid recommending two IDs with the same name ("Phantom Dancer" was
-    # duplicated in the first actual Windows Mayhem screenshot).
-    named = {
-        _item_name_key(by_id[item_id])
-        for item_id in finals if item_id in by_id
-    }
-    boots_taken = any(by_id.get(item_id) and by_id[item_id].boots for item_id in finals)
+    named = {_item_name_key(by_id[ident]) for ident in finals if ident in by_id}
+    occupied = set().union(*(memberships.get(ident, set()) for ident in finals))
+    boots_taken = any(
+        by_id.get(ident) is not None
+        and (by_id[ident].item_class == "boots_tier2" or by_id[ident].boots)
+        for ident in finals
+    )
+    basic_boots = (
+        isinstance(owned, Inventory)
+        and "1001" in owned.components
+        and not boots_taken
+    )
+
+    def is_tier_two(item: ItemData) -> bool:
+        return item.item_class == "boots_tier2" or (
+            item.boots and item.item_class not in {"component", "boots_tier1"}
+        )
+
+    def eligible(item: ItemData) -> bool:
+        return (
+            item.id not in seen
+            and _item_name_key(item) not in named
+            and not (is_tier_two(item) and boots_taken)
+            and not (memberships.get(item.id, set()) & occupied)
+            and item.item_class not in {"component", "boots_tier1"}
+        )
+
+    def take(item: ItemData) -> None:
+        nonlocal boots_taken
+        selected.append(item.id)
+        seen.add(item.id)
+        named.add(_item_name_key(item))
+        occupied.update(memberships.get(item.id, set()))
+        boots_taken |= is_tier_two(item)
+
+    # Reserve a final slot for an upgrade when basic Boots is equipped.
     for item in ranked:
         if len(selected) >= size:
             break
-        name_key = _item_name_key(item)
-        if item.id in seen or name_key in named or (item.boots and boots_taken):
+        if not eligible(item):
             continue
-        selected.append(item.id)
-        seen.add(item.id)
-        named.add(name_key)
-        if item.boots:
-            boots_taken = True
+        if basic_boots and not boots_taken and not is_tier_two(item):
+            if len(selected) >= size - 1:
+                continue
+        take(item)
+
+    if basic_boots and not boots_taken and len(selected) < size:
+        upgrade = next(
+            (item for item in ranked if is_tier_two(item) and eligible(item)),
+            None,
+        )
+        if upgrade is not None:
+            take(upgrade)
     return selected
 
 
