@@ -177,6 +177,11 @@ async def test_disappearance_inference_never_logs_automatic_confirmation(monkeyp
     state.stat_snapshot_level_before = 3
     state.stat_snapshot_items_before = ()
     state.augment_choices = ["private-id"]
+    offer = state.offer_ledger.on_level(3)
+    state.offer_ledger.on_verified_titles(
+        {"left": "private-id", "centre": None, "right": None}, offer.epoch,
+    )
+    state.offer_ledger.on_titles_unverified()
     monkeypatch.setattr(server, "game_state", state)
     candidate = SimpleNamespace(id="private-id", name="private-augment-name", tier=SimpleNamespace(value=2))
     fake_static = SimpleNamespace(
