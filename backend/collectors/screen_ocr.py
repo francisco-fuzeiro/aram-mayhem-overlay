@@ -300,6 +300,16 @@ class ScreenWatcher:
                     cue = self._independent_observer(img, game)
                 except Exception:
                     logger.exception("Independent offer visual cue failed closed")
+            # A4 must not discard a calibrated first-frame occlusion when
+            # the next frame becomes readable: the provisional title scan
+            # cannot be allowed to confirm a possibly obstructed offer.
+            if self._absence_gate.is_approved(cue, key) and cue.verdict == "occluded":
+                self._temporal.suspend()
+                self._transition_open = False
+                self._refocus_pending = False
+                self._set_scan_stage("titles_transition")
+                return ("transition", None)
+
             result = self._temporal.observe(
                 crops, augment_names, recognize_title_slot,
                 _perceptual_hash, _hamming_distance,

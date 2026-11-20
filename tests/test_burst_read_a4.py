@@ -32,7 +32,7 @@ def verified(codes=(10, 20, 30), timestamp=10.0, *, proof=True,
     return screen_ocr.RegionCapture(image, token, "ok")
 
 
-def setup(monkeypatch, frames):
+def setup(monkeypatch, frames, *, independent_observer=None, calibration=None):
     """Record every capture/slot/OCR/sleep without using an actual device."""
     queue = list(frames)
     captures = []
@@ -63,7 +63,11 @@ def setup(monkeypatch, frames):
         return TITLES[slot].get(image.getpixel((0, 0))[0])
 
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read)
-    watcher = screen_ocr.ScreenWatcher(sleep_fn=delays.append)
+    watcher = screen_ocr.ScreenWatcher(
+        sleep_fn=delays.append,
+        independent_observer=independent_observer,
+        approved_calibration=calibration,
+    )
     return watcher, captures, delays, reads
 
 
@@ -183,3 +187,35 @@ def test_direct_temporal_pending_is_read_only():
     tracker = SlotTemporalTracker()
     assert tracker.has_pending is False
     assert tracker.has_pending == tracker.has_unverified_changes
+
+
+def test_second_capture_window_change_discards_pending(monkeypatch):
+    watcher, captures, delays, reads = setup(
+        monkeypatch, [verified(timestamp=10.0), verified(reason="window_changed")]
+    )
+    assert watcher.check({}) == ("capture_unavailable", None)
+    assert not watcher._temporal.has_pending
+    assert watcher.current_slots is None
+    assert reads == Counter({"left": 1, "centre": 1, "right": 1})
+    assert captures == [1, 2]
+    assert delays == [0.5]
+
+
+def test_calibrated_first_frame_occlusion_blocks_even_a_proven_burst(monkeypatch):
+    from backend.collectors.offer_visibility import IndependentCue
+
+    key = (GAME.hwnd, GAME.rect)
+    def observer(_image, _window):
+        return IndependentCue("occluded", "a4-synthetic", key)
+
+    watcher, captures, delays, reads = setup(
+        monkeypatch, [verified(timestamp=10.0), verified(timestamp=10.6)],
+        independent_observer=observer, calibration="a4-synthetic",
+    )
+    assert watcher.check({}) == ("transition", None)
+    assert watcher.last_scan_stage == "titles_transition"
+    assert watcher.current_slots is None
+    assert not watcher._temporal.has_pending
+    assert captures == [1]
+    assert delays == []
+    assert reads == Counter()
