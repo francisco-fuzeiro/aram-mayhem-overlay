@@ -2,6 +2,14 @@
 
 Append-only timeline. Entries are factual snapshots, not future promises. For the latest task plan, read [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
+## 2026-11-20 — PG Riot policy guardrails (draft PR #55, offline code GREEN)
+
+- Verified existing A2 draft #54 at exact `19e8e02ad643d5bc464f48e413f9beb93a0cd20f`, with final [Windows #44760163004](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44760163004) SUCCESS, 594 Python/53 JavaScript. Created `fix/pg-riot-policy-guardrails` from that SHA and [child draft #55](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/55) directly targeting A2. No merges or `main` writes.
+- First `tests/test_policy_p1.py` only commit `55d20092e4803faed6400ae5b076f8520250a564`: [RED Windows #44762530373](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44762530373) 596 Python passed / 7 failed, including six policy regressions and one WS harness setup error. The harness entered ASGI lifespan and replaced the mock pipeline; fixed by using the existing no-lifespan TestClient pattern, without relaxing the output assertions.
+- Production commit `c1b0e6c8f45e90400cc2deb589b2b7c90789f370`: recursive stripping of forbidden augment `win_rate`/`winrate`/`wins`/`wr` keys in outgoing pipeline serialization, LCU history import 403 unless `lcu_history_enabled` is explicitly true (default false), `PICK_CLICK_HINTS_ENABLED=False` with no VK_LBUTTON polling, changed manual UI wording from imperative `Choose this` to `Mark as chosen`, README and Settings About Riot non-endorsement notice, retained upstream MIT/third-party attribution and corrected policy claim. No input sent to League; no gameplay/capture/Qt/score/build behavior changed.
+- The first code run [Windows #44762958043](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44762958043) gave 602 Python passes / 1 test-only WS harness failure. Test correction `dfcf58f95b6f9898760616db2bb3554278c17e45` yielded [code GREEN Windows #44763116832](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44763116832): **603 Python passed, 51 warnings, 53 JavaScript passed, three JavaScript syntax checks successful**. New PG policy matrix and this handoff document prohibited vs permitted examples vs unresolved use cases with official sources. Separate final docs-HEAD CI verification is required at the resulting branch SHA.
+- This is an offline, test-supported safeguard, **not a Riot audit or authorization**. Live Windows Mayhem OCR/manual scan, item eligibility and HUD findings remain FAILED until grouped N1; release/Developer Portal registration, dynamic guidance, OCR and LCU review remain open. **Next B1 only** in another fresh stacked branch/PR after exact current documentation-head CI. No League launch or future features in PG.
+
 
 ## 2026-11-20 — A2 original real-title OCR regressions (draft PR #54, offline GREEN)
 
