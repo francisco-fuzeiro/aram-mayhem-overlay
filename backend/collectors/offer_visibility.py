@@ -100,15 +100,17 @@ _CARD_SLOTS = ("left", "centre", "right")
 def card_teal_fraction(title_crop: "Image.Image") -> float:
     """Return the RGB fraction within ±12 of all three reference channels."""
     rgb = title_crop.convert("RGB")
-    pixels = rgb.getdata()
+    pixels = rgb.tobytes()
     total = rgb.width * rgb.height
     if total <= 0:
         return 0.0
     red, green, blue = CARD_BG_RGB
     tol = CARD_BG_CHANNEL_TOLERANCE
     matched = sum(
-        1 for r, g, b in pixels
-        if abs(r - red) <= tol and abs(g - green) <= tol and abs(b - blue) <= tol
+        1 for i in range(0, len(pixels), 3)
+        if abs(pixels[i] - red) <= tol
+        and abs(pixels[i + 1] - green) <= tol
+        and abs(pixels[i + 2] - blue) <= tol
     )
     return matched / total
 

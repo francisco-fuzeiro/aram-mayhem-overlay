@@ -152,3 +152,34 @@ def test_c1_five_absent_ticks_cannot_close_offer_or_change_actions(monkeypatch):
                         lambda *args, **kwargs: screen_ocr.RegionCapture(Image.new("RGB", (30, 30)), None, "ok"))
     assert watcher.check({})[0] == "capture_unavailable"
     assert len([event for event, _ in observed if event == "offer_cue"]) == 1
+
+
+def test_c1_shadow_cue_transitions_never_call_absence_gate(monkeypatch):
+    watcher = screen_ocr.ScreenWatcher()
+    observed = []
+    monkeypatch.setattr(
+        watcher._absence_gate, "observe",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("shadow cue reached gameplay gate")),
+    )
+    monkeypatch.setattr(
+        events, "transition",
+        lambda event, **fields: observed.append((event, fields)) or True,
+    )
+    light = Image.new("RGB", (4, 4), (3, 16, 18))
+    dark = Image.new("RGB", (4, 4), (200, 100, 80))
+    present = dict.fromkeys(("left", "centre", "right"), light)
+    absent = dict.fromkeys(("left", "centre", "right"), dark)
+    mixed = {"left": light, "centre": dark, "right": light}
+    watcher._record_shadow_cue(present)
+    watcher._record_shadow_cue(present)
+    watcher._record_shadow_cue(mixed)
+    watcher._record_shadow_cue(absent)
+    watcher._record_shadow_cue(absent, ocr_titles=True)
+    watcher._record_shadow_cue(absent, ocr_titles=True)
+    assert observed == [
+        ("offer_cue", {"cue": "present", "ocr": "none"}),
+        ("offer_cue", {"cue": "mixed", "ocr": "none"}),
+        ("offer_cue", {"cue": "absent", "ocr": "none"}),
+        ("offer_cue", {"cue": "absent", "ocr": "titles"}),
+    ]
+    assert watcher._absence_gate._approved is None
