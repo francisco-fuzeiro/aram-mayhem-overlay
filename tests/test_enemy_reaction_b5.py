@@ -347,3 +347,36 @@ def test_pipeline_reacts_to_visible_items_and_preserves_serialized_b4_payload(mo
     serialized = _serialize_result(tick2, data)
     assert serialized["build_state"]["alternatives"] == {}
     assert serialized["enemy_analysis"]["magic_resist_items"] == 3
+
+
+def test_two_source_loader_computes_properties_from_raw_dd_and_persists_them(tmp_path):
+    """Exercise the production DD extraction path, not only a direct cache."""
+    from backend.static_data.loader import _assemble_item_catalog
+
+    meta = ItemPoolMeta(
+        policy_version="item_pool_v2", ddragon_version="16.23.1",
+        cdragon_patch="16.23.8406595+branch.test",
+        cdragon_sha256="b" * 64, cdragon_fetched_at="2026-11-20T00:00:00Z",
+        overrides_version="2026-11-20.1", availability="verified_two_source",
+    )
+    dd = {"3072": {
+        "name": "Synthetic Bloodthirster", "maps": {"12": True},
+        "gold": {"purchasable": True, "total": 3400},
+        "from": [], "into": [], "tags": ["Damage"],
+        "stats": {"PercentLifeStealMod": 0.15},
+        "description": "<main>Gain a <b>Shield</b> on damage</main>",
+    }}
+    cd = {"3072": {
+        "inStore": True, "displayInItemSets": True,
+        "priceTotal": 3400, "from": [], "to": [],
+    }}
+    source = _assemble_item_catalog(dd, cd, {"force_class": {}}, meta, "network")
+    assert source["3072"].item_class == "final"
+    assert source["3072"].properties == frozenset({"lifesteal", "shield"})
+    payload = _encode_item_cache(source)
+    assert payload["items"]["3072"]["properties"] == ["lifesteal", "shield"]
+    path = tmp_path / "items_v5_16.23.1.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    restored = _verified_cached_items(path, "16.23.1", meta.overrides_version)
+    assert restored is not None
+    assert restored["3072"].properties == source["3072"].properties
