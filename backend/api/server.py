@@ -73,6 +73,23 @@ class _ManualScanEvidence(tuple):
         return obj
 
 
+def _ledger_verified_titles(ledger: OfferLedger, slots: dict[str, str | None],
+                            epoch: int) -> None:
+    """Apply OCR identity atomically, logging only approved override metadata."""
+    if not ledger.offers:
+        raise LedgerError("unknown_offer")
+    offer = ledger.offers[-1]
+    previous = {
+        slot: identity.augment_id
+        for slot, identity in offer.slots.items()
+        if identity.source == "user_identify"
+    }
+    ledger.on_verified_titles(slots, epoch)
+    for slot, former in previous.items():
+        if slots.get(slot) is not None and slots[slot] != former:
+            event_log.emit("identity_overridden", slot=slot, verified_by="ocr")
+
+
 def _manual_scan_parts(value):
     """A legacy untyped result is NEVER capture evidence."""
     ids, detected = value[:2]
@@ -267,8 +284,8 @@ class GameState:
             return False
         if self.offer_ledger.offers and current_ids and (not self.ocr_stale or reverified):
             try:
-                self.offer_ledger.on_verified_titles(
-                    slots, self.offer_ledger.offers[-1].epoch,
+                _ledger_verified_titles(
+                    self.offer_ledger, slots, self.offer_ledger.offers[-1].epoch,
                 )
             except LedgerError:
                 return False
@@ -1647,8 +1664,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                                     and any(verified_slots.values())):
                                 try:
                                     newest = state.offer_ledger.offers[-1]
-                                    state.offer_ledger.on_verified_titles(
-                                        verified_slots, newest.epoch,
+                                    _ledger_verified_titles(
+                                        state.offer_ledger, verified_slots, newest.epoch,
                                     )
                                 except LedgerError:
                                     pass  # no inferred/unsafe confirmation
