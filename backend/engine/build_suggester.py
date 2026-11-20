@@ -193,19 +193,36 @@ def _boot_replacement(
     allies: AllyTeamProfile | None,
     style: str,
     slots: int,
+    *,
+    catalog_verified: bool = False,
+    exclusive_item_groups: dict[str, frozenset[str]] | None = None,
+    item_data=None,
+    inventory: Inventory | None = None,
 ) -> BootReplacement | None:
-    """Offer a swap only for a full inventory with known movement-speed stats.
+    """Advisory boot sale for a verified, full and entirely known inventory.
 
-    The candidate must retain some *listed* movement speed and meaningfully
-    improve contextual item value after accounting for lost listed movement.
-    This is an advisory comparison, not a verified shop or actual MS prediction.
+    Only confirmed augments supplied by the caller may affect the contextual
+    value; candidates visible in an offer must never be passed here.
     """
-    if len(owned_ids) < slots:
+    if not catalog_verified:
         return None
+    if inventory is not None:
+        if inventory.used_slots != slots:
+            return None
+    elif len(owned_ids) != slots:
+        return None
+
     by_id = {item.id: item for item in item_catalog}
+
+    def resolve(ident: str) -> ItemData | None:
+        return item_data.get_item(ident) if item_data is not None else by_id.get(ident)
+
+    observed_items = [resolve(ident) for ident in owned_ids]
+    if any(item is None or item.item_class == "unknown" for item in observed_items):
+        return None
     current_boot = next(
-        (by_id[item_id] for item_id in owned_ids
-         if item_id in by_id and by_id[item_id].boots),
+        (item for item in observed_items if item is not None
+         and (item.item_class in {"boots_tier1", "boots_tier2"} or item.boots)),
         None,
     )
     if current_boot is None:
@@ -216,7 +233,7 @@ def _boot_replacement(
 
     boot_ms = listed_ms(current_boot)
     if boot_ms <= 0:
-        return None  # No trustworthy baseline for an unusual or unmapped boot.
+        return None
 
     weight = {"Balanced": 0.9, "Damage": 1.65, "Survival": 1.9, "Utility": 1.75}[style]
 
@@ -227,18 +244,22 @@ def _boot_replacement(
 
     boot_value = contextual_value(current_boot)
     observed = set(owned_ids)
-    owned_names = {
-        _item_name_key(by_id[item_id])
-        for item_id in owned_ids if item_id in by_id
+    owned_names = {_item_name_key(item) for item in observed_items if item is not None}
+    groups = exclusive_item_groups or {}
+    occupied_groups = {
+        name for name, members in groups.items()
+        if any(ident in members for ident in owned_ids if ident != current_boot.id)
     }
+
     candidates: list[tuple[float, str, ItemData, float]] = []
     for item in item_catalog:
         if (
-            item.id in observed or _item_name_key(item) in owned_names
-            or item.boots or listed_ms(item) <= 0
+            item.item_class != "final" or item.boots
+            or item.id in observed or _item_name_key(item) in owned_names
+            or listed_ms(item) <= 0
+            or any(item.id in groups[name] for name in occupied_groups)
         ):
             continue
-        # Larger loss of movement demands a stronger improvement elsewhere.
         speed_change = listed_ms(item) - boot_ms
         net_gain = (
             contextual_value(item) - boot_value
@@ -249,7 +270,6 @@ def _boot_replacement(
     if not candidates:
         return None
 
-    # Deterministic tie-breaker on item ID, not catalog order.
     _, _, replacement, speed_change = sorted(
         candidates, key=lambda row: (-row[0], row[1])
     )[0]
@@ -261,7 +281,7 @@ def _boot_replacement(
         reason=(
             "Potential late-game stat upgrade for the selected build style. "
             "Movement-speed difference is estimated from listed item stats only; "
-            "check Mayhem shop availability, passives and sell value before swapping."
+            "review passives and sell value before swapping."
         ),
     )
 
