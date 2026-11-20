@@ -279,7 +279,8 @@ def test_untrusted_proofless_roi_never_reaches_watcher(monkeypatch):
 def test_verified_recovery_resets_wgc_invalid_streak_budget():
     sources = []
     def factory(hwnd):
-        source = FakeFrame(np.zeros((540, 960, 4), dtype=np.uint8))
+        frame = valid_bgra() if len(sources) == 1 else np.zeros((540, 960, 4), dtype=np.uint8)
+        source = FakeFrame(frame)
         sources.append(source)
         return source
 
@@ -287,8 +288,8 @@ def test_verified_recovery_resets_wgc_invalid_streak_budget():
         assert capture(factory=factory).reason == "invalid_frame"
     # The first new session recovers once. A later unrelated failure streak
     # must get one fresh restart rather than being called permanently degraded.
-    sources[1].frame = valid_bgra()
     assert capture(factory=factory).reason == "ok"
+    assert len(sources) == 2
     sources[1].frame = np.zeros((540, 960, 4), dtype=np.uint8)
     for _ in range(10):
         assert capture(factory=factory).reason == "invalid_frame"
