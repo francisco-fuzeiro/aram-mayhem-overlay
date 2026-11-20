@@ -20,6 +20,8 @@ from __future__ import annotations
 import ctypes
 import sys
 import logging
+import threading
+import urllib.request
 import webbrowser
 from urllib.parse import urlsplit, parse_qs
 
@@ -54,6 +56,7 @@ OVERLAY_MARGIN_TOP = 60
 VK_MENU = 0x12
 VK_O = 0x4F
 VK_H = 0x48
+VK_S = 0x53
 # PG: never monitor global click positions without a separate policy/consent gate.
 PICK_CLICK_HINTS_ENABLED = False
 
@@ -152,6 +155,7 @@ if PYQT_AVAILABLE:
             self._is_click_through = True
             self._hotkey_was_down = False
             self._visibility_hotkey_was_down = False
+            self._scan_hotkey_was_down = False
             self._tray = None
             self._tray_toggle = None
             self._on_quit = on_quit
@@ -320,7 +324,7 @@ if PYQT_AVAILABLE:
                 app.quit()
 
         def _poll_interaction_hotkey(self):
-            """Observe global Alt+O (interact) and Alt+H (show/hide) chords."""
+            """Observe Alt+O, Alt+H and edge-triggered Alt+S without game input."""
             if sys.platform != "win32":
                 return
             user32 = ctypes.windll.user32
@@ -331,12 +335,38 @@ if PYQT_AVAILABLE:
             visibility_down = alt_down and bool(
                 user32.GetAsyncKeyState(VK_H) & 0x8000
             )
+            scan_down = alt_down and bool(
+                user32.GetAsyncKeyState(VK_S) & 0x8000
+            )
             if interaction_down and not self._hotkey_was_down:
                 self._toggle_click_through()
             if visibility_down and not self._visibility_hotkey_was_down:
                 self._toggle_visibility()
+            if scan_down and not self._scan_hotkey_was_down:
+                self._request_manual_scan()
             self._hotkey_was_down = interaction_down
             self._visibility_hotkey_was_down = visibility_down
+            self._scan_hotkey_was_down = scan_down
+
+        def _request_manual_scan(self):
+            """POST to the existing local API off the GUI thread; never send game keys."""
+            try:
+                port = urlsplit(self._view.url().toString()).port or 8765
+            except ValueError:
+                port = 8765
+            endpoint = f"http://127.0.0.1:{port}/api/ocr/scan"
+
+            def request_scan():
+                request = urllib.request.Request(endpoint, data=b"", method="POST")
+                try:
+                    with urllib.request.urlopen(request, timeout=5) as response:
+                        response.read()
+                except (OSError, ValueError) as exc:
+                    logger.debug("Manual OCR request unavailable: %s", type(exc).__name__)
+
+            threading.Thread(
+                target=request_scan, daemon=True, name="aram-ocr-manual",
+            ).start()
 
         def _toggle_click_through(self):
             """Enable controls temporarily without affecting transparency."""

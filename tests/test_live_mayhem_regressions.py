@@ -132,7 +132,8 @@ def test_manual_augment_fallback_is_visible_in_game_without_ocr():
         "function applyOverlayMode()", 1
     )[1]
     assert "autoExpandSections(data)" in source
-    assert "data.scan_window_open" in source
+    assert "OCR_PHASE_LABELS" in source
+    assert "updateOcrPhase(" in source
     assert 'id="ocr-manual-help"' in html
     assert 'id="augment-search"' in html
 

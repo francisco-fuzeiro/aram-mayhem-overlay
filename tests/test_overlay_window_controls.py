@@ -50,3 +50,23 @@ def test_qt_lifecycle_includes_global_visibility_hotkey_and_tray():
     assert "app.setQuitOnLastWindowClosed(False)" in source
     assert "self._hotkey_timer.timeout.connect(self._poll_interaction_hotkey)" in source
     assert 'self._tray_toggle = menu.addAction("Hide overlay (Alt+H)")' in source
+
+
+def test_a5_scan_hotkey_uses_edge_triggered_local_post_without_focus_or_game_keys():
+    root = Path(__file__).resolve().parent.parent
+    source = (root / "backend" / "overlay" / "window.py").read_text(encoding="utf-8")
+    assert "VK_S = 0x53" in source
+    assert "GetAsyncKeyState(VK_S)" in source
+    assert "if scan_down and not self._scan_hotkey_was_down:" in source
+    assert "self._scan_hotkey_was_down = scan_down" in source
+    assert "def _request_manual_scan(self)" in source
+    assert "/api/ocr/scan" in source
+    assert 'method="POST"' in source
+    assert "threading.Thread(" in source
+    assert "daemon=True" in source
+    hotkey_method = source.split("def _request_manual_scan(self):", 1)[1].split(
+        "def _toggle_click_through(self):", 1,
+    )[0]
+    assert "SetForegroundWindow" not in hotkey_method
+    assert "SendInput" not in hotkey_method
+    assert "keybd_event" not in hotkey_method

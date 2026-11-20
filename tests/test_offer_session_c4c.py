@@ -67,7 +67,8 @@ def test_c4c_current_manual_scan_accepts_only_slot_verified_triple():
     state.scan_window_open = True
     state.offer_lifecycle.open()
     assert state.accept_manual_ocr(["en", "bind", "kill"], _rows(),
-                                   match_id="lcu:123", offer_epoch=9)
+                                   match_id="lcu:123", offer_epoch=9,
+                                   capture_proven=True)
     assert state.offer_state == "present"
     assert state.ocr_slot_choices == {"left": "en", "centre": "bind", "right": "kill"}
     assert state.chosen_augments == []
@@ -220,7 +221,7 @@ async def test_c4c_rest_manual_scan_accepts_current_confirmed_slots(monkeypatch)
     monkeypatch.setattr(server, "game_state", state)
     monkeypatch.setattr(server, "ocr_available", lambda: True)
     monkeypatch.setattr(server, "_run_ocr_scan_manual", lambda: (
-        ["en", "bind", "kill"], _rows(),
+        ["en", "bind", "kill"], _rows(), True,
     ))
     response = await server.ocr_scan()
     assert response["status"] == "detected"

@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 import logging
 
 logger = logging.getLogger("aram-oracle")
@@ -36,6 +36,53 @@ static_data = StaticData()
 
 
 # -- Thread-safe game state --
+
+OCR_PHASES = frozenset({
+    "disabled", "ocr_missing", "no_game", "capture_unavailable",
+    "occluded", "no_offer", "verifying", "detected", "unreadable",
+})
+_CAPTURE_LOSS_PHASES = frozenset({"occluded", "capture_unavailable", "no_game"})
+_ACTIVE_OCR_PHASES = frozenset({"detected", "verifying", "unreadable"})
+
+
+class _OcrWatcherObservation(tuple):
+    """Keep A4's three-value result contract with atomic A5 evidence metadata."""
+
+    def __new__(cls, action, ids, detected, *, reverified=False,
+                stage="not_scanned", foreground="other", has_partial=False,
+                has_current=False):
+        obj = super().__new__(cls, (action, ids, detected))
+        obj.reverified = bool(reverified)
+        obj.stage = stage
+        obj.foreground = foreground if foreground in ("league", "self", "other") else "other"
+        obj.has_partial = bool(has_partial)
+        obj.has_current = bool(has_current)
+        return obj
+
+
+class _ManualScanEvidence(tuple):
+    """Positional legacy (ids, detected), with proven capture facts attached."""
+
+    def __new__(cls, ids, detected, *, proven, reverified, foreground, stage):
+        obj = super().__new__(cls, (ids, detected))
+        obj.proven = bool(proven)
+        obj.reverified = bool(reverified)
+        obj.foreground = foreground
+        obj.stage = stage
+        return obj
+
+
+def _manual_scan_parts(value):
+    """A legacy untyped result is NEVER capture evidence."""
+    ids, detected = value[:2]
+    proven = getattr(value, "proven", len(value) == 3 and value[2] is True)
+    reverified = getattr(value, "reverified", len(value) == 3 and value[2] is True)
+    foreground = getattr(value, "foreground", "other")
+    stage = getattr(value, "stage", "not_scanned")
+    return ids, detected, proven, reverified, foreground, stage
+
+
+
 
 
 class GameState:
@@ -66,6 +113,10 @@ class GameState:
         self.ocr_last_detected: list[str] = []
         self.ocr_slot_choices: dict[str, str | None] | None = None
         self.ocr_stale: bool = False
+        self.ocr_stale_since_epoch: int | None = None
+        self.ocr_phase: str = "no_offer"
+        self.ocr_foreground: str = "other"
+        self.ocr_unreadable_ticks: int = 0
         self.offer_lifecycle = OfferLifecycle()
         # Monotonic offer generation fences OCR results from old windows and
         # manual scans that finish after a match transition or player action.
@@ -106,6 +157,29 @@ class GameState:
     def lock(self) -> asyncio.Lock:
         return self._lock
 
+    def set_ocr_phase(
+        self, phase: str, *, reverified: bool = False, offer_closed: bool = False,
+    ) -> None:
+        """Latch a stale offer until fresh A3/A4 proof or verified closure.
+
+        Focusing League, blank OCR, a single changed slot, and an unchanged
+        screenshot are never sufficient evidence to clear stale.
+        """
+        if phase not in OCR_PHASES:
+            raise ValueError("unknown OCR phase")
+        if (
+            self.scan_window_open
+            and self.ocr_phase in _ACTIVE_OCR_PHASES
+            and phase in _CAPTURE_LOSS_PHASES
+        ):
+            if not self.ocr_stale:
+                self.ocr_stale_since_epoch = self.offer_epoch
+            self.ocr_stale = True
+        if offer_closed or (phase == "detected" and reverified):
+            self.ocr_stale = False
+            self.ocr_stale_since_epoch = None
+        self.ocr_phase = phase
+
     def reset(self) -> None:
         """Reset all game-specific state (called when no game is detected)."""
         # Clear manually entered picks too. An OCR-less match must not
@@ -115,6 +189,10 @@ class GameState:
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
         self.ocr_stale = False
+        self.ocr_stale_since_epoch = None
+        self.ocr_phase = "disabled" if not self.ocr_enabled else "no_offer"
+        self.ocr_foreground = "other"
+        self.ocr_unreadable_ticks = 0
         self.offer_lifecycle.close()
         self.offer_epoch += 1
         self.augment_choices.clear()
@@ -146,13 +224,22 @@ class GameState:
         self.offer_epoch += 1
         if watcher is not None:
             watcher.reset()
+        # The disabled badge must remain accurate even between offers.
+        self.set_ocr_phase(
+            "disabled" if not enabled else
+            "no_game" if self.scan_window_open else "no_offer"
+        )
         if self.scan_window_open:
             self.offer_lifecycle.observe("unavailable")
+            # An OCR toggle invalidates previous advice, not offer identity.
+            if not self.ocr_stale:
+                self.ocr_stale_since_epoch = self.offer_epoch
             self.ocr_stale = True
 
     def accept_manual_ocr(
         self, ids: list[str], detected: list[dict], *,
         match_id: str | None, offer_epoch: int,
+        capture_proven: bool = False, reverified: bool = False,
     ) -> bool:
         """Apply only an in-window, current-generation C3-verified scan.
 
@@ -160,7 +247,7 @@ class GameState:
         a closed or already confirmed offer or cross into a new match.
         """
         if (not self.scan_window_open or not self.ocr_enabled
-                or self.awaiting_stat_delta or self.confirmation_pending
+                or not capture_proven or (self.ocr_stale and not reverified)
                 or self.match_id != match_id or self.offer_epoch != offer_epoch):
             return False
         slots = _slots_from_detected(detected)
@@ -173,7 +260,7 @@ class GameState:
         self.augment_choices[:] = current_ids
         self.ocr_last_detected[:] = current_ids
         self.ocr_slot_choices = slots
-        self.ocr_stale = False
+        self.set_ocr_phase("detected", reverified=reverified)
         return True
 
     def get_augment_state(self) -> dict:
@@ -439,6 +526,10 @@ def ocr_status():
         "enabled": game_state.ocr_enabled,
         "last_detected": game_state.ocr_last_detected,
         "offer_state": game_state.offer_state,
+        "phase": game_state.ocr_phase,
+        "stale": game_state.ocr_stale,
+        "stale_since_epoch": game_state.ocr_stale_since_epoch,
+        "foreground": game_state.ocr_foreground,
     }
 
 
@@ -453,14 +544,11 @@ async def ocr_scan():
     async with game_state.lock:
         request_match = game_state.match_id
         request_epoch = game_state.offer_epoch
-        allowed = (
-            game_state.scan_window_open and game_state.ocr_enabled
-            and not game_state.confirmation_pending
-            and not game_state.awaiting_stat_delta
-        )
+        allowed = game_state.scan_window_open and game_state.ocr_enabled
         if not allowed:
             return {
                 "status": "unavailable",
+                "phase": game_state.ocr_phase,
                 "error": "No active augment offer scan",
                 "detected": [],
                 "augment_choices_set": list(game_state.augment_choices),
@@ -468,31 +556,41 @@ async def ocr_scan():
             }
     if not ocr_available():
         return {
-            "status": "unavailable",
+            "status": "unavailable", "phase": "ocr_missing",
             "error": "OCR not available — is Tesseract installed?",
             "detected": [],
         }
 
-    ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+    result = await asyncio.to_thread(_run_ocr_scan_manual)
+    ids, detected, proven, reverified, foreground, stage = _manual_scan_parts(result)
     async with game_state.lock:
         applied = game_state.accept_manual_ocr(
             ids, detected, match_id=request_match, offer_epoch=request_epoch,
+            capture_proven=proven, reverified=reverified,
         )
         if applied:
             status = "detected"
+            game_state.ocr_foreground = foreground
         elif (
             game_state.scan_window_open and game_state.ocr_enabled
             and game_state.offer_epoch == request_epoch
             and game_state.match_id == request_match
-            and not game_state.confirmation_pending
-            and not game_state.awaiting_stat_delta
         ):
-            game_state.offer_lifecycle.observe("transition")
+            failed_phase = _manual_scan_failure_phase(stage)
+            game_state.offer_lifecycle.observe(
+                "unavailable" if failed_phase in _CAPTURE_LOSS_PHASES
+                else "transition"
+            )
+            game_state.set_ocr_phase(failed_phase)
             status = "transition"
         else:
             status = "superseded"
-        return {
+        response = {
             "status": status,
+            "phase": game_state.ocr_phase,
+            "stale": game_state.ocr_stale,
+            "reverified": bool(applied and reverified),
+            "foreground": game_state.ocr_foreground,
             "detected": detected if applied else [],
             "augment_choices_set": list(game_state.augment_choices),
             "ocr_slots": game_state.ocr_slot_choices,
@@ -500,6 +598,12 @@ async def ocr_scan():
             "offer_epoch": game_state.offer_epoch,
             "match_id": game_state.match_id,
         }
+    # Publication uses the same offer epoch and never sends an unproven card.
+    await _broadcast(json.dumps({
+        **response, "type": "ocr_result",
+        "augment_choices": list(response["augment_choices_set"]),
+    }))
+    return response
 
 
 @app.get("/api/ocr/screenshots")
@@ -750,39 +854,45 @@ async def game_ws(websocket: WebSocket):
                 }))
 
             elif msg_type == "scan_augments":
-                # Manual OCR cannot run or publish outside a current pick
-                # window. The generation is captured BEFORE async OCR so
-                # a completed/changed offer cannot receive late results.
+                # Same A3/A4-proven gate as REST and Alt+S. Pending stat/choice
+                # confirmation is not a veto to reading cards, but an unverified
+                # scan can never add an augment or resurrect a closed offer.
                 async with game_state.lock:
                     request_match = game_state.match_id
                     request_epoch = game_state.offer_epoch
-                    allowed = (
-                        game_state.scan_window_open and game_state.ocr_enabled
-                        and not game_state.confirmation_pending
-                        and not game_state.awaiting_stat_delta
-                    )
-                ids, detected = ([], [])
-                if allowed:
-                    ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+                    allowed = game_state.scan_window_open and game_state.ocr_enabled
+                result = ([], [])
+                if allowed and ocr_available():
+                    result = await asyncio.to_thread(_run_ocr_scan_manual)
+                ids, detected, proven, reverified, foreground, stage = _manual_scan_parts(result)
                 async with game_state.lock:
                     applied = allowed and game_state.accept_manual_ocr(
                         ids, detected, match_id=request_match,
-                        offer_epoch=request_epoch,
+                        offer_epoch=request_epoch, capture_proven=proven,
+                        reverified=reverified,
                     )
                     if applied:
+                        game_state.ocr_foreground = foreground
                         status = "detected"
                     elif (allowed and game_state.match_id == request_match
                           and game_state.offer_epoch == request_epoch
                           and game_state.scan_window_open
                           and game_state.ocr_enabled):
-                        # The watcher may be verifying a changed title.
-                        # Never republish historical card identities.
-                        game_state.offer_lifecycle.observe("transition")
+                        failed_phase = _manual_scan_failure_phase(stage)
+                        game_state.offer_lifecycle.observe(
+                            "unavailable" if failed_phase in _CAPTURE_LOSS_PHASES
+                            else "transition"
+                        )
+                        game_state.set_ocr_phase(failed_phase)
                         status = "transition"
                     else:
                         status = "superseded"
                     message = {
                         "type": "ocr_result", "status": status,
+                        "phase": game_state.ocr_phase,
+                        "stale": game_state.ocr_stale,
+                        "reverified": bool(applied and reverified),
+                        "foreground": game_state.ocr_foreground,
                         "detected": detected if applied else [],
                         "augment_choices": list(game_state.augment_choices),
                         "offer_state": game_state.offer_state,
@@ -832,6 +942,8 @@ async def game_ws(websocket: WebSocket):
                     stale_message = {
                         "type": "ocr_result",
                         "status": "disabled" if not requested else "unavailable",
+                        "phase": game_state.ocr_phase,
+                        "foreground": game_state.ocr_foreground,
                         "stale": game_state.ocr_stale,
                         "offer_state": game_state.offer_state,
                         "offer_epoch": game_state.offer_epoch,
@@ -902,45 +1014,116 @@ def _ocr_title_catalog() -> dict[str, str]:
     return names
 
 
-def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
-    """Run a manual scan through the shared per-slot temporal gate.
+def _run_ocr_scan_manual() -> _ManualScanEvidence:
+    """Use the shared A3/A4 proven watcher; never accept cached unchanged slots.
 
-    Pure function — returns (ids, detected_dicts) without mutating game_state.
-    Caller must apply results under the lock.
+    Protect the watcher scan and its proof flags under the same RLock: a
+    concurrent automatic read cannot change the evidence before it is copied.
     """
     augment_names = _ocr_title_catalog()
-    matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
+    with getattr(screen_watcher, "_lock", nullcontext()):
+        matches = detect_augments(
+            augment_names, save=config.get("ocr_debug_screenshots", False) is True,
+        )
+        proven = bool(matches) and getattr(
+            screen_watcher, "last_scan_stage", "not_scanned",
+        ) == "titles_detected"
+        temporal = getattr(screen_watcher, "_temporal", None)
+        reverified = bool(proven and getattr(temporal, "last_emit_reverified", False))
+        foreground = getattr(screen_watcher, "_last_foreground", "other")
+        stage = getattr(screen_watcher, "last_scan_stage", "not_scanned")
     event_log.emit(
-        "ocr_recognition", outcome="manual_detected" if matches else "manual_empty",
+        "ocr_recognition", outcome="manual_detected" if proven else "manual_empty",
         count=len(matches or []),
-        confidence=float(max((m[2] for m in matches), default=0)),
+        confidence=float(max((m[2] for m in matches or []), default=0)),
     )
-
-    ids = [m[0] for m in matches] if matches else []
-    detected = _slot_detection_payload(matches)
-    return ids, detected
+    ids = [m[0] for m in matches] if proven else []
+    detected = _slot_detection_payload(matches) if proven else []
+    return _ManualScanEvidence(
+        ids, detected, proven=proven, reverified=reverified,
+        foreground=foreground, stage=stage,
+    )
 
 
 def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
-    """Run the ScreenWatcher.check() — independent slot hashes + stable OCR.
-
-    Pure function — returns (action, ids, detected_dicts) without mutating
-    game_state. Caller must apply results under the lock.
-    """
+    """Capture an atomic A3/A4 observation with separate A5 evidence."""
     augment_names = _ocr_title_catalog()
-    action, matches = screen_watcher.check(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
+    # Fake watchers used in older offline tests lack a lock or metadata.
+    with getattr(screen_watcher, "_lock", nullcontext()):
+        action, matches = screen_watcher.check(
+            augment_names, save=config.get("ocr_debug_screenshots", False) is True,
+        )
+        temporal = getattr(screen_watcher, "_temporal", None)
+        current = temporal.snapshot() if temporal is not None else None
+        has_current = bool(current is not None and any(
+            value is not None for value in current.slots.values()
+        ))
+        has_partial = bool(has_current and any(
+            value is None for value in current.slots.values()
+        ))
+        metadata = {
+            "stage": getattr(screen_watcher, "last_scan_stage", "not_scanned"),
+            "foreground": getattr(screen_watcher, "_last_foreground", "other"),
+            "reverified": bool(
+                getattr(temporal, "last_emit_reverified", False)
+                and action == "detected"
+            ),
+            "has_partial": has_partial,
+            "has_current": has_current,
+        }
     if action != "unchanged":
         event_log.emit(
             "ocr_recognition", outcome=action, count=len(matches or []),
             confidence=float(max((m[2] for m in matches or []), default=0)),
         )
-
     if action == "detected" and (matches or hasattr(matches, "slots")):
         ids = [m[0] for m in matches]
         detected = _slot_detection_payload(matches)
-        return (action, ids, detected)
+        return _OcrWatcherObservation(action, ids, detected, **metadata)
+    return _OcrWatcherObservation(action, [], None, **metadata)
 
-    return (action, [], None)
+
+def _manual_scan_failure_phase(stage: str) -> str:
+    """Classify manual capture failure from the verified watcher scan stage."""
+    if stage == "ocr_unavailable":
+        return "ocr_missing"
+    if stage == "game_window_unavailable":
+        return "no_game"
+    if stage == "game_occluded":
+        return "occluded"
+    if stage in ("capture_invalid", "geometry_unsupported"):
+        return "capture_unavailable"
+    if stage in ("titles_unidentified", "titles_unchanged", "verified_absence"):
+        return "no_offer"
+    return "verifying"
+
+
+def _phase_for_observation(state: GameState, observation: tuple) -> str:
+    """Map capture outcomes to exactly nine honest phases; no focus gating."""
+    action = observation[0]
+    stage = getattr(observation, "stage", "not_scanned")
+    if action == "occluded":
+        state.ocr_unreadable_ticks = 0
+        return "occluded"
+    if action == "capture_unavailable":
+        state.ocr_unreadable_ticks = 0
+        return "capture_unavailable"
+    if action == "unavailable":
+        state.ocr_unreadable_ticks = 0
+        return "no_game" if stage == "game_window_unavailable" else "capture_unavailable"
+    if stage == "titles_verifying" or action == "transition":
+        state.ocr_unreadable_ticks = 0
+        return "verifying"
+    if action in ("detected", "unchanged", "no_augments"):
+        if getattr(observation, "has_partial", False):
+            state.ocr_unreadable_ticks += 1
+            return "unreadable" if state.ocr_unreadable_ticks >= 3 else "verifying"
+        state.ocr_unreadable_ticks = 0
+        if action == "detected" or getattr(observation, "has_current", False):
+            return "detected"
+        return "no_offer"
+    state.ocr_unreadable_ticks = 0
+    return "no_offer"
 
 
 def _record_match_phase(state: GameState, phase: str) -> None:
@@ -1246,10 +1429,19 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 async with state.lock:
                     if state.offer_state != "suspended" or not state.ocr_stale:
                         state.offer_lifecycle.observe("unavailable")
+                        state.set_ocr_phase(
+                            "disabled" if not state.ocr_enabled else "ocr_missing"
+                        )
+                        # Disabling OCR with an open offer invalidates previous
+                        # advice, but cannot constitute positive recovery.
+                        if not state.ocr_stale:
+                            state.ocr_stale_since_epoch = state.offer_epoch
                         state.ocr_stale = True
                         missing_message = json.dumps({
                             "type": "ocr_result", "status": "unavailable",
-                            "stale": True, "offer_state": state.offer_state,
+                            "phase": state.ocr_phase,
+                            "foreground": state.ocr_foreground,
+                            "stale": state.ocr_stale, "offer_state": state.offer_state,
                             "offer_epoch": state.offer_epoch,
                             "match_id": state.match_id,
                         })
@@ -1263,9 +1455,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     # Never apply a result to a different offer generation.
                     observed_epoch = state.offer_epoch
                     observed_match = state.match_id
-                    action, ids, detected = await deps.to_thread(
-                        deps.run_watcher_check
-                    )
+                    observation = await deps.to_thread(deps.run_watcher_check)
+                    action, ids, detected = observation
+                    reverified = bool(getattr(observation, "reverified", False))
+                    foreground = getattr(observation, "foreground", "other")
                     ocr_message = None
                     async with state.lock:
                         if (
@@ -1276,13 +1469,25 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             or state.awaiting_stat_delta
                         ):
                             action = "superseded"
+                        previous_phase = state.ocr_phase
+                        previous_stale = state.ocr_stale
+                        if action != "superseded":
+                            new_phase = _phase_for_observation(state, observation)
+                            state.set_ocr_phase(
+                                new_phase, reverified=bool(
+                                    action == "detected" and detected and reverified
+                                ),
+                            )
+                            state.ocr_foreground = (
+                                foreground if foreground in ("league", "self", "other")
+                                else "other"
+                            )
                         if action == "detected" and detected:
                             state.offer_lifecycle.observe(
                                 "detected", identified=sum(
                                     isinstance(row.get("id"), str) for row in detected
                                 ),
                             )
-                            state.ocr_stale = False
                             state.augment_choices.clear()
                             state.augment_choices.extend(ids)
                             state.ocr_last_detected.clear()
@@ -1291,7 +1496,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             logger.info("OCR detected augments: %s", detected)
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
-                                "status": "detected", "stale": False,
+                                "status": "detected", "stale": state.ocr_stale,
                                 "offer_state": state.offer_state,
                                 "detected": detected,
                                 "augment_choices": list(state.augment_choices),
@@ -1301,12 +1506,15 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             ocr_message = ocr_msg
 
                         elif action in ("not_focused", "occluded", "capture_unavailable", "unavailable"):
-                            state.offer_lifecycle.observe(action)
-                            state.ocr_stale = True
+                            # C4 lifecycle accepts unavailable, not A3 capture reasons.
+                            state.offer_lifecycle.observe(
+                                "unavailable" if action in ("occluded", "capture_unavailable")
+                                else action
+                            )
                             ocr_message = json.dumps({
                                 "type": "ocr_result", "status": action,
                                 "offer_state": state.offer_state,
-                                "stale": True,
+                                "stale": state.ocr_stale,
                                 "augment_choices": list(state.augment_choices),
                                 "offer_epoch": state.offer_epoch,
                                 "match_id": state.match_id,
@@ -1332,6 +1540,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             state.offer_lifecycle.observe(
                                 "disappeared", verified_absence=True,
                             )
+                            state.set_ocr_phase("no_offer", offer_closed=True)
                             logger.info("Verified offer gone — confirmation pending")
                             state.scan_window_open = False
                             state.offer_epoch += 1
@@ -1353,6 +1562,25 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             })
                         elif action in ("no_augments", "unchanged"):
                             state.offer_lifecycle.observe(action)
+                        if (ocr_message is None and action != "superseded"
+                                and (state.ocr_phase != previous_phase
+                                     or state.ocr_stale != previous_stale)):
+                            ocr_message = json.dumps({
+                                "type": "ocr_result", "status": action,
+                                "offer_state": state.offer_state,
+                                "offer_epoch": state.offer_epoch,
+                                "match_id": state.match_id,
+                            })
+                        if ocr_message is not None:
+                            payload = json.loads(ocr_message)
+                            payload["phase"] = state.ocr_phase
+                            payload["foreground"] = state.ocr_foreground
+                            payload["reverified"] = bool(
+                                action == "detected" and detected and reverified
+                            )
+                            payload["stale"] = state.ocr_stale
+                            payload["stale_since_epoch"] = state.ocr_stale_since_epoch
+                            ocr_message = json.dumps(payload)
                     if ocr_message is not None:
                         await deps.broadcast(ocr_message)
 
@@ -1369,6 +1597,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 update = deps.serialize_result(result, deps.static_data, snapshot)
                 if isinstance(update, dict):
                     update = {**update, "ocr_stale": state.ocr_stale,
+                              "ocr_phase": state.ocr_phase,
+                              "ocr_foreground": state.ocr_foreground,
+                              "ocr_stale_since_epoch": state.ocr_stale_since_epoch,
                               "ocr_slots": state.ocr_slot_choices,
                               "offer_state": state.offer_state,
                               "offer_epoch": state.offer_epoch}

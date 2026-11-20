@@ -4,7 +4,7 @@ from itertools import count
 
 from backend.collectors import screen_ocr
 from backend.collectors.league_window import LeagueWindow
-from backend.api.server import poll_tick
+from backend.api.server import poll_tick, _OcrWatcherObservation
 from tests.test_poll_tick_m1 import make_harness, make_snapshot
 import pytest
 
@@ -97,20 +97,21 @@ def test_manual_scan_rejects_unverified_frame(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_poll_alt_tab_preserves_old_slots_and_emits_stale_not_focused():
+async def test_poll_occluded_window_preserves_old_slots_and_latches_stale():
     state, deps, events = make_harness(
         [{"tick": 1}], [make_snapshot()], ocr=True,
-        watcher_result=("not_focused", [], None),
+        watcher_result=("occluded", [], None),
     )
     state.scan_window_open = True
     state.last_known_level = 3
     state.augment_choices = ["previous"]
     state.ocr_last_detected = ["previous"]
+    state.set_ocr_phase("detected")
     await poll_tick(state, deps, 10.0)
     assert state.augment_choices == ["previous"]
     assert state.ocr_last_detected == ["previous"]
     assert state.ocr_stale
-    assert any(e.get("status") == "not_focused" and e.get("stale") is True
+    assert any(e.get("status") == "occluded" and e.get("stale") is True
                for e in events)
     assert not any(e.get("detected") for e in events)
 
@@ -119,9 +120,9 @@ async def test_poll_alt_tab_preserves_old_slots_and_emits_stale_not_focused():
 async def test_poll_recovers_only_after_fresh_observed_cards():
     state, deps, events = make_harness(
         [{"tick": 1}], [make_snapshot()], ocr=True,
-        watcher_result=("detected", ["current"], [
+        watcher_result=_OcrWatcherObservation("detected", ["current"], [
             {"id": "current", "name": "Current", "confidence": 95},
-        ]),
+        ], reverified=True),
     )
     state.scan_window_open = True
     state.last_known_level = 3
