@@ -68,7 +68,7 @@ class _NativeWin32:
         self.dwmapi.DwmGetWindowAttribute.argtypes = [
             wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
         ]
-        self.dwmapi.DwmGetWindowAttribute.restype = wintypes.HRESULT
+        self.dwmapi.DwmGetWindowAttribute.restype = wintypes.LONG
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel32.CloseHandle.restype = wintypes.BOOL
 
