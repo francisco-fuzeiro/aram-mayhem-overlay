@@ -70,3 +70,51 @@ def test_a5_scan_hotkey_uses_edge_triggered_local_post_without_focus_or_game_key
     assert "SetForegroundWindow" not in hotkey_method
     assert "SendInput" not in hotkey_method
     assert "keybd_event" not in hotkey_method
+
+
+def test_a6_nonactivating_qt_defaults_are_declared():
+    source = (Path(__file__).resolve().parent.parent / "backend" / "overlay" / "window.py").read_text(encoding="utf-8")
+    assert "WS_EX_NOACTIVATE = 0x08000000" in source
+    constructor = source.split("def __init__(self, url:", 1)[1].split("def _screens_changed(", 1)[0]
+    assert "Qt.WindowType.WindowDoesNotAcceptFocus" in constructor
+    assert "self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)" in constructor
+
+
+def test_a6_click_through_and_interactive_restore_native_and_qt_focus_flags():
+    source = (Path(__file__).resolve().parent.parent / "backend" / "overlay" / "window.py").read_text(encoding="utf-8")
+    toggle = source.split("def _toggle_click_through(self):", 1)[1].split("def _set_click_through(self):", 1)[0]
+    passive = source.split("def _set_click_through(self):", 1)[1].split("\ndef is_available()", 1)[0]
+    assert "style & ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE)" in toggle
+    assert "self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, False)" in toggle
+    assert "self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)" in toggle
+    assert toggle.count("self.show()") >= 2
+    assert "QTimer.singleShot(0, self._set_click_through)" in toggle
+    assert "WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE" in passive
+    assert "if not self._is_click_through:" in passive
+
+
+def test_a6_capture_exclusion_is_verified_after_native_creation_and_qt_flag_changes():
+    source = (Path(__file__).resolve().parent.parent / "backend" / "overlay" / "window.py").read_text(encoding="utf-8")
+    assert "WDA_EXCLUDEFROMCAPTURE = 0x11" in source
+    assert "SetWindowDisplayAffinity" in source
+    assert "GetWindowDisplayAffinity" in source
+    show_event = source.split("def showEvent(self, event):", 1)[1].split("def resizeEvent(", 1)[0]
+    assert "self._apply_capture_exclusion()" in show_event
+    toggle = source.split("def _toggle_click_through(self):", 1)[1].split("def _set_click_through(self):", 1)[0]
+    assert toggle.count("self._apply_capture_exclusion()") >= 2
+
+
+def test_a6_visibility_restoration_never_activates_the_overlay():
+    source = (Path(__file__).resolve().parent.parent / "backend" / "overlay" / "window.py").read_text(encoding="utf-8")
+    visibility = source.split("def _toggle_visibility(self):", 1)[1].split("def _quit_overlay(self):", 1)[0]
+    assert "self.show()" in visibility
+    assert "activateWindow(" not in visibility
+    assert "SetForegroundWindow" not in visibility
+
+
+def test_a6_capture_exclusion_failure_is_an_enumerated_diagnostic():
+    from backend.diagnostic_events import SCHEMA, _clean
+
+    assert SCHEMA["overlay_capture_exclusion"]["status"] == frozenset({"unsupported"})
+    assert _clean("overlay_capture_exclusion", {"status": "unsupported"}) == {"status": "unsupported"}
+    assert _clean("overlay_capture_exclusion", {"status": "ok", "username": "secret"}) == {}
