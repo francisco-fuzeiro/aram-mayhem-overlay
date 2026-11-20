@@ -411,10 +411,27 @@ def readiness_status() -> dict[str, bool | str]:
                 "set TESSERACT_PATH to its executable and restart."
             ),
         }
+    try:
+        # The executable version alone does not prove that --lang eng can
+        # decode League card titles. Keep the probe read-only and path-free.
+        languages = pytesseract.get_languages(config="")
+    except Exception as exc:
+        logger.debug("Tesseract language probe failed: %s", type(exc).__name__)
+        return {
+            "available": False,
+            "reason": "language_probe_unavailable",
+            "next_step": "Verify the Tesseract language data installation (eng) and TESSDATA_PREFIX, then restart ARAM Oracle.",
+        }
+    if "eng" not in languages:
+        return {
+            "available": False,
+            "reason": "english_language_missing",
+            "next_step": "Install the English Tesseract traineddata (eng) or correct TESSDATA_PREFIX, then restart ARAM Oracle.",
+        }
     return {
         "available": True,
         "reason": "ready",
-        "next_step": "Tesseract is available. In-game card recognition still requires Windows validation.",
+        "next_step": "Tesseract and English traineddata are available. League card recognition still requires Windows validation.",
     }
 
 
