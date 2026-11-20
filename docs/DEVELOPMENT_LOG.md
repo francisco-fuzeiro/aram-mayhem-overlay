@@ -2,6 +2,14 @@
 
 Append-only timeline. Entries are factual snapshots, not future promises. For the latest task plan, read [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
+## 2026-11-20 — D1 v3 HUD geometry (draft PR #67, offline code GREEN)
+
+- C2 [draft #66](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/66) was independently verified at exact 4a42db787e727b964d8c0c0f8004508d91a620b8, [Windows #44831989333](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44831989333) SUCCESS. Created child fix/d1-hud-exclusion-geometry and draft #67 directly on C2, leaving main and upstream PRs untouched.
+- Tests-only 58777f7901deb5168e8026bc9b65cd0d3722a3b3 [RED #44835365969](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44835365969) failed on expected missing backend.overlay.hud_zones module. A transient intermediate Git tree based on the pre-test tree omitted the new test; it was restored before the full GREEN gate. The earlier incomplete-tree CI is not used as D1 test acceptance.
+- Added backend/overlay/hud_zones.py and hud_zones_v1.json (seven provisional versioned HUD rectangles), backend/overlay/league_config.py (read-only game.cfg and HWND-to-executable), safe placement in backend/overlay/layout.py, and Qt DPR/monitor integration exclusively within window.py _apply_overlay_layout. Full/compact/hidden bounds avoid HUD intersections; the pure hidden mode has zero height while Qt hides its web view and retains a one-pixel transparent shell. No OCR, WGC fallback, gameplay or other phase changes.
+- Added tests/test_hud_zones_d1.py: 1,152 resolution/origin/DPR/HUD-scale/anchor-offset parameterizations plus goldens, config defaults, and safe compact/hidden behavior. Updated only positional assertions in existing D4b cases while retaining their inputs. The full code/test tree at 0fa409004634bea456d2e60d919428a316f9bd3e passed [Windows #44835852054](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44835852054): **1,944 Python, 57 JS and three JS syntax checks**, 51 non-blocking warnings.
+- Remaining gates: exact final documentation-head Windows SUCCESS; N1 real HUD measurements, mixed DPI/negative monitor, Vanguard/OP.GG/focus and Riot distribution approval. D2, S1/C3, new gameplay, installer, Settings Alt+S rebinding and merges remain unauthorized; do not request a League session.
+
 ## 2026-11-20 — C2 v3 offer identity vs confirmed pick (draft PR #66; final CI gate pending)
 
 - Base C1 draft [#65](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/65) exact `7d93cd1aeae388dfb84ab54470d8ecaf141edde0` and [Windows #44829680693](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44829680693) SUCCESS. Created `fix/c2-explicit-offer-confirmation` and [draft PR #66](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/66) directly on #65; no merge, main unchanged.
