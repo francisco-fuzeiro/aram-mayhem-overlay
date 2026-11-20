@@ -57,6 +57,19 @@ SCHEMA: dict[str, dict[str, object]] = {
         "method": frozenset(("manual", "automatic")),
         "kind": frozenset(("augment", "anvil", "unknown")),
     },
+    "item_data_source": {
+        "source": frozenset(("network", "cache", "ddragon_unverified")),
+    },
+    "item_source_conflict": {"item_id": "item_id"},
+    "item_outside_pool": {
+        "item_id": "item_id",
+        "class": frozenset((
+            "final", "component", "boots_tier1", "boots_tier2",
+            "augment_reward", "conditional", "mode_variant",
+            "not_on_aram_map", "not_purchasable", "consumable_trinket",
+            "unknown",
+        )),
+    },
     "match_transition": {
         "from_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
         "to_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
@@ -86,6 +99,9 @@ def _clean(event: str, fields: dict) -> dict | None:
         value = fields[key]
         if isinstance(constraint, frozenset):
             if isinstance(value, str) and value in constraint:
+                safe[key] = value
+        elif constraint == "item_id":
+            if isinstance(value, str) and value.isascii() and value.isdecimal() and 4 <= len(value) <= 6:
                 safe[key] = value
         elif constraint == "int":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000:

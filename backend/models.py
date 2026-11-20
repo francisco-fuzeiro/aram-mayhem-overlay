@@ -130,6 +130,7 @@ class ItemData:
     # Listed unconditional movement-speed stats; percent is a fraction (0.05 = 5%).
     move_speed_flat: float = 0.0
     move_speed_percent: float = 0.0
+    item_class: str = "unknown"  # Recognition is not proof of shop availability.
 
 
 @dataclass
@@ -169,6 +170,8 @@ class BuildState:
     reasons: list[str] = field(default_factory=list)
     selected_style: str = "Balanced"
     boot_replacement: BootReplacement | None = None
+    data_version: dict = field(default_factory=dict)
+    build_unavailable_reason: str | None = None
 
 
 @dataclass

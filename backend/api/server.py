@@ -96,6 +96,7 @@ class GameState:
         self._last_player_key: str | None = None
         self.lcda_misses: int = 0
         self.first_lcda_miss_at: float | None = None
+        self._item_outside_pool_seen: set[str] = set()
 
     @property
     def offer_state(self) -> str:
@@ -130,6 +131,7 @@ class GameState:
         self.awaiting_stat_delta = False
         self.delta_wait_ticks = 0
         self.confirmation_pending = False
+        self._item_outside_pool_seen.clear()
 
     def set_ocr_enabled(self, enabled: bool, *, watcher=None) -> None:
         """Require fresh C3 reads whenever OCR is toggled during an offer.
@@ -1050,6 +1052,45 @@ def _begin_or_continue_match(
     state.post_game = False
 
 
+def _record_items_outside_pool(state: GameState, raw: dict, data: StaticData) -> None:
+    """Record observed non-pool IDs once per match; never log player details.
+
+    This is evidence for later N1 reconciliation, not permission to buy an
+    item. B2 will supply exact canonical variants; no name guessing here.
+    """
+    meta = getattr(data, "item_pool_meta", None)
+    if meta is None or meta.availability != "verified_two_source":
+        return
+    catalog = getattr(data, "_items", {})
+    pool = getattr(catalog, "pool_ids", frozenset())
+    if not isinstance(raw, dict):
+        return
+    players = raw.get("allPlayers")
+    if not isinstance(players, list):
+        return
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        items = player.get("items")
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict) or item.get("slot") == 6:
+                continue
+            identifier = item.get("itemID")
+            if not isinstance(identifier, (str, int)):
+                continue
+            item_id = str(identifier)
+            if (not item_id.isascii() or not item_id.isdecimal()
+                    or not 4 <= len(item_id) <= 6
+                    or item_id in pool or item_id in state._item_outside_pool_seen):
+                continue
+            state._item_outside_pool_seen.add(item_id)
+            event_log.emit(
+                "item_outside_pool", item_id=item_id, **{"class": data.item_class(item_id)},
+            )
+
+
 def _register_lcda_miss(state: GameState, now: float) -> bool:
     """True after three consecutive misses spanning at least six seconds."""
     if not state.had_game_last_tick:
@@ -1124,6 +1165,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
             match_confirmation_due = False
             async with state.lock:
                 _begin_or_continue_match(state, snapshot, raw, flow)
+                _record_items_outside_pool(state, raw, deps.static_data)
                 # -- Scan window management --
                 #
                 # Augment offers may appear when the first eligible
@@ -1700,6 +1742,8 @@ def _serialize_result(
             },
             "reasons": result.build_state.reasons,
             "selected_style": result.build_state.selected_style,
+            "data_version": result.build_state.data_version,
+            "build_unavailable_reason": result.build_state.build_unavailable_reason,
             "boot_replacement": (
                 {
                     "sell_item_id": result.build_state.boot_replacement.sell_item_id,

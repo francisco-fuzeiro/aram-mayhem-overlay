@@ -5,6 +5,14 @@ import sys
 import requests
 from pathlib import Path
 import logging
+import hashlib
+from datetime import datetime, timezone
+from dataclasses import asdict
+
+from backend.static_data.item_policy import (
+    ITEM_POLICY_VERSION, POOL_CLASSES, RECOMMENDABLE_CLASSES, ItemPoolMeta,
+    classify_item, cdragon_matches, load_item_overrides, patch_of, sources_agree,
+)
 
 from backend.collectors.slot_title_ocr import _normalize
 from backend.models import (
@@ -26,6 +34,9 @@ SCALING_FILE = _APP_ROOT / "data" / "augments" / "scaling.json"
 CD_AUGMENTS_URL = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/cherry-augments.json"
 CD_ARENA_DESC_URL = "https://raw.communitydragon.org/latest/cdragon/arena/en_us.json"
 DD_BASE_URL = "https://ddragon.leagueoflegends.com"
+CD_BASE = "https://raw.communitydragon.org/{patch}"
+CD_ITEMS_PATH = "/plugins/rcp-be-lol-game-data/global/default/v1/items.json"
+CD_META_PATH = "/content-metadata.json"
 
 DESCRIPTION_KEYWORDS: dict[str, str] = {
     "ability power": "ap",
@@ -159,7 +170,7 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 
 # Cache schema v2 stores listed movement-speed bonuses. Old caches cannot
 # support a safe boot-swap comparison, so require a new item cache.
-_ITEM_CACHE_SCHEMA = 2
+_ITEM_CACHE_SCHEMA = 3
 # Version in the filename prevents reuse of contributions parsed by older rules.
 _AUGMENT_CACHE_SCHEMA = 4
 MAYHEM_MIN_AUGMENT_ID = 1000
@@ -259,7 +270,31 @@ class StaticData:
             return item.name
         return self._all_item_names.get(str(item_id), str(item_id))
 
+    @property
+    def item_pool_meta(self) -> ItemPoolMeta | None:
+        return getattr(self._items, "meta", None)
+
+    @property
+    def item_data_source(self) -> str:
+        return getattr(self._items, "data_source", "unknown")
+
+    def item_class(self, item_id: str) -> str:
+        return getattr(self._items, "classes", {}).get(str(item_id), "unknown")
+
+    def recommendable_items(self) -> list[ItemData]:
+        """Return only patch-proven, normally purchasable final items."""
+        catalog = self._items
+        if not isinstance(catalog, ItemCatalog) or catalog.meta.availability != "verified_two_source":
+            return []
+        return [item for item in catalog.values()
+                if item.item_class in RECOMMENDABLE_CLASSES
+                and item.id in catalog.recommendable_ids]
+
     def all_items(self) -> list[ItemData]:
+        # Loaded production catalogs cannot promote reward/unknown items.
+        # Directly injected synthetic dictionaries remain isolated test inputs.
+        if isinstance(self._items, ItemCatalog):
+            return self.recommendable_items()
         return list(self._items.values())
 
     def all_augments(self) -> list[AugmentData]:
@@ -614,166 +649,290 @@ def _parse_augment_cache(cached: dict) -> dict[str, AugmentData]:
     return _apply_overrides(result)
 
 
-def _load_items() -> dict[str, ItemData]:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+# CDragon publishes objects; the archived offline source uses these field indices.
+_CD_FIELDS = (
+    "id", "name", "inStore", "displayInItemSets",
+    "requiredBuffCurrencyName", "requiredBuffCurrencyCost", "specialRecipe",
+    "requiredChampion", "requiredAlly", "priceTotal", "from", "to",
+    "categories", "maxStacks",
+)
 
+
+class ItemCatalog(dict):
+    """Recognize all Data Dragon items; distinguish verified shop candidates."""
+
+    def __init__(self, items, meta, classes, data_source):
+        super().__init__(items)
+        self.meta = meta
+        self.classes = classes
+        self.data_source = data_source
+        if meta.availability == "verified_two_source":
+            self.pool_ids = frozenset(
+                ident for ident, category in classes.items()
+                if category in POOL_CLASSES and ident in items
+            )
+        else:
+            self.pool_ids = frozenset()
+        self.recommendable_ids = frozenset(
+            ident for ident, category in classes.items()
+            if category in RECOMMENDABLE_CLASSES and ident in self.pool_ids
+        )
+
+
+def _unknown_item_meta(dd_version, overrides_version):
+    return ItemPoolMeta(
+        policy_version=ITEM_POLICY_VERSION,
+        ddragon_version=dd_version,
+        cdragon_patch="unknown",
+        cdragon_sha256="",
+        cdragon_fetched_at="",
+        overrides_version=overrides_version,
+        availability="unknown",
+    )
+
+
+def _report_item_source_conflict(item_id):
+    from backend.diagnostic_events import events
+    events.emit("item_source_conflict", item_id=str(item_id))
+
+
+def _report_item_data_source(source):
+    from backend.diagnostic_events import events
+    events.emit("item_data_source", source=source)
+
+
+def _cdragon_index(payload):
+    if isinstance(payload, dict):
+        payload = payload.get("items", payload.get("data"))
+    if not isinstance(payload, list):
+        raise ValueError("CDragon item records must be an array")
+    index = {}
+    for record in payload:
+        if isinstance(record, dict):
+            item = record
+        elif isinstance(record, list) and len(record) == len(_CD_FIELDS):
+            item = dict(zip(_CD_FIELDS, record))
+        else:
+            continue
+        ident = item.get("id")
+        if isinstance(ident, (str, int)) and str(ident).isdigit():
+            index[str(ident)] = item
+    if not index:
+        raise ValueError("CDragon item records are empty")
+    return index
+
+
+def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
+    """Build a read-only item inventory while gating every recommendation."""
+    classes = {}
+    intermediate = {}
+    ranges = {field: [] for field in StatVector.fields()}
+    for ident, data in items_raw.items():
+        ident = str(ident)
+        if not isinstance(data, dict):
+            continue
+        cd = cd_index.get(ident) if cd_index is not None else None
+        category = classify_item(ident, data, cd, overrides)
+        # Validate price and recipe on every prospective shop item. Non-shop
+        # exclusions retain their reason even if their source recipes differ.
+        if category in POOL_CLASSES and cd is not None and not sources_agree(data, cd):
+            category = "unknown"
+            _report_item_source_conflict(ident)
+        classes[ident] = category
+        gold = data.get("gold") or {}
+        stats = data.get("stats") or {}
+        mapped = {}
+        for source_key, field in ITEM_STAT_MAP.items():
+            value = stats.get(source_key, 0)
+            if isinstance(value, (float, int)) and value:
+                mapped[field] = float(value)
+                if category in RECOMMENDABLE_CLASSES:
+                    ranges[field].append(float(value))
+        move_flat, move_pct = _listed_movement_speed(stats, data.get("description", ""))
+        intermediate[ident] = {
+            "name": data.get("name") or ident,
+            "cost": int(gold.get("total") or 0),
+            "mapped": mapped,
+            "mythic": "mythic" in str(data.get("description", "")).lower(),
+            "boots": "Boots" in (data.get("tags") or []),
+            "tags": list(data.get("tags") or []),
+            "move_speed_flat": move_flat,
+            "move_speed_percent": move_pct,
+            "item_class": category,
+        }
+
+    bounds = {
+        field: (min(values), max(values)) if values else (0.0, 1.0)
+        for field, values in ranges.items()
+    }
+    result = {}
+    for ident, data in intermediate.items():
+        vector = {}
+        for field in StatVector.fields():
+            value = data["mapped"].get(field, 0.0)
+            low, high = bounds[field]
+            vector[field] = (
+                (value - low) / (high - low) if high > low else 1.0
+            ) if value else 0.0
+        result[ident] = ItemData(
+            id=ident, name=data["name"], cost=data["cost"],
+            stats=StatVector(**vector), mythic=data["mythic"],
+            boots=data["boots"], tags=data["tags"],
+            move_speed_flat=data["move_speed_flat"],
+            move_speed_percent=data["move_speed_percent"],
+            item_class=data["item_class"],
+        )
+    return ItemCatalog(result, meta, classes, source)
+
+
+def _encode_item_cache(catalog):
+    return {
+        "schema": _ITEM_CACHE_SCHEMA,
+        "meta": asdict(catalog.meta),
+        "classes": dict(catalog.classes),
+        "items": {
+            ident: {
+                "name": item.name, "cost": item.cost,
+                "stats": {
+                    field: getattr(item.stats, field)
+                    for field in StatVector.fields()
+                },
+                "mythic": item.mythic, "boots": item.boots,
+                "tags": item.tags,
+                "move_speed_flat": item.move_speed_flat,
+                "move_speed_percent": item.move_speed_percent,
+                "item_class": item.item_class,
+            } for ident, item in catalog.items()
+        },
+    }
+
+
+def _verified_cached_items(path, version, overrides_version):
+    """Only an exact version, policy and two-source proof can enable a cache."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or data.get("schema") != _ITEM_CACHE_SCHEMA:
+            return None
+        meta = ItemPoolMeta(**data["meta"])
+        if (meta.availability != "verified_two_source"
+                or meta.policy_version != ITEM_POLICY_VERSION
+                or meta.ddragon_version != version
+                or meta.overrides_version != overrides_version
+                or not cdragon_matches(version, meta.cdragon_patch)
+                or not re.fullmatch(r"[a-f0-9]{64}", meta.cdragon_sha256)
+                or not meta.cdragon_fetched_at):
+            return None
+        items = _parse_item_cache(data["items"])
+        classes = data["classes"]
+        if not isinstance(classes, dict) or not items:
+            return None
+        if any(item.item_class != classes.get(ident) for ident, item in items.items()):
+            return None
+        return ItemCatalog(items, meta, classes, "cache")
+    except (OSError, KeyError, ValueError, TypeError):
+        return None
+
+
+def _load_items() -> ItemCatalog:
+    """Load two patch-matched sources, verified cache, or recognition-only data."""
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
     try:
         version = _get_dd_version()
     except (requests.RequestException, ValueError):
         version = "unknown"
-
-    cache_file = CACHE_DIR / f"items_v{_ITEM_CACHE_SCHEMA}_{version}.json"
-    if cache_file.exists():
-        cached = json.loads(cache_file.read_text(encoding="utf-8"))
-        return _parse_item_cache(cached)
-
-    # Fetch from DataDragon
     try:
-        url = f"{DD_BASE_URL}/cdn/{version}/data/en_US/item.json"
-        r = requests.get(url, timeout=15)
-        r.raise_for_status()
-        raw = r.json()
-    except (requests.RequestException, ValueError):
-        # Keep existing offline builds available when the movement-aware
-        # cache has not yet been fetched; legacy caches have no MS metadata,
-        # therefore boot replacement remains disabled until refreshed.
-        legacy_cache = CACHE_DIR / f"items_{version}.json"
-        if legacy_cache.exists():
-            try:
-                return _parse_item_cache(json.loads(legacy_cache.read_text(encoding="utf-8")))
-            except (OSError, ValueError, KeyError, TypeError):
-                _loader_logger.warning("Unable to load legacy offline item cache")
-        return {}
+        overrides = load_item_overrides()
+    except (OSError, ValueError, TypeError) as exc:
+        _loader_logger.error("Invalid item overrides (%s); catalog fails closed", type(exc).__name__)
+        overrides = {"version": "invalid", "force_class": {}}
+    unknown_meta = _unknown_item_meta(version, overrides["version"])
+    cache_file = CACHE_DIR / f"items_v{_ITEM_CACHE_SCHEMA}_{version}.json"
 
-    items_raw = raw.get("data", {})
-    excluded_tags = {"Jungle"}
+    dd_items = {}
+    if version != "unknown":
+        try:
+            response = requests.get(
+                f"{DD_BASE_URL}/cdn/{version}/data/en_US/item.json", timeout=15,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            dd_items = payload["data"]
+            if not isinstance(dd_items, dict) or not dd_items:
+                raise ValueError("Data Dragon has no item data")
+        except (requests.RequestException, KeyError, ValueError, TypeError):
+            _loader_logger.warning("Data Dragon items unavailable for patch")
+            dd_items = {}
 
-    # Quest/reward items that DataDragon marks purchasable but can't be bought
-    excluded_ids = {
-        "994403",   # Golden Spatula (ARAM quest reward)
-        "4403",     # The Golden Spatula (Summoner's Rift variant)
-        "224403",   # The Golden Spatula (Arena variant)
-    }
+    if dd_items and overrides["version"] != "invalid":
+        try:
+            base = CD_BASE.format(patch=patch_of(version))
+            response = requests.get(base + CD_META_PATH, timeout=15)
+            response.raise_for_status()
+            content_version = response.json()["version"]
+            if not cdragon_matches(version, content_version):
+                raise ValueError("CDragon content version differs from DD")
+            response = requests.get(base + CD_ITEMS_PATH, timeout=15)
+            response.raise_for_status()
+            cd_index = _cdragon_index(response.json())
+            meta = ItemPoolMeta(
+                policy_version=ITEM_POLICY_VERSION,
+                ddragon_version=version,
+                cdragon_patch=content_version,
+                cdragon_sha256=hashlib.sha256(response.content).hexdigest(),
+                cdragon_fetched_at=datetime.now(timezone.utc).isoformat(),
+                overrides_version=overrides["version"],
+                availability="verified_two_source",
+            )
+            catalog = _assemble_item_catalog(dd_items, cd_index, overrides, meta, "network")
+            temp = cache_file.with_suffix(".tmp")
+            temp.write_text(
+                json.dumps(_encode_item_cache(catalog), ensure_ascii=False),
+                encoding="utf-8",
+            )
+            temp.replace(cache_file)
+            _report_item_data_source("network")
+            return catalog
+        except (requests.RequestException, OSError, KeyError, ValueError, TypeError):
+            _loader_logger.warning("CDragon unavailable or incompatible; checking verified cache")
 
-    # First pass: collect all raw stats for normalization
-    raw_items = {}
-    stat_ranges: dict[str, list[float]] = {f: [] for f in StatVector.fields()}
+    if overrides["version"] != "invalid":
+        cached = _verified_cached_items(cache_file, version, overrides["version"])
+        if cached is not None:
+            _report_item_data_source("cache")
+            return cached
 
-    for item_id, data in items_raw.items():
-        if item_id in excluded_ids:
-            continue
+    # A legacy, unversioned-structure cache can recover names when both
+    # public sources are unavailable. Its rows have no raw shop evidence.
+    # Mark every row unknown rather than inferring a class from the price.
+    legacy_file = CACHE_DIR / f"items_{version}.json"
+    if not dd_items and legacy_file.exists():
+        try:
+            old_items = _parse_item_cache(json.loads(legacy_file.read_text(encoding="utf-8")))
+            if old_items:
+                for item in old_items.values():
+                    item.item_class = "unknown"
+                _report_item_data_source("ddragon_unverified")
+                return ItemCatalog(
+                    old_items, unknown_meta,
+                    {ident: "unknown" for ident in old_items},
+                    "legacy_unverified",
+                )
+        except (OSError, ValueError, KeyError, TypeError):
+            _loader_logger.warning("Legacy item names unavailable; staying unverified")
 
-        gold = data.get("gold", {})
-        if not gold.get("purchasable", False):
-            continue
-        if gold.get("total", 0) < 300:
-            continue
-
-        # Include items available on ARAM (map 12) or SR (map 11).
-        # We include SR items too because DataDragon map data can be
-        # incomplete and most SR items are also available on ARAM.
-        maps = data.get("maps", {})
-        if maps and not maps.get("12", False) and not maps.get("11", False):
-            continue
-
-        tags = data.get("tags", [])
-        if excluded_tags & set(tags):
-            continue
-        if "Consumable" in tags:
-            continue
-
-        # Skip items that require specific allies (e.g., Ornn items)
-        required_champion = data.get("requiredChampion", "")
-        if required_champion:
-            continue
-
-        item_stats = data.get("stats", {})
-        move_flat, move_percent = _listed_movement_speed(
-            item_stats, data.get("description", "")
-        )
-        mapped = {}
-        for dd_key, our_key in ITEM_STAT_MAP.items():
-            val = item_stats.get(dd_key, 0)
-            if val:
-                mapped[our_key] = float(val)
-                stat_ranges[our_key].append(float(val))
-
-        is_boots = "Boots" in tags
-        desc = data.get("description", "").lower()
-        is_mythic = "mythic" in desc
-
-        raw_items[item_id] = {
-            "name": data.get("name", ""),
-            "cost": gold.get("total", 0),
-            "raw_stats": mapped,
-            "mythic": is_mythic,
-            "boots": is_boots,
-            "tags": tags,
-            "move_speed_flat": move_flat,
-            "move_speed_percent": move_percent,
-        }
-
-    # Compute min-max per stat for normalization
-    stat_min: dict[str, float] = {}
-    stat_max: dict[str, float] = {}
-    for stat, values in stat_ranges.items():
-        if values:
-            stat_min[stat] = min(values)
-            stat_max[stat] = max(values)
-        else:
-            stat_min[stat] = 0.0
-            stat_max[stat] = 1.0
-
-    # Second pass: normalize and create ItemData
-    result = {}
-    cache_data = {}
-
-    for item_id, data in raw_items.items():
-        normalized = {}
-        for stat in StatVector.fields():
-            raw_val = data["raw_stats"].get(stat, 0.0)
-            if raw_val == 0.0:
-                normalized[stat] = 0.0
-            else:
-                range_val = stat_max[stat] - stat_min[stat]
-                if range_val > 0:
-                    normalized[stat] = (raw_val - stat_min[stat]) / range_val
-                else:
-                    normalized[stat] = 1.0
-
-        stats = StatVector(**normalized)
-        result[item_id] = ItemData(
-            id=item_id,
-            name=data["name"],
-            cost=data["cost"],
-            stats=stats,
-            mythic=data["mythic"],
-            boots=data["boots"],
-            tags=data["tags"],
-            move_speed_flat=data["move_speed_flat"],
-            move_speed_percent=data["move_speed_percent"],
-        )
-        cache_data[item_id] = {
-            "name": data["name"],
-            "cost": data["cost"],
-            "stats": normalized,
-            "mythic": data["mythic"],
-            "boots": data["boots"],
-            "tags": data["tags"],
-            "move_speed_flat": data["move_speed_flat"],
-            "move_speed_percent": data["move_speed_percent"],
-        }
-
-    cache_file.write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
-    return result
+    catalog = _assemble_item_catalog(dd_items, None, overrides, unknown_meta, "ddragon_unverified")
+    _report_item_data_source("ddragon_unverified")
+    return catalog
 
 
 def _parse_item_cache(cached: dict) -> dict[str, ItemData]:
+    """Legacy item cache rows remain recognizable but are never trusted."""
     result = {}
     for item_id, data in cached.items():
+        if not isinstance(data, dict) or not isinstance(data.get("stats"), dict):
+            continue
         stats = StatVector(**{
-            k: data["stats"].get(k, 0.0)
-            for k in StatVector.fields()
+            key: data["stats"].get(key, 0.0) for key in StatVector.fields()
         })
         result[item_id] = ItemData(
             id=item_id,
@@ -785,6 +944,7 @@ def _parse_item_cache(cached: dict) -> dict[str, ItemData]:
             tags=data.get("tags", []),
             move_speed_flat=data.get("move_speed_flat", 0.0),
             move_speed_percent=data.get("move_speed_percent", 0.0),
+            item_class=data.get("item_class", "unknown"),
         )
     return result
 
