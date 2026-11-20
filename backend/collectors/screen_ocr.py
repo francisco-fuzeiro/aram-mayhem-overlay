@@ -24,7 +24,9 @@ from backend.collectors.league_window import find_league_window, LeagueWindow
 from backend.collectors.window_capture import capture_league_client, reset_capture_state, CaptureProof
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
 from backend.collectors.slot_title_ocr import SlotMatches, crop_title_slots, recognize_title_slots
-from backend.collectors.offer_visibility import VerifiedAbsenceGate, IndependentCue
+from backend.collectors.offer_visibility import (
+    VerifiedAbsenceGate, IndependentCue, card_background_cue, CARD_BG_SHADOW_MODE,
+)
 
 logger = logging.getLogger("aram-oracle.ocr")
 
@@ -171,6 +173,7 @@ class ScreenWatcher:
         self._last_detected: list[tuple[str, str, int]] = []
         self._last_scan_stage = "not_scanned"
         self._last_foreground = "other"  # A5 diagnostic, never a capture gate.
+        self._last_background_observation: tuple[str, str] | None = None
 
     @property
     def last_scan_stage(self) -> str:
@@ -185,6 +188,21 @@ class ScreenWatcher:
         self._last_scan_stage = stage
         events.transition("ocr_scan_stage", stage=stage)
 
+    def _record_shadow_cue(
+        self, crops: dict[str, "Image.Image"], *, ocr_titles: bool = False,
+    ) -> None:
+        """C1 evidence only: never touch the independent absence gate or actions."""
+        if not CARD_BG_SHADOW_MODE:
+            return
+        observation = (
+            card_background_cue(crops), "titles" if ocr_titles else "none",
+        )
+        if observation == self._last_background_observation:
+            return
+        self._last_background_observation = observation
+        from backend.diagnostic_events import events
+        events.transition("offer_cue", cue=observation[0], ocr=observation[1])
+
     def reset(self) -> None:
         """Forget the completed offer, without altering any player action."""
         with self._lock:
@@ -196,6 +214,7 @@ class ScreenWatcher:
             self._last_detected = []
             self._set_scan_stage("not_scanned")
             self._last_foreground = "other"
+            self._last_background_observation = None
             reset_capture_state()  # End of offer/match closes the WGC HWND session.
 
     @staticmethod
@@ -218,6 +237,7 @@ class ScreenWatcher:
         """Discard pending OCR and preserve A3's conservative failure mapping."""
         self._capture_stale = True
         self._last_foreground = "other"
+        self._last_background_observation = None
         self._temporal.suspend()
         self._absence_gate.suspend()
         self._refocus_pending = True
@@ -249,6 +269,7 @@ class ScreenWatcher:
 
         with self._lock:
             if not is_available():
+                self._last_background_observation = None
                 self._capture_stale = True
                 self._temporal.suspend()
                 self._absence_gate.suspend()
@@ -259,6 +280,7 @@ class ScreenWatcher:
 
             game = find_league_window()
             if game is None:
+                self._last_background_observation = None
                 self._capture_stale = True
                 self._temporal.suspend()
                 self._absence_gate.suspend()
@@ -285,6 +307,7 @@ class ScreenWatcher:
             width, height = rect[2] - rect[0], rect[3] - rect[1]
             crops = crop_title_slots(img, rect, get_augment_region(width, height))
             if crops is None:
+                self._last_background_observation = None
                 self._capture_stale = True
                 self._temporal.suspend()
                 self._absence_gate.suspend()
@@ -308,6 +331,7 @@ class ScreenWatcher:
             # the next frame becomes readable: the provisional title scan
             # cannot be allowed to confirm a possibly obstructed offer.
             if self._absence_gate.is_approved(cue, key) and cue.verdict == "occluded":
+                self._record_shadow_cue(crops)  # A3-proven first image; OCR withheld.
                 self._temporal.suspend()
                 self._transition_open = False
                 self._refocus_pending = False
@@ -345,6 +369,7 @@ class ScreenWatcher:
                     second.image, rect, get_augment_region(width, height),
                 )
                 if second_crops is None:
+                    self._last_background_observation = None
                     self._capture_stale = True
                     self._temporal.suspend()
                     self._absence_gate.suspend()
@@ -353,6 +378,7 @@ class ScreenWatcher:
                     self._set_scan_stage("geometry_unsupported")
                     return ("unavailable", None)
                 capture = second
+                crops = second_crops  # C1 observes only the final independently proven frame.
                 self._last_foreground = capture.proof.foreground
                 img = capture.image
                 if self._independent_observer is not None:
@@ -370,6 +396,16 @@ class ScreenWatcher:
             fresh_named = (
                 result is not None and not pending and
                 any(value is not None for value in result.slots.values())
+            )
+            # This reports colour evidence from the current A3-proven frame.
+            # Historical/stale or still-verifying OCR never masquerades as titles.
+            self._record_shadow_cue(
+                crops,
+                ocr_titles=(
+                    current is not None and not pending
+                    and not self._refocus_pending
+                    and any(value is not None for value in current.slots.values())
+                ),
             )
 
             if fresh_named:
