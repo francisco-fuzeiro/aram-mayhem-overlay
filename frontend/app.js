@@ -795,7 +795,7 @@
 
     async function recoverOffer() {
         const offer = currentOffers.filter(o => o && Number.isSafeInteger(o.offer_id) &&
-            ["due", "visible", "awaiting_confirm"].includes(o.state))
+            o.state === "due")
             .sort((a, b) => b.offer_id - a.offer_id)[0];
         if (!offer) return false;
         const match = activeMatchId;
@@ -869,7 +869,8 @@
             const identity = offer.slots[slot] || {};
             const id = typeof identity.augment_id === "string" ? identity.augment_id : null;
             const rec = id ? recs.find(r => r.augment_id === id) : null;
-            const rated = rec && typeof rec.score === "number" &&
+            const rated = offer.state === "visible" && ocrPhase === "detected" &&
+                !ocrStale && rec && typeof rec.score === "number" &&
                 Number.isFinite(rec.score) && rec.modelled !== false;
             const name = id
                 ? (rec && rec.augment_name) ||
@@ -1059,11 +1060,17 @@
     }
 
     function bindWindowMessages() {
-        // Qt Alt+B posts this local UI-only message to the WebView.
+        // Qt only posts local presentation events; these never control League.
         window.addEventListener("message", (event) => {
-            if (event && event.data && event.data.type === "toggle_build") {
+            if (event.source !== window) return;
+            if (event.data && event.data.type === "toggle_build") {
                 handleMessage(event.data);
             }
+        });
+        window.addEventListener("aram-interaction-changed", () => {
+            if (!lastResult || stale) return;
+            renderRecommendations(lastResult);
+            autoExpandSections(lastResult);
         });
     }
 
