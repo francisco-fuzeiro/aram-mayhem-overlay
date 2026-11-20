@@ -1,5 +1,13 @@
 # ARAM Oracle — Product and UX TODO
 
+## P0 — OCR prerequisite recovery (2026-11-20, draft PR #48)
+
+- [x] **P0-CAT-01 (code/CI only):** Prevent an empty Mayhem augment catalog cache from surviving a CommunityDragon outage; retry an empty/invalid saved catalog and keep successful nonempty patch cache reuse. Four deterministic synthetic-source regressions, including outage-to-recovery. [Draft PR #48](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/48), code CI [44651838770](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44651838770) successful.
+- [x] **P0-OCR-ENG-01 (code/CI only):** A working Tesseract executable is not sufficient without English traineddata. Check `get_languages()`, fail closed with bounded missing-English/probe-unavailable reasons, and show actionable pregame diagnostics. Tests-first [44651963811](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44651963811) RED; [44652017201](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44652017201) code GREEN.
+- [ ] **P0-PL15-WINDOWS (observed failure still open):** Determine the actual installed/local checkout SHA and already-recorded privacy-safe `events.jsonl`/OCR stage. Prove real client capture, title positioning, English text, exact Mayhem catalog IDs and current L/C/R display in one grouped Windows acceptance. Do not assume either code defect caused the user's device symptom.
+- [ ] **P0-MAESTRO-4 (unsupported layout):** Validate patch 26.23 Maestro Headliner four-option offers independently using real measured client-relative geometry before implementing. Never project three-slot calibrated boxes onto four cards.
+
+
 > Canonical, persistent backlog for this repository. Created 2026-11-18 (Europe/Lisbon).
 > Incorporates the **"Auditoria UX — ARAM Oracle"** discussion in the ChatGPT Overlay LoL project, the user-supplied `funcionalidades.md` specification, the first real in-game Jinx screenshot, and the current stacked PR history.
 > The UX audit was recovered from the cross-chat discussion summary; this is an actionable synthesis, **not** a verbatim export of that conversation.
