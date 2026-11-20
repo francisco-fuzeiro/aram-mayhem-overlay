@@ -4,8 +4,9 @@ The original ARAM Oracle stat-vector scoring is retained as the foundation.
 Our contextual adjustments are small and interpretable, not measured win odds.
 """
 import logging
+from collections import Counter
 
-from backend.engine.inventory import Inventory
+from backend.engine.inventory import Inventory, remaining_cost
 from backend.models import ChampionMeta, AugmentData, ItemData, BuildState, BootReplacement
 from backend.engine.scoring import score_item
 from backend.engine.team_context import EnemyThreatProfile, AllyTeamProfile
@@ -297,50 +298,89 @@ def suggest_build(
     ally_profile: AllyTeamProfile | None = None,
     build_style: str = "Balanced",
     inventory: Inventory | None = None,
+    item_data=None,
+    exclusive_item_groups: dict[str, frozenset[str]] | None = None,
+    catalog_verified: bool = False,
 ) -> BuildState:
-    """Return one flexible path and optional Damage/Survival/Utility paths.
+    """Return stable builds and the first unowned, recipe-aware purchase.
 
-    Builds keep purchased items in their current slots. A player can select
-    another style without changing their existing items. Item-purchase paths
-    and game-mode-specific item restrictions need further data validation.
+    The input augment list is the previously selected/confirmed set, not
+    an unconfirmed offered candidate. No automatic purchase is performed.
     """
-    # Client-selected style changes ordering, but cannot force or buy an item.
-    # Invalid external snapshot values fall back to the neutral default.
     selected_style = build_style if build_style in BUILD_STYLES else "Balanced"
     purchased = list(purchased_items)
     owned_finals = list(inventory.finals) if inventory is not None else purchased
-    available = [item for item in all_items if item.id not in owned_finals]
+    available = [
+        item for item in all_items
+        if item.id not in owned_finals
+        and (not catalog_verified or item.final)
+    ]
     rankings = {
         style: _rank_items(
-            champion, active_augments, available, enemy_profile, ally_profile, style
+            champion, active_augments, available, enemy_profile, ally_profile, style,
         )
         for style in BUILD_STYLES
     }
     paths = {
-        style: _fill_slots(rankings[style], inventory if inventory is not None else purchased, all_items, build_size)
+        style: _fill_slots(
+            rankings[style], inventory if inventory is not None else purchased,
+            all_items, build_size, exclusive_item_groups,
+        )
         for style in BUILD_STYLES
     }
     full_build = paths[selected_style]
-
-    # Do not recommend a seventh item. Even if the catalog offers thousands
-    # of candidates, "next item" must actually belong to the selected path.
-    remaining = [item_id for item_id in full_build[len(owned_finals):]]
     by_id = {item.id: item for item in all_items}
-    next_item = next(
-        (by_id[item_id] for item_id in remaining
-         if item_id in by_id and by_id[item_id].cost <= current_gold),
-        None,
-    )
-    gold_to_next = 0
-    if next_item is None and remaining:
-        first = by_id.get(remaining[0])
-        if first is not None:
-            gold_to_next = max(0, first.cost - current_gold)
 
-    alternatives = paths
+    # Never skip an expensive first unowned item to propose an affordable
+    # later item: purchase order is independent of the current wallet.
+    remaining = [ident for ident in full_build if ident not in owned_finals]
+    next_item = by_id.get(remaining[0]) if remaining else None
+    gold_needed = 0
+    gold_to_next = 0
+    slot_blocked = False
+    build_unavailable_reason = None
+
+    if item_data is not None and inventory is not None:
+        # Physical slots occupied by unrecognized items cannot be assumed
+        # available or legal; fail closed on incomplete inventory evidence.
+        if any(
+            item_data.get_item(ident) is None
+            or item_data.get_item(ident).item_class == "unknown"
+            for ident in inventory.other
+        ):
+            next_item = None
+            build_unavailable_reason = "inventory_unknown"
+
+    if next_item is not None:
+        if item_data is not None and inventory is not None:
+            try:
+                gold_needed, consumed = remaining_cost(
+                    next_item.id, Counter(inventory.components), item_data,
+                )
+            except (ValueError, TypeError, KeyError):
+                next_item = None
+                build_unavailable_reason = "item_recipe_unknown"
+                consumed = Counter()
+            if next_item is not None:
+                slot_blocked = inventory.free_slots == 0 and not consumed
+        else:
+            # Historical direct-call/synthetic tests have no physical recipe
+            # source: retain a conservative undiscounted full-price estimate.
+            gold_needed = next_item.cost
+        if next_item is not None:
+            gold_to_next = max(0, gold_needed - max(0, current_gold))
+
+    # B4 will remove alternate-path computation and presentation; B3 only
+    # fixes its selection rules while preserving the present payload.
     boot_replacement = _boot_replacement(
-        champion, active_augments, purchased, all_items,
-        enemy_profile, ally_profile, selected_style, build_size,
+        champion, active_augments,
+        ([item_data.canonical_item_id(ident) for ident in purchased]
+         if item_data is not None else purchased),
+        all_items, enemy_profile, ally_profile, selected_style, build_size,
+        catalog_verified=catalog_verified,
+        exclusive_item_groups=exclusive_item_groups,
+        item_data=item_data,
+        inventory=inventory,
     )
 
     reasons = ["Adjusted for your current champion and chosen augments"]
@@ -350,18 +390,19 @@ def suggest_build(
         reasons.extend(ally_profile.notes())
     if selected_style != "Balanced":
         reasons.append(f"Selected build path: {selected_style}")
-    if next_item is None and remaining:
-        logger.debug("%s has no affordable recommended item at %dg", champion.id, current_gold)
 
     return BuildState(
         champion_id=champion.id,
         chosen_augments=[aug.id for aug in active_augments],
         purchased_items=purchased,
         next_item_id=next_item.id if next_item else None,
+        next_item_gold_needed=gold_needed,
         gold_to_next=gold_to_next,
+        slot_blocked=slot_blocked,
         full_build=full_build,
-        alternatives=alternatives,
+        alternatives=paths,
         reasons=reasons,
         selected_style=selected_style,
         boot_replacement=boot_replacement,
+        build_unavailable_reason=build_unavailable_reason,
     )
