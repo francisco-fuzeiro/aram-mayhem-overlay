@@ -652,3 +652,78 @@ test("B4 renders no Other paths even when legacy alternatives arrive; boot swap 
     assert.equal(rows.some(row => row.textContent.includes("Legacy Balanced")), false);
     assert.equal(rows.some(row => row.textContent.includes("Legacy Survival")), false);
 });
+
+
+const d2Html = fs.readFileSync(path.join(__dirname, "../../frontend/index.html"), "utf8");
+const d2Settings = fs.readFileSync(path.join(__dirname, "../../frontend/settings.html"), "utf8");
+function d2Offer(state = "visible", source = "ocr") {
+    return {offer_id: 1, epoch: 7, level: 4, state,
+        candidate_id: null, slots: {
+            left: {augment_id: "en", source},
+            centre: {augment_id: "bind", source},
+            right: {augment_id: "kill", source},
+        }};
+}
+
+test("D2: game overlay removes duplicate detect panel and HUD fields", () => {
+    for (const id of ["section-input", "btn-scan", "ocr-auto", "champion-name",
+                       "game-time", "gold", "augment-search"]) {
+        assert.doesNotMatch(d2Html, new RegExp('id="' + id + '"'));
+    }
+    assert.match(d2Html, /id="build-next"/);
+    assert.match(d2Html, /id="ocr-status"/);
+    assert.match(d2Settings, /id="ocr-auto"/);
+    assert.match(d2Settings, /id="btn-scan"/);
+});
+
+test("D2: verified current C2 offer opens one augments panel, not the full build", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer()],
+        augment_state: {chosen: 0, max: 4}, is_dead: false,
+        ocr_phase: "detected", ocr_stale: false});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    assert.equal(h.element("build-list").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-list").children.length, 3);
+});
+
+test("D2: due-only offer stays collapsed and provides a quiet scan hint", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer("due", null)],
+        augment_state: {chosen: 0, max: 4}, is_dead: false});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.match(h.element("augment-due-hint").textContent, /Augment .* available/);
+    assert.equal(h.element("augment-list").children.length, 0);
+});
+
+test("D2: candidate is not a confirmed pick and does not change next purchase", () => {
+    const h = harness();
+    const offer = {...d2Offer("awaiting_confirm"), candidate_id: "en"};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        augment_state: {chosen: 0, max: 4}, is_dead: false,
+        build_state: {...gameUpdate("Jinx").build_state,
+            full_build: ["3101"], full_build_names: ["Synthetic Sword"],
+            next_item_id: "3101", next_item_name: "Synthetic Sword", gold_to_next: 540}});
+    assert.match(h.element("augment-list").children.map(x => x.innerHTML).join(" "), /Likely:/);
+    assert.match(h.element("augment-progress").textContent, /^0\/4/);
+    assert.match(h.element("build-next").textContent, /Synthetic Sword/);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+});
+
+test("D2: build details follow death and close on respawn", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: true});
+    assert.equal(h.element("build-list").classList.contains("hidden"), false);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false});
+    assert.equal(h.element("build-list").classList.contains("hidden"), true);
+});
+
+test("D2: Alt+B message pins build details while alive", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false});
+    h.api.handleMessage({type: "toggle_build"});
+    assert.equal(h.element("build-list").classList.contains("hidden"), false);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false});
+    assert.equal(h.element("build-list").classList.contains("hidden"), false);
+    h.api.handleMessage({type: "toggle_build"});
+    assert.equal(h.element("build-list").classList.contains("hidden"), true);
+});
