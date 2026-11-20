@@ -63,6 +63,17 @@ def test_special_recipes_survive_a_verified_cache_reload(monkeypatch, tmp_path):
     assert cached.canonical_item_id("3040") == "3003"
     assert cached.canonical_item_id("3042") == "3004"
     assert cached.canonical_item_id("3121") == "3119"
+    assert cached.get_item("3077").from_ids == ("1036", "1036")
+    assert cached.get_item("3074").from_ids == ("3077", "1053", "3133")
+    assert "3074" in cached.get_item("3077").into_ids
+
+
+def test_name_alias_requires_exact_display_name(monkeypatch, tmp_path):
+    data = _data(monkeypatch, tmp_path)
+    data._all_item_names["773074"] = "RAVENOUS HYDRA"
+    assert data.canonical_item_id("773074") == "773074"
+    data._all_item_names["773074"] = "Ravenous Hydra"
+    assert data.canonical_item_id("773074") == "3074"
 
 
 def test_canonical_unknown_or_unverified_ids_never_become_purchase_proof(monkeypatch, tmp_path):
