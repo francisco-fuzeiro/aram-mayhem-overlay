@@ -901,6 +901,25 @@ def _load_items() -> ItemCatalog:
             _report_item_data_source("cache")
             return cached
 
+    # A legacy, unversioned-structure cache can recover names when both
+    # public sources are unavailable. Its rows have no raw shop evidence.
+    # Mark every row unknown rather than inferring a class from the price.
+    legacy_file = CACHE_DIR / f"items_{version}.json"
+    if not dd_items and legacy_file.exists():
+        try:
+            old_items = _parse_item_cache(json.loads(legacy_file.read_text(encoding="utf-8")))
+            if old_items:
+                for item in old_items.values():
+                    item.item_class = "unknown"
+                _report_item_data_source("ddragon_unverified")
+                return ItemCatalog(
+                    old_items, unknown_meta,
+                    {ident: "unknown" for ident in old_items},
+                    "legacy_unverified",
+                )
+        except (OSError, ValueError, KeyError, TypeError):
+            _loader_logger.warning("Legacy item names unavailable; staying unverified")
+
     catalog = _assemble_item_catalog(dd_items, None, overrides, unknown_meta, "ddragon_unverified")
     _report_item_data_source("ddragon_unverified")
     return catalog

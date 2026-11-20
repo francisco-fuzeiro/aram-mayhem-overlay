@@ -290,3 +290,28 @@ def test_visible_outside_pool_items_emit_once_per_match_without_private_fields(m
     state.reset()
     server._record_items_outside_pool(state, lcda, data)
     assert observed == [observed[0], observed[0]]
+
+
+def test_legacy_offline_cache_recognizes_names_without_promoting_items(monkeypatch, tmp_path):
+    from backend.static_data import loader
+
+    offline_loader(monkeypatch, tmp_path, cdragon=False)
+    (tmp_path / "items_16.23.1.json").write_text(
+        json.dumps({
+            "3074": {"name": "Ravenous Hydra", "cost": 3300, "stats": {},
+                     "boots": False, "item_class": "final"},
+        }), encoding="utf-8",
+    )
+
+    def unavailable(url, timeout=15):
+        raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr(loader.requests, "get", unavailable)
+    catalog = _load_items()
+    assert catalog.meta.availability == "unknown"
+    assert catalog.data_source == "legacy_unverified"
+    assert catalog["3074"].name == "Ravenous Hydra"
+    assert catalog["3074"].item_class == "unknown"
+    data = StaticData()
+    data._items = catalog
+    assert data.recommendable_items() == []
