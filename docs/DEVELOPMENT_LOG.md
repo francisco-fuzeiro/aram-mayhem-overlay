@@ -2,6 +2,14 @@
 
 Append-only timeline. Entries are factual snapshots, not future promises. For the latest task plan, read [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
+## 2026-11-20 — Real custom-game regression FAILED; approved product changes documented (docs only)
+
+- User switched local checkout from `docs/m5-c1-evidence-gate` `a7a6c20` to tested [draft PR #48](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/48) `fix/p0-ocr-prerequisite-recovery` `a796e7f`, preserved untracked `funcionalidades.md`; native pregame API confirmed English OCR and Mayhem catalog available, then actual League custom test reached in-game build/augment sections but OCR failed to identify actual **Goliath / Back To Basics / Biggest Snowball Ever** L/C/R.
+- Observed Qt manual `Scan Screen` disabled while `DETECT AUGMENTS` said `NOT FOCUSED`; source review established conflated stale/unavailable/focus UI status, not yet proven Win32 focus root cause. OP.GG displayed on screenshots was a separate comparison app. No League in-game screenshots/player data stored on public GitHub. Native acceptance FAILED, no additional games requested.
+- Observed **Ultra Hydra** recommended despite user having no qualifying augment, and build input currently admits broadly Data Dragon-purchasable items without specific Mayhem quest/augment eligibility. User additionally requested one truly contextual adaptive build (chosen augments, existing purchases, enemy itemization and team); no displayed alternatives.
+- User explicitly approved merging `AUGMENT PICK` and `DETECT AUGMENTS` into one contextual AUGMENTS panel; pregame OCR configuration only, compact fallback; UI must not cover native LoL score/timer/gold and must not show persistent build/enemy/debug panels in combat/augment selection.
+- Recorded full test facts/acceptance in [`docs/PLAYTEST_FINDINGS_2026-11-20.md`](PLAYTEST_FINDINGS_2026-11-20.md), TODO P0/P1-PLAY-01…07, ledger PL-16…22; issues [#46](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/46), [#49](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/49), [#50](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/50). This was **documentation only**; no gameplay fixes or native certification claimed. Branch PR #48 remains draft, no `main` merge.
+
 ## 2026-11-20 — First user-supplied Windows structured log, historical OCR triage
 
 - Analyzed the exact uploaded `events.jsonl`: 653 valid events across four match sessions, ending 2026-11-20 00:27 UTC. For 592 `ocr_recognition` events: 347 not-focused, 242 detected, 2 no-augments, 1 unavailable. Of the 242 `detected`, 208 reported confidence under the current strict C2 threshold 90; recorded match counts for 3/2/1 cards were 153/37/52. Four level-3 OCR windows closed only with `reset` at match end. No confirmed augment selections or `ocr_scan_stage` events in the historical file.
