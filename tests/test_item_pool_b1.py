@@ -73,7 +73,7 @@ def test_full_480_classification_matches_versioned_expected_fixture():
     ("4003", "not_purchasable"), ("4004", "not_purchasable"),
     ("3040", "conditional"), ("3042", "conditional"),
     ("2421", "conditional"), ("2003", "consumable_trinket"),
-    ("3340", "consumable_trinket"),
+    ("3340", "not_on_aram_map"),  # Map 12 check precedes tag exclusion.
 ])
 def test_known_exclusions_never_enter_recommendable_pool(item_id, category):
     dd, cd, _ = sources()
@@ -221,3 +221,72 @@ def test_conflicting_cost_downgrades_only_that_item(monkeypatch, tmp_path):
     assert len(catalog.pool_ids) == 180
     assert len(catalog.recommendable_ids) == 110
     assert observed == ["3074"]
+
+
+def test_unverified_sources_hide_builds_and_expose_metadata(monkeypatch, tmp_path):
+    """Recognition-only owned items must not leak into a recommended build."""
+    from backend.api.server import _serialize_result
+    from backend.models import ChampionMeta, GamePhase, GameSnapshot, StatVector
+    from backend.workflow.pipeline import Pipeline
+
+    offline_loader(monkeypatch, tmp_path, cdragon=False)
+    data = StaticData()
+    data._items = _load_items()
+    data._champions = {
+        "lux": ChampionMeta(id="lux", name="Lux", stats=StatVector(ap=0.9)),
+    }
+    monkeypatch.setattr(
+        "backend.workflow.pipeline.get_all_personal_winrates", lambda _: {},
+    )
+    snapshot = GameSnapshot(
+        game_id="offline", phase=GamePhase.IN_GAME,
+        champion_id="lux", augment_choices=[], chosen_augments=[],
+        purchased_items=["3074"], current_gold=5000, game_time=10.0,
+        enemy_champion_ids=[],
+    )
+    result = Pipeline(data).run(snapshot)
+    assert result is not None
+    build = result.build_state
+    assert build.full_build == []
+    assert build.next_item_id is None
+    assert build.boot_replacement is None
+    assert build.alternatives == {}
+    assert build.build_unavailable_reason == "item_availability_unknown"
+    assert build.data_version["availability"] == "unknown"
+    assert build.data_version["ddragon_version"] == "16.23.1"
+    payload = _serialize_result(result, data)
+    assert payload["build_state"]["next_item_id"] is None
+    assert payload["build_state"]["build_unavailable_reason"] == "item_availability_unknown"
+    assert payload["build_state"]["data_version"]["availability"] == "unknown"
+
+
+def test_visible_outside_pool_items_emit_once_per_match_without_private_fields(monkeypatch, tmp_path):
+    from backend.api import server
+
+    offline_loader(monkeypatch, tmp_path)
+    data = StaticData()
+    data._items = _load_items()
+    observed = []
+    monkeypatch.setattr(
+        server.event_log, "emit",
+        lambda event, **fields: observed.append((event, fields)),
+    )
+    state = server.GameState()
+    lcda = {"allPlayers": [{
+        "summonerName": "do-not-log",
+        "items": [
+            {"slot": 0, "itemID": 226668},  # Reward, not a normal shop item.
+            {"slot": 1, "itemID": 3074},    # Ordinary pool item.
+            {"slot": 6, "itemID": 3340},    # Trinket slot must be ignored.
+            {"slot": 2, "itemID": 9999999}, # Reject non-schema numeric length.
+        ],
+    }]}
+    server._record_items_outside_pool(state, lcda, data)
+    server._record_items_outside_pool(state, lcda, data)
+    assert observed == [(
+        "item_outside_pool", {"item_id": "226668", "class": "augment_reward"},
+    )]
+    assert "do-not-log" not in str(observed)
+    state.reset()
+    server._record_items_outside_pool(state, lcda, data)
+    assert observed == [observed[0], observed[0]]
