@@ -35,7 +35,8 @@ SCHEMA: dict[str, dict[str, object]] = {
     "ocr_scan_stage": {
         "stage": frozenset((
             "not_scanned", "ocr_unavailable", "game_window_unavailable",
-            "game_not_focused", "capture_unavailable", "geometry_unsupported",
+            "game_not_focused", "game_occluded", "capture_invalid",
+            "capture_unavailable", "geometry_unsupported",
             "titles_verifying", "titles_unidentified",
             "titles_detected", "titles_unchanged", "titles_transition",
             "verified_absence",
@@ -45,10 +46,15 @@ SCHEMA: dict[str, dict[str, object]] = {
         "outcome": frozenset((
             "detected", "unchanged", "disappeared", "no_augments", "unavailable",
             "error", "manual_detected", "manual_empty", "not_focused",
+            "occluded", "capture_unavailable",
         )),
         "count": "int",
         "confidence": "confidence100",
     },
+    "capture_backend": {"backend": frozenset(("wgc", "mss_zorder", "none"))},
+    "ocr_occlusion": {"owner": frozenset(("self", "other"))},
+    "ocr_foreground": {"owner": frozenset(("league", "self", "other"))},
+    "wgc_degraded": {"streak": "int"},
     "augment_inference": {
         "result": frozenset(("pending", "auto", "ambiguous", "none")),
         "confidence": "confidence1",
