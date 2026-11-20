@@ -2228,6 +2228,8 @@ def _serialize_result(
     }
 
     if snapshot:
+        # D2 read-only display cue; no shop-open inference or gameplay action.
+        out["is_dead"] = bool(getattr(snapshot, "is_dead", False))
         out["game_time"] = snapshot.game_time
         out["current_gold"] = snapshot.current_gold
         out["level"] = snapshot.level
