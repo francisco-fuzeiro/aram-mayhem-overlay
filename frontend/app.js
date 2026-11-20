@@ -900,22 +900,6 @@
                 ` · ${swap.reason}`;
             buildAlternatives.appendChild(row);
         }
-        const alt = bs.alternatives || {};
-        const paths = ["Balanced", "Damage", "Survival", "Utility"].filter(name => name !== bs.selected_style);
-        if (paths.some(name => Array.isArray(alt[name]) && alt[name].length)) {
-            const header = document.createElement("div");
-            header.className = "waiting-sub";
-            header.textContent = "Other paths (estimated, not purchase-validated):";
-            buildAlternatives.appendChild(header);
-        }
-        for (const name of paths) {
-            const options = Array.isArray(alt[name]) ? alt[name] : [];
-            if (!options.length) continue;
-            const row = document.createElement("div");
-            row.className = "aug-explain";
-            row.textContent = name + ": " + options.map(item => item.name).join(" · ");
-            buildAlternatives.appendChild(row);
-        }
     }
 
     // -- OCR --

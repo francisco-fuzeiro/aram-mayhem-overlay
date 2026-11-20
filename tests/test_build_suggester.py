@@ -81,7 +81,7 @@ def test_full_inventory_never_recommends_a_seventh_item():
     assert result.full_build == [f"i{i}" for i in range(6)]
     assert result.next_item_id is None
     assert result.gold_to_next == 0
-    assert all(len(path) == 6 for path in result.alternatives.values())
+    assert result.alternatives == {}
 
 
 def test_selected_style_changes_the_build_and_next_purchase():
@@ -97,8 +97,7 @@ def test_selected_style_changes_the_build_and_next_purchase():
     assert survival.next_item_id == survival.full_build[0]
     assert damage.next_item_id == "offense"
     assert survival.next_item_id == "defense"
-    assert survival.alternatives["Damage"] == damage.full_build
-    assert damage.alternatives["Survival"] == survival.full_build
+    assert survival.alternatives == damage.alternatives == {}
 
 
 def test_next_purchase_is_always_in_selected_build_path():

@@ -64,4 +64,5 @@ def test_enemy_item_change_updates_build_and_augment_context(monkeypatch):
     assert against_magic.ally_analysis["physical"] == 1
     assert against_magic.ally_analysis["magic"] == 1
     assert against_magic.ally_analysis["known"] == 2
-    assert against_magic.build_state.alternatives["Survival"][0] == "z_resist"
+    assert against_magic.build_state.full_build[0] == "z_resist"
+    assert against_magic.build_state.alternatives == {}

@@ -95,20 +95,21 @@ def test_magic_resistance_changes_build_paths_only_with_observed_enemy():
     me = champion("mage", "mage", ap=0.8)
     plain = item("a_plain", ap=0.6)
     resist = item("z_resist", ["SpellBlock"], ap=0.6)
-    without = suggest_build(me, [], [], 2000, [plain, resist])
+    without = suggest_build(
+        me, [], [], 2000, [plain, resist], build_style="Survival",
+    )
     threats = EnemyThreatProfile(
         enemies_visible=5, enemies_analyzed=5,
         magic_pressure=0.9, physical_pressure=0.1,
     )
     with_magic = suggest_build(
-        me, [], [], 2000, [plain, resist], enemy_profile=threats
+        me, [], [], 2000, [plain, resist],
+        enemy_profile=threats, build_style="Survival"
     )
-    assert without.alternatives["Survival"][0] == "a_plain"
-    assert with_magic.alternatives["Survival"][0] == "z_resist"
+    assert without.full_build[0] == "a_plain"
+    assert with_magic.full_build[0] == "z_resist"
     assert with_magic.next_item_id == "z_resist"
-    assert "Damage" in with_magic.alternatives
-    assert "Utility" in with_magic.alternatives
-    assert "Survival" in with_magic.alternatives
+    assert without.alternatives == with_magic.alternatives == {}
 
 
 def test_owned_boots_prevent_additional_boots():
@@ -121,7 +122,7 @@ def test_owned_boots_prevent_additional_boots():
     )
     assert "boots2" not in result.full_build
     assert result.next_item_id == "staff"
-    assert all("boots2" not in path for path in result.alternatives.values())
+    assert result.alternatives == {}
 
 
 def test_lcda_only_exposes_visible_teams_and_enemy_items():

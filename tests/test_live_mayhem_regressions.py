@@ -20,7 +20,7 @@ def _item(item_id, name, *, attack_speed=0.0, ad=0.0, cost=1800):
     )
 
 
-def test_same_name_catalog_ids_do_not_duplicate_phantom_dancer_in_any_path():
+def test_same_name_catalog_ids_do_not_duplicate_phantom_dancer_in_single_build():
     jinx = ChampionMeta(
         id="jinx", name="Jinx", role="marksman",
         stats=StatVector(attack_speed=0.95, ad=0.85),
@@ -32,12 +32,12 @@ def test_same_name_catalog_ids_do_not_duplicate_phantom_dancer_in_any_path():
         _item("6672", "Kraken Slayer", attack_speed=0.65),
     ]
     result = suggest_build(jinx, [], [], 5000, items)
-    for path in result.alternatives.values():
-        names = [
-            " ".join(next(x for x in items if x.id == ident).name.casefold().split())
-            for ident in path
-        ]
-        assert names.count("phantom dancer") <= 1
+    names = [
+        " ".join(next(x for x in items if x.id == ident).name.casefold().split())
+        for ident in result.full_build
+    ]
+    assert names.count("phantom dancer") <= 1
+    assert result.alternatives == {}
 
 
 def test_owned_name_variant_does_not_reappear_as_unowned_item():
