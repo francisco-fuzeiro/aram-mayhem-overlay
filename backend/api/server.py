@@ -1476,7 +1476,11 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             ocr_message = ocr_msg
 
                         elif action in ("not_focused", "occluded", "capture_unavailable", "unavailable"):
-                            state.offer_lifecycle.observe(action)
+                            # C4 lifecycle accepts unavailable, not A3 capture reasons.
+                            state.offer_lifecycle.observe(
+                                "unavailable" if action in ("occluded", "capture_unavailable")
+                                else action
+                            )
                             ocr_message = json.dumps({
                                 "type": "ocr_result", "status": action,
                                 "offer_state": state.offer_state,
