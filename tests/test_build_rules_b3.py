@@ -32,6 +32,25 @@ def _item(identifier, *, name=None, cost=3000, item_class="final",
 
 
 def _verified_data(monkeypatch, tmp_path):
+    # B1's deliberately compact source omits descriptions. Restore only the
+    # archived DD passive labels in this B3-specific offline source, leaving
+    # the B1 classification fixture and network stubs untouched.
+    from tests import test_item_pool_b1 as b1
+    original_sources = b1.sources
+    details = json.loads(
+        (FIXTURES / "ddragon_items_16.23.1_details.json").read_text(encoding="utf-8")
+    )["items"]
+
+    def sources_with_passives():
+        dd, cd, raw = original_sources()
+        for ident, row in details.items():
+            if ident in dd:
+                dd[ident]["description"] = "".join(
+                    f"<passive>{name}:</passive>" for name in row["passives"]
+                )
+        return dd, cd, raw
+
+    monkeypatch.setattr(b1, "sources", sources_with_passives)
     offline_loader(monkeypatch, tmp_path)
     sd = StaticData()
     sd._items = _load_items()
@@ -133,9 +152,8 @@ def test_lifeline_and_cleave_exclusive_recommendations(monkeypatch, tmp_path):
     state = _build(sd, owned, gold=5000)
     assert state.full_build[0] == "3053"
     assert not set(state.full_build) & {"6673", "3156", "2525"}
-    items = [sd.get_item(i) for i in ("3074", "3748")]
-    # Ranking is deterministically set by a champion that scores those two
-    # equally; duplicate Cleave passives must eliminate the second.
+    items = [_item("3074", ad=1.0), _item("3748", ad=0.1)]
+    # Force Ravenous first, then verify its Cleave group excludes Titanic.
     state = suggest_build(
         _champion(), [], [], 5000, items,
         exclusive_item_groups=sd.exclusive_item_groups,
