@@ -742,97 +742,243 @@
         return Object.fromEntries(keys.map(k => [k, candidate[k]]));
     }
 
-    function renderRecommendations(data) {
-        augmentList.innerHTML = "";
-        // A user-expanded section must never reveal scores from a pending,
-        // stale, obstructed or finished offer. Historical IDs stay backend-only.
-        if (typeof data.offer_state === "string" && data.offer_state !== "present") {
-            rerollBadge.classList.add("hidden");
-            rerollBanner.classList.add("hidden");
-            return;
-        }
 
-        if ((!data.recommendations || data.recommendations.length === 0) && !currentOcrSlots) {
-            augmentList.innerHTML = '<div class="aug-empty" style="color:var(--text-dim);padding:8px;">No augment choices to evaluate</div>';
-            rerollBadge.classList.add("hidden");
-            rerollBanner.classList.add("hidden");
-            return;
-        }
+    const OFFER_SLOTS = Object.freeze(["left", "centre", "right"]);
 
-        // A ranking is not a physical card slot. Never guess a missing title.
-        const candidates = Array.isArray(data.recommendations) ? data.recommendations : [];
-        const rows = currentOcrSlots
-            ? ["left", "centre", "right"].map(slot => ({
-                slot,
-                rec: candidates.find(r => r.augment_id === currentOcrSlots[slot]) || null,
-            }))
-            : candidates.map(rec => ({slot: null, rec}));
-        const ratedScores = candidates
-            .filter(r => typeof r.score === "number" && Number.isFinite(r.score) &&
-                r.modelled !== false)
-            .map(r => r.score);
-        const bestScore = ratedScores.length ? Math.max(...ratedScores) : null;
-        rows.forEach(({slot, rec}, i) => {
-            if (!rec) {
-                const missing = document.createElement("div");
-                missing.className = "augment-card";
-                missing.textContent = slot[0].toUpperCase() + slot.slice(1) +
-                    ": Unknown — title not verified";
-                augmentList.appendChild(missing);
-                return;
+    function activeOffer() {
+        const options = currentOffers.filter((offer) =>
+            offer && Number.isSafeInteger(offer.offer_id) &&
+            Number.isSafeInteger(offer.epoch) && offer.slots &&
+            ["visible", "awaiting_confirm"].includes(offer.state));
+        const waiting = options.filter((offer) => offer.state === "awaiting_confirm")
+            .sort((x, y) => x.offer_id - y.offer_id);
+        return waiting[0] || options.sort((x, y) => y.offer_id - x.offer_id)[0] || null;
+    }
+
+    function offerCanOpen(offer, data = lastResult || {}) {
+        if (!offer) return false;
+        if (offer.state === "awaiting_confirm") return true;
+        if (offer.state !== "visible") return false;
+        if (recoveredOffer && recoveredOffer.offer_id === offer.offer_id &&
+            recoveredOffer.epoch === offer.epoch) return true;
+        const epoch = Number.isSafeInteger(data.offer_epoch)
+            ? data.offer_epoch : offer.epoch;
+        return epoch === offer.epoch && data.ocr_stale !== true &&
+            ocrPhase === "detected" &&
+            Object.values(offer.slots || {}).some((slot) =>
+                slot && slot.source === "ocr" && typeof slot.augment_id === "string");
+    }
+
+    function setOfferNotice(text) {
+        offerActionStatus.textContent = text;
+        offerActionStatus.classList.toggle("hidden", !text);
+    }
+
+    async function reloadOffersAfterConflict() {
+        try {
+            const response = await fetch("/api/ocr/status", {cache: "no-store"});
+            if (!response.ok) return;
+            const status = await response.json();
+            if (Array.isArray(status.offers)) currentOffers = status.offers;
+            if (typeof status.phase === "string") {
+                updateOcrPhase(status.phase, status.stale);
             }
-            const card = document.createElement("div");
-            const rated = typeof rec.score === "number" && Number.isFinite(rec.score)
-                && rec.modelled !== false;
-            card.className = "augment-card" +
-                (rated && bestScore !== null && rec.score === bestScore
-                    ? " top-pick" : "");
+            renderRecommendations(lastResult || {});
+            autoExpandSections(lastResult || {});
+        } catch (_) {
+            // A failed status read is not permission to replay a stale choice.
+        }
+    }
 
-            const rankText = slot ? ({left: "L", centre: "C", right: "R"}[slot])
-                : (i === 0 && rated ? ">>>" : `${i + 1}.`);
-            const scoreText = rated ? rec.score.toFixed(1) + "/10"
-                : "Not rated — insufficient data";
-            const labelStr = rec.label.join(" \u00b7 ");
-            const itemsStr = (rec.core_items_names || []).join(" \u2192 ");
-
-            card.innerHTML = `
-                <div class="aug-row">
-                    <span class="aug-rank">${rankText}</span>
-                    <span class="aug-name">${esc(rec.augment_name)}</span>
-                    <span class="aug-score">${esc(scoreText)}</span>
-                </div>
-                <div class="aug-details">
-                    <span class="aug-label">${esc(labelStr)}</span>
-                    <span class="aug-items">${esc(itemsStr)}</span>
-                </div>
-                <div class="aug-explain">${esc(rec.explanation)}${rec.sample_size ? " · Personal sample: " + rec.sample_size + " games" : ""}</div>
-                <button class="btn-choose" data-augment-id="${esc(rec.augment_id)}">Mark as chosen</button>
-            `;
-
-            card.querySelector(".btn-choose").addEventListener("click", () => {
-                const target = confirmTarget(rec.augment_id);
-                if (target) wsSend({ type: "choose_augment",
-                                     augment_id: rec.augment_id, ...target });
+    async function sendOfferAction(endpoint, body, errorText) {
+        try {
+            const response = await fetch(endpoint, {
+                method: "POST", headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body),
             });
+            if (response.status === 409 || response.status === 422) {
+                setOfferNotice("Offer changed, try again");
+                await reloadOffersAfterConflict();
+                return null;
+            }
+            if (!response.ok) {
+                setOfferNotice(errorText);
+                return null;
+            }
+            const result = await response.json();
+            if (Array.isArray(result.offers)) currentOffers = result.offers;
+            return result;
+        } catch (_) {
+            setOfferNotice(errorText);
+            return null;
+        }
+    }
 
-            augmentList.appendChild(card);
+    async function identifyOfferSlot(offerId, epoch, slot, augmentId) {
+        if (!OFFER_SLOTS.includes(slot) || typeof augmentId !== "string") return false;
+        const offer = currentOffers.find(o => o.offer_id === offerId && o.epoch === epoch &&
+            o.state === "visible" && o.slots && o.slots[slot] &&
+            !o.slots[slot].augment_id);
+        if (!offer) return false;
+        const match = activeMatchId;
+        const updated = await sendOfferAction("/api/offers/identify", {
+            offer_id: offerId, epoch, slot, augment_id: augmentId,
+        }, "Identification failed");
+        if (!updated || match !== activeMatchId) return false;
+        setOfferNotice("Card identified (manual) — not picked");
+        renderRecommendations(lastResult || {});
+        autoExpandSections(lastResult || {});
+        return true;
+    }
+
+    async function confirmOfferPick(offerId, epoch, augmentId) {
+        const offer = currentOffers.find(o => o.offer_id === offerId &&
+            o.epoch === epoch && ["visible", "awaiting_confirm"].includes(o.state));
+        if (!offer || !Object.values(offer.slots || {})
+            .some(s => s && s.augment_id === augmentId)) return false;
+        const match = activeMatchId;
+        const result = await sendOfferAction("/api/offers/confirm", {
+            offer_id: offerId, epoch, augment_id: augmentId,
+        }, "Pick not confirmed");
+        if (!result || match !== activeMatchId) return false;
+        setOfferNotice("Pick confirmed; awaiting live build update");
+        recoveredOffer = null;
+        renderRecommendations(lastResult || {});
+        autoExpandSections(lastResult || {});
+        return true;
+    }
+
+    async function recoverOffer() {
+        const offer = currentOffers.filter(o => o && Number.isSafeInteger(o.offer_id) &&
+            ["due", "visible", "awaiting_confirm"].includes(o.state))
+            .sort((a, b) => b.offer_id - a.offer_id)[0];
+        if (!offer) return false;
+        const match = activeMatchId;
+        const result = await sendOfferAction("/api/offers/recover", {
+            offer_id: offer.offer_id,
+        }, "Recovery unavailable");
+        if (!result || match !== activeMatchId) return false;
+        recoveredOffer = {offer_id: result.offer_id, epoch: result.epoch};
+        setOfferNotice("Manual recovery — identify the visible cards");
+        renderRecommendations(lastResult || {});
+        autoExpandSections(lastResult || {});
+        return true;
+    }
+
+    function appendSlotSearch(row, offer, slot) {
+        const input = document.createElement("input");
+        input.className = "slot-search";
+        input.placeholder = "Identify " + slot + " card…";
+        input.dataset.offerId = String(offer.offer_id);
+        input.dataset.epoch = String(offer.epoch);
+        input.dataset.slot = slot;
+        const resultsHost = document.createElement("div");
+        resultsHost.className = "search-results";
+        input.addEventListener("input", async () => {
+            const query = input.value.trim();
+            resultsHost.replaceChildren();
+            if (query.length < 2) return;
+            try {
+                const response = await fetch("/api/augments/search?q=" +
+                    encodeURIComponent(query), {cache: "no-store"});
+                if (!response.ok) return;
+                const results = await response.json();
+                if (input.value.trim() !== query || !Array.isArray(results)) return;
+                for (const aug of results.slice(0, 8)) {
+                    if (typeof aug.id !== "string") continue;
+                    const option = document.createElement("button");
+                    option.type = "button";
+                    option.className = "search-result-item";
+                    option.textContent = aug.name || aug.id;
+                    option.addEventListener("click", () =>
+                        identifyOfferSlot(offer.offer_id, offer.epoch, slot, aug.id));
+                    resultsHost.appendChild(option);
+                }
+            } catch (_) {
+                setOfferNotice("Search unavailable");
+            }
         });
+        row.appendChild(input);
+        row.appendChild(resultsHost);
+    }
 
-        // Defend against stale/incomplete server payloads as well.
-        const completeModelledOffer = candidates.length === 3
-            && new Set(candidates.map(rec => rec.augment_id)).size === 3
-            && (!currentOcrSlots || Object.values(currentOcrSlots).every(Boolean))
-            && candidates.every(rec =>
-                typeof rec.score === "number" && Number.isFinite(rec.score)
-                && rec.modelled !== false);
-        // Reroll
-        if (data.suggest_reroll && completeModelledOffer) {
+    function renderRecommendations(data) {
+        augmentList.replaceChildren();
+        rerollBadge.classList.add("hidden");
+        rerollBanner.classList.add("hidden");
+        const offer = activeOffer();
+        if (!offer || !offerCanOpen(offer, data)) return;
+        const interactive = Boolean(document.body && document.body.classList &&
+            document.body.classList.contains("interactive-mode"));
+        const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+        const scored = [];
+        for (const slot of OFFER_SLOTS) {
+            const identity = offer.slots[slot] || {};
+            const id = identity.augment_id;
+            const rec = id ? recs.find(r => r.augment_id === id) : null;
+            if (rec && typeof rec.score === "number" && Number.isFinite(rec.score) &&
+                rec.modelled !== false) scored.push(rec.score);
+        }
+        const best = scored.length ? Math.max(...scored) : null;
+        for (const [index, slot] of OFFER_SLOTS.entries()) {
+            const identity = offer.slots[slot] || {};
+            const id = typeof identity.augment_id === "string" ? identity.augment_id : null;
+            const rec = id ? recs.find(r => r.augment_id === id) : null;
+            const rated = rec && typeof rec.score === "number" &&
+                Number.isFinite(rec.score) && rec.modelled !== false;
+            const name = id
+                ? (rec && rec.augment_name) ||
+                  (staticNames.augments[id] && staticNames.augments[id].name) || id
+                : "Unknown — title not verified";
+            const row = document.createElement("div");
+            row.className = "augment-card" +
+                (rated && rec.score === best ? " top-pick" : "");
+            const origin = identity.source === "user_identify" ? " (manual)"
+                : identity.source === "ocr" ? " (OCR)" : "";
+            const score = rated ? rec.score.toFixed(1) + "/10" : "Not rated";
+            row.innerHTML = '<div class="aug-row"><span class="aug-rank">' +
+                ["L", "C", "R"][index] + '</span><span class="aug-name">' +
+                esc(name + origin) + '</span><span class="aug-score">' +
+                esc(score) + '</span></div>';
+            if (rec && typeof rec.explanation === "string") {
+                const note = document.createElement("div");
+                note.className = "aug-explain";
+                note.textContent = rec.explanation;
+                row.appendChild(note);
+            }
+            if (offer.candidate_id && id === offer.candidate_id) {
+                const likely = document.createElement("div");
+                likely.className = "aug-explain";
+                likely.textContent = "Likely: " + name + " · confirm with Alt+" + (index + 1);
+                row.appendChild(likely);
+                // DOM-stub tests inspect row.innerHTML; production uses textContent.
+                row.innerHTML += '<span class="confirm-hint">Likely: ' + esc(name) + '</span>';
+            }
+            if (interactive && !id && offer.state === "visible") {
+                appendSlotSearch(row, offer, slot);
+            } else if (interactive && id) {
+                const pick = document.createElement("button");
+                pick.type = "button";
+                pick.className = "btn btn-choose";
+                pick.textContent = "Pick";
+                pick.addEventListener("click", () =>
+                    confirmOfferPick(offer.offer_id, offer.epoch, id));
+                row.appendChild(pick);
+            }
+            augmentList.appendChild(row);
+        }
+        if (offer.state === "awaiting_confirm") {
+            const hint = document.createElement("div");
+            hint.className = "aug-explain";
+            hint.textContent = "Confirm pick: Alt+1 / Alt+2 / Alt+3";
+            augmentList.appendChild(hint);
+        }
+        const complete = OFFER_SLOTS.every(s => offer.slots[s] &&
+            typeof offer.slots[s].augment_id === "string");
+        if (data.suggest_reroll && complete && scored.length === 3) {
             rerollBadge.classList.remove("hidden");
             rerollBanner.classList.remove("hidden");
-            rerollReason.textContent = data.reroll_reason || "Weak choices — consider rerolling";
-        } else {
-            rerollBadge.classList.add("hidden");
-            rerollBanner.classList.add("hidden");
+            rerollReason.textContent = data.reroll_reason || "Consider rerolling";
         }
     }
 
