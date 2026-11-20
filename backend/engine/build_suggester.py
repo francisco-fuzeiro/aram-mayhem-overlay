@@ -306,7 +306,7 @@ def suggest_build(
     exclusive_item_groups: dict[str, frozenset[str]] | None = None,
     catalog_verified: bool = False,
 ) -> BuildState:
-    """Return stable builds and the first unowned, recipe-aware purchase.
+    """Return one stable selected-style build and its recipe-aware next purchase.
 
     The input augment list is the previously selected/confirmed set, not
     an unconfirmed offered candidate. No automatic purchase is performed.
@@ -319,20 +319,14 @@ def suggest_build(
         if item.id not in owned_finals
         and (not catalog_verified or item.final)
     ]
-    rankings = {
-        style: _rank_items(
-            champion, active_augments, available, enemy_profile, ally_profile, style,
-        )
-        for style in BUILD_STYLES
-    }
-    paths = {
-        style: _fill_slots(
-            rankings[style], inventory if inventory is not None else purchased,
-            all_items, build_size, exclusive_item_groups,
-        )
-        for style in BUILD_STYLES
-    }
-    full_build = paths[selected_style]
+    ranked = _rank_items(
+        champion, active_augments, available, enemy_profile, ally_profile,
+        selected_style,
+    )
+    full_build = _fill_slots(
+        ranked, inventory if inventory is not None else purchased,
+        all_items, build_size, exclusive_item_groups,
+    )
     by_id = {item.id: item for item in all_items}
 
     # Never skip an expensive first unowned item to propose an affordable
@@ -374,8 +368,7 @@ def suggest_build(
         if next_item is not None:
             gold_to_next = max(0, gold_needed - max(0, current_gold))
 
-    # B4 will remove alternate-path computation and presentation; B3 only
-    # fixes its selection rules while preserving the present payload.
+    # Preserve the optional verified boot swap for the single selected build.
     boot_replacement = _boot_replacement(
         champion, active_augments,
         ([item_data.canonical_item_id(ident) for ident in purchased]
@@ -404,7 +397,7 @@ def suggest_build(
         gold_to_next=gold_to_next,
         slot_blocked=slot_blocked,
         full_build=full_build,
-        alternatives=paths,
+        alternatives={},
         reasons=reasons,
         selected_style=selected_style,
         boot_replacement=boot_replacement,

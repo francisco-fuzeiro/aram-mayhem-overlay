@@ -589,3 +589,27 @@ test("M5/C4c: disabling OCR collapses old advice immediately even without a game
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     assert.equal(h.element("section-input").classList.contains("collapsed"), true);
 });
+
+test("B4 renders no Other paths even when legacy alternatives arrive; boot swap survives", () => {
+    const h = harness();
+    h.api.renderBuild({
+        selected_style: "Damage",
+        full_build: ["3101"], full_build_names: ["Synthetic Sword"],
+        purchased_items: [], next_item_id: "3101", next_item_name: "Synthetic Sword",
+        alternatives: {
+            Balanced: [{name: "Legacy Balanced"}],
+            Survival: [{name: "Legacy Survival"}],
+        },
+        boot_replacement: {
+            sell_item_name: "Boots", buy_item_name: "Fast Sword",
+            buy_cost: 2800, listed_ms_change: -10,
+            reason: "Synthetic comparison",
+        },
+    });
+    const rows = h.element("build-alternatives").children;
+    assert.equal(rows.length, 1);
+    assert.match(rows[0].textContent, /Optional boot swap/);
+    assert.equal(rows.some(row => row.textContent.includes("Other paths")), false);
+    assert.equal(rows.some(row => row.textContent.includes("Legacy Balanced")), false);
+    assert.equal(rows.some(row => row.textContent.includes("Legacy Survival")), false);
+});
