@@ -1002,6 +1002,65 @@
     // -- Augment quick-select input --
 
     function bindAugmentInput() {
+        // Manual identity is deliberately not a pick. This button is only
+        // usable after enabling voluntary overlay interaction with Alt+O.
+        const host = btnEvaluate.parentNode;
+        if (host && typeof host.appendChild === "function") {
+            const identifyButton = document.createElement("button");
+            identifyButton.type = "button";
+            identifyButton.id = "btn-identify-offer";
+            identifyButton.className = "btn-secondary";
+            identifyButton.textContent = "Identify cards (left → right, not a pick)";
+            host.appendChild(identifyButton);
+            identifyButton.addEventListener("click", async () => {
+                if (selectedAugmentIds.length < 1 || selectedAugmentIds.length > 3) return;
+                const available = currentOffers.filter(offer =>
+                    offer && Number.isSafeInteger(offer.offer_id) &&
+                    Number.isSafeInteger(offer.epoch) &&
+                    ["due", "visible", "awaiting_confirm"].includes(offer.state));
+                const target = available.sort((x, y) => y.offer_id - x.offer_id)[0];
+                if (!target) {
+                    identifyButton.textContent = "No active offer to identify";
+                    return;
+                }
+                const originalMatch = activeMatchId;
+                let epoch = target.epoch;
+                identifyButton.disabled = true;
+                try {
+                    if (target.state === "due") {
+                        const recovery = await fetch("/api/offers/recover", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ offer_id: target.offer_id }),
+                        });
+                        if (!recovery.ok) throw new Error("Offer recovery rejected");
+                        const recovered = await recovery.json();
+                        epoch = recovered.epoch;
+                    }
+                    if (activeMatchId !== originalMatch) throw new Error("Match changed");
+                    for (const [index, augmentId] of selectedAugmentIds.entries()) {
+                        if (activeMatchId !== originalMatch) throw new Error("Match changed");
+                        const response = await fetch("/api/offers/identify", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                offer_id: target.offer_id, epoch,
+                                slot: ["left", "centre", "right"][index],
+                                augment_id: augmentId,
+                            }),
+                        });
+                        if (!response.ok) throw new Error("Identity not accepted");
+                        const updated = await response.json();
+                        if (Array.isArray(updated.offers)) currentOffers = updated.offers;
+                    }
+                    identifyButton.textContent = "Identity saved — not confirmed";
+                } catch (_) {
+                    identifyButton.textContent = "Identity not saved (offer changed or invalid)";
+                } finally {
+                    identifyButton.disabled = false;
+                }
+            });
+        }
         augmentSearch.addEventListener("input", () => {
             clearTimeout(searchDebounce);
             searchDebounce = setTimeout(doAugmentSearch, 200);
