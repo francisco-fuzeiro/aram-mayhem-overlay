@@ -170,6 +170,7 @@ class ScreenWatcher:
         self._transition_open = False
         self._last_detected: list[tuple[str, str, int]] = []
         self._last_scan_stage = "not_scanned"
+        self._last_foreground = "other"  # A5 diagnostic, never a capture gate.
 
     @property
     def last_scan_stage(self) -> str:
@@ -194,6 +195,7 @@ class ScreenWatcher:
             self._transition_open = False
             self._last_detected = []
             self._set_scan_stage("not_scanned")
+            self._last_foreground = "other"
             reset_capture_state()  # End of offer/match closes the WGC HWND session.
 
     @staticmethod
@@ -215,6 +217,7 @@ class ScreenWatcher:
     def _capture_failure(self, reason: str) -> tuple[str, None]:
         """Discard pending OCR and preserve A3's conservative failure mapping."""
         self._capture_stale = True
+        self._last_foreground = "other"
         self._temporal.suspend()
         self._absence_gate.suspend()
         self._refocus_pending = True
@@ -271,6 +274,7 @@ class ScreenWatcher:
                 )
                 return self._capture_failure(reason)
             capture = result
+            self._last_foreground = capture.proof.foreground
             img = capture.image
             if self._capture_stale:
                 self._temporal.suspend()
@@ -349,6 +353,7 @@ class ScreenWatcher:
                     self._set_scan_stage("geometry_unsupported")
                     return ("unavailable", None)
                 capture = second
+                self._last_foreground = capture.proof.foreground
                 img = capture.image
                 if self._independent_observer is not None:
                     try:
