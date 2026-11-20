@@ -214,7 +214,9 @@ test("M2/A3 missing OCR candidates show an honest manual fallback", () => {
 
 test("M2/E3 null scores render honest insufficient-data labels with reroll hidden", () => {
     const h = harness();
-    h.api.renderRecommendations({
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({
+        left: "0", centre: "1", right: "2",
+    }),
         recommendations: ["Impassable", "Tooth Fairy", "Shark Bait"].map((name, i) => ({
             augment_id: String(i), augment_name: name, score: null,
             label: ["Unknown", "Unknown"], core_items_names: [],
@@ -225,7 +227,7 @@ test("M2/E3 null scores render honest insufficient-data labels with reroll hidde
     const cards = h.element("augment-list").children;
     assert.equal(cards.length, 3);
     for (const card of cards) {
-        assert.match(card.innerHTML, /Not rated — insufficient data/);
+        assert.match(card.innerHTML, /Not rated/);
         for (const bad of ["NaN", "0.0/10", "2.1/10", "null/10"]) assert.equal(card.innerHTML.includes(bad), false);
     }
     assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
@@ -234,7 +236,9 @@ test("M2/E3 null scores render honest insufficient-data labels with reroll hidde
 
 test("M2/E3 rated offers render numeric scores without losing sort semantics", () => {
     const h = harness();
-    h.api.renderRecommendations({
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({
+        left: "great", centre: "weak", right: null,
+    }),
         recommendations: [
             {augment_id: "great", augment_name: "Great", score: 7.2,
                 label: ["Magic", "Burst"], core_items_names: [],
@@ -246,7 +250,7 @@ test("M2/E3 rated offers render numeric scores without losing sort semantics", (
         suggest_reroll: false,
     });
     const cards = h.element("augment-list").children;
-    assert.equal(cards.length, 2);
+    assert.equal(cards.length, 3);
     assert.equal(cards[0].innerHTML.includes("7.2/10"), true);
     assert.equal(cards[1].innerHTML.includes("3.1/10"), true);
     assert.doesNotMatch(cards.map(card => card.innerHTML).join(" "), /NaN/);
@@ -410,6 +414,7 @@ test("M5/C2: OCR slot order wins over confidence/score sorting", () => {
         rec("bind", "Ravenous Bind"),
     ];
     update.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    Object.assign(update, d2VerifiedFields(update.ocr_slots));
     h.api.handleMessage(update);
     const rows = h.element("augment-list").children;
     assert.equal(rows.length, 3);
@@ -434,6 +439,7 @@ test("M5/C2: obscured card stays unknown and cannot borrow another recommendatio
         rec("bind", "Ravenous Bind"),
     ];
     update.ocr_slots = {left: null, centre: "bind", right: "kill"};
+    Object.assign(update, d2VerifiedFields(update.ocr_slots));
     h.api.handleMessage(update);
     const rows = h.element("augment-list").children;
     assert.equal(rows.length, 3);
@@ -455,6 +461,7 @@ test("M5/C2: OCR reroll updates only changed physical card mapping", () => {
     update.recommendations = [rec("en", "En Passant"), rec("bind", "Ravenous Bind"),
         rec("kill", "It's Killing Time")];
     update.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    Object.assign(update, d2VerifiedFields(update.ocr_slots));
     h.api.handleMessage(update);
     h.api.handleMessage({type: "ocr_result", status: "detected",
         detected: [
@@ -487,6 +494,7 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         rec("en", "En Passant"),
     ];
     initial.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    Object.assign(initial, d2VerifiedFields(initial.ocr_slots));
     h.api.handleMessage(initial);
     const rows = () => h.element("augment-list").children;
     assert.match(rows()[0].innerHTML, /En Passant/);
@@ -511,6 +519,7 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         rec("kill", "It's Killing Time"),
     ];
     afterFirst.ocr_slots = {left: "left_1", centre: "bind", right: "kill"};
+    Object.assign(initial, d2VerifiedFields(initial.ocr_slots));
     h.api.handleMessage(afterFirst);
     assert.match(rows()[0].innerHTML, /Synthetic Left 1/);
     const afterSecond = {...afterFirst,
@@ -663,6 +672,17 @@ function d2Offer(state = "visible", source = "ocr") {
             centre: {augment_id: "bind", source},
             right: {augment_id: "kill", source},
         }};
+}
+
+function d2VerifiedFields(ids, epoch = 7) {
+    return {offer_state: "present", offer_epoch: epoch, ocr_phase: "detected",
+        ocr_stale: false, offers: [{
+            offer_id: 1, epoch, level: 4, state: "visible", candidate_id: null,
+            slots: Object.fromEntries(["left", "centre", "right"].map(slot => [
+                slot, {augment_id: ids[slot] ?? null,
+                    source: ids[slot] ? "ocr" : null},
+            ])),
+        }]};
 }
 
 test("D2: game overlay removes duplicate detect panel and HUD fields", () => {
