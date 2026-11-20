@@ -888,14 +888,20 @@ def _slots_from_detected(detected: list[dict] | None) -> dict[str, str | None] |
     return dict(zip(SLOTS, values))
 
 
+def _ocr_title_catalog() -> dict[str, str]:
+    """Share one deterministic title catalog for manual and watcher scans."""
+    names = {aid: aug.name for aid, aug in static_data._stat_anvils.items()}
+    names.update({aid: aug.name for aid, aug in static_data._augments.items()})
+    return names
+
+
 def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
     """Run a manual scan through the shared per-slot temporal gate.
 
     Pure function — returns (ids, detected_dicts) without mutating game_state.
     Caller must apply results under the lock.
     """
-    augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
-    augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
+    augment_names = _ocr_title_catalog()
     matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
     event_log.emit(
         "ocr_recognition", outcome="manual_detected" if matches else "manual_empty",
@@ -914,8 +920,7 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
     Pure function — returns (action, ids, detected_dicts) without mutating
     game_state. Caller must apply results under the lock.
     """
-    augment_names = {aid: aug.name for aid, aug in static_data._augments.items()}
-    augment_names.update({aid: aug.name for aid, aug in static_data._stat_anvils.items()})
+    augment_names = _ocr_title_catalog()
     action, matches = screen_watcher.check(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
     if action != "unchanged":
         event_log.emit(
