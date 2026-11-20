@@ -1396,10 +1396,19 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 async with state.lock:
                     if state.offer_state != "suspended" or not state.ocr_stale:
                         state.offer_lifecycle.observe("unavailable")
+                        state.set_ocr_phase(
+                            "disabled" if not state.ocr_enabled else "ocr_missing"
+                        )
+                        # Disabling OCR with an open offer invalidates previous
+                        # advice, but cannot constitute positive recovery.
+                        if not state.ocr_stale:
+                            state.ocr_stale_since_epoch = state.offer_epoch
                         state.ocr_stale = True
                         missing_message = json.dumps({
                             "type": "ocr_result", "status": "unavailable",
-                            "stale": True, "offer_state": state.offer_state,
+                            "phase": state.ocr_phase,
+                            "foreground": state.ocr_foreground,
+                            "stale": state.ocr_stale, "offer_state": state.offer_state,
                             "offer_epoch": state.offer_epoch,
                             "match_id": state.match_id,
                         })
@@ -1413,9 +1422,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     # Never apply a result to a different offer generation.
                     observed_epoch = state.offer_epoch
                     observed_match = state.match_id
-                    action, ids, detected = await deps.to_thread(
-                        deps.run_watcher_check
-                    )
+                    observation = await deps.to_thread(deps.run_watcher_check)
+                    action, ids, detected = observation
+                    reverified = bool(getattr(observation, "reverified", False))
+                    foreground = getattr(observation, "foreground", "other")
                     ocr_message = None
                     async with state.lock:
                         if (
@@ -1426,13 +1436,25 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             or state.awaiting_stat_delta
                         ):
                             action = "superseded"
+                        previous_phase = state.ocr_phase
+                        previous_stale = state.ocr_stale
+                        if action != "superseded":
+                            new_phase = _phase_for_observation(state, observation)
+                            state.set_ocr_phase(
+                                new_phase, reverified=bool(
+                                    action == "detected" and detected and reverified
+                                ),
+                            )
+                            state.ocr_foreground = (
+                                foreground if foreground in ("league", "self", "other")
+                                else "other"
+                            )
                         if action == "detected" and detected:
                             state.offer_lifecycle.observe(
                                 "detected", identified=sum(
                                     isinstance(row.get("id"), str) for row in detected
                                 ),
                             )
-                            state.ocr_stale = False
                             state.augment_choices.clear()
                             state.augment_choices.extend(ids)
                             state.ocr_last_detected.clear()
@@ -1441,7 +1463,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             logger.info("OCR detected augments: %s", detected)
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
-                                "status": "detected", "stale": False,
+                                "status": "detected", "stale": state.ocr_stale,
                                 "offer_state": state.offer_state,
                                 "detected": detected,
                                 "augment_choices": list(state.augment_choices),
@@ -1452,11 +1474,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
 
                         elif action in ("not_focused", "occluded", "capture_unavailable", "unavailable"):
                             state.offer_lifecycle.observe(action)
-                            state.ocr_stale = True
                             ocr_message = json.dumps({
                                 "type": "ocr_result", "status": action,
                                 "offer_state": state.offer_state,
-                                "stale": True,
+                                "stale": state.ocr_stale,
                                 "augment_choices": list(state.augment_choices),
                                 "offer_epoch": state.offer_epoch,
                                 "match_id": state.match_id,
@@ -1482,6 +1503,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             state.offer_lifecycle.observe(
                                 "disappeared", verified_absence=True,
                             )
+                            state.set_ocr_phase("no_offer", offer_closed=True)
                             logger.info("Verified offer gone — confirmation pending")
                             state.scan_window_open = False
                             state.offer_epoch += 1
@@ -1503,6 +1525,25 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             })
                         elif action in ("no_augments", "unchanged"):
                             state.offer_lifecycle.observe(action)
+                        if (ocr_message is None and action != "superseded"
+                                and (state.ocr_phase != previous_phase
+                                     or state.ocr_stale != previous_stale)):
+                            ocr_message = json.dumps({
+                                "type": "ocr_result", "status": action,
+                                "offer_state": state.offer_state,
+                                "offer_epoch": state.offer_epoch,
+                                "match_id": state.match_id,
+                            })
+                        if ocr_message is not None:
+                            payload = json.loads(ocr_message)
+                            payload["phase"] = state.ocr_phase
+                            payload["foreground"] = state.ocr_foreground
+                            payload["reverified"] = bool(
+                                action == "detected" and detected and reverified
+                            )
+                            payload["stale"] = state.ocr_stale
+                            payload["stale_since_epoch"] = state.ocr_stale_since_epoch
+                            ocr_message = json.dumps(payload)
                     if ocr_message is not None:
                         await deps.broadcast(ocr_message)
 
@@ -1519,6 +1560,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 update = deps.serialize_result(result, deps.static_data, snapshot)
                 if isinstance(update, dict):
                     update = {**update, "ocr_stale": state.ocr_stale,
+                              "ocr_phase": state.ocr_phase,
+                              "ocr_foreground": state.ocr_foreground,
+                              "ocr_stale_since_epoch": state.ocr_stale_since_epoch,
                               "ocr_slots": state.ocr_slot_choices,
                               "offer_state": state.offer_state,
                               "offer_epoch": state.offer_epoch}
