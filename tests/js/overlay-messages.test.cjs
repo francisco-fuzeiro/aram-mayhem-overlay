@@ -11,6 +11,8 @@ const source = fs.readFileSync(path.join(__dirname, "../../frontend/app.js"), "u
 
 function harness() {
     const elements = new Map();
+    const requests = [];
+    let responseHook = null;
     const sockets = [];
     const pendingTimers = [];
 
@@ -61,6 +63,8 @@ function harness() {
         return element;
     }
     const document = {
+        body: node("body"),
+        documentElement: node("html"),
         getElementById(id) {
             if (!elements.has(id)) elements.set(id, node());
             return elements.get(id);
@@ -77,12 +81,22 @@ function harness() {
     const module = {exports: {}};
     vm.runInNewContext(source, {
         module, document, WebSocket: Socket,
+        fetch: async (url, options = {}) => {
+            requests.push({url, options});
+            if (responseHook) return responseHook(url, options);
+            if (url.startsWith("/api/augments/search?")) {
+                return {ok: true, status: 200, json: async () =>
+                    [{id: "en", name: "En Passant"}]};
+            }
+            return {ok: true, status: 200, json: async () => ({offers: []})};
+        },
         location: {protocol: "http:", host: "127.0.0.1:8765"},
         setTimeout(handler) { pendingTimers.push(handler); return pendingTimers.length; },
         clearTimeout() {}, console,
     }, {filename: "frontend/app.js"});
     const api = module.exports;
-    return {api, element: document.getElementById, sockets, pendingTimers};
+    return {api, element: document.getElementById, sockets, pendingTimers,
+        document, requests, respond(fn) { responseHook = fn; }};
 }
 
 function gameUpdate(champion = "Neeko") {
@@ -757,4 +771,86 @@ test("D2: Alt+B message pins build details while alive", () => {
     assert.equal(h.element("build-list").classList.contains("hidden"), false);
     h.api.handleMessage({type: "toggle_build"});
     assert.equal(h.element("build-list").classList.contains("hidden"), true);
+});
+
+test("D2: inline unknown slot search identifies only, preserving build and counter", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    const offer = d2Offer();
+    offer.slots.left = {augment_id: null, source: null};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false,
+        augment_state: {chosen: 0, max: 4},
+        build_state: {...gameUpdate("Jinx").build_state,
+            full_build: ["3101"], next_item_name: "Synthetic Sword",
+            next_item_id: "3101", gold_to_next: 540}});
+    const row = h.element("augment-list").children[0];
+    const input = row.children.find(child => child.tagName === "INPUT");
+    assert.ok(input, "Unknown visible slot has an input only in interactive mode");
+    assert.equal(input.dataset.offerId, "1");
+    assert.equal(input.dataset.epoch, "7");
+    assert.equal(input.dataset.slot, "left");
+    input.value = "En";
+    await input.handlers.input();
+    const results = row.children.find(child => child.className === "search-results");
+    assert.ok(results);
+    assert.equal(results.children.length, 1);
+    await results.children[0].handlers.click();
+    const posts = h.requests.filter(x => x.options.method === "POST");
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].url, "/api/offers/identify");
+    assert.deepEqual(JSON.parse(posts[0].options.body), {
+        offer_id: 1, epoch: 7, slot: "left", augment_id: "en",
+    });
+    assert.equal(h.element("augment-progress").textContent, "0/4");
+    assert.match(h.element("build-next").textContent, /Synthetic Sword/);
+});
+
+test("D2: Pick is a separate tagged confirmation, never a manual identity", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer()],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    const row = h.element("augment-list").children[0];
+    const pick = row.children.find(child => child.textContent === "Pick");
+    assert.ok(pick);
+    await pick.handlers.click();
+    const posts = h.requests.filter(x => x.options.method === "POST");
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].url, "/api/offers/confirm");
+    assert.deepEqual(JSON.parse(posts[0].options.body),
+        {offer_id: 1, epoch: 7, augment_id: "en"});
+});
+
+test("D2: HTTP 409 stale confirmation is never automatically retried", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    h.respond(async (url) => url === "/api/offers/confirm"
+        ? {ok: false, status: 409, json: async () => ({})}
+        : {ok: true, status: 200, json: async () => ({
+            phase: "verifying", offers: [], stale: true,
+        })});
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer()],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    const pick = h.element("augment-list").children[0].children
+        .find(child => child.textContent === "Pick");
+    await pick.handlers.click();
+    assert.match(h.element("augment-action-status").textContent, /Offer changed/);
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/confirm").length, 1);
+    assert.equal(h.requests.filter(x => x.url === "/api/ocr/status").length, 1);
+});
+
+test("D2: manual slots disappear when identity becomes known", () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    const offer = d2Offer();
+    offer.slots.left = {augment_id: null, source: null};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    assert.ok(h.element("augment-list").children[0].children
+        .some(child => child.tagName === "INPUT"));
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer("visible", "user_identify")],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    assert.equal(h.element("augment-list").children[0].children
+        .some(child => child.tagName === "INPUT"), false);
 });
