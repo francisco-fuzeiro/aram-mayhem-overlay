@@ -118,3 +118,15 @@ def test_a6_capture_exclusion_failure_is_an_enumerated_diagnostic():
     assert SCHEMA["overlay_capture_exclusion"]["status"] == frozenset({"unsupported"})
     assert _clean("overlay_capture_exclusion", {"status": "unsupported"}) == {"status": "unsupported"}
     assert _clean("overlay_capture_exclusion", {"status": "ok", "username": "secret"}) == {}
+
+
+def test_a6_display_affinity_never_overrides_a3_self_occlusion():
+    root = Path(__file__).resolve().parent.parent
+    overlay_source = (root / "backend" / "overlay" / "window.py").read_text(encoding="utf-8")
+    capture_source = (root / "backend" / "collectors" / "window_capture.py").read_text(encoding="utf-8")
+
+    assert 'events.transition("overlay_capture_exclusion", status="unsupported")' in overlay_source
+    assert "WDA_EXCLUDEFROMCAPTURE" not in capture_source
+    assert "Include transparent, layered and our own overlay windows; fail closed." in capture_source
+    assert 'owner = "self" if win32.process_id(hwnd) == os.getpid() else "other"' in capture_source
+    assert "return False, owner" in capture_source
