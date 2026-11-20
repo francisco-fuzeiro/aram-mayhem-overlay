@@ -712,10 +712,11 @@
             recoveredOffer.epoch === offer.epoch) return true;
         const epoch = Number.isSafeInteger(data.offer_epoch)
             ? data.offer_epoch : offer.epoch;
-        return epoch === offer.epoch && data.ocr_stale !== true &&
-            ocrPhase === "detected" &&
+        return epoch === offer.epoch && data.ocr_stale !== true && !ocrStale &&
             Object.values(offer.slots || {}).some((slot) =>
-                slot && slot.source === "ocr" && typeof slot.augment_id === "string");
+                slot && typeof slot.augment_id === "string" &&
+                (slot.source === "user_identify" ||
+                    (slot.source === "ocr" && ocrPhase === "detected")));
     }
 
     function setOfferNotice(text) {
