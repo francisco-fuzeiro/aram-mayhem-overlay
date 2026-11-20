@@ -745,6 +745,9 @@ def _sync_confirmed_augments(state: GameState, confirmed_offer) -> None:
     state.chosen_augments[:] = state.offer_ledger.active_augment_ids()
     if not state.offer_ledger.offers or confirmed_offer is not state.offer_ledger.offers[-1]:
         return
+    if not (state.scan_window_open or state.confirmation_pending
+            or state.awaiting_stat_delta):
+        return  # repeated identical confirmation has no lifecycle side effects
     state.augment_choices.clear()
     state.ocr_last_detected.clear()
     state.ocr_slot_choices = None
