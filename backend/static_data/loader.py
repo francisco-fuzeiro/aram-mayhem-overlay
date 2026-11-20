@@ -9,6 +9,7 @@ import hashlib
 from datetime import datetime, timezone
 from dataclasses import asdict
 
+from backend.static_data.item_groups import exclusive_groups
 from backend.static_data.item_policy import (
     ITEM_POLICY_VERSION, POOL_CLASSES, RECOMMENDABLE_CLASSES, ItemPoolMeta,
     classify_item, cdragon_matches, load_item_overrides, patch_of, sources_agree,
@@ -170,7 +171,7 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 
 # Cache schema v2 stores listed movement-speed bonuses. Old caches cannot
 # support a safe boot-swap comparison, so require a new item cache.
-_ITEM_CACHE_SCHEMA = 3
+_ITEM_CACHE_SCHEMA = 4
 # Version in the filename prevents reuse of contributions parsed by older rules.
 _AUGMENT_CACHE_SCHEMA = 4
 MAYHEM_MIN_AUGMENT_ID = 1000
@@ -311,6 +312,11 @@ class StaticData:
 
     def item_class(self, item_id: str) -> str:
         return getattr(self._items, "classes", {}).get(str(item_id), "unknown")
+
+    @property
+    def exclusive_item_groups(self) -> dict[str, frozenset[str]]:
+        """Patch-proven, cached exclusive passives for final item selection."""
+        return getattr(self._items, "exclusive_groups", {})
 
     def recommendable_items(self) -> list[ItemData]:
         """Return only patch-proven, normally purchasable final items."""
@@ -692,7 +698,8 @@ _CD_FIELDS = (
 class ItemCatalog(dict):
     """Recognize all Data Dragon items; distinguish verified shop candidates."""
 
-    def __init__(self, items, meta, classes, data_source, special_recipes=None):
+    def __init__(self, items, meta, classes, data_source, special_recipes=None,
+                 exclusive_item_groups=None):
         super().__init__(items)
         self.meta = meta
         self.classes = classes
@@ -714,6 +721,14 @@ class ItemCatalog(dict):
             if (str(source) in self and str(target) in self.pool_ids
                 and str(source) != str(target))
         }
+        groups = exclusive_item_groups if isinstance(exclusive_item_groups, dict) else {}
+        self.exclusive_groups = (
+            {str(name): frozenset(str(ident) for ident in members
+                                  if str(ident) in self.recommendable_ids)
+             for name, members in groups.items()
+             if isinstance(name, str) and isinstance(members, (list, tuple, set, frozenset))}
+            if meta.availability == "verified_two_source" else {}
+        )
 
 
 def _unknown_item_meta(dd_version, overrides_version):
@@ -785,7 +800,9 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
                 mapped[field] = float(value)
                 if category in RECOMMENDABLE_CLASSES:
                     ranges[field].append(float(value))
-        move_flat, move_pct = _listed_movement_speed(stats, data.get("description", ""))
+        # B3: never infer boot-swap candidate speed from free text. Only
+        # the numeric Data Dragon stats justify a verified movement claim.
+        move_flat, move_pct = _listed_movement_speed(stats, "")
         intermediate[ident] = {
             "name": data.get("name") or ident,
             "cost": int(gold.get("total") or 0),
@@ -833,7 +850,13 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
                 # The special relation has to be patch-matched AND point to
                 # a verified pool item; unrelated CDragon IDs stay excluded.
                 special_recipes[ident] = str(target)
-    return ItemCatalog(result, meta, classes, source, special_recipes)
+    catalog = ItemCatalog(result, meta, classes, source, special_recipes)
+    if meta.availability == "verified_two_source":
+        catalog.exclusive_groups = exclusive_groups({
+            ident: items_raw[ident] for ident in catalog.recommendable_ids
+            if ident in items_raw
+        })
+    return catalog
 
 
 def _encode_item_cache(catalog):
@@ -842,6 +865,7 @@ def _encode_item_cache(catalog):
         "meta": asdict(catalog.meta),
         "classes": dict(catalog.classes),
         "special_recipes": dict(catalog.special_recipes),
+        "exclusive_groups": {name: sorted(ids) for name, ids in catalog.exclusive_groups.items()},
         "items": {
             ident: {
                 "name": item.name, "cost": item.cost,
@@ -881,8 +905,12 @@ def _verified_cached_items(path, version, overrides_version):
             return None
         if any(item.item_class != classes.get(ident) for ident, item in items.items()):
             return None
+        groups = data.get("exclusive_groups")
+        if not isinstance(groups, dict):
+            return None  # A verified cache must persist its passive restrictions.
         return ItemCatalog(
             items, meta, classes, "cache", data.get("special_recipes", {}),
+            groups,
         )
     except (OSError, KeyError, ValueError, TypeError):
         return None
