@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from backend.collectors.league_window import find_league_window, LeagueWindow
-from backend.collectors.window_capture import capture_league_client, CaptureProof, CaptureResult
+from backend.collectors.window_capture import capture_league_client, reset_capture_state, CaptureProof
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
 from backend.collectors.slot_title_ocr import SlotMatches, crop_title_slots, recognize_title_slots
 from backend.collectors.offer_visibility import VerifiedAbsenceGate, IndependentCue
@@ -191,6 +191,7 @@ class ScreenWatcher:
             self._transition_open = False
             self._last_detected = []
             self._set_scan_stage("not_scanned")
+            reset_capture_state()  # End of offer/match closes the WGC HWND session.
 
     def check(
         self,
@@ -227,7 +228,7 @@ class ScreenWatcher:
                 return ("unavailable", None)
             result = capture_augment_region(monitor_index, league_window=game)
             if (not isinstance(result, RegionCapture) or result.reason != "ok"
-                    or result.image is None or result.proof is None):
+                    or result.image is None or not isinstance(result.proof, CaptureProof)):
                 self._capture_stale = True
                 self._temporal.suspend()
                 self._absence_gate.suspend()
