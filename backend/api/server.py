@@ -826,7 +826,7 @@ async def confirm_offer_slot(req: OfferSlotRequest):
             raise _offer_http_error(exc) from None
         _sync_confirmed_augments(game_state, offer)
         return {"offer_id": offer.offer_id, "epoch": offer.epoch,
-                "chosen_augments": game_state.offer_ledger.active_augment_ids(),
+                "chosen_augments": _confirmed_augment_ids(game_state),
                 "offers": game_state.offer_ledger.payload()}
 
 
@@ -1560,7 +1560,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     # Existing scan opening owns the single watcher reset.
                 # Open when a new pick level is reached OR on respawn.
                 expected = expected_augments_for_level(current_level)
-                have = len(state.offer_ledger.active_augment_ids())
+                have = len(_confirmed_augment_ids(state))
 
                 if (
                     should_open_augment_scan(
