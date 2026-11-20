@@ -520,6 +520,10 @@ def ocr_status():
         "enabled": game_state.ocr_enabled,
         "last_detected": game_state.ocr_last_detected,
         "offer_state": game_state.offer_state,
+        "phase": game_state.ocr_phase,
+        "stale": game_state.ocr_stale,
+        "stale_since_epoch": game_state.ocr_stale_since_epoch,
+        "foreground": game_state.ocr_foreground,
     }
 
 
@@ -534,14 +538,11 @@ async def ocr_scan():
     async with game_state.lock:
         request_match = game_state.match_id
         request_epoch = game_state.offer_epoch
-        allowed = (
-            game_state.scan_window_open and game_state.ocr_enabled
-            and not game_state.confirmation_pending
-            and not game_state.awaiting_stat_delta
-        )
+        allowed = game_state.scan_window_open and game_state.ocr_enabled
         if not allowed:
             return {
                 "status": "unavailable",
+                "phase": game_state.ocr_phase,
                 "error": "No active augment offer scan",
                 "detected": [],
                 "augment_choices_set": list(game_state.augment_choices),
@@ -549,31 +550,37 @@ async def ocr_scan():
             }
     if not ocr_available():
         return {
-            "status": "unavailable",
+            "status": "unavailable", "phase": "ocr_missing",
             "error": "OCR not available — is Tesseract installed?",
             "detected": [],
         }
 
-    ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+    result = await asyncio.to_thread(_run_ocr_scan_manual)
+    ids, detected, proven, reverified, foreground = _manual_scan_parts(result)
     async with game_state.lock:
         applied = game_state.accept_manual_ocr(
             ids, detected, match_id=request_match, offer_epoch=request_epoch,
+            capture_proven=proven, reverified=reverified,
         )
         if applied:
             status = "detected"
+            game_state.ocr_foreground = foreground
         elif (
             game_state.scan_window_open and game_state.ocr_enabled
             and game_state.offer_epoch == request_epoch
             and game_state.match_id == request_match
-            and not game_state.confirmation_pending
-            and not game_state.awaiting_stat_delta
         ):
             game_state.offer_lifecycle.observe("transition")
+            game_state.set_ocr_phase("verifying")
             status = "transition"
         else:
             status = "superseded"
-        return {
+        response = {
             "status": status,
+            "phase": game_state.ocr_phase,
+            "stale": game_state.ocr_stale,
+            "reverified": bool(applied and reverified),
+            "foreground": game_state.ocr_foreground,
             "detected": detected if applied else [],
             "augment_choices_set": list(game_state.augment_choices),
             "ocr_slots": game_state.ocr_slot_choices,
@@ -581,6 +588,12 @@ async def ocr_scan():
             "offer_epoch": game_state.offer_epoch,
             "match_id": game_state.match_id,
         }
+    # Publication uses the same offer epoch and never sends an unproven card.
+    await _broadcast(json.dumps({
+        **response, "type": "ocr_result",
+        "augment_choices": list(response["augment_choices_set"]),
+    }))
+    return response
 
 
 @app.get("/api/ocr/screenshots")
