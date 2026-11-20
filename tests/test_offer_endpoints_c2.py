@@ -142,3 +142,18 @@ def test_ws_unidentified_choice_cannot_inject_build_augments(monkeypatch):
         result = ws.receive_json()
         assert result["type"] == "ack"
         assert result["chosen_augments"] == ["101"]
+
+
+def test_confirmed_stat_anvil_does_not_enter_build_augments(monkeypatch):
+    state, offer = _setup(monkeypatch)
+    monkeypatch.setattr(server.static_data, "get_stat_anvil",
+                        lambda aid: object() if aid == "102" else None,
+                        raising=False)
+    result = TestClient(server.app).post("/api/offers/confirm", json={
+        "offer_id": 1, "epoch": offer.epoch, "augment_id": "102",
+    })
+    assert result.status_code == 200
+    assert result.json()["chosen_augments"] == []
+    assert state.chosen_augments == []
+    assert state.chosen_stat_anvils == ["102"]
+    assert state.get_augment_state()["chosen"] == 0
