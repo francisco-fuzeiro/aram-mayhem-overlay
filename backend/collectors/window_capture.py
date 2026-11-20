@@ -104,7 +104,8 @@ class WgcFrameSource:
         if control is not None:
             try:
                 control.stop()
-            except (OSError, RuntimeError, ValueError):
+            except Exception:
+                # External capture-control shutdown must never reach the poller.
                 pass
 
 
@@ -285,11 +286,12 @@ def _wgc(game: LeagueWindow, api, clock, factory) -> CaptureResult:
     if _source is None:
         try:
             _source = factory(game.hwnd)
-        except (ImportError, OSError, RuntimeError, ValueError):
+        except Exception:
+            # Dependency startup errors are the only automatic MSS fallback.
             return CaptureResult(None, None, "backend_unavailable")
     try:
         sample = _source.latest()
-    except (OSError, RuntimeError, ValueError):
+    except Exception:
         sample = None
     request_time = clock()
     img = None
