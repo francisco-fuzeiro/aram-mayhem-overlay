@@ -134,8 +134,15 @@ def test_manual_augment_fallback_is_visible_in_game_without_ocr():
     assert "autoExpandSections(data)" in source
     assert "OCR_PHASE_LABELS" in source
     assert "updateOcrPhase(" in source
-    assert 'id="ocr-manual-help"' in html
-    assert 'id="augment-search"' in html
+    settings = (root / "frontend" / "settings.html").read_text(encoding="utf-8")
+    assert 'id="section-input"' not in html
+    assert 'id="augment-search"' not in html
+    assert 'id="augment-list"' in html
+    assert "slot-search" in source
+    assert 'id="ocr-auto"' in settings
+    assert 'id="btn-scan"' in settings
+    assert '"/api/offers/identify"' in source
+    assert '"/api/offers/confirm"' in source
 
 
 def test_manual_augment_state_does_not_leak_into_next_game():
