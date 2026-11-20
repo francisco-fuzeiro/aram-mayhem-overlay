@@ -1,5 +1,7 @@
 # External Companion Code Reuse — Candidate Register
 
+**2026-11-20 external-source review:** See [OPEN_SOURCE_FEATURE_MAP_2026-11-20.md](OPEN_SOURCE_FEATURE_MAP_2026-11-20.md) for a verified cross-repository feature matrix, code paths, license cautions, scoring-baseline duplication and phase-specific evaluation gates. This is research only; no external source imported and no game tests executed.
+
 Reviewed 2026-11-18 for the ARAM Oracle development roadmap. This is a
 **source/feature evaluation, not an approval to import code or ship assets**.
 Root LICENSE files for smiteless, ez-lol-spell-tracker and mayhem-advisor were read
