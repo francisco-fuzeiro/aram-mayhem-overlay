@@ -53,7 +53,7 @@ def test_detected_executable_reports_only_dependency_readiness(monkeypatch):
     assert screen_ocr.readiness_status() == {
         "available": True,
         "reason": "ready",
-        "next_step": "Tesseract is available. In-game card recognition still requires Windows validation.",
+        "next_step": "Tesseract and English traineddata are available. League card recognition still requires Windows validation.",
     }
     assert screen_ocr.is_available() is True
 
