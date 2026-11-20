@@ -347,7 +347,7 @@ test("F4 loading screen and champion select do not inherit old champion or gold"
     assert.equal(h.element("phase").textContent, "---");
     h.api.handleMessage({type: "champ_select", candidates: []});
     assert.equal(h.element("phase").textContent, "Draft");
-    assert.equal(h.element("phase").textContent, "---");
+    assert.equal(h.api.getState().lastResult, null);
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
 });
 
@@ -647,7 +647,9 @@ test("M5/C4c: OCR results from old matches or old offer epochs are ignored", () 
         offer_epoch: 7, offer_state: "present", detected});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:22",
-        offer_epoch: 8, offer_state: "present", detected});
+        offer_epoch: 8, offer_state: "present", detected, stale: false,
+        phase: "detected", reverified: true,
+        offers: d2VerifiedFields({left:"en",centre:null,right:null},8).offers});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
 });
 
