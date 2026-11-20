@@ -201,3 +201,12 @@ def test_identity_override_event_contains_no_augment_id(monkeypatch, ledger):
         "slot": "left", "verified_by": "ocr",
     }
     assert ledger.active_augment_ids() == []
+
+
+def test_confirmed_offer_cannot_be_rewritten_by_second_choice(ledger):
+    offer = ledger.on_level(3)
+    ledger.on_verified_titles({"left": "101", "centre": "102", "right": "103"}, offer.epoch)
+    ledger.confirm(1, offer.epoch, "101")
+    assert ledger.confirm(1, offer.epoch, "101").picked_id == "101"
+    expect_error("offer_closed", lambda: ledger.confirm(1, offer.epoch, "102"))
+    assert ledger.active_augment_ids() == ["101"]
