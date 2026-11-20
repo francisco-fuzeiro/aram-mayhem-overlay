@@ -97,3 +97,44 @@ def test_equal_scores_resolve_by_id_independent_of_catalog_order():
     )
     assert one.full_build == two.full_build == ["3101"]
     assert one.alternatives == two.alternatives == {}
+
+
+def test_pipeline_uses_chosen_not_offered_augments_and_serializes_empty_alternatives(monkeypatch):
+    from backend.api.server import _serialize_result
+    from backend.models import GamePhase, GameSnapshot
+    from backend.static_data.loader import StaticData
+    from backend.workflow import pipeline as pipeline_module
+
+    monkeypatch.setattr(pipeline_module, "get_all_personal_winrates", lambda _: {})
+    data = StaticData()
+    data._champions = {"synthetic": _champion()}
+    augment = AugmentData(
+        id="synthetic-ap", name="Synthetic AP", tier=AugmentTier.GOLD,
+        description="Synthetic chosen AP contribution", contribution=StatVector(ap=12.0),
+    )
+    data._augments = {augment.id: augment}
+    items = [
+        _item("3101", ad=1.0), _item("3102", ad=0.9),
+        _item("3103", ap=1.0), _item("3104", ap=0.9),
+    ]
+    data._items = {item.id: item for item in items}
+
+    def snapshot(chosen_ids):
+        return GameSnapshot(
+            game_id="b4-chosen", phase=GamePhase.AUG_PICK_1,
+            champion_id="synthetic", augment_choices=["synthetic-ap"],
+            chosen_augments=chosen_ids, purchased_items=[], current_gold=4500,
+            game_time=300, enemy_champion_ids=[], build_style="Balanced",
+        )
+
+    pipeline = pipeline_module.Pipeline(data)
+    offered_only = pipeline.run(snapshot([]))
+    chosen = pipeline.run(snapshot(["synthetic-ap"]))
+    reverted = pipeline.run(snapshot([]))
+    assert offered_only is not None and chosen is not None and reverted is not None
+    assert offered_only.build_state.full_build != chosen.build_state.full_build
+    assert reverted.build_state.full_build == offered_only.build_state.full_build
+    assert offered_only.build_state.chosen_augments == []
+    assert chosen.build_state.chosen_augments == ["synthetic-ap"]
+    assert chosen.build_state.alternatives == {}
+    assert _serialize_result(chosen, data)["build_state"]["alternatives"] == {}
