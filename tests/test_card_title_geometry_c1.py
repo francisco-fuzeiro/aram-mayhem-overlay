@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw
 from backend.collectors import screen_ocr
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
 from backend.collectors.league_window import LeagueWindow
+from backend.collectors.window_capture import CaptureProof
 
 
 OBSERVED_RECT = (8, 31, 2552, 1384)
@@ -92,7 +93,8 @@ def observed_region_image():
 def test_save_screenshot_extracts_correct_ordered_bands_without_icons_or_hud(diagnostic):
     strip, colors = observed_region_image()
     first = screen_ocr.save_screenshot(strip, label="PRIVATE-ignored",
-                                        ocr_texts=["PRIVATE-ignored"])
+                                        ocr_texts=["PRIVATE-ignored"],
+                                        proof=CaptureProof("wgc", 23, OBSERVED_RECT, 10.0, "other"))
     paths = {slot: next(diagnostic.glob(f"card_{slot}_*.png")) for slot in OBSERVED}
     assert first == paths["left"]
     assert len(list(diagnostic.glob("*.png"))) == 3
@@ -116,7 +118,7 @@ def test_rejects_region_override_that_does_not_contain_all_title_bands(
     assert not diagnostic.exists()
 
 
-def test_blurred_window_never_saves_even_with_opt_in(diagnostic, monkeypatch):
+def test_unverified_blurred_window_never_saves_even_with_opt_in(diagnostic, monkeypatch):
     monkeypatch.setattr(
         screen_ocr, "find_league_window",
         lambda: LeagueWindow(23, 8, 31, 2552, 1384, False),
