@@ -1,0 +1,63 @@
+{
+  "version": "hud_zones_v1",
+  "reference_height": 1080,
+  "status": "unvalidated_until_N1",
+  "zones": {
+    "top_right_stats": {
+      "anchor": "top_right",
+      "x": 0,
+      "y": 0,
+      "w": 460,
+      "h": 70,
+      "scale_with": "hud"
+    },
+    "top_center_score": {
+      "anchor": "top_center",
+      "x": -300,
+      "y": 0,
+      "w": 600,
+      "h": 90,
+      "scale_with": "hud"
+    },
+    "kill_feed": {
+      "anchor": "top_right",
+      "x": 0,
+      "y": 70,
+      "w": 320,
+      "h": 260,
+      "scale_with": "hud"
+    },
+    "minimap": {
+      "anchor": "bottom_right",
+      "x": 0,
+      "y": 0,
+      "w": 300,
+      "h": 300,
+      "scale_with": "minimap"
+    },
+    "bottom_hud": {
+      "anchor": "bottom_center",
+      "x": -480,
+      "y": 0,
+      "w": 960,
+      "h": 180,
+      "scale_with": "hud"
+    },
+    "chat": {
+      "anchor": "bottom_left",
+      "x": 0,
+      "y": 0,
+      "w": 540,
+      "h": 300,
+      "scale_with": "hud"
+    },
+    "augment_cards": {
+      "anchor": "center",
+      "x": -560,
+      "y": -320,
+      "w": 1120,
+      "h": 640,
+      "scale_with": "none"
+    }
+  }
+}

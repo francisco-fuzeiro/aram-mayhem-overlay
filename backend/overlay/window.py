@@ -217,28 +217,80 @@ if PYQT_AVAILABLE:
                 self._apply_overlay_layout()
 
         def _apply_overlay_layout(self, *_args):
-            """Qt returns device-independent screen coordinates, including DPI scales."""
+            """D1: place Qt logical geometry only inside verified HUD-free bands."""
             if self._layout_in_progress or not hasattr(self, "_view"):
                 return
+            from backend.collectors.league_window import find_league_window
+            from backend.overlay.hud_zones import (
+                HudScales, forbidden_rects, load_hud_zones,
+                physical_to_logical_rect,
+            )
+            from backend.overlay.league_config import (
+                executable_path_for_hwnd, read_hud_scales,
+            )
+            from backend.overlay.layout import calculate_overlay_placement
+
             screens = QApplication.screens()
             screen = self.screen()
             if screen not in screens:
                 screen = QApplication.primaryScreen()
             if screen is None:
                 return
+
+            game = find_league_window()
+            if game is not None:
+                # LeagueWindow.rect is already DPI-aware *physical* client pixels.
+                physical_client = (
+                    game.left, game.top, game.right - game.left,
+                    game.bottom - game.top,
+                )
+                centre_x = game.left + physical_client[2] / 2
+                centre_y = game.top + physical_client[3] / 2
+
+                def monitor_distance(candidate):
+                    # On Windows Qt screen origins are native desktop positions,
+                    # whereas width/height are device-independent.
+                    geometry = candidate.geometry()
+                    ratio = candidate.devicePixelRatio()
+                    if ratio <= 0:
+                        ratio = 1.0
+                    l, t = geometry.x(), geometry.y()
+                    r = l + geometry.width() * ratio
+                    b = t + geometry.height() * ratio
+                    dx = max(l - centre_x, 0, centre_x - r)
+                    dy = max(t - centre_y, 0, centre_y - b)
+                    return dx * dx + dy * dy
+
+                screen = min(screens, key=monitor_distance)
+                # Convert exactly once before invoking the pure layout solver.
+                dpr = screen.devicePixelRatio()
+                client = physical_to_logical_rect(
+                    physical_client, dpr if dpr > 0 else 1.0,
+                )
+                scales = read_hud_scales(executable_path_for_hwnd(game.hwnd))
+            else:
+                # No verified game window: remain in the screen work area with
+                # conservative defaults. Do not infer game state from Qt focus.
+                area = screen.availableGeometry()
+                client = (area.x(), area.y(), area.width(), area.height())
+                scales = HudScales()
             area = screen.availableGeometry()  # taskbar-safe and screen-origin-aware
             try:
-                x, y, w, h = calculate_overlay_geometry(
-                    (area.x(), area.y(), area.width(), area.height()),
-                    self._overlay_preferences, base_width=OVERLAY_WIDTH,
-                    vertical_inset=OVERLAY_MARGIN_TOP,
+                zones = forbidden_rects(client, scales, load_hud_zones())
+                x, y, w, h, mode = calculate_overlay_placement(
+                    client, self._overlay_preferences, base_width=OVERLAY_WIDTH,
+                    vertical_inset=OVERLAY_MARGIN_TOP, forbidden=zones,
                 )
                 self._layout_in_progress = True
-                if (self.x(), self.y(), self.width(), self.height()) != (x, y, w, h):
-                    self.setGeometry(x, y, w, h)
+                # A hidden layout must never leave a sizeable transparent Qt
+                # surface above the game. Keep native shortcuts/tray intact.
+                self._view.setVisible(mode != "hidden")
+                qt_height = h if mode != "hidden" else 1
+                if (self.x(), self.y(), self.width(), self.height()) != (x, y, w, qt_height):
+                    self.setGeometry(x, y, w, qt_height)
                 self._view.setZoomFactor(self._overlay_preferences["scale"])
                 self.setWindowOpacity(self._overlay_preferences["opacity"])
-            except (ValueError, RuntimeError) as exc:
+            except (ValueError, RuntimeError, OSError) as exc:
                 logger.warning("Unable to apply Qt overlay preferences: %s", exc)
             finally:
                 self._layout_in_progress = False
