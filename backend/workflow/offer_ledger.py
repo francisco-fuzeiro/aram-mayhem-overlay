@@ -120,16 +120,15 @@ class OfferLedger:
         # A complete fresh OCR observation may move an identity to a new
         # position while removing it from the old one. Only the post-update
         # identities may be required unique; never mutate on conflict.
-        final = {
-            slot: slots[slot] if slots[slot] is not None
-            else offer.slots[slot].augment_id
-            for slot in SLOTS
-        }
+        final = {slot: slots[slot] for slot in SLOTS}
         final_ids = [value for value in final.values() if value is not None]
         if len(set(final_ids)) != len(final_ids):
             raise LedgerError("identity_conflict")
         for slot, augment_id in slots.items():
             if augment_id is None:
+                # Verified unknown is not evidence for keeping a previous
+                # rerolled slot identity; never allow a stale pick.
+                offer.slots[slot] = SlotIdentity(None, None, epoch)
                 continue
             identity = offer.slots[slot]
             if identity.augment_id == augment_id and identity.source == "user_identify":
