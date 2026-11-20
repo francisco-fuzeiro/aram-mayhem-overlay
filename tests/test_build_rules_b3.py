@@ -334,3 +334,25 @@ def test_passive_alias_merges_awe_with_manaflow_without_false_wounds_group():
         "c": {"description": "<passive>Grievous Wounds:</passive>"},
     }
     assert exclusive_groups(items) == {"Manaflow": frozenset({"a", "b"})}
+
+
+def test_boot_swap_fails_closed_when_champion_catalog_entry_is_missing():
+    boots = _item("3047", item_class="boots_tier2", boots=True, ms_flat=45)
+    owned = [_item(f"held-{index}", ap=0.1) for index in range(5)]
+    replacement = _item("3142", ap=1.0, ms_pct=0.05)
+    catalog = [boots, *owned, replacement]
+    ids = [boots.id, *(item.id for item in owned)]
+    sd = StaticData()
+    sd._items = {item.id: item for item in catalog}
+
+    def suggest():
+        return suggest_build(
+            _champion(), [], ids, 5000, catalog, build_style="Damage",
+            item_data=sd, inventory=build_inventory(ids, sd),
+            catalog_verified=True,
+        ).boot_replacement
+
+    sd._champions = {"lux": _champion()}
+    assert suggest() is not None
+    sd._champions = {}
+    assert suggest() is None
