@@ -133,3 +133,40 @@ def test_shared_server_title_catalog_augments_take_precedence(monkeypatch):
     server._run_ocr_scan_manual()
     server._run_watcher_check()
     assert received == [expected, expected]
+
+
+def test_loader_persists_only_the_328_selected_mayhem_source_rows(
+    tmp_path, monkeypatch, cherry_rows,
+):
+    """Exercise the actual loader path, not only the pure selection helper."""
+    monkeypatch.setattr(loader, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(loader, "_get_dd_version", lambda: "a1-fixture")
+
+    class Response:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    def fake_get(url, **_kwargs):
+        if url == loader.CD_AUGMENTS_URL:
+            return Response(cherry_rows)
+        if url == loader.CD_ARENA_DESC_URL:
+            return Response({"augments": []})
+        raise AssertionError("unexpected catalog source")
+
+    monkeypatch.setattr(loader.requests, "get", fake_get)
+    loaded = loader._load_augments()
+    cache = json.loads(
+        (tmp_path / "augments_v4_a1-fixture.json").read_text(encoding="utf-8")
+    )
+    expected = json.loads(
+        (FIXTURES / "expected_mayhem_catalog_2026-11-20.json").read_text(encoding="utf-8")
+    )["catalog"]
+    assert {identifier: row["name"] for identifier, row in cache.items()} == expected
+    assert set(expected).issubset(set(loaded))
+    assert "393" not in cache
