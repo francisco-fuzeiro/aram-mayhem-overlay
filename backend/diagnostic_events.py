@@ -55,6 +55,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     "ocr_occlusion": {"owner": frozenset(("self", "other"))},
     "ocr_foreground": {"owner": frozenset(("league", "self", "other"))},
     "wgc_degraded": {"streak": "int"},
+    "overlay_capture_exclusion": {"status": frozenset(("unsupported",))},
     "augment_inference": {
         "result": frozenset(("pending", "auto", "ambiguous", "none")),
         "confidence": "confidence1",

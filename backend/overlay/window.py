@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import ctypes
+from ctypes import wintypes
 import sys
 import logging
 import threading
@@ -26,6 +27,7 @@ import webbrowser
 from urllib.parse import urlsplit, parse_qs
 
 from backend import preferences
+from backend.diagnostic_events import events
 from backend.overlay.layout import calculate_overlay_geometry
 
 logger = logging.getLogger("aram-oracle.overlay")
@@ -48,6 +50,8 @@ except ImportError:
 GWL_EXSTYLE = -20
 WS_EX_TRANSPARENT = 0x00000020
 WS_EX_LAYERED = 0x00080000
+WS_EX_NOACTIVATE = 0x08000000
+WDA_EXCLUDEFROMCAPTURE = 0x11
 
 # Overlay dimensions
 OVERLAY_WIDTH = 320
@@ -111,10 +115,12 @@ if PYQT_AVAILABLE:
 
             self.setWindowTitle("ARAM Oracle Overlay")
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
             self.setWindowFlags(
                 Qt.WindowType.FramelessWindowHint
                 | Qt.WindowType.WindowStaysOnTopHint
                 | Qt.WindowType.Tool  # hidden from taskbar
+                | Qt.WindowType.WindowDoesNotAcceptFocus
             )
 
             # D4b: screen-relative geometry is applied once WebEngine is ready.
@@ -122,6 +128,7 @@ if PYQT_AVAILABLE:
             self._layout_in_progress = False
             self._watched_screens = set()
             self._screen_signal_connected = False
+            self._capture_exclusion_warning_emitted = False
 
             # Web view
             self._view = QWebEngineView(self)
@@ -189,6 +196,8 @@ if PYQT_AVAILABLE:
                 handle.screenChanged.connect(self._screens_changed)
                 self._screen_signal_connected = True
             self._apply_overlay_layout()
+            # The native HWND may be recreated when Qt window flags change.
+            self._apply_capture_exclusion()
 
         def resizeEvent(self, event):
             super().resizeEvent(event)
@@ -301,7 +310,6 @@ if PYQT_AVAILABLE:
                 logger.info("Qt overlay hidden (Alt+H or tray to restore)")
             else:
                 self.show()
-                self.raise_()
                 # The managed desktop may create the overlay while hidden.
                 # Reapply its existing Win32 transparency flags after first show.
                 if self._is_click_through:
@@ -369,31 +377,43 @@ if PYQT_AVAILABLE:
             ).start()
 
         def _toggle_click_through(self):
-            """Enable controls temporarily without affecting transparency."""
+            """Alt+O temporarily permits interaction, then restores non-activation."""
             if sys.platform != "win32":
                 return
-            hwnd = int(self.winId())
-            user32 = ctypes.windll.user32
-            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             if self._is_click_through:
-                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style & ~WS_EX_TRANSPARENT)
+                self._is_click_through = False
+                self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, False)
+                self.show()
+                self._apply_capture_exclusion()
+                hwnd = int(self.winId())
+                user32 = ctypes.windll.user32
+                style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+                user32.SetWindowLongW(
+                    hwnd, GWL_EXSTYLE,
+                    style & ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE),
+                )
                 self._view.page().runJavaScript(
                     "document.body.classList.add('interactive-mode')"
                 )
             else:
-                user32.SetWindowLongW(
-                    hwnd, GWL_EXSTYLE, style | WS_EX_TRANSPARENT | WS_EX_LAYERED
-                )
+                self._is_click_through = True
+                self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
+                self.show()
+                self._apply_capture_exclusion()
                 self._view.page().runJavaScript(
                     "document.body.classList.remove('interactive-mode')"
                 )
-            self._is_click_through = not self._is_click_through
+                # Qt may recreate its HWND during the flag change.
+                QTimer.singleShot(0, self._set_click_through)
             logger.info(
                 "Qt click-through %s", "ON" if self._is_click_through else "OFF"
             )
 
         def _set_click_through(self):
-            """Set Win32 extended styles so mouse events pass through."""
+            """Restore click-through and no-activation on the current native HWND."""
+            # A previously queued timer must never undo a newer Alt+O toggle.
+            if not self._is_click_through:
+                return
             if sys.platform != "win32":
                 logger.warning("Click-through only works on Windows")
                 return
@@ -404,11 +424,44 @@ if PYQT_AVAILABLE:
                 current_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
                 user32.SetWindowLongW(
                     hwnd, GWL_EXSTYLE,
-                    current_style | WS_EX_TRANSPARENT | WS_EX_LAYERED,
+                    current_style | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE,
                 )
+                self._apply_capture_exclusion()
                 logger.info("Click-through enabled (HWND=%d)", hwnd)
-            except Exception as e:
-                logger.error("Failed to set click-through: %s", e)
+            except Exception as exc:
+                logger.error("Failed to set click-through: %s", exc)
+
+        def _apply_capture_exclusion(self):
+            """Best-effort screenshot hygiene; never evidence for A3 window capture."""
+            if sys.platform != "win32":
+                return
+            try:
+                user32 = ctypes.windll.user32
+                set_affinity = user32.SetWindowDisplayAffinity
+                get_affinity = user32.GetWindowDisplayAffinity
+                # Explicit HWND types avoid truncating 64-bit native handles.
+                set_affinity.argtypes = (wintypes.HWND, wintypes.DWORD)
+                set_affinity.restype = wintypes.BOOL
+                get_affinity.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+                get_affinity.restype = wintypes.BOOL
+                hwnd = int(self.winId())
+                applied = bool(set_affinity(hwnd, WDA_EXCLUDEFROMCAPTURE))
+                actual = wintypes.DWORD()
+                if (
+                    applied
+                    and bool(get_affinity(hwnd, ctypes.byref(actual)))
+                    and actual.value == WDA_EXCLUDEFROMCAPTURE
+                ):
+                    return
+            except (AttributeError, OSError, TypeError, ValueError):
+                pass
+
+            if not self._capture_exclusion_warning_emitted:
+                logger.warning(
+                    "Overlay capture exclusion unsupported; A3 occlusion safeguards remain active"
+                )
+                self._capture_exclusion_warning_emitted = True
+            events.transition("overlay_capture_exclusion", status="unsupported")
 
 
 def is_available() -> bool:
