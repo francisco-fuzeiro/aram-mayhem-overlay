@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 import logging
 
 logger = logging.getLogger("aram-oracle")
@@ -36,6 +36,15 @@ static_data = StaticData()
 
 
 # -- Thread-safe game state --
+
+OCR_PHASES = frozenset({
+    "disabled", "ocr_missing", "no_game", "capture_unavailable",
+    "occluded", "no_offer", "verifying", "detected", "unreadable",
+})
+_CAPTURE_LOSS_PHASES = frozenset({"occluded", "capture_unavailable", "no_game"})
+_ACTIVE_OCR_PHASES = frozenset({"detected", "verifying", "unreadable"})
+
+
 
 
 class GameState:
@@ -66,6 +75,10 @@ class GameState:
         self.ocr_last_detected: list[str] = []
         self.ocr_slot_choices: dict[str, str | None] | None = None
         self.ocr_stale: bool = False
+        self.ocr_stale_since_epoch: int | None = None
+        self.ocr_phase: str = "no_offer"
+        self.ocr_foreground: str = "other"
+        self.ocr_unreadable_ticks: int = 0
         self.offer_lifecycle = OfferLifecycle()
         # Monotonic offer generation fences OCR results from old windows and
         # manual scans that finish after a match transition or player action.
@@ -106,6 +119,29 @@ class GameState:
     def lock(self) -> asyncio.Lock:
         return self._lock
 
+    def set_ocr_phase(
+        self, phase: str, *, reverified: bool = False, offer_closed: bool = False,
+    ) -> None:
+        """Latch a stale offer until fresh A3/A4 proof or verified closure.
+
+        Focusing League, blank OCR, a single changed slot, and an unchanged
+        screenshot are never sufficient evidence to clear stale.
+        """
+        if phase not in OCR_PHASES:
+            raise ValueError("unknown OCR phase")
+        if (
+            self.scan_window_open
+            and self.ocr_phase in _ACTIVE_OCR_PHASES
+            and phase in _CAPTURE_LOSS_PHASES
+        ):
+            if not self.ocr_stale:
+                self.ocr_stale_since_epoch = self.offer_epoch
+            self.ocr_stale = True
+        if offer_closed or (phase == "detected" and reverified):
+            self.ocr_stale = False
+            self.ocr_stale_since_epoch = None
+        self.ocr_phase = phase
+
     def reset(self) -> None:
         """Reset all game-specific state (called when no game is detected)."""
         # Clear manually entered picks too. An OCR-less match must not
@@ -115,6 +151,10 @@ class GameState:
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
         self.ocr_stale = False
+        self.ocr_stale_since_epoch = None
+        self.ocr_phase = "no_offer"
+        self.ocr_foreground = "other"
+        self.ocr_unreadable_ticks = 0
         self.offer_lifecycle.close()
         self.offer_epoch += 1
         self.augment_choices.clear()
@@ -148,11 +188,16 @@ class GameState:
             watcher.reset()
         if self.scan_window_open:
             self.offer_lifecycle.observe("unavailable")
+            self.set_ocr_phase("disabled" if not enabled else "no_game")
+            # An OCR toggle invalidates previous advice, not offer identity.
+            if not self.ocr_stale:
+                self.ocr_stale_since_epoch = self.offer_epoch
             self.ocr_stale = True
 
     def accept_manual_ocr(
         self, ids: list[str], detected: list[dict], *,
         match_id: str | None, offer_epoch: int,
+        capture_proven: bool = False, reverified: bool = False,
     ) -> bool:
         """Apply only an in-window, current-generation C3-verified scan.
 
@@ -160,7 +205,7 @@ class GameState:
         a closed or already confirmed offer or cross into a new match.
         """
         if (not self.scan_window_open or not self.ocr_enabled
-                or self.awaiting_stat_delta or self.confirmation_pending
+                or not capture_proven or (self.ocr_stale and not reverified)
                 or self.match_id != match_id or self.offer_epoch != offer_epoch):
             return False
         slots = _slots_from_detected(detected)
@@ -173,7 +218,7 @@ class GameState:
         self.augment_choices[:] = current_ids
         self.ocr_last_detected[:] = current_ids
         self.ocr_slot_choices = slots
-        self.ocr_stale = False
+        self.set_ocr_phase("detected", reverified=reverified)
         return True
 
     def get_augment_state(self) -> dict:
