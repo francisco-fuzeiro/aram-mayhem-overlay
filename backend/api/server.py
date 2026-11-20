@@ -63,11 +63,12 @@ class _OcrWatcherObservation(tuple):
 class _ManualScanEvidence(tuple):
     """Positional legacy (ids, detected), with proven capture facts attached."""
 
-    def __new__(cls, ids, detected, *, proven, reverified, foreground):
+    def __new__(cls, ids, detected, *, proven, reverified, foreground, stage):
         obj = super().__new__(cls, (ids, detected))
         obj.proven = bool(proven)
         obj.reverified = bool(reverified)
         obj.foreground = foreground
+        obj.stage = stage
         return obj
 
 
@@ -77,7 +78,8 @@ def _manual_scan_parts(value):
     proven = getattr(value, "proven", len(value) == 3 and value[2] is True)
     reverified = getattr(value, "reverified", len(value) == 3 and value[2] is True)
     foreground = getattr(value, "foreground", "other")
-    return ids, detected, proven, reverified, foreground
+    stage = getattr(value, "stage", "not_scanned")
+    return ids, detected, proven, reverified, foreground, stage
 
 
 
@@ -556,7 +558,7 @@ async def ocr_scan():
         }
 
     result = await asyncio.to_thread(_run_ocr_scan_manual)
-    ids, detected, proven, reverified, foreground = _manual_scan_parts(result)
+    ids, detected, proven, reverified, foreground, stage = _manual_scan_parts(result)
     async with game_state.lock:
         applied = game_state.accept_manual_ocr(
             ids, detected, match_id=request_match, offer_epoch=request_epoch,
@@ -570,8 +572,12 @@ async def ocr_scan():
             and game_state.offer_epoch == request_epoch
             and game_state.match_id == request_match
         ):
-            game_state.offer_lifecycle.observe("transition")
-            game_state.set_ocr_phase("verifying")
+            failed_phase = _manual_scan_failure_phase(stage)
+            game_state.offer_lifecycle.observe(
+                "unavailable" if failed_phase in _CAPTURE_LOSS_PHASES
+                else "transition"
+            )
+            game_state.set_ocr_phase(failed_phase)
             status = "transition"
         else:
             status = "superseded"
@@ -854,7 +860,7 @@ async def game_ws(websocket: WebSocket):
                 result = ([], [])
                 if allowed and ocr_available():
                     result = await asyncio.to_thread(_run_ocr_scan_manual)
-                ids, detected, proven, reverified, foreground = _manual_scan_parts(result)
+                ids, detected, proven, reverified, foreground, stage = _manual_scan_parts(result)
                 async with game_state.lock:
                     applied = allowed and game_state.accept_manual_ocr(
                         ids, detected, match_id=request_match,
@@ -868,8 +874,12 @@ async def game_ws(websocket: WebSocket):
                           and game_state.offer_epoch == request_epoch
                           and game_state.scan_window_open
                           and game_state.ocr_enabled):
-                        game_state.offer_lifecycle.observe("transition")
-                        game_state.set_ocr_phase("verifying")
+                        failed_phase = _manual_scan_failure_phase(stage)
+                        game_state.offer_lifecycle.observe(
+                            "unavailable" if failed_phase in _CAPTURE_LOSS_PHASES
+                            else "transition"
+                        )
+                        game_state.set_ocr_phase(failed_phase)
                         status = "transition"
                     else:
                         status = "superseded"
@@ -1017,6 +1027,7 @@ def _run_ocr_scan_manual() -> _ManualScanEvidence:
         temporal = getattr(screen_watcher, "_temporal", None)
         reverified = bool(proven and getattr(temporal, "last_emit_reverified", False))
         foreground = getattr(screen_watcher, "_last_foreground", "other")
+        stage = getattr(screen_watcher, "last_scan_stage", "not_scanned")
     event_log.emit(
         "ocr_recognition", outcome="manual_detected" if proven else "manual_empty",
         count=len(matches or []),
@@ -1026,7 +1037,7 @@ def _run_ocr_scan_manual() -> _ManualScanEvidence:
     detected = _slot_detection_payload(matches) if proven else []
     return _ManualScanEvidence(
         ids, detected, proven=proven, reverified=reverified,
-        foreground=foreground,
+        foreground=foreground, stage=stage,
     )
 
 
@@ -1066,6 +1077,21 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
         detected = _slot_detection_payload(matches)
         return _OcrWatcherObservation(action, ids, detected, **metadata)
     return _OcrWatcherObservation(action, [], None, **metadata)
+
+
+def _manual_scan_failure_phase(stage: str) -> str:
+    """Classify manual capture failure from the verified watcher scan stage."""
+    if stage == "ocr_unavailable":
+        return "ocr_missing"
+    if stage == "game_window_unavailable":
+        return "no_game"
+    if stage == "game_occluded":
+        return "occluded"
+    if stage in ("capture_invalid", "geometry_unsupported"):
+        return "capture_unavailable"
+    if stage in ("titles_unidentified", "titles_unchanged", "verified_absence"):
+        return "no_offer"
+    return "verifying"
 
 
 def _phase_for_observation(state: GameState, observation: tuple) -> str:
