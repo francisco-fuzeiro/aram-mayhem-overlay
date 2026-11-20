@@ -13,6 +13,9 @@
     const feedbackButton = $("send-feedback");
     const feedbackStatus = $("feedback-status");
     const refreshOcrButton = $("refresh-ocr");
+    const ocrAutoCheckbox = $("ocr-auto");
+    const scanNowButton = $("btn-scan");
+    const ocrActionStatus = $("ocr-action-status");
     const availableStyles = new Set(["Balanced", "Damage", "Survival", "Utility"]);
     const overlayModel = globalThis.ARAMOverlayPreferences;
     if (!overlayModel) throw new Error("Overlay preferences helper was not loaded.");
@@ -250,6 +253,19 @@
             if (typeof status.available !== "boolean") {
                 throw new Error("OCR status response was incomplete.");
             }
+            ocrAutoCheckbox.checked = status.enabled === true;
+            scanNowButton.disabled = status.available !== true || status.enabled !== true;
+            const safePhases = new Set(["disabled", "ocr_missing", "no_game",
+                "capture_unavailable", "occluded", "no_offer", "verifying",
+                "detected", "unreadable"]);
+            $("ocr-phase").textContent = safePhases.has(status.phase)
+                ? status.phase : "Unknown";
+            $("ocr-foreground").textContent =
+                ["league", "other", "unknown"].includes(status.foreground)
+                    ? status.foreground : "Unknown";
+            $("ocr-capture-backend").textContent =
+                ["wgc", "mss_zorder"].includes(status.capture_backend)
+                    ? status.capture_backend : "Not reported by current diagnostics";
             $("ocr-summary").textContent = status.available
                 ? "Tesseract detected. Live augment recognition is not yet verified."
                 : "OCR unavailable. Automatic scanning needs attention.";
@@ -294,12 +310,66 @@
                 : (reasons[status.reason] || "Tesseract not detected.") +
                     " Manual augment input remains available.";
         } catch (error) {
+            scanNowButton.disabled = true;
             $("ocr-summary").textContent = "Unable to check OCR status: " + error.message;
             $("ocr-scan-detail").textContent = "Last scan status unavailable.";
             $("ocr-next-step").textContent = "Check the local API connection, then select Recheck.";
             $("diagnostics-ocr").textContent = "OCR status check failed: " + error.message;
         } finally {
             refreshOcrButton.disabled = false;
+        }
+    }
+
+
+    async function scanAugmentsNow() {
+        scanNowButton.disabled = true;
+        ocrActionStatus.textContent = "Scanning the current verified game view…";
+        try {
+            const result = await requestJson("/api/ocr/scan", {method: "POST"});
+            ocrActionStatus.textContent = result.status === "detected"
+                ? "Scan completed; check the AUGMENTS panel."
+                : "No verified offer was read. Use Alt+O and Recover if necessary.";
+        } catch (error) {
+            ocrActionStatus.textContent = "Scan unavailable: " + error.message;
+        } finally {
+            await loadOcrStatus();
+        }
+    }
+
+    function changeOcrEnabled() {
+        const requested = ocrAutoCheckbox.checked;
+        ocrAutoCheckbox.disabled = true;
+        ocrActionStatus.textContent = "Updating automatic reading…";
+        let confirmed = false;
+        try {
+            const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+            const socket = new WebSocket(scheme + "//" + location.host + "/ws/game");
+            socket.onopen = () =>
+                socket.send(JSON.stringify({type: "toggle_ocr", enabled: requested}));
+            socket.onmessage = async (event) => {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch (_) { return; }
+                if (msg.type !== "ack" || msg.action !== "toggle_ocr") return;
+                confirmed = true;
+                ocrActionStatus.textContent = msg.enabled === requested
+                    ? "Automatic reading preference applied."
+                    : "Reading preference was not applied.";
+                socket.close();
+                ocrAutoCheckbox.disabled = false;
+                await loadOcrStatus();
+            };
+            socket.onerror = () => socket.close();
+            socket.onclose = () => {
+                if (!confirmed) {
+                    ocrActionStatus.textContent = "Reading preference could not be changed.";
+                    ocrAutoCheckbox.disabled = false;
+                    loadOcrStatus();
+                }
+            };
+        } catch (_) {
+            ocrActionStatus.textContent = "Reading preference unavailable.";
+            ocrAutoCheckbox.disabled = false;
+            loadOcrStatus();
         }
     }
 
@@ -395,6 +465,8 @@
     saveButton.addEventListener("click", saveSettings);
     retryPreferences.addEventListener("click", loadSettings);
     refreshOcrButton.addEventListener("click", loadOcrStatus);
+    ocrAutoCheckbox.addEventListener("change", changeOcrEnabled);
+    scanNowButton.addEventListener("click", scanAugmentsNow);
     feedbackButton.addEventListener("click", submitFeedback);
 
     activateTab("panel-general");
