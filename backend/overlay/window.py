@@ -62,6 +62,7 @@ VK_MENU = 0x12
 VK_O = 0x4F
 VK_H = 0x48
 VK_S = 0x53
+VK_B = 0x42
 VK_1 = 0x31
 VK_2 = 0x32
 VK_3 = 0x33
@@ -167,6 +168,7 @@ if PYQT_AVAILABLE:
             self._hotkey_was_down = False
             self._visibility_hotkey_was_down = False
             self._scan_hotkey_was_down = False
+            self._build_hotkey_was_down = False
             self._pick_hotkeys_down = {"left": False, "centre": False, "right": False}
             self._tray = None
             self._tray_toggle = None
@@ -403,12 +405,19 @@ if PYQT_AVAILABLE:
             scan_down = alt_down and bool(
                 user32.GetAsyncKeyState(VK_S) & 0x8000
             )
+            build_down = alt_down and bool(
+                user32.GetAsyncKeyState(VK_B) & 0x8000
+            )
             if interaction_down and not self._hotkey_was_down:
                 self._toggle_click_through()
             if visibility_down and not self._visibility_hotkey_was_down:
                 self._toggle_visibility()
             if scan_down and not self._scan_hotkey_was_down:
                 self._request_manual_scan()
+            if build_down and not self._build_hotkey_was_down:
+                self._view.page().runJavaScript(
+                    "window.postMessage({type:'toggle_build'}, '*')"
+                )
             for slot, key in (("left", VK_1), ("centre", VK_2), ("right", VK_3)):
                 down = alt_down and bool(user32.GetAsyncKeyState(key) & 0x8000)
                 if down and not self._pick_hotkeys_down[slot]:
@@ -417,22 +426,55 @@ if PYQT_AVAILABLE:
             self._hotkey_was_down = interaction_down
             self._visibility_hotkey_was_down = visibility_down
             self._scan_hotkey_was_down = scan_down
+            self._build_hotkey_was_down = build_down
 
         def _request_manual_scan(self):
-            """POST to the existing local API off the GUI thread; never send game keys."""
+            """Alt+S: explicitly recover a due offer if needed, then request OCR."""
             try:
                 port = urlsplit(self._view.url().toString()).port or 8765
             except ValueError:
                 port = 8765
-            endpoint = f"http://127.0.0.1:{port}/api/ocr/scan"
+            origin = f"http://127.0.0.1:{port}"
 
             def request_scan():
-                request = urllib.request.Request(endpoint, data=b"", method="POST")
                 try:
+                    status_request = urllib.request.Request(
+                        origin + "/api/ocr/status", method="GET",
+                    )
+                    with urllib.request.urlopen(status_request, timeout=5) as response:
+                        status = json.load(response)
+                    offers = status.get("offers", [])
+                    verified = any(
+                        o.get("state") == "awaiting_confirm" or
+                        (o.get("state") == "visible" and any(
+                            slot.get("source") == "ocr" and slot.get("augment_id")
+                            for slot in o.get("slots", {}).values()
+                        ))
+                        for o in offers if isinstance(o, dict)
+                    )
+                    due = [o for o in offers
+                           if isinstance(o, dict) and o.get("state") == "due"
+                           and type(o.get("offer_id")) is int]
+                    if not verified and due:
+                        target = max(due, key=lambda o: o["offer_id"])
+                        recovery = urllib.request.Request(
+                            origin + "/api/offers/recover",
+                            data=json.dumps(
+                                {"offer_id": target["offer_id"]}
+                            ).encode("utf-8"),
+                            method="POST",
+                            headers={"Content-Type": "application/json"},
+                        )
+                        with urllib.request.urlopen(recovery, timeout=5) as response:
+                            response.read()
+                    request = urllib.request.Request(
+                        origin + "/api/ocr/scan", data=b"", method="POST",
+                    )
                     with urllib.request.urlopen(request, timeout=5) as response:
                         response.read()
-                except (OSError, ValueError) as exc:
-                    logger.debug("Manual OCR request unavailable: %s", type(exc).__name__)
+                except (OSError, ValueError, TypeError, KeyError) as exc:
+                    logger.debug("Manual OCR request unavailable: %s",
+                                 type(exc).__name__)
 
             threading.Thread(
                 target=request_scan, daemon=True, name="aram-ocr-manual",
