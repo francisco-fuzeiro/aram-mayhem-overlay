@@ -186,7 +186,12 @@ def test_manual_and_automatic_scans_share_timeline_without_single_read_bypass(mo
     monkeypatch.setattr(server, "screen_watcher", tracker)
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: "focused synthetic")
+    from backend.collectors.window_capture import CaptureProof
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k:
+                        screen_ocr.RegionCapture(
+                            "focused synthetic", CaptureProof(
+                                "wgc", window.hwnd, window.rect, 10.0, "league",
+                            ), "ok"))
     monkeypatch.setattr(screen_ocr, "crop_title_slots",
                         lambda *_a: frame(state["left"]))
     monkeypatch.setattr(screen_ocr, "_perceptual_hash", hash_image)
@@ -213,18 +218,26 @@ def test_manual_and_automatic_scans_share_timeline_without_single_read_bypass(mo
     assert READS == Counter({"left": 4, "centre": 2, "right": 2})
 
 
-def test_watcher_on_alt_tab_never_captures_and_refocus_requires_fresh_confirmation(monkeypatch):
+def test_watcher_occlusion_resets_pending_and_refocus_requires_fresh_confirmation(monkeypatch):
     from backend.collectors import screen_ocr
     from backend.collectors.league_window import LeagueWindow
+    from backend.collectors.window_capture import CaptureProof
 
-    focused = {"value": True}
+    blocked = {"value": False}
+    window = LeagueWindow(7, 8, 31, 2552, 1384, False)
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: LeagueWindow(
-        7, 8, 31, 2552, 1384, focused["value"],
-    ))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
     captures = []
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_kw:
-                        captures.append("focused") or "focused synthetic")
+    def capture(*_a, **_kw):
+        captures.append("attempt")
+        if blocked["value"]:
+            return screen_ocr.RegionCapture(None, None, "occluded", "other")
+        return screen_ocr.RegionCapture(
+            "synthetic", CaptureProof(
+                "wgc", window.hwnd, window.rect, 10.0, "other",
+            ), "ok",
+        )
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", capture)
     monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_a: frame())
     monkeypatch.setattr(screen_ocr, "_perceptual_hash", hash_image)
     monkeypatch.setattr(screen_ocr, "_hamming_distance", distance)
@@ -234,16 +247,16 @@ def test_watcher_on_alt_tab_never_captures_and_refocus_requires_fresh_confirmati
     t = screen_ocr.ScreenWatcher()
     assert t.check({})[0] == "no_augments"
     assert t.check({})[0] == "detected"
-    focused["value"] = False
-    before = len(captures)
-    assert t.check({}) == ("not_focused", None)
-    assert len(captures) == before
+    blocked["value"] = True
+    assert t.check({}) == ("occluded", None)
     assert t.current_slots.slots["centre"][0] == "bind"
-    focused["value"] = True
+    blocked["value"] = False
     assert t.check({})[0] == "unchanged"
     action, result = t.check({})
     assert action == "detected"
     assert_ids(result, ["en", "bind", "kill"])
+    assert len(captures) == 5
+
 
 
 def test_stable_visual_change_with_identical_title_is_not_a_false_reroll():
@@ -334,7 +347,13 @@ def _c4b_watcher(monkeypatch, state, *, independent_observer=None, calibration=N
     window = LeagueWindow(7, 8, 31, 2552, 1384, True)
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: "synthetic")
+    from backend.collectors.window_capture import CaptureProof
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k:
+                        screen_ocr.RegionCapture(
+                            "synthetic", CaptureProof(
+                                "wgc", window.hwnd, window.rect, 10.0, "league",
+                            ), "ok",
+                        ))
     monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_a: frame(
         state["left"], state["centre"], state["right"],
     ))
