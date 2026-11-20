@@ -302,8 +302,8 @@ class GameState:
         return {
             "max": len(AUGMENT_PICK_LEVELS),  # always 4
             "eligible": expected,
-            "chosen": len(self.offer_ledger.active_augment_ids()),
-            "chosen_augments": self.offer_ledger.active_augment_ids(),
+            "chosen": len(_confirmed_augment_ids(self)),
+            "chosen_augments": _confirmed_augment_ids(self),
             "stat_anvils": len(self.chosen_stat_anvils),
         }
 
@@ -736,13 +736,32 @@ def _offer_http_error(exc: LedgerError) -> HTTPException:
     return HTTPException(status_code=status, detail=code)
 
 
+def _confirmed_augment_ids(state: GameState) -> list[str]:
+    """Only explicit confirmed real augments may enter B4 build inputs."""
+    is_anvil = getattr(static_data, "get_stat_anvil", None)
+    return [
+        aid for aid in state.offer_ledger.active_augment_ids()
+        if not callable(is_anvil) or is_anvil(aid) is None
+    ]
+
+
+def _confirmed_anvil_ids(state: GameState) -> list[str]:
+    """Keep stat anvils separate from the build's augment synergy input."""
+    is_anvil = getattr(static_data, "get_stat_anvil", None)
+    return [
+        aid for aid in state.offer_ledger.active_augment_ids()
+        if callable(is_anvil) and is_anvil(aid) is not None
+    ]
+
+
 def _sync_confirmed_augments(state: GameState, confirmed_offer) -> None:
     """Update build inputs only after an explicit ledger confirmation.
 
     Confirmation of a pending old offer must never close, clear, advance
     or otherwise modify the latest offer. State lock is held by caller.
     """
-    state.chosen_augments[:] = state.offer_ledger.active_augment_ids()
+    state.chosen_augments[:] = _confirmed_augment_ids(state)
+    state.chosen_stat_anvils[:] = _confirmed_anvil_ids(state)
     if not state.offer_ledger.offers or confirmed_offer is not state.offer_ledger.offers[-1]:
         return
     if not (state.scan_window_open or state.confirmation_pending
@@ -764,7 +783,9 @@ def _sync_confirmed_augments(state: GameState, confirmed_offer) -> None:
     state.stat_snapshot_level_before = None
     state.stat_snapshot_items_before = None
     screen_watcher.reset()
-    event_log.emit("augment_confirmation", method="manual", kind="augment")
+    kind = ("anvil" if confirmed_offer.picked_id in state.chosen_stat_anvils
+            else "augment")
+    event_log.emit("augment_confirmation", method="manual", kind=kind)
 
 
 @app.post("/api/offers/identify")
@@ -792,7 +813,7 @@ async def confirm_offer(req: OfferConfirmRequest):
             raise _offer_http_error(exc) from None
         _sync_confirmed_augments(game_state, offer)
         return {"offer_id": offer.offer_id, "epoch": offer.epoch,
-                "chosen_augments": game_state.offer_ledger.active_augment_ids(),
+                "chosen_augments": _confirmed_augment_ids(game_state),
                 "offers": game_state.offer_ledger.payload()}
 
 
@@ -939,7 +960,7 @@ async def game_ws(websocket: WebSocket):
                     await _send_ws_message(websocket, json.dumps({"error": "snapshot requires 'data' object"}))
                     continue
                 snapshot = _parse_snapshot(data)
-                snapshot.chosen_augments = game_state.offer_ledger.active_augment_ids()
+                snapshot.chosen_augments = _confirmed_augment_ids(game_state)
                 result = game_state.pipeline.run(snapshot) if game_state.pipeline else None
                 if result:
                     await _send_ws_message(websocket, json.dumps(
@@ -985,7 +1006,7 @@ async def game_ws(websocket: WebSocket):
                         response = {
                             "type": "ack", "action": "choose_augment",
                             "offer_id": offer.offer_id, "epoch": offer.epoch,
-                            "chosen_augments": game_state.offer_ledger.active_augment_ids(),
+                            "chosen_augments": _confirmed_augment_ids(game_state),
                             "offers": game_state.offer_ledger.payload(),
                         }
                 await _send_ws_message(websocket, json.dumps(response))
@@ -995,7 +1016,7 @@ async def game_ws(websocket: WebSocket):
                     game_state.augment_choices.clear()
                     game_state.ocr_slot_choices = None
                     # Clearing manual search never erases ledger-confirmed picks.
-                    game_state.chosen_augments[:] = game_state.offer_ledger.active_augment_ids()
+                    game_state.chosen_augments[:] = _confirmed_augment_ids(game_state)
                     game_state.chosen_stat_anvils.clear()
                     game_state.confirmation_pending = False
                     game_state.awaiting_stat_delta = False
@@ -1783,7 +1804,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
 
             # Inject overlay augment state
             snapshot.augment_choices = list(state.augment_choices)
-            snapshot.chosen_augments = state.offer_ledger.active_augment_ids()
+            snapshot.chosen_augments = _confirmed_augment_ids(state)
             snapshot.build_style = state.build_style
 
             result = state.pipeline.run(snapshot) if state.pipeline else None
