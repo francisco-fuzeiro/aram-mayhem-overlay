@@ -181,16 +181,18 @@ def test_manual_and_automatic_scans_share_timeline_without_single_read_bypass(mo
 
     window = LeagueWindow(7, 8, 31, 2552, 1384, True)
     state = {"left": 10}
-    tracker = screen_ocr.ScreenWatcher()
+    tracker = screen_ocr.ScreenWatcher(sleep_fn=lambda _: None)
     monkeypatch.setattr(screen_ocr, "watcher", tracker)
     monkeypatch.setattr(server, "screen_watcher", tracker)
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
     from backend.collectors.window_capture import CaptureProof
+    from itertools import count
+    times = count(10)
     monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k:
                         screen_ocr.RegionCapture(
                             "focused synthetic", CaptureProof(
-                                "wgc", window.hwnd, window.rect, 10.0, "league",
+                                "wgc", window.hwnd, window.rect, float(next(times)), "league",
                             ), "ok"))
     monkeypatch.setattr(screen_ocr, "crop_title_slots",
                         lambda *_a: frame(state["left"]))
@@ -200,21 +202,21 @@ def test_manual_and_automatic_scans_share_timeline_without_single_read_bypass(mo
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read_slot)
     READS.clear()
 
-    # Manual button cannot publish a guessed, single-frame offer.
-    assert screen_ocr.detect_augments({}) == []
+    # Manual and automatic calls share the same serialized temporal gate.
+    # Each may complete two independently proven readings within one tick.
+    assert [m[0] for m in screen_ocr.detect_augments({})] == ["en", "bind", "kill"]
     action, ids, rows = server._run_watcher_check()
-    assert action == "detected"
-    assert ids == ["en", "bind", "kill"]
-    assert [row["slot"] for row in rows] == list(SLOTS)
+    assert action == "unchanged"
+    assert ids == [] and rows is None
 
     state["left"] = 11
-    # Manual starts confirmation but must not publish old IDs as current while
-    # a new visual title is pending C3 verification.
-    assert screen_ocr.detect_augments({}) == []
     action, ids, rows = server._run_watcher_check()
     assert action == "detected"
     assert ids == ["new_left", "bind", "kill"]
     assert [row["id"] for row in rows] == ids
+    assert [m[0] for m in screen_ocr.detect_augments({})] == [
+        "new_left", "bind", "kill",
+    ]
     assert READS == Counter({"left": 4, "centre": 2, "right": 2})
 
 
@@ -234,7 +236,7 @@ def test_watcher_occlusion_resets_pending_and_refocus_requires_fresh_confirmatio
             return screen_ocr.RegionCapture(None, None, "occluded", "other")
         return screen_ocr.RegionCapture(
             "synthetic", CaptureProof(
-                "wgc", window.hwnd, window.rect, 10.0, "other",
+                "wgc", window.hwnd, window.rect, float(10 + len(captures)), "other",
             ), "ok",
         )
     monkeypatch.setattr(screen_ocr, "capture_augment_region", capture)
@@ -244,14 +246,12 @@ def test_watcher_occlusion_resets_pending_and_refocus_requires_fresh_confirmatio
     from backend.collectors import slot_title_ocr
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read_slot)
 
-    t = screen_ocr.ScreenWatcher()
-    assert t.check({})[0] == "no_augments"
+    t = screen_ocr.ScreenWatcher(sleep_fn=lambda _: None)
     assert t.check({})[0] == "detected"
     blocked["value"] = True
     assert t.check({}) == ("occluded", None)
     assert t.current_slots.slots["centre"][0] == "bind"
     blocked["value"] = False
-    assert t.check({})[0] == "unchanged"
     action, result = t.check({})
     assert action == "detected"
     assert_ids(result, ["en", "bind", "kill"])
@@ -348,10 +348,12 @@ def _c4b_watcher(monkeypatch, state, *, independent_observer=None, calibration=N
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
     from backend.collectors.window_capture import CaptureProof
+    from itertools import count
+    times = count(10)
     monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k:
                         screen_ocr.RegionCapture(
                             "synthetic", CaptureProof(
-                                "wgc", window.hwnd, window.rect, 10.0, "league",
+                                "wgc", window.hwnd, window.rect, float(next(times)), "league",
                             ), "ok",
                         ))
     monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_a: frame(
@@ -363,18 +365,21 @@ def _c4b_watcher(monkeypatch, state, *, independent_observer=None, calibration=N
     return screen_ocr.ScreenWatcher(
         independent_observer=independent_observer,
         approved_calibration=calibration,
+        sleep_fn=lambda _delay: state.update(state.pop("_after_first", {})),
     )
 
 
 def test_c4b_first_changed_frame_marks_previous_cards_unverified(monkeypatch):
     state = {"left": 10, "centre": 20, "right": 30}
     watcher = _c4b_watcher(monkeypatch, state)
-    assert watcher.check({})[0] == "no_augments"
     assert watcher.check({})[0] == "detected"
+    assert watcher.check({}) == ("unchanged", None)
     state["left"] = 11
+    state["_after_first"] = {"left": 12}  # unstable new title in second frame
     assert watcher.check({}) == ("transition", None)
     # Historical C3 snapshot remains available, but not publishable as current.
     assert_ids(watcher.current_slots, ["en", "bind", "kill"])
+    state["left"] = 11
     status, verified = watcher.check({})
     assert status == "detected"
     assert_ids(verified, ["new_left", "bind", "kill"])
@@ -383,14 +388,13 @@ def test_c4b_first_changed_frame_marks_previous_cards_unverified(monkeypatch):
 def test_c4b_multiple_pending_slots_must_not_publish_partial_current_offer(monkeypatch):
     state = {"left": 10, "centre": 20, "right": 30}
     watcher = _c4b_watcher(monkeypatch, state)
-    assert watcher.check({})[0] == "no_augments"
     assert watcher.check({})[0] == "detected"
+    assert watcher.check({}) == ("unchanged", None)
     state["left"], state["centre"] = 11, 21
-    assert watcher.check({})[0] == "transition"
-    state["centre"] = 90
+    state["_after_first"] = {"centre": 90}
     assert watcher.check({})[0] == "transition"  # left verified, centre NOT
+    assert_ids(watcher.current_slots, ["new_left", "bind", "kill"])
     state["centre"] = 21
-    assert watcher.check({})[0] == "transition"
     action, result = watcher.check({})
     assert action == "detected"
     assert_ids(result, ["new_left", "new_centre", "kill"])
@@ -399,13 +403,12 @@ def test_c4b_multiple_pending_slots_must_not_publish_partial_current_offer(monke
 def test_c4b_transient_frame_requires_two_fresh_reads_to_restore_visibility(monkeypatch):
     state = {"left": 10, "centre": 20, "right": 30}
     watcher = _c4b_watcher(monkeypatch, state)
-    assert watcher.check({})[0] == "no_augments"
     assert watcher.check({})[0] == "detected"
+    assert watcher.check({}) == ("unchanged", None)
     state["left"] = 90
+    state["_after_first"] = {"left": 10}  # animation reversed within the tick
     assert watcher.check({})[0] == "transition"
-    state["left"] = 10
-    assert watcher.check({})[0] == "transition"
-    assert watcher.check({})[0] == "transition"
+    assert watcher._temporal._refresh_required
     action, restored = watcher.check({})
     assert action == "detected"
     assert_ids(restored, ["en", "bind", "kill"])
@@ -414,9 +417,10 @@ def test_c4b_transient_frame_requires_two_fresh_reads_to_restore_visibility(monk
 def test_c4b_uncalibrated_blank_titles_can_never_emit_gone(monkeypatch):
     state = {"left": 10, "centre": 20, "right": 30}
     watcher = _c4b_watcher(monkeypatch, state)
-    assert watcher.check({})[0] == "no_augments"
     assert watcher.check({})[0] == "detected"
+    assert watcher.check({}) == ("unchanged", None)
     state.update(left=90, centre=90, right=90)
+    state["_after_first"] = {"left": 91, "centre": 91, "right": 91}
     actions = [watcher.check({})[0] for _ in range(8)]
     assert "disappeared" not in actions
     assert "transition" in actions
@@ -435,9 +439,10 @@ def test_c4b_explicit_synthetic_cue_triggers_only_after_calibrated_streak(monkey
         monkeypatch, state, independent_observer=observer,
         calibration="fixture-only",
     )
-    assert watcher.check({})[0] == "no_augments"
     assert watcher.check({})[0] == "detected"
+    assert watcher.check({}) == ("unchanged", None)
     state.update(left=90, centre=90, right=90)
+    state["_after_first"] = {"left": 91, "centre": 91, "right": 91}
     decision["verdict"] = "absent"
     assert watcher.check({})[0] == "transition"
     assert watcher.check({})[0] != "disappeared"
@@ -459,13 +464,12 @@ def test_c4b_calibrated_occlusion_suspends_old_cards_even_if_pixels_stay_same(mo
         monkeypatch, state, independent_observer=observer,
         calibration="fixture-only",
     )
-    assert watcher.check({})[0] == "no_augments"
     assert watcher.check({})[0] == "detected"
+    assert watcher.check({}) == ("unchanged", None)
 
     verdict["value"] = "occluded"
     assert watcher.check({}) == ("transition", None)
     verdict["value"] = "unknown"
-    assert watcher.check({})[0] == "transition"
     action, verified = watcher.check({})
     assert action == "detected"
     assert_ids(verified, ["en", "bind", "kill"])
@@ -482,6 +486,6 @@ def test_c4b_unapproved_occlusion_cannot_override_verified_cards(monkeypatch):
         return IndependentCue("occluded", "unapproved", key)
 
     watcher = _c4b_watcher(monkeypatch, state, independent_observer=observer)
-    assert watcher.check({})[0] == "no_augments"
     assert watcher.check({})[0] == "detected"
+    assert watcher.check({}) == ("unchanged", None)
     assert watcher.check({}) == ("unchanged", None)

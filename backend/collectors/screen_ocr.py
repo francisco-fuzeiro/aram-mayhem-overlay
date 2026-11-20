@@ -305,6 +305,10 @@ class ScreenWatcher:
                 _perceptual_hash, _hamming_distance,
             )
             if result is None and self._temporal.has_pending:
+                # Reverting to a historical baseline within this burst must
+                # not make an interrupted offer current without fresh proof.
+                if self._temporal.snapshot() is not None and not self._refocus_pending:
+                    self._transition_open = True
                 # Do not carry one pending frame across occlusion to complete
                 # temporal verification. Re-capture and independently prove
                 # the second frame in this serialized, worker-thread tick.
