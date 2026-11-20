@@ -26,7 +26,7 @@ def _verified_client(*, foreground="other"):
 
 def test_verified_window_source_crops_game_roi_not_monitor(monkeypatch):
     monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
     monkeypatch.setattr(screen_ocr, "capture_league_client", lambda *a, **kw: _verified_client())
     region = screen_ocr.capture_augment_region()
     assert region.reason == "ok"
@@ -36,7 +36,7 @@ def test_verified_window_source_crops_game_roi_not_monitor(monkeypatch):
 
 def test_unverified_image_is_not_returned_from_capture(monkeypatch):
     monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
     from backend.collectors.window_capture import CaptureResult
     monkeypatch.setattr(screen_ocr, "capture_league_client",
                         lambda *a, **kw: CaptureResult(None, None, "invalid_frame"))
@@ -46,7 +46,7 @@ def test_unverified_image_is_not_returned_from_capture(monkeypatch):
 
 def test_watcher_occlusion_suspends_pending_without_reading_ocr(monkeypatch):
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
     from backend.collectors.window_capture import CaptureResult
     monkeypatch.setattr(screen_ocr, "capture_league_client",
                         lambda *a, **kw: CaptureResult(None, None, "occluded", "other"))
@@ -62,7 +62,7 @@ def test_watcher_occlusion_suspends_pending_without_reading_ocr(monkeypatch):
 
 def test_foreground_loss_does_not_block_verified_wgc_ocr(monkeypatch):
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
     monkeypatch.setattr(screen_ocr, "capture_league_client", lambda *a, **kw: _verified_client())
     monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda img: "0" * 64)
     monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_args: {
@@ -84,7 +84,7 @@ def test_foreground_loss_does_not_block_verified_wgc_ocr(monkeypatch):
 
 def test_manual_scan_rejects_unverified_frame(monkeypatch):
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
     from backend.collectors.window_capture import CaptureResult
     monkeypatch.setattr(screen_ocr, "capture_league_client",
                         lambda *a, **kw: CaptureResult(None, None, "invalid_frame"))
