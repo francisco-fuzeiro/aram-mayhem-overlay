@@ -398,6 +398,10 @@
             const closed = msg.status === "disappeared" && offerState === "gone";
             updateOcrPhase(phase, msg.stale, msg.reverified === true, closed);
             if (closed) currentOcrSlots = null;
+            if (closed || phase !== "detected") {
+                // Old candidate controls must not survive an unverified frame.
+                augmentConfirm.classList.add("hidden");
+            }
             if (phase === "detected" && !ocrStale &&
                 Array.isArray(msg.detected) && msg.detected.length) {
                 const slots = Object.fromEntries(msg.detected
@@ -625,7 +629,7 @@
         if (!msg.candidates || msg.candidates.length === 0) {
             const note = document.createElement("div");
             note.className = "aug-explain";
-            note.textContent = "No reliable card names detected. Use Scan Screen or manual entry when safe.";
+            note.textContent = "No reliable card names detected. Use Alt+S or manual recovery when safe.";
             augmentConfirm.appendChild(note);
         }
 
