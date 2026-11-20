@@ -225,6 +225,11 @@ class GameState:
             return
         self.ocr_enabled = enabled
         self.offer_epoch += 1
+        if self.offer_ledger.offers:
+            try:
+                self.offer_ledger.set_current_epoch(self.offer_epoch)
+            except LedgerError:
+                pass  # Closed offers cannot be reopened by Settings.
         if watcher is not None:
             watcher.reset()
         # The disabled badge must remain accurate even between offers.
@@ -792,6 +797,11 @@ async def recover_offer(req: OfferRecoverRequest):
         except LedgerError as exc:
             raise _offer_http_error(exc) from None
         game_state.offer_epoch += 1  # invalidate in-flight OCR operations
+        if offer.epoch != game_state.offer_epoch:
+            game_state.offer_ledger.set_current_epoch(
+                max(game_state.offer_epoch, offer.epoch + 1),
+            )
+            game_state.offer_epoch = offer.epoch
         game_state.scan_window_open = True
         game_state.offer_lifecycle.open()
         screen_watcher.reset()
@@ -1499,7 +1509,11 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         state.offer_ledger.on_titles_unverified()
                 state.offer_ledger.on_level(current_level)
                 if len(state.offer_ledger.offers) != prior_count:
-                    state.offer_epoch += 1
+                    state.offer_epoch = max(
+                        state.offer_epoch + 1,
+                        state.offer_ledger.offers[-1].epoch + 1,
+                    )
+                    state.offer_ledger.set_current_epoch(state.offer_epoch)
                     state.augment_choices.clear()
                     state.ocr_slot_choices = None
                     deps.screen_watcher.reset()
@@ -1517,7 +1531,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
-                    state.offer_epoch += 1
+                    if len(state.offer_ledger.offers) == prior_count:
+                        state.offer_epoch += 1
+                        if state.offer_ledger.offers:
+                            state.offer_ledger.set_current_epoch(state.offer_epoch)
                     state.offer_lifecycle.open()
                     event_log.emit(
                         "ocr_window", state="opened", reason="level_due",
@@ -1624,7 +1641,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             )
                         if action == "detected" and detected:
                             verified_slots = _slots_from_detected(detected)
-                            if (not state.ocr_stale and verified_slots is not None
+                            if ((not state.ocr_stale or reverified)
+                                    and verified_slots is not None
                                     and state.offer_ledger.offers
                                     and any(verified_slots.values())):
                                 try:
