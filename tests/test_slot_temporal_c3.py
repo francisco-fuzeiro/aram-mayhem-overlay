@@ -420,7 +420,7 @@ def test_c4b_uncalibrated_blank_titles_can_never_emit_gone(monkeypatch):
     assert watcher.check({})[0] == "detected"
     assert watcher.check({}) == ("unchanged", None)
     state.update(left=90, centre=90, right=90)
-    state["_after_first"] = {"left": 91, "centre": 91, "right": 91}
+    state["_after_first"] = {"left": 110, "centre": 110, "right": 110}
     actions = [watcher.check({})[0] for _ in range(8)]
     assert "disappeared" not in actions
     assert "transition" in actions
@@ -442,7 +442,7 @@ def test_c4b_explicit_synthetic_cue_triggers_only_after_calibrated_streak(monkey
     assert watcher.check({})[0] == "detected"
     assert watcher.check({}) == ("unchanged", None)
     state.update(left=90, centre=90, right=90)
-    state["_after_first"] = {"left": 91, "centre": 91, "right": 91}
+    state["_after_first"] = {"left": 110, "centre": 110, "right": 110}
     decision["verdict"] = "absent"
     assert watcher.check({})[0] == "transition"
     assert watcher.check({})[0] != "disappeared"
