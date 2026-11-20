@@ -334,26 +334,65 @@ test("F4 loading screen and champion select do not inherit old champion or gold"
 });
 
 
-test("M4/B2 Alt+Tab marks existing cards stale, normal updates do not revive them", () => {
+test("A5 foreground is diagnostic and cannot block valid OCR", () => {
     const h = harness();
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, ocr_stale: false});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true});
     h.api.handleMessage({
-        type: "ocr_result", detected: [{id: "old", name: "Old", confidence: 95}],
-        augment_choices: ["old"],
+        type: "ocr_result", phase: "detected", status: "detected",
+        foreground: "other", reverified: true, stale: false,
+        detected: [{slot: "left", id: "current", name: "Current", confidence: 95}],
+        augment_choices: ["current"], offer_state: "present",
     });
-    assert.equal(h.element("ocr-detected").children.length, 2);
-    h.api.handleMessage({type: "ocr_result", status: "not_focused", stale: true});
-    assert.equal(h.element("ocr-detected").children.length, 2);
-    assert.equal(h.element("section-augments").classList.contains("ocr-focus-stale"), true);
-    assert.equal(h.element("ocr-status").textContent, "NOT FOCUSED");
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, ocr_stale: true});
-    assert.equal(h.element("ocr-status").textContent, "NOT FOCUSED");
-    h.api.handleMessage({
-        type: "ocr_result", detected: [{id: "current", name: "Current", confidence: 95}],
-        augment_choices: ["current"], stale: false,
-    });
-    assert.equal(h.element("section-augments").classList.contains("ocr-focus-stale"), false);
+    assert.equal(h.element("ocr-status").textContent.includes("NOT FOCUSED"), false);
+    assert.equal(h.element("ocr-status").textContent.includes("OCR"), true);
     assert.equal(h.element("ocr-detected").children[1].innerHTML.includes("Current"), true);
+});
+
+test("A5 occluded status keeps Scan active and stale data non-advisory", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true});
+    h.api.handleMessage({type: "ocr_result", phase: "detected", offer_state: "present",
+        detected: [{slot: "left", id: "old", name: "Old", confidence: 95}],
+        augment_choices: ["old"], stale: false, reverified: true});
+    h.api.handleMessage({type: "ocr_result", phase: "occluded", status: "occluded",
+        stale: true, foreground: "other", offer_state: "suspended"});
+    assert.match(h.element("ocr-status").textContent, /CARDS COVERED/);
+    assert.match(h.element("ocr-status").textContent, /STALE/);
+    assert.equal(h.element("btn-scan").disabled, false);
+    assert.equal(h.element("ocr-detected").children.length, 2);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({type: "ocr_result", phase: "no_offer",
+        status: "no_augments", stale: true});
+    assert.match(h.element("ocr-status").textContent, /STALE/);
+});
+
+test("A5 stale recovery requires explicit reverified detection", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true});
+    h.api.handleMessage({type: "ocr_result", phase: "verifying", stale: false});
+    h.api.handleMessage({type: "ocr_result", phase: "capture_unavailable", stale: true});
+    assert.match(h.element("ocr-status").textContent, /STALE/);
+    h.api.handleMessage({type: "ocr_result", phase: "detected", stale: false,
+        reverified: false, detected: [{slot:"left", id:"x", name:"X", confidence:98}]});
+    assert.match(h.element("ocr-status").textContent, /STALE/);
+    h.api.handleMessage({type: "ocr_result", phase: "detected", stale: false,
+        reverified: true, detected: [{slot:"left", id:"x", name:"X", confidence:98}]});
+    assert.doesNotMatch(h.element("ocr-status").textContent, /STALE/);
+});
+
+test("A5 disabled and OCR missing disable manual Scan, not capture failures", () => {
+    const h = harness();
+    h.api.handleMessage(gameUpdate());
+    for (const phase of ["occluded", "capture_unavailable", "no_game", "verifying", "unreadable"]) {
+        h.api.handleMessage({type:"ocr_result", phase, stale:false});
+        assert.equal(h.element("btn-scan").disabled, false, phase);
+    }
+    h.api.handleMessage({type:"ocr_result", phase:"disabled", stale:false});
+    assert.equal(h.element("btn-scan").disabled, true);
+    assert.match(h.element("ocr-status").textContent, /OCR OFF/);
+    h.api.handleMessage({type:"ocr_result", phase:"ocr_missing", stale:false});
+    assert.equal(h.element("btn-scan").disabled, true);
+    assert.match(h.element("ocr-status").textContent, /NO OCR/);
 });
 
 test("M5/C2: OCR slot order wins over confidence/score sorting", () => {
