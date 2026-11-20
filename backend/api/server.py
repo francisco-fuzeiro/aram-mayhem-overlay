@@ -45,6 +45,42 @@ _CAPTURE_LOSS_PHASES = frozenset({"occluded", "capture_unavailable", "no_game"})
 _ACTIVE_OCR_PHASES = frozenset({"detected", "verifying", "unreadable"})
 
 
+class _OcrWatcherObservation(tuple):
+    """Keep A4's three-value result contract with atomic A5 evidence metadata."""
+
+    def __new__(cls, action, ids, detected, *, reverified=False,
+                stage="not_scanned", foreground="other", has_partial=False,
+                has_current=False):
+        obj = super().__new__(cls, (action, ids, detected))
+        obj.reverified = bool(reverified)
+        obj.stage = stage
+        obj.foreground = foreground if foreground in ("league", "self", "other") else "other"
+        obj.has_partial = bool(has_partial)
+        obj.has_current = bool(has_current)
+        return obj
+
+
+class _ManualScanEvidence(tuple):
+    """Positional legacy (ids, detected), with proven capture facts attached."""
+
+    def __new__(cls, ids, detected, *, proven, reverified, foreground):
+        obj = super().__new__(cls, (ids, detected))
+        obj.proven = bool(proven)
+        obj.reverified = bool(reverified)
+        obj.foreground = foreground
+        return obj
+
+
+def _manual_scan_parts(value):
+    """A legacy untyped result is NEVER capture evidence."""
+    ids, detected = value[:2]
+    proven = getattr(value, "proven", len(value) == 3 and value[2] is True)
+    reverified = getattr(value, "reverified", len(value) == 3 and value[2] is True)
+    foreground = getattr(value, "foreground", "other")
+    return ids, detected, proven, reverified, foreground
+
+
+
 
 
 class GameState:
@@ -947,45 +983,97 @@ def _ocr_title_catalog() -> dict[str, str]:
     return names
 
 
-def _run_ocr_scan_manual() -> tuple[list[str], list[dict]]:
-    """Run a manual scan through the shared per-slot temporal gate.
+def _run_ocr_scan_manual() -> _ManualScanEvidence:
+    """Use the shared A3/A4 proven watcher; never accept cached unchanged slots.
 
-    Pure function — returns (ids, detected_dicts) without mutating game_state.
-    Caller must apply results under the lock.
+    Protect the watcher scan and its proof flags under the same RLock: a
+    concurrent automatic read cannot change the evidence before it is copied.
     """
     augment_names = _ocr_title_catalog()
-    matches = detect_augments(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
+    with screen_watcher._lock:
+        matches = detect_augments(
+            augment_names, save=config.get("ocr_debug_screenshots", False) is True,
+        )
+        proven = bool(matches) and screen_watcher.last_scan_stage == "titles_detected"
+        reverified = bool(proven and screen_watcher._temporal.last_emit_reverified)
+        foreground = screen_watcher._last_foreground
     event_log.emit(
-        "ocr_recognition", outcome="manual_detected" if matches else "manual_empty",
+        "ocr_recognition", outcome="manual_detected" if proven else "manual_empty",
         count=len(matches or []),
-        confidence=float(max((m[2] for m in matches), default=0)),
+        confidence=float(max((m[2] for m in matches or []), default=0)),
     )
-
-    ids = [m[0] for m in matches] if matches else []
-    detected = _slot_detection_payload(matches)
-    return ids, detected
+    ids = [m[0] for m in matches] if proven else []
+    detected = _slot_detection_payload(matches) if proven else []
+    return _ManualScanEvidence(
+        ids, detected, proven=proven, reverified=reverified,
+        foreground=foreground,
+    )
 
 
 def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
-    """Run the ScreenWatcher.check() — independent slot hashes + stable OCR.
-
-    Pure function — returns (action, ids, detected_dicts) without mutating
-    game_state. Caller must apply results under the lock.
-    """
+    """Capture an atomic A3/A4 observation with separate A5 evidence."""
     augment_names = _ocr_title_catalog()
-    action, matches = screen_watcher.check(augment_names, save=config.get("ocr_debug_screenshots", False) is True)
+    # Fake watchers used in older offline tests lack a lock or metadata.
+    with getattr(screen_watcher, "_lock", nullcontext()):
+        action, matches = screen_watcher.check(
+            augment_names, save=config.get("ocr_debug_screenshots", False) is True,
+        )
+        temporal = getattr(screen_watcher, "_temporal", None)
+        current = temporal.snapshot() if temporal is not None else None
+        has_current = bool(current is not None and any(
+            value is not None for value in current.slots.values()
+        ))
+        has_partial = bool(has_current and any(
+            value is None for value in current.slots.values()
+        ))
+        metadata = {
+            "stage": getattr(screen_watcher, "last_scan_stage", "not_scanned"),
+            "foreground": getattr(screen_watcher, "_last_foreground", "other"),
+            "reverified": bool(
+                getattr(temporal, "last_emit_reverified", False)
+                and action == "detected"
+            ),
+            "has_partial": has_partial,
+            "has_current": has_current,
+        }
     if action != "unchanged":
         event_log.emit(
             "ocr_recognition", outcome=action, count=len(matches or []),
             confidence=float(max((m[2] for m in matches or []), default=0)),
         )
-
     if action == "detected" and (matches or hasattr(matches, "slots")):
         ids = [m[0] for m in matches]
         detected = _slot_detection_payload(matches)
-        return (action, ids, detected)
+        return _OcrWatcherObservation(action, ids, detected, **metadata)
+    return _OcrWatcherObservation(action, [], None, **metadata)
 
-    return (action, [], None)
+
+def _phase_for_observation(state: GameState, observation: tuple) -> str:
+    """Map capture outcomes to exactly nine honest phases; no focus gating."""
+    action = observation[0]
+    stage = getattr(observation, "stage", "not_scanned")
+    if action == "occluded":
+        state.ocr_unreadable_ticks = 0
+        return "occluded"
+    if action == "capture_unavailable":
+        state.ocr_unreadable_ticks = 0
+        return "capture_unavailable"
+    if action == "unavailable":
+        state.ocr_unreadable_ticks = 0
+        return "no_game" if stage == "game_window_unavailable" else "capture_unavailable"
+    if stage == "titles_verifying" or action == "transition":
+        state.ocr_unreadable_ticks = 0
+        return "verifying"
+    if action in ("detected", "unchanged", "no_augments"):
+        if getattr(observation, "has_partial", False):
+            state.ocr_unreadable_ticks += 1
+            return "unreadable" if state.ocr_unreadable_ticks >= 3 else "verifying"
+        state.ocr_unreadable_ticks = 0
+        if action == "detected" or getattr(observation, "has_current", False):
+            return "detected"
+        return "no_offer"
+    state.ocr_unreadable_ticks = 0
+    return "no_offer"
 
 
 def _record_match_phase(state: GameState, phase: str) -> None:
