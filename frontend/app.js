@@ -128,7 +128,7 @@
         ocrStatusBadge.textContent = label + (ocrStale ? " · STALE" : "");
         ocrStatusBadge.className = "ocr-status-badge " + cssClass;
         ocrStatusBadge.title = detail + (ocrStale ? " — previous cards not verified" : "");
-        btnScan.disabled = scanning || ocrPhase === "disabled" || ocrPhase === "ocr_missing";
+        btnScan.disabled = ocrPhase === "disabled" || ocrPhase === "ocr_missing";
         const help = $("ocr-manual-help");
         if (help) help.classList.toggle("hidden", ocrPhase !== "ocr_missing");
         $("section-augments").classList.toggle("ocr-focus-stale", ocrStale);
@@ -903,7 +903,6 @@
             if (scanning) return;
             scanning = true;
             btnScan.textContent = "Scanning...";
-            btnScan.disabled = true;
             wsSend({ type: "scan_augments" });
         });
 
