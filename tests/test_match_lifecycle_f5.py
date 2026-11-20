@@ -178,6 +178,11 @@ async def test_concurrent_poll_ticks_are_serialized_and_do_not_overlap_lcda_read
 async def test_snapshot_is_immutable_after_capture_and_sent_without_lock():
     state = GameState()
     state.ws_clients.add(object())
+    offer = state.offer_ledger.on_level(3)
+    state.offer_ledger.on_verified_titles(
+        {"left": "confirmed", "centre": None, "right": None}, offer.epoch,
+    )
+    state.offer_ledger.confirm(1, offer.epoch, "confirmed")
     state.chosen_augments = ["confirmed"]
     state.pipeline = SimpleNamespace(run=lambda _snapshot: object())
     captures = []

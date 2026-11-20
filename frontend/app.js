@@ -17,6 +17,7 @@
     let currentOcrSlots = null;
     let offerState = "inactive";
     let offerEpoch = null;
+    let currentOffers = [];
     let searchDebounce = null;
     let ocrAvailable = false;
     let scanning = false;
@@ -206,6 +207,7 @@
         currentOcrSlots = null;
         offerState = "inactive";
         offerEpoch = null;
+        currentOffers = [];
         scanning = false;
         stale = false;
         ocrPhase = "no_offer";
@@ -377,6 +379,7 @@
                 currentOcrSlots = normalizedOcrSlots(msg.ocr_slots);
             }
             if (typeof msg.offer_state === "string") offerState = msg.offer_state;
+            currentOffers = Array.isArray(msg.offers) ? msg.offers : [];
             lastResult = msg;
             renderUpdate(msg);
             return;
@@ -397,6 +400,7 @@
                 msg.offer_epoch !== offerEpoch) return;
             if (msg.status === "superseded") return;
             if (typeof msg.offer_state === "string") offerState = msg.offer_state;
+            if (Array.isArray(msg.offers)) currentOffers = msg.offers;
 
             // Legacy packets cannot turn a focus indicator into a capture gate.
             const phase = OCR_PHASE_LABELS[msg.phase] ? msg.phase
@@ -665,6 +669,22 @@
         }, 4000);
     }
 
+    function confirmTarget(augmentId) {
+        if (typeof augmentId !== "string") return null;
+        const valid = currentOffers.filter(offer =>
+            offer && Number.isSafeInteger(offer.offer_id) &&
+            Number.isSafeInteger(offer.epoch) &&
+            ["visible", "awaiting_confirm"].includes(offer.state) &&
+            offer.slots && Object.values(offer.slots).some(slot =>
+                slot && slot.augment_id === augmentId));
+        const awaiting = valid.filter(offer => offer.state === "awaiting_confirm")
+            .sort((a, b) => a.offer_id - b.offer_id);
+        const visible = valid.filter(offer => offer.state === "visible")
+            .sort((a, b) => b.offer_id - a.offer_id);
+        const target = awaiting[0] || visible[0];
+        return target ? { offer_id: target.offer_id, epoch: target.epoch } : null;
+    }
+
     function showConfirmPanel(msg) {
         // Keep the existing section state: no forced combat-time expansion
         // or input. Players can confirm later when it is safe.
@@ -692,7 +712,11 @@
                 ${isBestGuess ? '<span class="confirm-hint">likely</span>' : ""}
             `;
             btn.addEventListener("click", () => {
-                wsSend({ type: "choose_augment", augment_id: c.id });
+                if (Number.isSafeInteger(msg.offer_id) &&
+                    Number.isSafeInteger(msg.epoch)) {
+                    wsSend({ type: "choose_augment", augment_id: c.id,
+                             offer_id: msg.offer_id, epoch: msg.epoch });
+                }
                 augmentConfirm.classList.add("hidden");
             });
             augmentConfirm.appendChild(btn);
@@ -805,7 +829,9 @@
             `;
 
             card.querySelector(".btn-choose").addEventListener("click", () => {
-                wsSend({ type: "choose_augment", augment_id: rec.augment_id });
+                const target = confirmTarget(rec.augment_id);
+                if (target) wsSend({ type: "choose_augment",
+                                     augment_id: rec.augment_id, ...target });
             });
 
             augmentList.appendChild(card);
@@ -976,6 +1002,65 @@
     // -- Augment quick-select input --
 
     function bindAugmentInput() {
+        // Manual identity is deliberately not a pick. This button is only
+        // usable after enabling voluntary overlay interaction with Alt+O.
+        const host = btnEvaluate.parentNode;
+        if (host && typeof host.appendChild === "function") {
+            const identifyButton = document.createElement("button");
+            identifyButton.type = "button";
+            identifyButton.id = "btn-identify-offer";
+            identifyButton.className = "btn-secondary";
+            identifyButton.textContent = "Identify cards (left → right, not a pick)";
+            host.appendChild(identifyButton);
+            identifyButton.addEventListener("click", async () => {
+                if (selectedAugmentIds.length < 1 || selectedAugmentIds.length > 3) return;
+                const available = currentOffers.filter(offer =>
+                    offer && Number.isSafeInteger(offer.offer_id) &&
+                    Number.isSafeInteger(offer.epoch) &&
+                    ["due", "visible", "awaiting_confirm"].includes(offer.state));
+                const target = available.sort((x, y) => y.offer_id - x.offer_id)[0];
+                if (!target) {
+                    identifyButton.textContent = "No active offer to identify";
+                    return;
+                }
+                const originalMatch = activeMatchId;
+                let epoch = target.epoch;
+                identifyButton.disabled = true;
+                try {
+                    if (target.state === "due") {
+                        const recovery = await fetch("/api/offers/recover", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ offer_id: target.offer_id }),
+                        });
+                        if (!recovery.ok) throw new Error("Offer recovery rejected");
+                        const recovered = await recovery.json();
+                        epoch = recovered.epoch;
+                    }
+                    if (activeMatchId !== originalMatch) throw new Error("Match changed");
+                    for (const [index, augmentId] of selectedAugmentIds.entries()) {
+                        if (activeMatchId !== originalMatch) throw new Error("Match changed");
+                        const response = await fetch("/api/offers/identify", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                offer_id: target.offer_id, epoch,
+                                slot: ["left", "centre", "right"][index],
+                                augment_id: augmentId,
+                            }),
+                        });
+                        if (!response.ok) throw new Error("Identity not accepted");
+                        const updated = await response.json();
+                        if (Array.isArray(updated.offers)) currentOffers = updated.offers;
+                    }
+                    identifyButton.textContent = "Identity saved — not confirmed";
+                } catch (_) {
+                    identifyButton.textContent = "Identity not saved (offer changed or invalid)";
+                } finally {
+                    identifyButton.disabled = false;
+                }
+            });
+        }
         augmentSearch.addEventListener("input", () => {
             clearTimeout(searchDebounce);
             searchDebounce = setTimeout(doAugmentSearch, 200);

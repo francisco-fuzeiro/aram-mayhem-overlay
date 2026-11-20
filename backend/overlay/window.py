@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import ctypes
+import json
 from ctypes import wintypes
 import sys
 import logging
@@ -61,6 +62,9 @@ VK_MENU = 0x12
 VK_O = 0x4F
 VK_H = 0x48
 VK_S = 0x53
+VK_1 = 0x31
+VK_2 = 0x32
+VK_3 = 0x33
 # PG: never monitor global click positions without a separate policy/consent gate.
 PICK_CLICK_HINTS_ENABLED = False
 
@@ -163,6 +167,7 @@ if PYQT_AVAILABLE:
             self._hotkey_was_down = False
             self._visibility_hotkey_was_down = False
             self._scan_hotkey_was_down = False
+            self._pick_hotkeys_down = {"left": False, "centre": False, "right": False}
             self._tray = None
             self._tray_toggle = None
             self._on_quit = on_quit
@@ -332,7 +337,7 @@ if PYQT_AVAILABLE:
                 app.quit()
 
         def _poll_interaction_hotkey(self):
-            """Observe Alt+O, Alt+H and edge-triggered Alt+S without game input."""
+            """Read deliberate local hotkeys, never send keys or clicks to League."""
             if sys.platform != "win32":
                 return
             user32 = ctypes.windll.user32
@@ -352,6 +357,11 @@ if PYQT_AVAILABLE:
                 self._toggle_visibility()
             if scan_down and not self._scan_hotkey_was_down:
                 self._request_manual_scan()
+            for slot, key in (("left", VK_1), ("centre", VK_2), ("right", VK_3)):
+                down = alt_down and bool(user32.GetAsyncKeyState(key) & 0x8000)
+                if down and not self._pick_hotkeys_down[slot]:
+                    self._request_confirm_slot(slot)
+                self._pick_hotkeys_down[slot] = down
             self._hotkey_was_down = interaction_down
             self._visibility_hotkey_was_down = visibility_down
             self._scan_hotkey_was_down = scan_down
@@ -374,6 +384,34 @@ if PYQT_AVAILABLE:
 
             threading.Thread(
                 target=request_scan, daemon=True, name="aram-ocr-manual",
+            ).start()
+
+        def _request_confirm_slot(self, slot: str):
+            """Confirm only through the local ledger API, off the Qt thread."""
+            if slot not in ("left", "centre", "right"):
+                return
+            try:
+                port = urlsplit(self._view.url().toString()).port or 8765
+            except ValueError:
+                port = 8765
+            endpoint = f"http://127.0.0.1:{port}/api/offers/confirm-slot"
+            body = json.dumps({"slot": slot}).encode("utf-8")
+
+            def send_confirmation():
+                request = urllib.request.Request(
+                    endpoint, data=body, method="POST",
+                    headers={"Content-Type": "application/json"},
+                )
+                try:
+                    with urllib.request.urlopen(request, timeout=5) as response:
+                        response.read()
+                except (OSError, ValueError) as exc:
+                    logger.debug("Manual pick confirmation unavailable: %s",
+                                 type(exc).__name__)
+
+            threading.Thread(
+                target=send_confirmation, daemon=True,
+                name="aram-pick-confirm",
             ).start()
 
         def _toggle_click_through(self):

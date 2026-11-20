@@ -108,7 +108,7 @@ def test_websocket_set_augment_choices(mock_lcda):
 
 
 @NO_GAME
-def test_websocket_choose_augment(mock_lcda):
+def test_websocket_choose_augment_without_verified_offer_is_denied(mock_lcda):
     from starlette.testclient import TestClient
     from backend.api.server import app
 
@@ -116,9 +116,9 @@ def test_websocket_choose_augment(mock_lcda):
     with client.websocket_connect("/ws/game") as ws:
         ws.send_json({"type": "choose_augment", "augment_id": "aug1"})
         resp = ws.receive_json()
-        assert resp["type"] == "ack"
+        assert resp["type"] == "error"
         assert resp["action"] == "choose_augment"
-        assert "aug1" in resp["chosen_augments"]
+        assert resp["error"] == "unknown_offer"
 
 
 @NO_GAME

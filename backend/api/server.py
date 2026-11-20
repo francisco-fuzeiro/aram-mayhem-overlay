@@ -24,6 +24,7 @@ from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
 from backend.collectors.offer_lifecycle import OfferLifecycle
+from backend.workflow.offer_ledger import LedgerError, OfferLedger
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
 from backend import preferences
@@ -72,6 +73,23 @@ class _ManualScanEvidence(tuple):
         return obj
 
 
+def _ledger_verified_titles(ledger: OfferLedger, slots: dict[str, str | None],
+                            epoch: int) -> None:
+    """Apply OCR identity atomically, logging only approved override metadata."""
+    if not ledger.offers:
+        raise LedgerError("unknown_offer")
+    offer = ledger.offers[-1]
+    previous = {
+        slot: identity.augment_id
+        for slot, identity in offer.slots.items()
+        if identity.source == "user_identify"
+    }
+    ledger.on_verified_titles(slots, epoch)
+    for slot, former in previous.items():
+        if slots.get(slot) is not None and slots[slot] != former:
+            event_log.emit("identity_overridden", slot=slot, verified_by="ocr")
+
+
 def _manual_scan_parts(value):
     """A legacy untyped result is NEVER capture evidence."""
     ids, detected = value[:2]
@@ -118,6 +136,7 @@ class GameState:
         self.ocr_foreground: str = "other"
         self.ocr_unreadable_ticks: int = 0
         self.offer_lifecycle = OfferLifecycle()
+        self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         # Monotonic offer generation fences OCR results from old windows and
         # manual scans that finish after a match transition or player action.
         self.offer_epoch: int = 0
@@ -198,6 +217,7 @@ class GameState:
         self.augment_choices.clear()
         self.chosen_augments.clear()
         self.chosen_stat_anvils.clear()
+        self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         screen_watcher.reset()
         self.last_known_level = 0
         self.scan_window_open = False
@@ -222,6 +242,11 @@ class GameState:
             return
         self.ocr_enabled = enabled
         self.offer_epoch += 1
+        if self.offer_ledger.offers:
+            try:
+                self.offer_ledger.set_current_epoch(self.offer_epoch)
+            except LedgerError:
+                pass  # Closed offers cannot be reopened by Settings.
         if watcher is not None:
             watcher.reset()
         # The disabled badge must remain accurate even between offers.
@@ -230,6 +255,7 @@ class GameState:
             "no_game" if self.scan_window_open else "no_offer"
         )
         if self.scan_window_open:
+            self.offer_ledger.on_titles_unverified()
             self.offer_lifecycle.observe("unavailable")
             # An OCR toggle invalidates previous advice, not offer identity.
             if not self.ocr_stale:
@@ -256,6 +282,13 @@ class GameState:
         current_ids = [value for value in slots.values() if value is not None]
         if ids != current_ids:
             return False
+        if self.offer_ledger.offers and current_ids and (not self.ocr_stale or reverified):
+            try:
+                _ledger_verified_titles(
+                    self.offer_ledger, slots, self.offer_ledger.offers[-1].epoch,
+                )
+            except LedgerError:
+                return False
         self.offer_lifecycle.observe("detected", identified=len(current_ids))
         self.augment_choices[:] = current_ids
         self.ocr_last_detected[:] = current_ids
@@ -269,16 +302,16 @@ class GameState:
         return {
             "max": len(AUGMENT_PICK_LEVELS),  # always 4
             "eligible": expected,
-            "chosen": len(self.chosen_augments),
-            "chosen_augments": list(self.chosen_augments),
+            "chosen": len(_confirmed_augment_ids(self)),
+            "chosen_augments": _confirmed_augment_ids(self),
             "stat_anvils": len(self.chosen_stat_anvils),
         }
 
 
-game_state = GameState()
-
 AUGMENT_PICK_LEVELS = {3, 7, 11, 15}
 AUGMENT_PICK_LEVELS_SORTED = sorted(AUGMENT_PICK_LEVELS)  # [3, 7, 11, 15]
+
+game_state = GameState()
 
 
 def expected_augments_for_level(level: int) -> int:
@@ -530,6 +563,7 @@ def ocr_status():
         "stale": game_state.ocr_stale,
         "stale_since_epoch": game_state.ocr_stale_since_epoch,
         "foreground": game_state.ocr_foreground,
+        "offers": game_state.offer_ledger.payload(),
     }
 
 
@@ -582,6 +616,7 @@ async def ocr_scan():
                 else "transition"
             )
             game_state.set_ocr_phase(failed_phase)
+            game_state.offer_ledger.on_titles_unverified()
             status = "transition"
         else:
             status = "superseded"
@@ -597,6 +632,7 @@ async def ocr_scan():
             "offer_state": game_state.offer_state,
             "offer_epoch": game_state.offer_epoch,
             "match_id": game_state.match_id,
+            "offers": game_state.offer_ledger.payload(),
         }
     # Publication uses the same offer epoch and never sends an unproven card.
     await _broadcast(json.dumps({
@@ -666,6 +702,152 @@ def search_augments(
         })
     results.sort(key=lambda a: a["name"])
     return results[:50]
+
+
+# -- Explicit C2 offer identity and confirmation (local API only) --
+
+
+class OfferIdentifyRequest(BaseModel):
+    offer_id: int
+    epoch: int
+    slot: str
+    augment_id: str
+
+
+class OfferConfirmRequest(BaseModel):
+    offer_id: int
+    epoch: int
+    augment_id: str
+
+
+class OfferSlotRequest(BaseModel):
+    slot: str
+
+
+class OfferRecoverRequest(BaseModel):
+    offer_id: int
+
+
+def _offer_http_error(exc: LedgerError) -> HTTPException:
+    code = exc.code
+    status = (404 if code == "unknown_offer"
+              else 422 if code in ("bad_slot", "not_in_catalog")
+              else 409)
+    return HTTPException(status_code=status, detail=code)
+
+
+def _confirmed_augment_ids(state: GameState) -> list[str]:
+    """Only explicit confirmed real augments may enter B4 build inputs."""
+    is_anvil = getattr(static_data, "get_stat_anvil", None)
+    return [
+        aid for aid in state.offer_ledger.active_augment_ids()
+        if not callable(is_anvil) or is_anvil(aid) is None
+    ]
+
+
+def _confirmed_anvil_ids(state: GameState) -> list[str]:
+    """Keep stat anvils separate from the build's augment synergy input."""
+    is_anvil = getattr(static_data, "get_stat_anvil", None)
+    return [
+        aid for aid in state.offer_ledger.active_augment_ids()
+        if callable(is_anvil) and is_anvil(aid) is not None
+    ]
+
+
+def _sync_confirmed_augments(state: GameState, confirmed_offer) -> None:
+    """Update build inputs only after an explicit ledger confirmation.
+
+    Confirmation of a pending old offer must never close, clear, advance
+    or otherwise modify the latest offer. State lock is held by caller.
+    """
+    state.chosen_augments[:] = _confirmed_augment_ids(state)
+    state.chosen_stat_anvils[:] = _confirmed_anvil_ids(state)
+    if not state.offer_ledger.offers or confirmed_offer is not state.offer_ledger.offers[-1]:
+        return
+    if not (state.scan_window_open or state.confirmation_pending
+            or state.awaiting_stat_delta):
+        return  # repeated identical confirmation has no lifecycle side effects
+    state.augment_choices.clear()
+    state.ocr_last_detected.clear()
+    state.ocr_slot_choices = None
+    if state.scan_window_open:
+        event_log.emit("ocr_window", state="closed", reason="manual_choice",
+                       level=state.scan_window_level)
+    state.scan_window_open = False
+    state.offer_lifecycle.close()
+    state.offer_epoch += 1
+    state.confirmation_pending = False
+    state.awaiting_stat_delta = False
+    state.delta_wait_ticks = 0
+    state.stat_snapshot_before.clear()
+    state.stat_snapshot_level_before = None
+    state.stat_snapshot_items_before = None
+    screen_watcher.reset()
+    kind = ("anvil" if confirmed_offer.picked_id in state.chosen_stat_anvils
+            else "augment")
+    event_log.emit("augment_confirmation", method="manual", kind=kind)
+
+
+@app.post("/api/offers/identify")
+async def identify_offer(req: OfferIdentifyRequest):
+    async with game_state.lock:
+        try:
+            offer = game_state.offer_ledger.identify(
+                req.offer_id, req.epoch, req.slot, req.augment_id,
+                set(static_data._augments),
+            )
+        except LedgerError as exc:
+            raise _offer_http_error(exc) from None
+        return {"offer_id": offer.offer_id, "epoch": offer.epoch,
+                "offers": game_state.offer_ledger.payload()}
+
+
+@app.post("/api/offers/confirm")
+async def confirm_offer(req: OfferConfirmRequest):
+    async with game_state.lock:
+        try:
+            offer = game_state.offer_ledger.confirm(
+                req.offer_id, req.epoch, req.augment_id,
+            )
+        except LedgerError as exc:
+            raise _offer_http_error(exc) from None
+        _sync_confirmed_augments(game_state, offer)
+        return {"offer_id": offer.offer_id, "epoch": offer.epoch,
+                "chosen_augments": _confirmed_augment_ids(game_state),
+                "offers": game_state.offer_ledger.payload()}
+
+
+@app.post("/api/offers/confirm-slot")
+async def confirm_offer_slot(req: OfferSlotRequest):
+    async with game_state.lock:
+        try:
+            offer = game_state.offer_ledger.confirm_slot(req.slot)
+        except LedgerError as exc:
+            raise _offer_http_error(exc) from None
+        _sync_confirmed_augments(game_state, offer)
+        return {"offer_id": offer.offer_id, "epoch": offer.epoch,
+                "chosen_augments": _confirmed_augment_ids(game_state),
+                "offers": game_state.offer_ledger.payload()}
+
+
+@app.post("/api/offers/recover")
+async def recover_offer(req: OfferRecoverRequest):
+    async with game_state.lock:
+        try:
+            offer = game_state.offer_ledger.open_for_recovery(req.offer_id)
+        except LedgerError as exc:
+            raise _offer_http_error(exc) from None
+        game_state.offer_epoch += 1  # invalidate in-flight OCR operations
+        if offer.epoch != game_state.offer_epoch:
+            game_state.offer_ledger.set_current_epoch(
+                max(game_state.offer_epoch, offer.epoch + 1),
+            )
+            game_state.offer_epoch = offer.epoch
+        game_state.scan_window_open = True
+        game_state.offer_lifecycle.open()
+        screen_watcher.reset()
+        return {"offer_id": offer.offer_id, "epoch": offer.epoch,
+                "offers": game_state.offer_ledger.payload()}
 
 
 class BugReportRequest(BaseModel):
@@ -778,6 +960,7 @@ async def game_ws(websocket: WebSocket):
                     await _send_ws_message(websocket, json.dumps({"error": "snapshot requires 'data' object"}))
                     continue
                 snapshot = _parse_snapshot(data)
+                snapshot.chosen_augments = _confirmed_augment_ids(game_state)
                 result = game_state.pipeline.run(snapshot) if game_state.pipeline else None
                 if result:
                     await _send_ws_message(websocket, json.dumps(
@@ -800,47 +983,40 @@ async def game_ws(websocket: WebSocket):
                 }))
 
             elif msg_type == "choose_augment":
-                aug_id = msg.get("augment_id", "")
+                # Legacy local action delegates to explicit confirmation; a
+                # guessed/unknown ID can never be appended to build inputs.
+                aug_id = msg.get("augment_id")
                 async with game_state.lock:
-                    # Classify by data: stat anvil IDs go to stat_anvils list
-                    is_stat_anvil = static_data.get_stat_anvil(aug_id) is not None
-                    if aug_id:
-                        if is_stat_anvil and aug_id not in game_state.chosen_stat_anvils:
-                            game_state.chosen_stat_anvils.append(aug_id)
-                        elif not is_stat_anvil and aug_id not in game_state.chosen_augments:
-                            game_state.chosen_augments.append(aug_id)
-                    game_state.augment_choices.clear()
-                    game_state.ocr_last_detected.clear()
-                    game_state.ocr_slot_choices = None
-                    if game_state.scan_window_open:
-                        event_log.emit("ocr_window", state="closed", reason="manual_choice",
-                                       level=game_state.scan_window_level)
-                    game_state.scan_window_open = False
-                    game_state.offer_lifecycle.close()
-                    game_state.offer_epoch += 1
-                    game_state.confirmation_pending = False
-                    game_state.awaiting_stat_delta = False
-                    game_state.delta_wait_ticks = 0
-                    game_state.stat_snapshot_before.clear()
-                    game_state.stat_snapshot_level_before = None
-                    game_state.stat_snapshot_items_before = None
-                    screen_watcher.reset()
-                    if aug_id:
-                        event_log.emit(
-                            "augment_confirmation", method="manual",
-                            kind="anvil" if is_stat_anvil else "augment",
-                        )
-                await _send_ws_message(websocket, json.dumps({
-                    "type": "ack",
-                    "action": "choose_augment",
-                    "chosen_augments": list(game_state.chosen_augments),
-                }))
+                    try:
+                        offer_id = msg.get("offer_id")
+                        epoch = msg.get("epoch")
+                        if offer_id is None or epoch is None:
+                            # Historical client compatibility: newest offer
+                            # only, still requires an identified offered ID.
+                            if not game_state.offer_ledger.offers:
+                                raise LedgerError("unknown_offer")
+                            latest = game_state.offer_ledger.offers[-1]
+                            offer_id, epoch = latest.offer_id, latest.epoch
+                        offer = game_state.offer_ledger.confirm(offer_id, epoch, aug_id)
+                    except LedgerError as exc:
+                        response = {"type": "error", "action": "choose_augment",
+                                    "error": exc.code}
+                    else:
+                        _sync_confirmed_augments(game_state, offer)
+                        response = {
+                            "type": "ack", "action": "choose_augment",
+                            "offer_id": offer.offer_id, "epoch": offer.epoch,
+                            "chosen_augments": _confirmed_augment_ids(game_state),
+                            "offers": game_state.offer_ledger.payload(),
+                        }
+                await _send_ws_message(websocket, json.dumps(response))
 
             elif msg_type == "clear_augments":
                 async with game_state.lock:
                     game_state.augment_choices.clear()
                     game_state.ocr_slot_choices = None
-                    game_state.chosen_augments.clear()
+                    # Clearing manual search never erases ledger-confirmed picks.
+                    game_state.chosen_augments[:] = _confirmed_augment_ids(game_state)
                     game_state.chosen_stat_anvils.clear()
                     game_state.confirmation_pending = False
                     game_state.awaiting_stat_delta = False
@@ -884,6 +1060,7 @@ async def game_ws(websocket: WebSocket):
                             else "transition"
                         )
                         game_state.set_ocr_phase(failed_phase)
+                        game_state.offer_ledger.on_titles_unverified()
                         status = "transition"
                     else:
                         status = "superseded"
@@ -898,6 +1075,7 @@ async def game_ws(websocket: WebSocket):
                         "offer_state": game_state.offer_state,
                         "offer_epoch": game_state.offer_epoch,
                         "match_id": game_state.match_id,
+                        "offers": game_state.offer_ledger.payload(),
                     }
                 await _send_ws_message(websocket, json.dumps(message))
 
@@ -1363,9 +1541,26 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 state.was_dead = snapshot.is_dead
                 state.last_known_level = current_level
 
+                # Every threshold creates one due offer, even without OCR.
+                prior_count = len(state.offer_ledger.offers)
+                if prior_count and current_level >= 0:
+                    previous_due = state.offer_ledger.offers[-1]
+                    if (prior_count < len(AUGMENT_PICK_LEVELS_SORTED)
+                            and current_level >= AUGMENT_PICK_LEVELS_SORTED[prior_count]):
+                        state.offer_ledger.on_titles_unverified()
+                state.offer_ledger.on_level(current_level)
+                if len(state.offer_ledger.offers) != prior_count:
+                    state.offer_epoch = max(
+                        state.offer_epoch + 1,
+                        state.offer_ledger.offers[-1].epoch + 1,
+                    )
+                    state.offer_ledger.set_current_epoch(state.offer_epoch)
+                    # Historical OCR names stay stale until A3/A4 reverify;
+                    # the ledger keeps them separate from this new due offer.
+                    # Existing scan opening owns the single watcher reset.
                 # Open when a new pick level is reached OR on respawn.
                 expected = expected_augments_for_level(current_level)
-                have = len(state.chosen_augments)
+                have = len(_confirmed_augment_ids(state))
 
                 if (
                     should_open_augment_scan(
@@ -1377,7 +1572,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
-                    state.offer_epoch += 1
+                    if len(state.offer_ledger.offers) == prior_count:
+                        state.offer_epoch += 1
+                        if state.offer_ledger.offers:
+                            state.offer_ledger.set_current_epoch(state.offer_epoch)
                     state.offer_lifecycle.open()
                     event_log.emit(
                         "ocr_window", state="opened", reason="level_due",
@@ -1483,6 +1681,18 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                                 else "other"
                             )
                         if action == "detected" and detected:
+                            verified_slots = _slots_from_detected(detected)
+                            if ((not state.ocr_stale or reverified)
+                                    and verified_slots is not None
+                                    and state.offer_ledger.offers
+                                    and any(verified_slots.values())):
+                                try:
+                                    newest = state.offer_ledger.offers[-1]
+                                    _ledger_verified_titles(
+                                        state.offer_ledger, verified_slots, newest.epoch,
+                                    )
+                                except LedgerError:
+                                    pass  # no inferred/unsafe confirmation
                             state.offer_lifecycle.observe(
                                 "detected", identified=sum(
                                     isinstance(row.get("id"), str) for row in detected
@@ -1506,6 +1716,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             ocr_message = ocr_msg
 
                         elif action in ("not_focused", "occluded", "capture_unavailable", "unavailable"):
+                            state.offer_ledger.on_titles_unverified()
                             # C4 lifecycle accepts unavailable, not A3 capture reasons.
                             state.offer_lifecycle.observe(
                                 "unavailable" if action in ("occluded", "capture_unavailable")
@@ -1520,6 +1731,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                                 "match_id": state.match_id,
                             })
                         elif action == "transition":
+                            state.offer_ledger.on_titles_unverified()
                             # The current focused frame changed, but C3 has not
                             # verified all physical slots yet. Keep historical
                             # names for diagnostics only, never current advice.
@@ -1537,6 +1749,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             # signal. The C3 watcher never emits this from blank
                             # titles or dialogue/animation/focus changes.
                             # Never infer a chosen card from this action.
+                            state.offer_ledger.on_titles_unverified()
                             state.offer_lifecycle.observe(
                                 "disappeared", verified_absence=True,
                             )
@@ -1561,6 +1774,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                                 "match_id": state.match_id,
                             })
                         elif action in ("no_augments", "unchanged"):
+                            if not getattr(observation, "has_current", False):
+                                state.offer_ledger.on_titles_unverified()
                             state.offer_lifecycle.observe(action)
                         if (ocr_message is None and action != "superseded"
                                 and (state.ocr_phase != previous_phase
@@ -1589,7 +1804,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
 
             # Inject overlay augment state
             snapshot.augment_choices = list(state.augment_choices)
-            snapshot.chosen_augments = list(state.chosen_augments)
+            snapshot.chosen_augments = _confirmed_augment_ids(state)
             snapshot.build_style = state.build_style
 
             result = state.pipeline.run(snapshot) if state.pipeline else None
@@ -1602,7 +1817,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                               "ocr_stale_since_epoch": state.ocr_stale_since_epoch,
                               "ocr_slots": state.ocr_slot_choices,
                               "offer_state": state.offer_state,
-                              "offer_epoch": state.offer_epoch}
+                              "offer_epoch": state.offer_epoch,
+                              "offers": state.offer_ledger.payload()}
                     if state.match_id:
                         update["match_id"] = state.match_id
                 await deps.broadcast(json.dumps(update))
@@ -1842,20 +2058,36 @@ async def _try_stat_delta_match(snapshot: GameSnapshot) -> None:
 
 
 def _augment_confirm_message(best_guess_id: str | None) -> str:
-    """Serialize the current offer; caller protects state with its lock."""
+    """A hint is never a pick; include the exact offer and epoch for UI."""
+    target = next(
+        (offer for offer in game_state.offer_ledger.offers
+         if offer.state == "awaiting_confirm"),
+        None,
+    )
+    if target is None:
+        target = next(
+            (offer for offer in reversed(game_state.offer_ledger.offers)
+             if offer.state == "visible"),
+            None,
+        )
     candidates = []
-    for aid in game_state.augment_choices:
-        aug = static_data.get_augment(aid)
-        if aug:
-            candidates.append({
-                "id": aug.id,
-                "name": aug.name,
-                "tier": aug.tier.value,
-            })
+    if target is not None:
+        for identity in target.slots.values():
+            if identity.augment_id is None:
+                continue
+            aug = static_data.get_augment(identity.augment_id)
+            if aug:
+                candidates.append({
+                    "id": aug.id, "name": aug.name, "tier": aug.tier.value,
+                })
     return json.dumps({
         "type": "augment_confirm",
+        "offer_id": target.offer_id if target is not None else None,
+        "epoch": target.epoch if target is not None else None,
         "candidates": candidates,
-        "best_guess_id": best_guess_id,
+        "best_guess_id": best_guess_id if any(
+            entry["id"] == best_guess_id for entry in candidates
+        ) else None,
     })
 
 
@@ -2001,6 +2233,7 @@ def _serialize_result(
         out["level"] = snapshot.level
         out["scan_window_open"] = game_state.scan_window_open
         out["augment_state"] = game_state.get_augment_state()
+        out["offers"] = game_state.offer_ledger.payload()
         out["enemies"] = [
             {
                 "id": eid,
