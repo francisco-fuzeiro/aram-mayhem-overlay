@@ -138,3 +138,55 @@ def test_alt_s_local_ocr_request_uses_background_thread_without_game_input():
     assert "/api/ocr/scan" in source
     assert "threading.Thread" in source
     assert "GetAsyncKeyState(VK_S)" in source
+
+
+
+def test_a5_manual_capture_stage_classification_is_honest():
+    expected = {
+        "ocr_unavailable": "ocr_missing",
+        "game_window_unavailable": "no_game",
+        "game_occluded": "occluded",
+        "capture_invalid": "capture_unavailable",
+        "geometry_unsupported": "capture_unavailable",
+        "titles_unidentified": "no_offer",
+        "titles_verifying": "verifying",
+    }
+    for stage, phase in expected.items():
+        assert server._manual_scan_failure_phase(stage) == phase
+
+
+def test_a5_ocr_off_remains_correct_without_offer_and_after_match_reset():
+    state = server.GameState()
+    state.set_ocr_enabled(False)
+    assert state.ocr_phase == "disabled"
+    assert state.ocr_stale is False
+    state.reset()
+    assert state.ocr_phase == "disabled"
+    state.set_ocr_enabled(True)
+    assert state.ocr_phase == "no_offer"
+
+
+def test_a5_unreadable_only_after_three_partial_verified_observations():
+    state = server.GameState()
+    partial = server._OcrWatcherObservation(
+        "unchanged", [], None, foreground="other",
+        has_partial=True, has_current=True,
+    )
+    assert server._phase_for_observation(state, partial) == "verifying"
+    assert server._phase_for_observation(state, partial) == "verifying"
+    assert server._phase_for_observation(state, partial) == "unreadable"
+    state.scan_window_open = True
+    state.set_ocr_phase("unreadable")
+    captured = server._OcrWatcherObservation("occluded", [], None)
+    state.set_ocr_phase(server._phase_for_observation(state, captured))
+    assert state.ocr_stale is True
+    assert state.ocr_stale_since_epoch == state.offer_epoch
+
+
+def test_a5_foreground_other_is_not_an_ocr_rejection():
+    state = server.GameState()
+    observation = server._OcrWatcherObservation(
+        "detected", VALID_IDS, ROWS, foreground="other", has_current=True,
+    )
+    assert server._phase_for_observation(state, observation) == "detected"
+    assert state.ocr_stale is False
