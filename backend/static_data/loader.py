@@ -263,6 +263,37 @@ class StaticData:
     def get_item(self, item_id: str) -> ItemData | None:
         return self._items.get(str(item_id))
 
+    def canonical_item_id(self, raw_id) -> str:
+        """Resolve observed variants to verified pool IDs, never to shop proof.
+
+        Keep direct pool IDs unchanged. For other IDs, use patch-matched
+        CommunityDragon specialRecipe relations first, then an EXACT display
+        name shared with a verified pool item (preferring four-digit IDs).
+        Unsupported or unverified identifiers are retained as observed.
+        """
+        ident = str(raw_id)
+        pool = getattr(self._items, "pool_ids", frozenset())
+        if ident in pool:
+            return ident
+        target = getattr(self._items, "special_recipes", {}).get(ident)
+        if target in pool:
+            return target
+        raw_item = self._items.get(ident)
+        name = self._all_item_names.get(ident) or (
+            raw_item.name if raw_item is not None else None
+        )
+        if not name:
+            return ident
+        candidates = [
+            candidate for candidate in pool
+            if self._items[candidate].name == name
+        ]
+        if not candidates:
+            return ident
+        return min(candidates, key=lambda candidate: (
+            len(candidate) != 4, len(candidate), candidate
+        ))
+
     def get_item_name(self, item_id: str) -> str:
         """Resolve any item ID to a name, even if not in our scored item set."""
         item = self._items.get(str(item_id))
@@ -661,7 +692,7 @@ _CD_FIELDS = (
 class ItemCatalog(dict):
     """Recognize all Data Dragon items; distinguish verified shop candidates."""
 
-    def __init__(self, items, meta, classes, data_source):
+    def __init__(self, items, meta, classes, data_source, special_recipes=None):
         super().__init__(items)
         self.meta = meta
         self.classes = classes
@@ -677,6 +708,12 @@ class ItemCatalog(dict):
             ident for ident, category in classes.items()
             if category in RECOMMENDABLE_CLASSES and ident in self.pool_ids
         )
+        relations = special_recipes if isinstance(special_recipes, dict) else {}
+        self.special_recipes = {
+            str(source): str(target) for source, target in relations.items()
+            if (str(source) in self and str(target) in self.pool_ids
+                and str(source) != str(target))
+        }
 
 
 def _unknown_item_meta(dd_version, overrides_version):
@@ -759,6 +796,8 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
             "move_speed_flat": move_flat,
             "move_speed_percent": move_pct,
             "item_class": category,
+            "from_ids": tuple(str(value) for value in (data.get("from") or [])),
+            "into_ids": tuple(str(value) for value in (data.get("into") or [])),
         }
 
     bounds = {
@@ -781,8 +820,20 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
             move_speed_flat=data["move_speed_flat"],
             move_speed_percent=data["move_speed_percent"],
             item_class=data["item_class"],
+            from_ids=data["from_ids"], into_ids=data["into_ids"],
         )
-    return ItemCatalog(result, meta, classes, source)
+    special_recipes = {}
+    if cd_index is not None and meta.availability == "verified_two_source":
+        for ident, cd in cd_index.items():
+            if ident not in result:
+                continue
+            target = cd.get("specialRecipe")
+            if (isinstance(target, (int, str)) and str(target).isdigit()
+                    and str(target) != "0"):
+                # The special relation has to be patch-matched AND point to
+                # a verified pool item; unrelated CDragon IDs stay excluded.
+                special_recipes[ident] = str(target)
+    return ItemCatalog(result, meta, classes, source, special_recipes)
 
 
 def _encode_item_cache(catalog):
@@ -790,6 +841,7 @@ def _encode_item_cache(catalog):
         "schema": _ITEM_CACHE_SCHEMA,
         "meta": asdict(catalog.meta),
         "classes": dict(catalog.classes),
+        "special_recipes": dict(catalog.special_recipes),
         "items": {
             ident: {
                 "name": item.name, "cost": item.cost,
@@ -802,6 +854,7 @@ def _encode_item_cache(catalog):
                 "move_speed_flat": item.move_speed_flat,
                 "move_speed_percent": item.move_speed_percent,
                 "item_class": item.item_class,
+                "from_ids": list(item.from_ids), "into_ids": list(item.into_ids),
             } for ident, item in catalog.items()
         },
     }
@@ -828,7 +881,9 @@ def _verified_cached_items(path, version, overrides_version):
             return None
         if any(item.item_class != classes.get(ident) for ident, item in items.items()):
             return None
-        return ItemCatalog(items, meta, classes, "cache")
+        return ItemCatalog(
+            items, meta, classes, "cache", data.get("special_recipes", {}),
+        )
     except (OSError, KeyError, ValueError, TypeError):
         return None
 
@@ -945,6 +1000,8 @@ def _parse_item_cache(cached: dict) -> dict[str, ItemData]:
             move_speed_flat=data.get("move_speed_flat", 0.0),
             move_speed_percent=data.get("move_speed_percent", 0.0),
             item_class=data.get("item_class", "unknown"),
+            from_ids=tuple(str(value) for value in (data.get("from_ids") or ())),
+            into_ids=tuple(str(value) for value in (data.get("into_ids") or ())),
         )
     return result
 

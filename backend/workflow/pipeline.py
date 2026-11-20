@@ -2,6 +2,7 @@ from backend.models import GameSnapshot, GamePhase, PipelineResult, EnemyState
 from backend.static_data.loader import StaticData
 from backend.engine.ranker import rank_augments, should_reroll
 from backend.engine.build_suggester import suggest_build
+from backend.engine.inventory import build_inventory
 from backend.engine.team_context import analyze_enemies, analyze_allies
 from backend.storage.db import get_all_personal_winrates
 from backend.config import config
@@ -37,7 +38,8 @@ class Pipeline:
             EnemyState(champion_id=cid) for cid in snapshot.enemy_champion_ids
         ]
         enemy_profile = analyze_enemies(
-            enemy_states, self.data.get_champion, self.data.get_item,
+            enemy_states, self.data.get_champion,
+            lambda item_id: self.data.get_item(self.data.canonical_item_id(item_id)),
         )
         allies = [
             self.data.get_champion(cid) for cid in snapshot.ally_champion_ids
@@ -53,6 +55,13 @@ class Pipeline:
 
         personal_wrs = get_all_personal_winrates(champion.id)
         all_items = self.data.all_items()
+        # Production item catalogs are fail-closed. Synthetic, explicitly
+        # injected dictionaries retain the pre-B2 test compatibility path.
+        build_items = (
+            self.data.recommendable_items()
+            if self.data.item_pool_meta is not None else all_items
+        )
+        inventory = build_inventory(snapshot.purchased_items, self.data)
 
         recommendations = rank_augments(
             champion=champion,
@@ -72,7 +81,8 @@ class Pipeline:
             active_augments=existing,
             purchased_items=snapshot.purchased_items,
             current_gold=snapshot.current_gold,
-            all_items=all_items,
+            all_items=build_items,
+            inventory=inventory,
             enemy_profile=enemy_profile,
             ally_profile=ally_profile,
             build_style=snapshot.build_style,

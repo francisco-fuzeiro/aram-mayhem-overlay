@@ -5,6 +5,7 @@ Our contextual adjustments are small and interpretable, not measured win odds.
 """
 import logging
 
+from backend.engine.inventory import Inventory
 from backend.models import ChampionMeta, AugmentData, ItemData, BuildState, BootReplacement
 from backend.engine.scoring import score_item
 from backend.engine.team_context import EnemyThreatProfile, AllyTeamProfile
@@ -110,18 +111,22 @@ def _rank_items(
 
 
 def _fill_slots(
-    ranked: list[ItemData], owned: list[str], all_items: list[ItemData], size: int,
+    ranked: list[ItemData], owned: list[str] | Inventory,
+    all_items: list[ItemData], size: int,
 ) -> list[str]:
+    # B2: a component/reward occupies a physical inventory slot but is
+    # not a completed item in the recommended six-item build.
+    finals = list(owned.finals) if isinstance(owned, Inventory) else list(owned)
     by_id = {item.id: item for item in all_items}
-    selected = list(owned)
-    seen = set(owned)
+    selected = finals
+    seen = set(finals)
     # Avoid recommending two IDs with the same name ("Phantom Dancer" was
     # duplicated in the first actual Windows Mayhem screenshot).
     named = {
         _item_name_key(by_id[item_id])
-        for item_id in owned if item_id in by_id
+        for item_id in finals if item_id in by_id
     }
-    boots_taken = any(by_id.get(item_id) and by_id[item_id].boots for item_id in owned)
+    boots_taken = any(by_id.get(item_id) and by_id[item_id].boots for item_id in finals)
     for item in ranked:
         if len(selected) >= size:
             break
@@ -228,6 +233,7 @@ def suggest_build(
     enemy_profile: EnemyThreatProfile | None = None,
     ally_profile: AllyTeamProfile | None = None,
     build_style: str = "Balanced",
+    inventory: Inventory | None = None,
 ) -> BuildState:
     """Return one flexible path and optional Damage/Survival/Utility paths.
 
@@ -239,7 +245,8 @@ def suggest_build(
     # Invalid external snapshot values fall back to the neutral default.
     selected_style = build_style if build_style in BUILD_STYLES else "Balanced"
     purchased = list(purchased_items)
-    available = [item for item in all_items if item.id not in purchased]
+    owned_finals = list(inventory.finals) if inventory is not None else purchased
+    available = [item for item in all_items if item.id not in owned_finals]
     rankings = {
         style: _rank_items(
             champion, active_augments, available, enemy_profile, ally_profile, style
@@ -247,14 +254,14 @@ def suggest_build(
         for style in BUILD_STYLES
     }
     paths = {
-        style: _fill_slots(rankings[style], purchased, all_items, build_size)
+        style: _fill_slots(rankings[style], inventory if inventory is not None else purchased, all_items, build_size)
         for style in BUILD_STYLES
     }
     full_build = paths[selected_style]
 
     # Do not recommend a seventh item. Even if the catalog offers thousands
     # of candidates, "next item" must actually belong to the selected path.
-    remaining = [item_id for item_id in full_build[len(purchased):]]
+    remaining = [item_id for item_id in full_build[len(owned_finals):]]
     by_id = {item.id: item for item in all_items}
     next_item = next(
         (by_id[item_id] for item_id in remaining
