@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: windows-latest
+    env:
+      ARAM_REQUIRE_TESSERACT: "1"
     permissions:
       contents: read
     steps:
@@ -18,6 +20,12 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: python -m pip install -e '.[dev,webview-overlay]'
+      - name: Install Tesseract
+        run: choco install tesseract --no-progress -y
+      - name: Verify Tesseract
+        run: '& "C:\Program Files\Tesseract-OCR\tesseract.exe" --version'
+      - name: Verify English traineddata
+        run: '& "C:\Program Files\Tesseract-OCR\tesseract.exe" --list-langs'
       - name: Run regression suite
         run: python -m pytest -q
       - name: Check overlay JavaScript syntax
