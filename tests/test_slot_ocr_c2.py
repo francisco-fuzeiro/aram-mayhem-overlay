@@ -137,7 +137,11 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
     strip = Image.new("RGB", (int(2544*.70), int(1353*.28)))
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: window)
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *a, **kw: strip)
+    from backend.collectors.window_capture import CaptureProof
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *a, **kw:
+                        screen_ocr.RegionCapture(
+                            strip, CaptureProof("wgc", window.hwnd, window.rect,
+                                                10.0, "league"), "ok"))
     monkeypatch.setattr(screen_ocr, "extract_text", lambda *a, **kw:
                         pytest.fail("legacy whole-ROI OCR was called"))
     known = {"left": ("1", "En Passant", 96),
