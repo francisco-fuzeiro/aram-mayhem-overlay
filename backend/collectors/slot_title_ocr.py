@@ -41,17 +41,37 @@ def strict_match_title(
     observed = _normalize(text)
     if len(observed) < 4 or not augment_names:
         return None
-    scored = []
+    # Duplicate IDs for the same normalized title are a single candidate:
+    # they must never consume the best-vs-runner-up confidence margin.
+    by_title: dict[str, tuple[str, str]] = {}
+
+    def id_priority(aid: str) -> tuple[int, int, str]:
+        try:
+            number = int(aid)
+        except (TypeError, ValueError, OverflowError):
+            # Preserve compatibility with nonnumeric test/extension IDs;
+            # production catalog IDs are numeric strings.
+            return (2, 0, aid)
+        return (0 if number >= 1000 else 1, number, aid)
+
     for aid, name in augment_names.items():
         if not isinstance(aid, str) or not isinstance(name, str):
             continue
         normalized = _normalize(name)
-        if normalized:
-            scored.append((fuzz.ratio(observed, normalized), aid, name))
-    if not scored:
+        if not normalized:
+            continue
+        current = by_title.get(normalized)
+        if current is None or id_priority(aid) < id_priority(current[0]):
+            by_title[normalized] = (aid, name)
+
+    if not by_title:
         return None
-    scored.sort(key=lambda x: -x[0])
-    best, aid, name = scored[0]
+    scored = [
+        (fuzz.ratio(observed, normalized), normalized, aid, name)
+        for normalized, (aid, name) in by_title.items()
+    ]
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    best, _, aid, name = scored[0]
     second = scored[1][0] if len(scored) >= 2 else 0
     if best < MATCH_THRESHOLD or best - second < MIN_MARGIN:
         return None
