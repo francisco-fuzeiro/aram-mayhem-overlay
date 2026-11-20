@@ -47,7 +47,8 @@ def test_nonworking_explicit_tesseract_path_is_actionable_without_echoing_path(m
 def test_detected_executable_reports_only_dependency_readiness(monkeypatch):
     monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
     monkeypatch.setattr(screen_ocr, "pytesseract", SimpleNamespace(
-        get_tesseract_version=lambda: "5.5"
+        get_tesseract_version=lambda: "5.5",
+        get_languages=lambda config="": ["eng", "osd"],
     ))
     assert screen_ocr.readiness_status() == {
         "available": True,
@@ -70,3 +71,33 @@ def test_status_endpoint_keeps_existing_fields_and_adds_bounded_guidance(monkeyp
     assert response["next_step"] == expected["next_step"]
     assert isinstance(response["enabled"], bool)
     assert "offer_state" in response
+
+
+def test_executable_detected_without_english_traineddata_is_not_ocr_ready(monkeypatch):
+    monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
+    monkeypatch.setattr(screen_ocr, "pytesseract", SimpleNamespace(
+        get_tesseract_version=lambda: "5.5",
+        get_languages=lambda config="": ["osd"],
+    ))
+    status = screen_ocr.readiness_status()
+    assert status["available"] is False
+    assert status["reason"] == "english_language_missing"
+    assert "eng" in status["next_step"]
+    assert screen_ocr.is_available() is False
+
+
+def test_language_probe_error_is_bounded_and_never_exposes_paths(monkeypatch):
+    monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
+
+    def failing_languages(config=""):
+        raise RuntimeError(r"C:\\private\\user\\tessdata")
+
+    monkeypatch.setattr(screen_ocr, "pytesseract", SimpleNamespace(
+        get_tesseract_version=lambda: "5.5",
+        get_languages=failing_languages,
+    ))
+    status = screen_ocr.readiness_status()
+    assert status["available"] is False
+    assert status["reason"] == "language_probe_unavailable"
+    assert "private" not in str(status)
+    assert screen_ocr.is_available() is False
