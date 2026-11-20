@@ -1,5 +1,17 @@
 # ARAM Oracle — Product and UX TODO
 
+## External open-source reuse research — 2026-11-20 (research, not implementation)
+
+> Evidence, repository/code links, licensing and feature map: [OPEN_SOURCE_FEATURE_MAP_2026-11-20.md](OPEN_SOURCE_FEATURE_MAP_2026-11-20.md). Existing M4/M5, D6–D11 and gameplay acceptance gates **remain authoritative**; these are evaluation tasks, not replacements or completed product features.
+
+- [x] **REUSE-001 (research):** Record source-verified candidate implementations and licensing restrictions for augment OCR/rerolls, item/build recommendation, champion select, shop detection and desktop packaging. Documentation only, no code imported.
+- [ ] **REUSE-002 (P0, M5/D7):** Compare Sygnano's MIT card identity, reroll fixtures and confidence gates with C1–C4 implementation, with no duplicate OCR rewrite or native-test request outside the agreed grouped test.
+- [ ] **REUSE-003 (P1, D8):** Evaluate Counterbuild MIT component affordability and visible enemy threat scoring against our item provenance, Mayhem legality and existing original scoring; use narrow adapters only if they outperform tests.
+- [ ] **REUSE-004 (P1, scoring):** Inventory existing engine and validate score/confidence gaps before any rework; external `fabs133/league-aram-builder` `scoring.py` was confirmed identical to ours at blob SHA `bdc3bd2f8c12f34a661402fc3bb7324ba47344a0`.
+- [ ] **REUSE-005 (P2, D9–D11):** Compare Sygnano/QueryLoL installer, Settings and update patterns against the approved PyQt6 desktop; no framework replacement without explicit architecture decision.
+- [ ] **REUSE-006 (release gate):** Verify file-by-file upstream licenses, data/API terms, Riot policy, bundled model/art notices and `THIRD_PARTY_NOTICES.md` before any import; all-rights-reserved and unlicensed repositories stay feature-only references.
+
+
 > Canonical, persistent backlog for this repository. Created 2026-11-18 (Europe/Lisbon).
 > Incorporates the **"Auditoria UX — ARAM Oracle"** discussion in the ChatGPT Overlay LoL project, the user-supplied `funcionalidades.md` specification, the first real in-game Jinx screenshot, and the current stacked PR history.
 > The UX audit was recovered from the cross-chat discussion summary; this is an actionable synthesis, **not** a verbatim export of that conversation.
