@@ -443,7 +443,7 @@ test("M5/C2: obscured card stays unknown and cannot borrow another recommendatio
     h.api.handleMessage(update);
     const rows = h.element("augment-list").children;
     assert.equal(rows.length, 3);
-    assert.match(rows[0].textContent, /Left: Unknown/);
+    assert.match(rows[0].innerHTML, /Unknown/);
     assert.match(rows[1].innerHTML, /Ravenous Bind/);
     assert.match(rows[2].innerHTML, /Killing Time/);
     assert.equal(rows[0].innerHTML.includes("Choose this"), false);
@@ -473,6 +473,7 @@ test("M5/C2: OCR reroll updates only changed physical card mapping", () => {
     after.recommendations = [rec("kill", "It's Killing Time"),
         rec("new", "New Left"), rec("bind", "Ravenous Bind")];
     after.ocr_slots = {left: "new", centre: "bind", right: "kill"};
+    Object.assign(after, d2VerifiedFields(after.ocr_slots));
     h.api.handleMessage(after);
     const rows = h.element("augment-list").children;
     assert.match(rows[0].innerHTML, /New Left/);
@@ -507,8 +508,10 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         {slot: "left", id: null, name: null, confidence: 0},
         {slot: "centre", id: "bind", name: "Ravenous Bind", confidence: 99},
         {slot: "right", id: "kill", name: "It's Killing Time", confidence: 99},
-    ], augment_choices: ["bind", "kill"]});
-    assert.match(rows()[0].textContent, /Left: Unknown/);
+    ], augment_choices: ["bind", "kill"],
+        offers: d2VerifiedFields({left:null,centre:"bind",right:"kill"}).offers,
+        phase: "detected", stale: false});
+    assert.match(rows()[0].innerHTML, /Unknown/);
     assert.match(rows()[1].innerHTML, /Ravenous Bind/);
     assert.match(rows()[2].innerHTML, /Killing Time/);
     assert.equal(rows()[0].innerHTML.includes("Choose this"), false);
@@ -519,7 +522,7 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         rec("kill", "It's Killing Time"),
     ];
     afterFirst.ocr_slots = {left: "left_1", centre: "bind", right: "kill"};
-    Object.assign(initial, d2VerifiedFields(initial.ocr_slots));
+    Object.assign(afterFirst, d2VerifiedFields(afterFirst.ocr_slots));
     h.api.handleMessage(afterFirst);
     assert.match(rows()[0].innerHTML, /Synthetic Left 1/);
     const afterSecond = {...afterFirst,
@@ -529,6 +532,7 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         ],
         ocr_slots: {left: "left_2", centre: "bind", right: "kill"},
     };
+    Object.assign(afterSecond, d2VerifiedFields(afterSecond.ocr_slots));
     h.api.handleMessage(afterSecond);
     assert.match(rows()[0].innerHTML, /Synthetic Left 2/);
     assert.match(rows()[1].innerHTML, /Ravenous Bind/);
@@ -541,17 +545,18 @@ test("M5/C4: pending and uncertain states do not expand in-game augment advice",
     const due = {...gameUpdate("Jinx"), scan_window_open: true, offer_state: "pending"};
     h.api.handleMessage(due);
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...due, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
+    h.api.handleMessage({...due, ...d2VerifiedFields({left: "en", centre: "bind", right: "kill"})});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
-    h.api.handleMessage({...due, offer_state: "uncertain"});
+    h.api.handleMessage({...due, offers: [], offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...due, offer_state: "suspended", ocr_stale: true});
+    h.api.handleMessage({...due, offers: [], offer_state: "suspended", ocr_stale: true});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
 });
 
 test("M5/C4: verified gone hides advice without auto-choosing an augment", () => {
     const h = harness();
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true,
+        ...d2VerifiedFields({left: "en", centre: null, right: null})});
     h.api.handleMessage({type: "ocr_result", status: "detected", offer_state: "present", detected: [
         {slot: "left", id: "en", name: "En Passant", confidence: 98},
         {slot: "centre", id: null, name: null, confidence: 0},
@@ -566,7 +571,8 @@ test("M5/C4: verified gone hides advice without auto-choosing an augment", () =>
 
 test("M5/C4b: first unverified visual transition collapses old advice immediately", () => {
     const h = harness();
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true,
+        ...d2VerifiedFields({left: "en", centre: "bind", right: "kill"})});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({type: "ocr_result", status: "transition", offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
@@ -575,7 +581,8 @@ test("M5/C4b: first unverified visual transition collapses old advice immediatel
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
     h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true,
+        ...d2VerifiedFields({left: "en", centre: "bind", right: "kill"})});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
 });
 
@@ -594,7 +601,8 @@ test("M5/C4c: stale recommendation rows cannot be expanded during a transition",
         score: 9.5, modelled: true, label: ["Safe"], core_items_names: [],
         explanation: "Synthetic evidence"};
     h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:1", offer_epoch: 2,
-        offer_state: "present", scan_window_open: true, ocr_slots: {left: "en", centre: null, right: null},
+        ...d2VerifiedFields({left:"en",centre:null,right:null},2),
+        scan_window_open: true, ocr_slots: {left: "en", centre: null, right: null},
         recommendations: [rec]});
     assert.match(h.element("augment-list").children[0].innerHTML, /9.5/);
     h.api.handleMessage({type: "ocr_result", status: "transition",
@@ -617,7 +625,9 @@ test("M5/C4c: OCR results from old matches or old offer epochs are ignored", () 
         {slot: "right", id: null, name: null, confidence: 0},
     ];
     h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:21",
-        offer_epoch: 8, offer_state: "present", detected});
+        offer_epoch: 8, offer_state: "present", detected,
+        phase: "detected", stale: false,
+        offers: d2VerifiedFields({left:"en",centre:null,right:null},8).offers});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:22",
         offer_epoch: 7, offer_state: "present", detected});
@@ -630,7 +640,8 @@ test("M5/C4c: OCR results from old matches or old offer epochs are ignored", () 
 test("M5/C4c: disabling OCR collapses old advice immediately even without a game update", () => {
     const h = harness();
     h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:4",
-        offer_epoch: 2, offer_state: "present", scan_window_open: true, ocr_phase: "detected", ocr_stale: false});
+        ...d2VerifiedFields({left:"en",centre:"bind",right:"kill"},2),
+        scan_window_open: true});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({type: "ack", action: "toggle_ocr", enabled: false,
         offer_epoch: 3, offer_state: "suspended", match_id: "lcu:4"});
