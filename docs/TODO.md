@@ -1,5 +1,30 @@
 # ARAM Oracle — Product and UX TODO
 
+## Correction blueprints v3 — approved for phased implementation (2026-11-20); FEATURES DEFERRED
+
+**Master blueprint:** [docs/plans/ARAM_2026-11-20/README.md](plans/ARAM_2026-11-20/README.md); [v3 audit](plans/ARAM_2026-11-20/corrections/AUDITORIA_E_PLANO_v3_2026-11-20.md); [original ZIP](plans/ARAM_2026-11-20/sources/ARAM_blueprints_GPT_2026-11-20_v3.zip). These are source plans, NOT completed native fixes. The user explicitly prioritizes **corrections before new features**. Use a separate small stacked draft PR per phase and RED/GREEN/final-head Windows CI. Never merge `main` or request more League games before N1 gates.
+
+- [ ] **A1 — Mayhem title-catalog dedup (FIRST / P0, offline):** source Mayhem-only 328-row expected mapping, strict unique normalized-name runner-up, preferred Mayhem IDs, increment augment cache schema, shared title catalog; tests-first exact fixtures. Source: [M-A A1](plans/ARAM_2026-11-20/corrections/blueprints/M-A_reconhecimento.md). Related #46.
+- [ ] **A2 — Actual title-only OCR regressions (P0, offline):** 21 title/negative fixtures and required Tesseract English installation in Windows CI; no skip. Review all PNG crops before importing from the archived ZIP.
+- [ ] **PG — Riot policy guardrails (P0, offline):** test no augment win rates/auto input, disable click hints and LCU history by default, policy source/unknown review; do not claim Riot approval.
+- [ ] **B1 — Patch-proven two-source item pool (P0):** distinguish accessible shop items from rewards, conditional variants and unknown; fail closed on missing/mismatched/contradictory provenance. Issue #49.
+- [ ] **B2 — Item canonicalization/inventory recipes (P0):** normalized names, recipes/components, exclusivity, actual owned slots and cost to finish.
+- [ ] **B3 — One feasible next buy and intelligent boot swap (P0):** no unreachable item, no duplicate or incompatible item; preserve verified late-game boots→MS item option.
+- [ ] **B4 — One dynamic build (P0):** recalculate from *confirmed* augments and actual inventory, not guessed picks; no multiple visible alternative paths. Issue #49.
+- [ ] **B5 — Enemy counter-context (P0):** adapt to visible enemy items/champions and verified item properties, with conservative unknown handling. Issue #49.
+- [ ] **A3 — Validated League-window-only WGC capture (P0):** pinned adapter, proof of source and fail-closed fallback; do not capture desktop overlays. Related #46.
+- [ ] **A4 — Two fresh stable reads (P0):** temporal per-slot verification with no stale refocus shortcut, independently tested.
+- [ ] **A5 — Honest OCR status/recovery (P0):** remove misleading NOT FOCUSED state; manual Alt+S with focus/capture safety; no stale clear without proof.
+- [ ] **A6 — Non-activating Qt overlay (P0):** preserve transparency, Alt+O/H and window safety; WDA exclusion is best-effort, not a capture guarantee.
+- [ ] **C1 — Offer-visibility cue in SHADOW ONLY (P0):** no automatic disappearance/pick without independently validated cross-tier evidence.
+- [ ] **C2 — Versioned offer ledger and pick-confirmation separation (P0):** manual identify ≠ confirm; only chosen+confirmed/reconciled augments influence builds; stale offer/epoch rejection.
+- [ ] **D1 — HUD exclusion layout (P1):** user-visible score/time/gold/minimap/chat/abilities never obscured, test resolutions/DPI/scales.
+- [ ] **D2 — Single AUGMENTS panel, one compact build (P1):** remove duplicated detect panel and alternate build lists, technical OCR settings outside match, no full build opened in combat. Issue #50.
+- [ ] **N1 — Single grouped native Windows Mayhem acceptance (GATE):** run only after A1–D2 and exact CI green, with the user's opt-in; real focused/unfocused/snips, L/C/R/rerolls, eligible items, actual chosen augments and HUD. Before N1 native acceptance stays FAILED/OPEN.
+- [ ] **S1/C3 (OPTIONAL / OFF):** local personal historical match spike and post-game augment reconciliation only after policy gate **and explicit permission**; never silently enable or delay N1 by default.
+
+**Feature backlog only — no work until N1 passes and new user approval:** [feature plan](plans/ARAM_2026-11-20/features/README.md), [original ZIP](plans/ARAM_2026-11-20/sources/ARAM_features_GPT_2026-11-20.zip). Unscheduled candidates: V1 PP-OCRv4 comparison; K1–K3 purchase and counterbuild; X1–X2 explanations/stability; V2–V4 visual observation in shadow; N2 validation; H1 card anchor; L1 champ-select LCU; I1 signed installer/updater; E1/B6 and four-card offerings. None is a completed fix or authorised implementation.
+
 ## 2026-11-20 — Failed native custom-game playtest; user-approved in-game UX/build changes
 
 > **LIVE PLAYTEST FAILED. Do not request another game until offline fixes/tests pass.** Full evidence, reproduction, safe acceptance and planned sequencing: [`docs/PLAYTEST_FINDINGS_2026-11-20.md`](PLAYTEST_FINDINGS_2026-11-20.md). User may close the custom game; OP.GG in screenshots is a separate reference overlay. Local #48 `a796e7f` had Tesseract/English and augment catalog ready, detected match/build data, but did not recognize actual three offered augments (left **Goliath**, centre **Back To Basics**, right **Biggest Snowball Ever**). `NOT FOCUSED` appeared; `Scan Screen` was disabled after opening the manual panel. The reason badge conflates true focus loss with unavailable/stale status; current underlying scan stage is NOT yet established. Do not weaken focused-only screen capture or invent OCR title geometry. [P0 issue #46](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/46) remains OPEN.
