@@ -284,6 +284,8 @@
             $("ocr-next-step").textContent = setup;
             const reasons = {
                 python_dependencies_missing: "OCR Python dependencies unavailable.",
+                english_language_missing: "English Tesseract language data is missing.",
+                language_probe_unavailable: "Tesseract language data could not be checked.",
                 executable_unavailable: "Tesseract executable unavailable.",
                 configured_executable_unavailable: "Configured Tesseract executable unavailable.",
             };
