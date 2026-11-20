@@ -305,6 +305,7 @@ def _wgc(game: LeagueWindow, api, clock, factory) -> CaptureResult:
             img = None
     if img is not None and _valid_image(img, game):
         _invalid_streak = 0
+        _restarted = False  # A recovered frame ends the degraded-streak episode.
         return CaptureResult(img, CaptureProof(
             "wgc", game.hwnd, game.rect, float(ts),
             _foreground(api, game.hwnd),
