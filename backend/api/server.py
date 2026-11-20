@@ -190,7 +190,7 @@ class GameState:
         self.ocr_slot_choices = None
         self.ocr_stale = False
         self.ocr_stale_since_epoch = None
-        self.ocr_phase = "no_offer"
+        self.ocr_phase = "disabled" if not self.ocr_enabled else "no_offer"
         self.ocr_foreground = "other"
         self.ocr_unreadable_ticks = 0
         self.offer_lifecycle.close()
@@ -224,9 +224,13 @@ class GameState:
         self.offer_epoch += 1
         if watcher is not None:
             watcher.reset()
+        # The disabled badge must remain accurate even between offers.
+        self.set_ocr_phase(
+            "disabled" if not enabled else
+            "no_game" if self.scan_window_open else "no_offer"
+        )
         if self.scan_window_open:
             self.offer_lifecycle.observe("unavailable")
-            self.set_ocr_phase("disabled" if not enabled else "no_game")
             # An OCR toggle invalidates previous advice, not offer identity.
             if not self.ocr_stale:
                 self.ocr_stale_since_epoch = self.offer_epoch
