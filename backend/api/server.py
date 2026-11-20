@@ -260,7 +260,7 @@ class GameState:
         current_ids = [value for value in slots.values() if value is not None]
         if ids != current_ids:
             return False
-        if self.offer_ledger.offers and current_ids and not self.ocr_stale:
+        if self.offer_ledger.offers and current_ids and (not self.ocr_stale or reverified):
             try:
                 self.offer_ledger.on_verified_titles(
                     slots, self.offer_ledger.offers[-1].epoch,
@@ -541,6 +541,7 @@ def ocr_status():
         "stale": game_state.ocr_stale,
         "stale_since_epoch": game_state.ocr_stale_since_epoch,
         "foreground": game_state.ocr_foreground,
+        "offers": game_state.offer_ledger.payload(),
     }
 
 
@@ -593,6 +594,7 @@ async def ocr_scan():
                 else "transition"
             )
             game_state.set_ocr_phase(failed_phase)
+            game_state.offer_ledger.on_titles_unverified()
             status = "transition"
         else:
             status = "superseded"
@@ -608,6 +610,7 @@ async def ocr_scan():
             "offer_state": game_state.offer_state,
             "offer_epoch": game_state.offer_epoch,
             "match_id": game_state.match_id,
+            "offers": game_state.offer_ledger.payload(),
         }
     # Publication uses the same offer epoch and never sends an unproven card.
     await _broadcast(json.dumps({
@@ -906,6 +909,7 @@ async def game_ws(websocket: WebSocket):
                     await _send_ws_message(websocket, json.dumps({"error": "snapshot requires 'data' object"}))
                     continue
                 snapshot = _parse_snapshot(data)
+                snapshot.chosen_augments = game_state.offer_ledger.active_augment_ids()
                 result = game_state.pipeline.run(snapshot) if game_state.pipeline else None
                 if result:
                     await _send_ws_message(websocket, json.dumps(
@@ -952,6 +956,7 @@ async def game_ws(websocket: WebSocket):
                             "type": "ack", "action": "choose_augment",
                             "offer_id": offer.offer_id, "epoch": offer.epoch,
                             "chosen_augments": game_state.offer_ledger.active_augment_ids(),
+                            "offers": game_state.offer_ledger.payload(),
                         }
                 await _send_ws_message(websocket, json.dumps(response))
 
@@ -1004,6 +1009,7 @@ async def game_ws(websocket: WebSocket):
                             else "transition"
                         )
                         game_state.set_ocr_phase(failed_phase)
+                        game_state.offer_ledger.on_titles_unverified()
                         status = "transition"
                     else:
                         status = "superseded"
@@ -1018,6 +1024,7 @@ async def game_ws(websocket: WebSocket):
                         "offer_state": game_state.offer_state,
                         "offer_epoch": game_state.offer_epoch,
                         "match_id": game_state.match_id,
+                        "offers": game_state.offer_ledger.payload(),
                     }
                 await _send_ws_message(websocket, json.dumps(message))
 
@@ -1683,6 +1690,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             # signal. The C3 watcher never emits this from blank
                             # titles or dialogue/animation/focus changes.
                             # Never infer a chosen card from this action.
+                            state.offer_ledger.on_titles_unverified()
                             state.offer_lifecycle.observe(
                                 "disappeared", verified_absence=True,
                             )
@@ -1991,20 +1999,36 @@ async def _try_stat_delta_match(snapshot: GameSnapshot) -> None:
 
 
 def _augment_confirm_message(best_guess_id: str | None) -> str:
-    """Serialize the current offer; caller protects state with its lock."""
+    """A hint is never a pick; include the exact offer and epoch for UI."""
+    target = next(
+        (offer for offer in game_state.offer_ledger.offers
+         if offer.state == "awaiting_confirm"),
+        None,
+    )
+    if target is None:
+        target = next(
+            (offer for offer in reversed(game_state.offer_ledger.offers)
+             if offer.state == "visible"),
+            None,
+        )
     candidates = []
-    for aid in game_state.augment_choices:
-        aug = static_data.get_augment(aid)
-        if aug:
-            candidates.append({
-                "id": aug.id,
-                "name": aug.name,
-                "tier": aug.tier.value,
-            })
+    if target is not None:
+        for identity in target.slots.values():
+            if identity.augment_id is None:
+                continue
+            aug = static_data.get_augment(identity.augment_id)
+            if aug:
+                candidates.append({
+                    "id": aug.id, "name": aug.name, "tier": aug.tier.value,
+                })
     return json.dumps({
         "type": "augment_confirm",
+        "offer_id": target.offer_id if target is not None else None,
+        "epoch": target.epoch if target is not None else None,
         "candidates": candidates,
-        "best_guess_id": best_guess_id,
+        "best_guess_id": best_guess_id if any(
+            entry["id"] == best_guess_id for entry in candidates
+        ) else None,
     })
 
 
