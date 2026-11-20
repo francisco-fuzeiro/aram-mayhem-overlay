@@ -60,6 +60,15 @@ class _NativeWin32:
             wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD),
         ]
         kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+        user32.GetWindow.argtypes = [wintypes.HWND, ctypes.c_uint]
+        user32.GetWindow.restype = wintypes.HWND
+        user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+        user32.GetWindowRect.restype = wintypes.BOOL
+        self.dwmapi = ctypes.windll.dwmapi
+        self.dwmapi.DwmGetWindowAttribute.argtypes = [
+            wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+        ]
+        self.dwmapi.DwmGetWindowAttribute.restype = wintypes.HRESULT
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel32.CloseHandle.restype = wintypes.BOOL
 
@@ -113,6 +122,52 @@ class _NativeWin32:
 
     def foreground_window(self) -> int | None:
         return self.user32.GetForegroundWindow()
+
+    def process_id(self, hwnd: int) -> int | None:
+        """Owner PID for foreground classification and every z-order blocker."""
+        pid = wintypes.DWORD()
+        self.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return int(pid.value) if pid.value else None
+
+    def windows_above(self, hwnd: int) -> list[int]:
+        """Walk GW_HWNDPREV, including layered/transparent top-level windows."""
+        windows = []
+        seen = {hwnd}
+        current = hwnd
+        for _ in range(1024):
+            current = int(self.user32.GetWindow(current, 3) or 0)
+            if not current:
+                return windows
+            if current in seen:
+                raise OSError("invalid window z-order cycle")
+            seen.add(current)
+            windows.append(current)
+        raise OSError("window z-order traversal exceeded safety bound")
+
+    def window_rect(self, hwnd: int) -> tuple[int, int, int, int] | None:
+        rect = wintypes.RECT()
+        if not self.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            return None
+        return rect.left, rect.top, rect.right, rect.bottom
+
+    def _dwm_attribute(self, hwnd: int, attribute: int, value) -> bool:
+        return self.dwmapi.DwmGetWindowAttribute(
+            hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value),
+        ) == 0
+
+    def frame_bounds(self, hwnd: int) -> tuple[int, int, int, int] | None:
+        """WGC window-frame origin, not the client origin (DWM attribute 9)."""
+        rect = wintypes.RECT()
+        if not self._dwm_attribute(hwnd, 9, rect):
+            return None
+        return rect.left, rect.top, rect.right, rect.bottom
+
+    def is_cloaked(self, hwnd: int) -> bool:
+        """Unknown DWM state is not proof of safe fallback."""
+        cloaked = wintypes.DWORD()
+        if not self._dwm_attribute(hwnd, 14, cloaked):
+            raise OSError("DWM cloak state cannot be verified")
+        return bool(cloaked.value)
 
 
 def find_league_window(
