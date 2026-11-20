@@ -175,7 +175,11 @@ class OfferLedger:
 
     def confirm(self, offer_id: int, epoch: int, augment_id: str) -> Offer:
         offer = self._checked(offer_id, epoch)
-        if offer.state not in ("visible", "awaiting_confirm", "confirmed"):
+        if offer.state == "confirmed":
+            if offer.picked_id == augment_id:
+                return offer  # idempotent; never close the newest offer again
+            raise LedgerError("offer_closed")
+        if offer.state not in ("visible", "awaiting_confirm"):
             raise LedgerError("offer_closed")
         if augment_id not in (item.augment_id for item in offer.slots.values()):
             raise LedgerError("not_in_offer")
