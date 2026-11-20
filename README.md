@@ -22,7 +22,7 @@ ARAM Oracle connects to League's Live Client Data API during an ARAM Mayhem matc
 - **Build Path Suggestions** -- Dynamic item recommendations that adapt to your augments and gold
 - **Reroll Advisor** -- Compares best option against champion ceiling to suggest when to reroll
 - **Enemy Comp Analysis** -- CC profiling of enemies to weight defensive/offensive augments
-- **Personal Winrate Tracking** -- SQLite-backed per-champion augment win rates that influence future recommendations
+- **Personal history import** -- disabled by default pending Riot-policy review and explicit opt-in
 - **Overlay UI** -- 320px dark-themed companion panel with WebSocket live updates
 
 ## Quick Start
@@ -371,9 +371,17 @@ overlay_width = 320
 - **Data Sources:** Riot DataDragon, CommunityDragon
 - **Packaging:** PyInstaller
 
-## Anti-Cheat Compliance
+## Riot notice and policy status
 
-ARAM Oracle only reads data from Riot's officially sanctioned **Live Client Data API** (`https://127.0.0.1:2999`). It does not inject code, modify game memory, or interact with the game process. This is the same API used by approved third-party tools like Overwolf apps.
+ARAM Oracle isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
+
+Riot's [League policy](https://developer.riotgames.com/docs/lol) explicitly forbids displaying Augment win rates and applications that dictate player decisions. Static pre-game overlays appear among its approved use-case examples. Dynamic game-session recommendations, OCR, local hotkeys, enemy-visible-item context and LCU history access are **not individually approved by that listing**. This prototype must not be distributed as Riot-approved; registration and policy review are outstanding. Local LCU match-history import and global mouse click hints are OFF by default. Turning a setting on does not grant Riot authorization.
+
+The original MIT license from [fabs133/league-aram-builder](https://github.com/fabs133/league-aram-builder) is retained as [LICENSE](LICENSE). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for further code attribution and license restrictions.
+
+## Local game-data access
+
+The runtime reads Riot's local **Live Client Data API** (`https://127.0.0.1:2999`) for information exposed to the player. Champion-select integration also uses local League Client API endpoints; optional match-history import is disabled by default. Neither API access nor an existing third-party app establishes Riot approval. ARAM Oracle does not inject code or modify game memory.
 
 ## Contributing
 

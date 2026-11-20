@@ -54,6 +54,8 @@ OVERLAY_MARGIN_TOP = 60
 VK_MENU = 0x12
 VK_O = 0x4F
 VK_H = 0x48
+# PG: never monitor global click positions without a separate policy/consent gate.
+PICK_CLICK_HINTS_ENABLED = False
 
 
 def _window_action_for_url(value: str) -> str | None:

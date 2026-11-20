@@ -27,6 +27,7 @@ _TYPE_SPECS: dict[str, type | tuple[type, ...]] = {
     "github_repo": str,
     "ocr_region": list,
     "experimental_augment_evidence": bool,
+    "lcu_history_enabled": bool,
     "ocr_debug_screenshots": bool,
 }
 
@@ -53,6 +54,8 @@ DEFAULTS: dict = {
     "port": 8765,
     # Disabled pending separate Riot review of derived augment statistics.
     "experimental_augment_evidence": False,
+    # LCU match-history import needs separate policy review and explicit consent.
+    "lcu_history_enabled": False,
     # Diagnostic images require explicit opt-in; no screenshots by default.
     "ocr_debug_screenshots": False,
 

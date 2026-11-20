@@ -807,7 +807,7 @@
                     <span class="aug-items">${esc(itemsStr)}</span>
                 </div>
                 <div class="aug-explain">${esc(rec.explanation)}${rec.sample_size ? " · Personal sample: " + rec.sample_size + " games" : ""}</div>
-                <button class="btn-choose" data-augment-id="${esc(rec.augment_id)}">Choose this</button>
+                <button class="btn-choose" data-augment-id="${esc(rec.augment_id)}">Mark as chosen</button>
             `;
 
             card.querySelector(".btn-choose").addEventListener("click", () => {

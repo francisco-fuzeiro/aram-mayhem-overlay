@@ -404,6 +404,11 @@ async def import_personal_history():
 
     Called on user action only. Never returns raw match or player data.
     """
+    if config.get("lcu_history_enabled", False) is not True:
+        raise HTTPException(
+            status_code=403,
+            detail="LCU history import disabled pending policy review and explicit opt-in",
+        )
     from backend.storage.history_import import sync_recent_mayhem_games
     return await asyncio.to_thread(sync_recent_mayhem_games)
 
@@ -1616,6 +1621,30 @@ def _resolve_champion_name(champ_id: str, sd: StaticData) -> str:
     return champ.name if champ else champ_id
 
 
+def _strip_augment_win_stats(value):
+    """Remove forbidden augment win-evidence keys at the output boundary.
+
+    Explicit serializer fields remain primary; this also guards future nested
+    component/provenance data for HTTP/WS consumers. It does not authorize
+    derived scores or dynamic recommendations under Riot policy.
+    """
+    if isinstance(value, dict):
+        return {
+            key: _strip_augment_win_stats(child)
+            for key, child in value.items()
+            if not (
+                isinstance(key, str)
+                and key.lower().replace("_", "").replace("-", "")
+                in {"winrate", "wins", "wr"}
+            )
+        }
+    if isinstance(value, list):
+        return [_strip_augment_win_stats(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_strip_augment_win_stats(item) for item in value)
+    return value
+
+
 def _serialize_result(
     result: PipelineResult, sd: StaticData, snapshot: GameSnapshot | None = None,
 ) -> dict:
@@ -1704,7 +1733,7 @@ def _serialize_result(
             for eid in snapshot.enemy_champion_ids
         ]
 
-    return out
+    return _strip_augment_win_stats(out)
 
 
 def _get_enemy_cc(champ_id: str, sd: StaticData) -> float:
