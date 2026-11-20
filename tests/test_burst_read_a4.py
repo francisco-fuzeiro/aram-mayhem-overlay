@@ -110,8 +110,10 @@ def test_disagreeing_second_read_replaces_pending_without_publishing(monkeypatch
     watcher, captures, delays, reads = setup(
         monkeypatch, [verified(timestamp=10.0), verified((40, 20, 30), 10.6)]
     )
-    assert watcher.check({}) == ("no_augments", None)
-    assert watcher.current_slots is None
+    # Stable neighbours can be verified internally, but a changed left
+    # slot stays pending and the complete offer cannot be published.
+    assert watcher.check({}) == ("transition", None)
+    assert watcher.current_slots.slots["left"] is None
     assert watcher._temporal.has_pending
     assert reads == Counter({"left": 2, "centre": 2, "right": 2})
     assert captures == [1, 2]
