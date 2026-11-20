@@ -389,8 +389,7 @@
         }
 
         if (msg.type === "ocr_result") {
-            // Never accept an out-of-order OCR packet from a previous game,
-            // an earlier offer, or before an authoritative current update.
+            // Never use a previous match or offer generation to clear stale.
             if (!lastResult) return;
             if (typeof msg.match_id === "string" && activeMatchId &&
                 msg.match_id !== activeMatchId) return;
@@ -398,59 +397,49 @@
                 msg.offer_epoch !== offerEpoch) return;
             if (msg.status === "superseded") return;
             if (typeof msg.offer_state === "string") offerState = msg.offer_state;
-            if (msg.status === "not_focused" || msg.status === "unavailable" ||
-                msg.status === "disabled") {
-                offerState = "suspended";
-                setOcrFocusStale(true);
-                $("section-augments").classList.add("collapsed");
-                $("section-input").classList.add("collapsed");
-                scanning = false;
-                btnScan.textContent = "Scan Screen";
-                return;
+
+            // Legacy packets cannot turn a focus indicator into a capture gate.
+            const phase = OCR_PHASE_LABELS[msg.phase] ? msg.phase
+                : msg.status === "not_focused" ? "capture_unavailable"
+                : msg.status === "unavailable" ? "no_game"
+                : msg.status === "disabled" ? "disabled"
+                : msg.status === "transition" ? "verifying"
+                : msg.status === "detected" ? "detected"
+                : msg.status === "disappeared" ? "no_offer" : "no_offer";
+            const closed = msg.status === "disappeared" && offerState === "gone";
+            updateOcrPhase(phase, msg.stale, msg.reverified === true, closed);
+
+            if (closed) {
+                // Only a verified negative offer observation closes this view.
+                currentOcrSlots = null;
+                renderOcrResult([], []);
+                augmentList.replaceChildren();
+                augmentConfirm.classList.add("hidden");
             }
-            if (msg.status === "transition") {
-                // A provisional visual change is not a new recognized card.
-                // Do not display previous L/C/R scores while OCR re-verifies.
-                if (typeof msg.offer_state !== "string") offerState = "uncertain";
+
+            if (phase === "occluded" || phase === "capture_unavailable" ||
+                phase === "no_game" || phase === "disabled" ||
+                phase === "ocr_missing" || phase === "verifying" ||
+                phase === "unreadable" || phase === "no_offer" || closed) {
                 $("section-augments").classList.add("collapsed");
                 $("section-input").classList.add("collapsed");
+                // Keep the historical names available with STALE, never rank
+                // them while capture is missing or C3 is still confirming.
                 augmentList.replaceChildren();
                 rerollBadge.classList.add("hidden");
                 rerollBanner.classList.add("hidden");
                 augmentConfirm.classList.add("hidden");
-                ocrStatusBadge.textContent = "VERIFYING";
-                ocrStatusBadge.className = "ocr-status-badge ocr-scanning";
-                ocrStatusBadge.title = "Card transition: waiting for verified titles";
                 scanning = false;
                 btnScan.textContent = "Scan Screen";
-                btnScan.disabled = !ocrAvailable;
+                updateOcrStatusBadge();
                 return;
             }
-            if (msg.status === "disappeared" || offerState === "gone") {
-                // Only an independently verified negative signal may report gone.
-                // Never interpret it as a selected augment.
-                offerState = "gone";
-                currentOcrSlots = null;
-                renderOcrResult([], []);
-                $("section-augments").classList.add("collapsed");
-                $("section-input").classList.add("collapsed");
-                augmentList.replaceChildren();
-                augmentConfirm.classList.add("hidden");
-                scanning = false;
-                btnScan.textContent = "Scan Screen";
-                btnScan.disabled = !ocrAvailable;
-                return;
-            }
-            if (Array.isArray(msg.detected) && msg.detected.length) {
-                // Legacy OCR messages without the state contract can only
-                // establish presence from a positively identified title.
+
+            if (Array.isArray(msg.detected) && msg.detected.length && !ocrStale) {
                 if (typeof msg.offer_state !== "string") {
                     offerState = msg.detected.some(d => d && typeof d.id === "string")
                         ? "present" : "uncertain";
                 }
-                setOcrFocusStale(false);
-            }
-            if (Array.isArray(msg.detected) && msg.detected.length) {
                 const candidates = Object.fromEntries(
                     msg.detected
                         .filter(d => d && ["left", "centre", "right"].includes(d.slot))
@@ -458,9 +447,9 @@
                 );
                 currentOcrSlots = normalizedOcrSlots(candidates);
                 if (lastResult) renderRecommendations(lastResult);
+                renderOcrResult(msg.detected, msg.augment_choices);
             }
-            renderOcrResult(msg.detected, msg.augment_choices);
-            if (offerState === "present") {
+            if (offerState === "present" && ocrPhase === "detected" && !ocrStale) {
                 $("section-augments").classList.remove("collapsed");
                 $("section-input").classList.remove("collapsed");
             } else {
@@ -469,7 +458,7 @@
             }
             scanning = false;
             btnScan.textContent = "Scan Screen";
-            btnScan.disabled = !ocrAvailable;
+            updateOcrStatusBadge();
             return;
         }
 
@@ -502,7 +491,7 @@
             }
             if (msg.enabled === false) {
                 offerState = "suspended";
-                setOcrFocusStale(true);
+                updateOcrPhase("disabled", true);
                 $("section-augments").classList.add("collapsed");
                 $("section-input").classList.add("collapsed");
                 augmentList.replaceChildren();
@@ -629,20 +618,14 @@
             phaseEl.textContent = `Lv ${data.level}`;
         }
 
-        // Focus loss never makes previously observed cards current again.
-        if (typeof data.ocr_stale === "boolean") setOcrFocusStale(data.ocr_stale);
-        // Scan window indicator
-        if (ocrFocusStale) {
-            updateOcrStatusBadge();
-        } else if (data.scan_window_open && ocrAvailable) {
-            ocrStatusBadge.textContent = "SCANNING";
-            ocrStatusBadge.className = "ocr-status-badge ocr-scanning";
-            ocrStatusBadge.title = "Augment pick due — scanning screen";
-        } else if (ocrAvailable) {
-            ocrStatusBadge.textContent = "OCR";
-            ocrStatusBadge.className = "ocr-status-badge ocr-ready";
-            ocrStatusBadge.title = "OCR ready — waiting for augment pick level";
-        }
+        // The backend owns proof-based stale transitions; local foreground is
+        // only diagnostic and cannot make a valid WGC frame "unfocused".
+        const phase = OCR_PHASE_LABELS[data.ocr_phase] ? data.ocr_phase : ocrPhase;
+        updateOcrPhase(
+            phase, data.ocr_stale,
+            phase === "detected" && data.ocr_stale === false,
+            data.offer_state === "gone",
+        );
 
         // Augment progress
         if (data.augment_state) {
