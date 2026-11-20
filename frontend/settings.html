@@ -188,10 +188,25 @@
                            recognition remains to be validated.</p>
                     </div>
                     <div class="info-card">
-                        <h2>Manual fallback</h2>
-                        <p>If automatic reading fails, use the manual augment input in the overlay
-                           after pressing Alt + O. OCR capture/testing tools are not yet available
-                           in these desktop Settings.</p>
+                        <h2>Augment reading</h2>
+                        <label class="small">
+                            <input type="checkbox" id="ocr-auto">
+                            Auto-detect augments
+                        </label>
+                        <div class="settings-actions">
+                            <button type="button" id="btn-scan" class="button-secondary">Scan now</button>
+                        </div>
+                        <p id="ocr-action-status" class="small" role="status" aria-live="polite"></p>
+                        <p class="small">Shortcuts (information only): Alt+S scan,
+                           Alt+1/2/3 confirm a chosen card, Alt+B build details,
+                           Alt+O temporary overlay interaction.</p>
+                        <p class="small">Last phase: <span id="ocr-phase">Unknown</span></p>
+                        <p class="small">Foreground: <span id="ocr-foreground">Unknown</span></p>
+                        <p class="small">Capture backend:
+                           <span id="ocr-capture-backend">Not reported</span></p>
+                        <p class="small">For an unidentified card, press Alt+O
+                           and use the inline search in the AUGMENTS panel.
+                           Identification does not confirm the pick.</p>
                     </div>
                 </section>
 
