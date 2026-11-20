@@ -159,3 +159,24 @@ def test_outdated_observation_cannot_overwrite_new_offer(ledger):
         {"left": "999", "centre": None, "right": None}, first.epoch
     ))
     assert second.slots["left"].augment_id == prior
+
+
+def test_verified_reroll_identity_cannot_create_unconfirmed_pick(ledger):
+    first = ledger.on_level(3)
+    ledger.on_verified_titles({"left": "101", "centre": "102", "right": "103"}, first.epoch)
+    ledger.on_verified_titles({"left": "104", "centre": "102", "right": "103"}, first.epoch)
+    assert first.slots["left"].augment_id == "104"
+    assert first.picked_id is None
+    expect_error("not_in_offer", lambda: ledger.confirm(1, first.epoch, "101"))
+    assert ledger.active_augment_ids() == []
+
+
+def test_offer_epoch_external_fence_invalidates_stale_confirm(ledger):
+    first = ledger.on_level(3)
+    ledger.on_verified_titles({"left": "101", "centre": None, "right": None}, first.epoch)
+    old_epoch = first.epoch
+    ledger.set_current_epoch(old_epoch + 5)
+    expect_error("stale_epoch", lambda: ledger.confirm(1, old_epoch, "101"))
+    assert first.epoch == old_epoch + 5
+    assert ledger.active_augment_ids() == []
+    assert ledger.confirm(1, first.epoch, "101").picked_id == "101"
