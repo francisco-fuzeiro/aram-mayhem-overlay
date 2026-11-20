@@ -5,6 +5,8 @@ import sys
 import requests
 from pathlib import Path
 import logging
+
+from backend.collectors.slot_title_ocr import _normalize
 from backend.models import (
     ChampionMeta, StatVector, AugmentData, AugmentTier, ItemData,
     CCAbility, CCProfile, ScalingSpec, ScalingType,
@@ -159,7 +161,10 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 # support a safe boot-swap comparison, so require a new item cache.
 _ITEM_CACHE_SCHEMA = 2
 # Version in the filename prevents reuse of contributions parsed by older rules.
-_AUGMENT_CACHE_SCHEMA = 3
+_AUGMENT_CACHE_SCHEMA = 4
+MAYHEM_MIN_AUGMENT_ID = 1000
+_MAYHEM_ICON_MARKER = "/Kiwi/"
+MIN_NORMALIZED_NAME_LEN = 4
 
 
 def _listed_movement_speed(stats: dict, description: str) -> tuple[float, float]:
@@ -376,6 +381,46 @@ def _get_dd_version() -> str:
     return versions[0]
 
 
+def _is_mayhem_augment(raw: dict) -> bool:
+    """Identify Mayhem rows by numeric ID or Kiwi icon; reject invalid IDs."""
+    if not isinstance(raw, dict):
+        return False
+    try:
+        augment_id = int(raw["id"])
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return False
+    icon_path = raw.get("augmentSmallIconPath")
+    return augment_id >= MAYHEM_MIN_AUGMENT_ID or (
+        isinstance(icon_path, str) and _MAYHEM_ICON_MARKER in icon_path
+    )
+
+
+def select_mayhem_augments(augments_raw: list[dict]) -> list[dict]:
+    """Select one valid Mayhem row per normalized title, ordered by numeric ID.
+
+    A Mayhem-range ID outranks a Kiwi-only Arena-range ID. Within the same
+    range, the lower numeric ID wins. This is a pure catalog transformation.
+    """
+    selected: dict[str, dict] = {}
+    for raw in augments_raw:
+        if not _is_mayhem_augment(raw):
+            continue
+        name = raw.get("nameTRA")
+        if not isinstance(name, str):
+            continue
+        title = _normalize(name)
+        if len(title) < MIN_NORMALIZED_NAME_LEN:
+            continue
+        identifier = int(raw["id"])
+        current = selected.get(title)
+        if current is None or (
+            (identifier < MAYHEM_MIN_AUGMENT_ID, identifier)
+            < (int(current["id"]) < MAYHEM_MIN_AUGMENT_ID, int(current["id"]))
+        ):
+            selected[title] = raw
+    return sorted(selected.values(), key=lambda row: int(row["id"]))
+
+
 def _load_augments() -> dict[str, AugmentData]:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -425,7 +470,7 @@ def _load_augments() -> dict[str, AugmentData]:
     result = {}
     cache_data = {}
 
-    for aug in augments_raw:
+    for aug in select_mayhem_augments(augments_raw):
         aug_id = str(aug.get("id", ""))
         name = aug.get("nameTRA", "") or aug.get("name", "")
         if not aug_id or not name:
