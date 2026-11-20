@@ -21,6 +21,7 @@ def item(identifier, *, ap=0.0, hp=0.0, boots=False, ms_flat=0.0, ms_pct=0.0):
         id=identifier, name=identifier, cost=3000,
         stats=StatVector(ap=ap, hp=hp),
         boots=boots,
+        item_class="boots_tier2" if boots else "final",
         move_speed_flat=ms_flat,
         move_speed_percent=ms_pct,
     )
@@ -40,6 +41,7 @@ def test_full_inventory_with_boots_can_suggest_stat_upgrade_with_movement_speed(
     owned = [boots.id, *(entry.id for entry in other)]
     result = suggest_build(
         mage(), [], owned, 5000, available, build_style="Damage",
+        catalog_verified=True,
     )
     assert len(result.full_build) == 6
     assert result.full_build == owned
@@ -57,6 +59,7 @@ def test_no_swap_without_an_observed_movement_speed_bonus():
     owned = [boots.id, *(entry.id for entry in other)]
     result = suggest_build(
         mage(), [], owned, 5000, [boots, *other, high_ap_but_no_movement],
+        catalog_verified=True,
     )
     assert result.boot_replacement is None
 
@@ -67,6 +70,7 @@ def test_no_swap_for_weak_item_with_movement_speed():
     owned = [boots.id, *(entry.id for entry in other)]
     result = suggest_build(
         mage(), [], owned, 5000, [boots, *other, weak],
+        catalog_verified=True,
     )
     assert result.boot_replacement is None
 
@@ -77,6 +81,7 @@ def test_no_swap_without_full_inventory_or_known_boots():
     almost_full = suggest_build(
         mage(), [], ["boots", *[entry.id for entry in other[:4]]],
         5000, [boots, *other, upgrade],
+        catalog_verified=True,
     )
     assert almost_full.boot_replacement is None
 
@@ -84,12 +89,14 @@ def test_no_swap_without_full_inventory_or_known_boots():
     full = ["unknown-boots", *(entry.id for entry in other)]
     unknown = suggest_build(
         mage(), [], full, 5000, [missing_ms_boot, *other, upgrade],
+        catalog_verified=True,
     )
     assert unknown.boot_replacement is None
 
     no_boot = [entry.id for entry in other] + ["upgrade"]
     without = suggest_build(
         mage(), [], no_boot, 5000, [boots, *other, upgrade],
+        catalog_verified=True,
     )
     assert without.boot_replacement is None
 
@@ -101,6 +108,7 @@ def test_replacement_uses_style_and_suggests_deterministic_item():
     owned = [boots.id, *(entry.id for entry in other)]
     result = suggest_build(
         mage(), [], owned, 1000, [upgrade_z, *other, upgrade_a, boots],
+        catalog_verified=True,
     )
     assert result.boot_replacement is not None
     assert result.boot_replacement.buy_item_id == "a"
