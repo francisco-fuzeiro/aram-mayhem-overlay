@@ -83,6 +83,12 @@ class Pipeline:
             current_gold=snapshot.current_gold,
             all_items=build_items,
             inventory=inventory,
+            item_data=self.data,
+            exclusive_item_groups=self.data.exclusive_item_groups,
+            catalog_verified=(
+                self.data.item_pool_meta is not None
+                and self.data.item_pool_meta.availability == "verified_two_source"
+            ),
             enemy_profile=enemy_profile,
             ally_profile=ally_profile,
             build_style=snapshot.build_style,
@@ -99,7 +105,9 @@ class Pipeline:
             if meta.availability != "verified_two_source":
                 # Recognition-only names are not permission to recommend buys.
                 build_state.next_item_id = None
+                build_state.next_item_gold_needed = 0
                 build_state.gold_to_next = 0
+                build_state.slot_blocked = False
                 build_state.full_build = []
                 build_state.alternatives = {}
                 build_state.boot_replacement = None

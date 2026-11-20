@@ -29,11 +29,13 @@ def test_purchased_items_not_in_suggestions():
     assert "i1" not in build.full_build[1:]  # i1 is in purchased_items slot
 
 
-def test_next_item_none_when_gold_zero():
+def test_next_item_stays_first_when_gold_zero():
     lux = _make_champion("lux", ap=0.9)
     items = [_make_item("i1", cost=3000, ap=0.8)]
     build = suggest_build(lux, [], [], 0, items)
-    assert build.next_item_id is None
+    assert build.next_item_id == "i1"
+    assert build.next_item_gold_needed == 3000
+    assert build.gold_to_next == 3000
 
 
 def test_full_build_length_equals_build_size():

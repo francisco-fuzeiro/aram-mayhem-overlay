@@ -4,8 +4,9 @@ The original ARAM Oracle stat-vector scoring is retained as the foundation.
 Our contextual adjustments are small and interpretable, not measured win odds.
 """
 import logging
+from collections import Counter
 
-from backend.engine.inventory import Inventory
+from backend.engine.inventory import Inventory, remaining_cost
 from backend.models import ChampionMeta, AugmentData, ItemData, BuildState, BootReplacement
 from backend.engine.scoring import score_item
 from backend.engine.team_context import EnemyThreatProfile, AllyTeamProfile
@@ -111,33 +112,76 @@ def _rank_items(
 
 
 def _fill_slots(
-    ranked: list[ItemData], owned: list[str] | Inventory,
-    all_items: list[ItemData], size: int,
+    ranked: list[ItemData],
+    owned: list[str] | Inventory,
+    all_items: list[ItemData],
+    size: int,
+    exclusive_item_groups: dict[str, frozenset[str]] | None = None,
 ) -> list[str]:
-    # B2: a component/reward occupies a physical inventory slot but is
-    # not a completed item in the recommended six-item build.
+    """Preserve acquired finals and fill only legal, distinct build slots."""
     finals = list(owned.finals) if isinstance(owned, Inventory) else list(owned)
+    selected = list(finals)
     by_id = {item.id: item for item in all_items}
-    selected = finals
+    groups = exclusive_item_groups or {}
+    memberships: dict[str, set[str]] = {}
+    for name, members in groups.items():
+        for ident in members:
+            memberships.setdefault(str(ident), set()).add(name)
+
     seen = set(finals)
-    # Avoid recommending two IDs with the same name ("Phantom Dancer" was
-    # duplicated in the first actual Windows Mayhem screenshot).
-    named = {
-        _item_name_key(by_id[item_id])
-        for item_id in finals if item_id in by_id
-    }
-    boots_taken = any(by_id.get(item_id) and by_id[item_id].boots for item_id in finals)
+    named = {_item_name_key(by_id[ident]) for ident in finals if ident in by_id}
+    occupied = set().union(*(memberships.get(ident, set()) for ident in finals))
+    boots_taken = any(
+        by_id.get(ident) is not None
+        and (by_id[ident].item_class == "boots_tier2" or by_id[ident].boots)
+        for ident in finals
+    )
+    basic_boots = (
+        isinstance(owned, Inventory)
+        and "1001" in owned.components
+        and not boots_taken
+    )
+
+    def is_tier_two(item: ItemData) -> bool:
+        return item.item_class == "boots_tier2" or (
+            item.boots and item.item_class not in {"component", "boots_tier1"}
+        )
+
+    def eligible(item: ItemData) -> bool:
+        return (
+            item.id not in seen
+            and _item_name_key(item) not in named
+            and not (is_tier_two(item) and boots_taken)
+            and not (memberships.get(item.id, set()) & occupied)
+            and item.item_class not in {"component", "boots_tier1"}
+        )
+
+    def take(item: ItemData) -> None:
+        nonlocal boots_taken
+        selected.append(item.id)
+        seen.add(item.id)
+        named.add(_item_name_key(item))
+        occupied.update(memberships.get(item.id, set()))
+        boots_taken |= is_tier_two(item)
+
+    # Reserve a final slot for an upgrade when basic Boots is equipped.
     for item in ranked:
         if len(selected) >= size:
             break
-        name_key = _item_name_key(item)
-        if item.id in seen or name_key in named or (item.boots and boots_taken):
+        if not eligible(item):
             continue
-        selected.append(item.id)
-        seen.add(item.id)
-        named.add(name_key)
-        if item.boots:
-            boots_taken = True
+        if basic_boots and not boots_taken and not is_tier_two(item):
+            if len(selected) >= size - 1:
+                continue
+        take(item)
+
+    if basic_boots and not boots_taken and len(selected) < size:
+        upgrade = next(
+            (item for item in ranked if is_tier_two(item) and eligible(item)),
+            None,
+        )
+        if upgrade is not None:
+            take(upgrade)
     return selected
 
 
@@ -150,19 +194,40 @@ def _boot_replacement(
     allies: AllyTeamProfile | None,
     style: str,
     slots: int,
+    *,
+    catalog_verified: bool = False,
+    exclusive_item_groups: dict[str, frozenset[str]] | None = None,
+    item_data=None,
+    inventory: Inventory | None = None,
 ) -> BootReplacement | None:
-    """Offer a swap only for a full inventory with known movement-speed stats.
+    """Advisory boot sale for a verified, full and entirely known inventory.
 
-    The candidate must retain some *listed* movement speed and meaningfully
-    improve contextual item value after accounting for lost listed movement.
-    This is an advisory comparison, not a verified shop or actual MS prediction.
+    Only confirmed augments supplied by the caller may affect the contextual
+    value; candidates visible in an offer must never be passed here.
     """
-    if len(owned_ids) < slots:
+    if not catalog_verified:
         return None
+    # A scoring model for an unrecognized champion is insufficient evidence
+    # for a destructive late-game sell recommendation.
+    if item_data is not None and item_data.get_champion(champion.id) is None:
+        return None
+    if inventory is not None:
+        if inventory.used_slots != slots:
+            return None
+    elif len(owned_ids) != slots:
+        return None
+
     by_id = {item.id: item for item in item_catalog}
+
+    def resolve(ident: str) -> ItemData | None:
+        return item_data.get_item(ident) if item_data is not None else by_id.get(ident)
+
+    observed_items = [resolve(ident) for ident in owned_ids]
+    if any(item is None or item.item_class == "unknown" for item in observed_items):
+        return None
     current_boot = next(
-        (by_id[item_id] for item_id in owned_ids
-         if item_id in by_id and by_id[item_id].boots),
+        (item for item in observed_items if item is not None
+         and (item.item_class in {"boots_tier1", "boots_tier2"} or item.boots)),
         None,
     )
     if current_boot is None:
@@ -173,7 +238,7 @@ def _boot_replacement(
 
     boot_ms = listed_ms(current_boot)
     if boot_ms <= 0:
-        return None  # No trustworthy baseline for an unusual or unmapped boot.
+        return None
 
     weight = {"Balanced": 0.9, "Damage": 1.65, "Survival": 1.9, "Utility": 1.75}[style]
 
@@ -184,18 +249,22 @@ def _boot_replacement(
 
     boot_value = contextual_value(current_boot)
     observed = set(owned_ids)
-    owned_names = {
-        _item_name_key(by_id[item_id])
-        for item_id in owned_ids if item_id in by_id
+    owned_names = {_item_name_key(item) for item in observed_items if item is not None}
+    groups = exclusive_item_groups or {}
+    occupied_groups = {
+        name for name, members in groups.items()
+        if any(ident in members for ident in owned_ids if ident != current_boot.id)
     }
+
     candidates: list[tuple[float, str, ItemData, float]] = []
     for item in item_catalog:
         if (
-            item.id in observed or _item_name_key(item) in owned_names
-            or item.boots or listed_ms(item) <= 0
+            item.item_class != "final" or item.boots
+            or item.id in observed or _item_name_key(item) in owned_names
+            or listed_ms(item) <= 0
+            or any(item.id in groups[name] for name in occupied_groups)
         ):
             continue
-        # Larger loss of movement demands a stronger improvement elsewhere.
         speed_change = listed_ms(item) - boot_ms
         net_gain = (
             contextual_value(item) - boot_value
@@ -206,7 +275,6 @@ def _boot_replacement(
     if not candidates:
         return None
 
-    # Deterministic tie-breaker on item ID, not catalog order.
     _, _, replacement, speed_change = sorted(
         candidates, key=lambda row: (-row[0], row[1])
     )[0]
@@ -218,7 +286,7 @@ def _boot_replacement(
         reason=(
             "Potential late-game stat upgrade for the selected build style. "
             "Movement-speed difference is estimated from listed item stats only; "
-            "check Mayhem shop availability, passives and sell value before swapping."
+            "review passives and sell value before swapping."
         ),
     )
 
@@ -234,50 +302,89 @@ def suggest_build(
     ally_profile: AllyTeamProfile | None = None,
     build_style: str = "Balanced",
     inventory: Inventory | None = None,
+    item_data=None,
+    exclusive_item_groups: dict[str, frozenset[str]] | None = None,
+    catalog_verified: bool = False,
 ) -> BuildState:
-    """Return one flexible path and optional Damage/Survival/Utility paths.
+    """Return stable builds and the first unowned, recipe-aware purchase.
 
-    Builds keep purchased items in their current slots. A player can select
-    another style without changing their existing items. Item-purchase paths
-    and game-mode-specific item restrictions need further data validation.
+    The input augment list is the previously selected/confirmed set, not
+    an unconfirmed offered candidate. No automatic purchase is performed.
     """
-    # Client-selected style changes ordering, but cannot force or buy an item.
-    # Invalid external snapshot values fall back to the neutral default.
     selected_style = build_style if build_style in BUILD_STYLES else "Balanced"
     purchased = list(purchased_items)
     owned_finals = list(inventory.finals) if inventory is not None else purchased
-    available = [item for item in all_items if item.id not in owned_finals]
+    available = [
+        item for item in all_items
+        if item.id not in owned_finals
+        and (not catalog_verified or item.final)
+    ]
     rankings = {
         style: _rank_items(
-            champion, active_augments, available, enemy_profile, ally_profile, style
+            champion, active_augments, available, enemy_profile, ally_profile, style,
         )
         for style in BUILD_STYLES
     }
     paths = {
-        style: _fill_slots(rankings[style], inventory if inventory is not None else purchased, all_items, build_size)
+        style: _fill_slots(
+            rankings[style], inventory if inventory is not None else purchased,
+            all_items, build_size, exclusive_item_groups,
+        )
         for style in BUILD_STYLES
     }
     full_build = paths[selected_style]
-
-    # Do not recommend a seventh item. Even if the catalog offers thousands
-    # of candidates, "next item" must actually belong to the selected path.
-    remaining = [item_id for item_id in full_build[len(owned_finals):]]
     by_id = {item.id: item for item in all_items}
-    next_item = next(
-        (by_id[item_id] for item_id in remaining
-         if item_id in by_id and by_id[item_id].cost <= current_gold),
-        None,
-    )
-    gold_to_next = 0
-    if next_item is None and remaining:
-        first = by_id.get(remaining[0])
-        if first is not None:
-            gold_to_next = max(0, first.cost - current_gold)
 
-    alternatives = paths
+    # Never skip an expensive first unowned item to propose an affordable
+    # later item: purchase order is independent of the current wallet.
+    remaining = [ident for ident in full_build if ident not in owned_finals]
+    next_item = by_id.get(remaining[0]) if remaining else None
+    gold_needed = 0
+    gold_to_next = 0
+    slot_blocked = False
+    build_unavailable_reason = None
+
+    if item_data is not None and inventory is not None:
+        # Physical slots occupied by unrecognized items cannot be assumed
+        # available or legal; fail closed on incomplete inventory evidence.
+        if any(
+            item_data.get_item(ident) is None
+            or item_data.get_item(ident).item_class == "unknown"
+            for ident in inventory.other
+        ):
+            next_item = None
+            build_unavailable_reason = "inventory_unknown"
+
+    if next_item is not None:
+        if item_data is not None and inventory is not None:
+            try:
+                gold_needed, consumed = remaining_cost(
+                    next_item.id, Counter(inventory.components), item_data,
+                )
+            except (ValueError, TypeError, KeyError):
+                next_item = None
+                build_unavailable_reason = "item_recipe_unknown"
+                consumed = Counter()
+            if next_item is not None:
+                slot_blocked = inventory.free_slots == 0 and not consumed
+        else:
+            # Historical direct-call/synthetic tests have no physical recipe
+            # source: retain a conservative undiscounted full-price estimate.
+            gold_needed = next_item.cost
+        if next_item is not None:
+            gold_to_next = max(0, gold_needed - max(0, current_gold))
+
+    # B4 will remove alternate-path computation and presentation; B3 only
+    # fixes its selection rules while preserving the present payload.
     boot_replacement = _boot_replacement(
-        champion, active_augments, purchased, all_items,
-        enemy_profile, ally_profile, selected_style, build_size,
+        champion, active_augments,
+        ([item_data.canonical_item_id(ident) for ident in purchased]
+         if item_data is not None else purchased),
+        all_items, enemy_profile, ally_profile, selected_style, build_size,
+        catalog_verified=catalog_verified,
+        exclusive_item_groups=exclusive_item_groups,
+        item_data=item_data,
+        inventory=inventory,
     )
 
     reasons = ["Adjusted for your current champion and chosen augments"]
@@ -287,18 +394,19 @@ def suggest_build(
         reasons.extend(ally_profile.notes())
     if selected_style != "Balanced":
         reasons.append(f"Selected build path: {selected_style}")
-    if next_item is None and remaining:
-        logger.debug("%s has no affordable recommended item at %dg", champion.id, current_gold)
 
     return BuildState(
         champion_id=champion.id,
         chosen_augments=[aug.id for aug in active_augments],
         purchased_items=purchased,
         next_item_id=next_item.id if next_item else None,
+        next_item_gold_needed=gold_needed,
         gold_to_next=gold_to_next,
+        slot_blocked=slot_blocked,
         full_build=full_build,
-        alternatives=alternatives,
+        alternatives=paths,
         reasons=reasons,
         selected_style=selected_style,
         boot_replacement=boot_replacement,
+        build_unavailable_reason=build_unavailable_reason,
     )

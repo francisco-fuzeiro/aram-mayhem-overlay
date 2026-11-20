@@ -171,7 +171,9 @@ class BuildState:
     chosen_augments: list[str] = field(default_factory=list)
     purchased_items: list[str] = field(default_factory=list)
     next_item_id: str | None = None
+    next_item_gold_needed: int = 0  # Remaining recipe cost after owned components.
     gold_to_next: int = 0
+    slot_blocked: bool = False  # No empty physical slot or usable recipe component.
     full_build: list[str] = field(default_factory=list)
     alternatives: dict[str, list[str]] = field(default_factory=dict)
     reasons: list[str] = field(default_factory=list)
