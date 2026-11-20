@@ -1728,7 +1728,9 @@ def _serialize_result(
                 _resolve_item_name(result.build_state.next_item_id, sd)
                 if result.build_state.next_item_id else None
             ),
+            "next_item_gold_needed": result.build_state.next_item_gold_needed,
             "gold_to_next": result.build_state.gold_to_next,
+            "slot_blocked": result.build_state.slot_blocked,
             "full_build": result.build_state.full_build,
             "full_build_names": [
                 _resolve_item_name(i, sd) for i in result.build_state.full_build
