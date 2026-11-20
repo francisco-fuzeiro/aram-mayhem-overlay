@@ -232,10 +232,6 @@ class ScreenWatcher:
                 self._set_scan_stage("game_not_focused")
                 return ("not_focused", None)
 
-            if not augment_names:
-                self._set_scan_stage("catalog_unavailable")
-                return ("no_augments", None)
-
             # Capture only the verified foreground League client ROI.
             img = capture_augment_region(monitor_index, league_window=game)
             if img is None:
@@ -368,7 +364,7 @@ class ScreenWatcher:
 SCAN_STAGES = frozenset((
     "not_scanned", "ocr_unavailable", "game_window_unavailable",
     "game_not_focused", "capture_unavailable", "geometry_unsupported",
-    "catalog_unavailable", "titles_verifying", "titles_unidentified",
+    "titles_verifying", "titles_unidentified",
     "titles_detected", "titles_unchanged", "titles_transition",
     "verified_absence",
 ))

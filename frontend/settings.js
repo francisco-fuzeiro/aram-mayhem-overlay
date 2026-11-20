@@ -261,7 +261,6 @@
                 game_not_focused: "League game window was not focused.",
                 capture_unavailable: "Focused League capture was unavailable.",
                 geometry_unsupported: "Current League client geometry is not calibrated.",
-                catalog_unavailable: "Augment name catalog was unavailable.",
                 titles_verifying: "Augment title slots are still being verified.",
                 titles_unidentified: "The scan could not identify any of the visible card titles (or no offer was present).",
                 titles_detected: "Augment titles were identified in a previous scan; real-game accuracy remains unverified.",
@@ -273,7 +272,10 @@
             $("ocr-scan-detail").textContent = "Last scan: " + stages[stage] +
                 (status.scan_window_open === true
                     ? " Automatic offer scanning is armed."
-                    : " No active automatic offer scan.");
+                    : " No active automatic offer scan.") +
+                (status.catalog_available === false
+                    ? " Augment catalog is empty; title matching cannot succeed."
+                    : "");
             const setup = typeof status.next_step === "string" && status.next_step.length <= 300
                 ? status.next_step
                 : status.available

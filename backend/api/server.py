@@ -425,6 +425,7 @@ def ocr_status():
     return {
         "scan_window_open": bool(game_state.scan_window_open),
         "scan_stage": observed_stage,
+        "catalog_available": bool(static_data._augments),
         "available": readiness["available"],
         "reason": readiness["reason"],
         "next_step": readiness["next_step"],

@@ -36,7 +36,7 @@ SCHEMA: dict[str, dict[str, object]] = {
         "stage": frozenset((
             "not_scanned", "ocr_unavailable", "game_window_unavailable",
             "game_not_focused", "capture_unavailable", "geometry_unsupported",
-            "catalog_unavailable", "titles_verifying", "titles_unidentified",
+            "titles_verifying", "titles_unidentified",
             "titles_detected", "titles_unchanged", "titles_transition",
             "verified_absence",
         )),
