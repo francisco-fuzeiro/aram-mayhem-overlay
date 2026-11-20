@@ -18,8 +18,10 @@ import math
 import re
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from backend.collectors.league_window import find_league_window, LeagueWindow
+from backend.collectors.window_capture import capture_league_client, reset_capture_state, CaptureProof
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
 from backend.collectors.slot_title_ocr import SlotMatches, crop_title_slots, recognize_title_slots
 from backend.collectors.offer_visibility import VerifiedAbsenceGate, IndependentCue
@@ -141,7 +143,7 @@ def _hamming_distance(hash1: str, hash2: str) -> int:
 
 
 class ScreenWatcher:
-    """Focused League-only title watcher with three independent temporal slots.
+    """Verified League-window title watcher with three independent temporal slots.
 
     A slot's title is accepted only after two stable, matching OCR readings.
     Focus loss suspends comparisons instead of interpreting a changed desktop
@@ -189,6 +191,7 @@ class ScreenWatcher:
             self._transition_open = False
             self._last_detected = []
             self._set_scan_stage("not_scanned")
+            reset_capture_state()  # End of offer/match closes the WGC HWND session.
 
     def check(
         self,
@@ -223,25 +226,26 @@ class ScreenWatcher:
                 self._transition_open = False
                 self._set_scan_stage("game_window_unavailable")
                 return ("unavailable", None)
-            if not game.focused:
+            result = capture_augment_region(monitor_index, league_window=game)
+            if (not isinstance(result, RegionCapture) or result.reason != "ok"
+                    or result.image is None or not isinstance(result.proof, CaptureProof)):
                 self._capture_stale = True
                 self._temporal.suspend()
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
-                self._set_scan_stage("game_not_focused")
-                return ("not_focused", None)
-
-            # Capture only the verified foreground League client ROI.
-            img = capture_augment_region(monitor_index, league_window=game)
-            if img is None:
-                self._capture_stale = True
-                self._temporal.suspend()
-                self._absence_gate.suspend()
-                self._refocus_pending = True
-                self._transition_open = False
-                self._set_scan_stage("capture_unavailable")
-                return ("unavailable", None)
+                reason = result.reason if isinstance(result, RegionCapture) else "invalid_frame"
+                if reason in ("no_window", "minimized", "unsupported_platform"):
+                    stage, action = "game_window_unavailable", "unavailable"
+                elif reason == "occluded":
+                    stage, action = "game_occluded", "occluded"
+                else:
+                    stage, action = "capture_invalid", "capture_unavailable"
+                self._set_scan_stage(stage)
+                from backend.diagnostic_events import events
+                events.transition("ocr_recognition", outcome=action)
+                return (action, None)
+            img = result.image
             if self._capture_stale:
                 self._temporal.suspend()
                 self._capture_stale = False
@@ -327,7 +331,9 @@ class ScreenWatcher:
                 self._refocus_pending = False
                 self._last_detected = list(result)
                 if save:
-                    save_screenshot(img, label="verified_title_slots")
+                    save_screenshot(
+                        img, label="verified_title_slots", proof=result.proof,
+                    )
                 self._set_scan_stage("titles_detected")
                 return ("detected", result)
 
@@ -363,7 +369,8 @@ class ScreenWatcher:
 # raw OCR strings, player data or local filesystem paths.
 SCAN_STAGES = frozenset((
     "not_scanned", "ocr_unavailable", "game_window_unavailable",
-    "game_not_focused", "capture_unavailable", "geometry_unsupported",
+    "game_not_focused", "game_occluded", "capture_invalid",
+    "capture_unavailable", "geometry_unsupported",
     "titles_verifying", "titles_unidentified",
     "titles_detected", "titles_unchanged", "titles_transition",
     "verified_absence",
@@ -471,49 +478,51 @@ def _ensure_screenshot_dir() -> Path:
     return SCREENSHOT_DIR
 
 
+@dataclass(frozen=True)
+class RegionCapture:
+    """Verified League augment ROI. A bare PIL image is never OCR evidence."""
+    image: "Image.Image | None"
+    proof: CaptureProof | None
+    reason: str
+    occluder: str | None = None
+
+
 def capture_augment_region(
     monitor_index: int = 1, *, league_window: LeagueWindow | None = None,
-) -> "Image.Image | None":
-    """Capture the augment region relative to the focused League client rect.
+) -> RegionCapture:
+    """Crop from a validated *window* frame, never from the desktop.
 
-    The legacy monitor_index positional argument is ignored deliberately:
-    never fall back to whole-monitor capture on lookup or focus failures.
+    The legacy monitor_index is ignored. A typed proof is compulsory for OCR
+    and for optional title-only diagnostics. Focus is diagnostic, not a gate.
     """
-    global _logged_resolution
     if not OCR_AVAILABLE:
-        return None
-
+        return RegionCapture(None, None, "backend_unavailable")
     game = league_window if league_window is not None else find_league_window()
-    if game is None or not game.focused:
-        return None
-    if league_window is not None:
-        # A watcher may have cached the HWND just before an Alt+Tab.
-        current = find_league_window()
-        if current is None or not current.focused or current.hwnd != game.hwnd:
-            return None
-    left, top, right, bottom = game.rect
-    w, h = right - left, bottom - top
-    if w <= 0 or h <= 0:
-        return None
-    region_fracs = get_augment_region(w, h)
-    region = {
-        "left": left + int(w * region_fracs[0]),
-        "top": top + int(h * region_fracs[1]),
-        "width": int(w * (region_fracs[2] - region_fracs[0])),
-        "height": int(h * (region_fracs[3] - region_fracs[1])),
-    }
-    if region["width"] <= 0 or region["height"] <= 0:
-        return None
-    try:
-        with mss.mss() as sct:
-            screenshot = sct.grab(region)
-            if not _logged_resolution:
-                logger.info("League client: %dx%d, augment fractions=%s", w, h, region_fracs)
-                _logged_resolution = True
-            return Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-    except (OSError, ValueError) as e:
-        logger.error("League client capture failed: %s", e)
-        return None
+    if game is None:
+        return RegionCapture(None, None, "no_window")
+    from backend.config import config
+    capture = capture_league_client(
+        game, allow_screen_copy_fallback=(
+            config.get("allow_screen_copy_fallback") is True
+        ),
+    )
+    if capture.reason != "ok" or capture.image is None or capture.proof is None:
+        return RegionCapture(None, None, capture.reason, capture.occluder)
+    if capture.proof.hwnd != game.hwnd or capture.proof.client_rect != game.rect:
+        return RegionCapture(None, None, "window_changed")
+    width, height = game.right - game.left, game.bottom - game.top
+    a, b, c, d = get_augment_region(width, height)
+    bounds = (
+        int(width * a), int(height * b),
+        int(width * a) + int(width * (c - a)),
+        int(height * b) + int(height * (d - b)),
+    )
+    if (capture.image.mode != "RGB" or capture.image.size != (width, height)
+            or bounds[0] < 0 or bounds[1] < 0
+            or bounds[2] > width or bounds[3] > height
+            or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]):
+        return RegionCapture(None, None, "invalid_frame")
+    return RegionCapture(capture.image.crop(bounds), capture.proof, "ok")
 
 
 def save_screenshot(
@@ -521,17 +530,21 @@ def save_screenshot(
     label: str = "",
     ocr_texts: list[str] | None = None,
     matches: list[tuple[str, str, int]] | None = None,
+    *, proof: CaptureProof | None = None,
 ) -> Path | None:
-    """Save only bounded card title crops from a focused League region.
+    """Save only bounded card-title crops from a proven League window.
 
     Legacy label/OCR text/matches arguments are intentionally ignored:
     they never enter filenames, images or logs. Full window/screen images
-    cannot pass the exact focused client augment-region dimension check.
+    cannot pass the client augment-region dimension and source-proof checks.
     """
     if not OCR_AVAILABLE or not screenshot_opted_in():
         return None
     game = find_league_window()
-    if game is None or not game.focused:
+    if (game is None or not isinstance(proof, CaptureProof)
+            or proof.hwnd != game.hwnd or proof.client_rect != game.rect
+            or proof.backend not in ("wgc", "mss_zorder")
+            or proof.captured_at <= 0):
         return None
     left, top, right, bottom = game.rect
     width, height = right - left, bottom - top
@@ -540,7 +553,7 @@ def save_screenshot(
     a, b, c, d = get_augment_region(width, height)
     expected_size = (int(width * (c - a)), int(height * (d - b)))
     if img.size != expected_size or img.width < 150 or img.height < 50:
-        logger.warning("Diagnostic image rejected: not a focused League augment region")
+        logger.warning("Diagnostic image rejected: not a verified League augment region")
         return None
 
     # Pure, reviewed client-relative title geometry. The OCR *region* may

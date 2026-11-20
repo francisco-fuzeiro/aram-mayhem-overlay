@@ -3,6 +3,14 @@ name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
 
+## 2026-11-20 NEWEST HANDOFF — A3 verified League-window capture; A4 NEXT after exact final-doc-head SUCCESS
+
+- [Draft PR #61](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/61) `fix/a3-validated-window-capture` directly stacks on unmerged [B5 draft #60](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/60), exact source SHA `d7acd2289d72ac31f177a633acda8bc79772af48` [final B5 Windows #44797141608](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44797141608) SUCCESS. No merge; `main` untouched.
+- Tests-first `195ff71f74a91723e8372a5bfebbd9662b5d3c24` [RED #44803280635](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44803280635) failed at absent window-capture import. Code/test HEAD `29ff3ba05d73f42a33f5d5f13e169839386e8b7a` [Windows #44804657919](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44804657919) **SUCCESS: 721 Python / 54 JS / 3 syntax checks**, 51 non-blocking warnings. One intermediate F1 100 ms async timeout was unrelated and was not changed.
+- A3 offline capture proof requires no League session. WGC captures the verified League HWND (BGRA callback copy, monotonic freshness, DWM client crop and non-uniform ROI). The MSS client-rect fallback runs only when WGC startup is unavailable or when degraded WGC has a user opt-in; both pre- and post-z-order checks include transparent/layered and own overlays. Invalid frames never trigger automatic fallback; after one session restart the invalid streak degrades to safe capture_unavailable. Foreground is diagnostic only. Diagnostic events remain enum-only, and screenshots require a typed source proof. No thresholds, new UI, A4–A6/C/D, gameplay, installer or main changes. Narrow deviation: `backend/config.py` enables persistent explicit opt-in without UI; historical capture/OCR fixture tests were updated to provide typed `CaptureProof`. No new UI, timing-tick double read, A5/A6, C/D, gameplay, installer or main changes.
+- **NEXT ONLY A4**, and ONLY after independently verifying **exact final documentation HEAD Windows Actions SUCCESS**: read `AGENTS.md`, skill, `docs/PROJECT_STATE.md`, TODO, DEVELOPMENT_LOG, IMPLEMENTATION_PHASES, v3 index/audit/global rules and **only A4** in `M-A_reconhecimento.md`; create fresh child branch on A3 final-green SHA and draft PR based directly on #61. Start tests RED, implement A4 two verified reads within one tick with no unsafe fallback, run Python/Node/syntax and exact-final CI, update handoff. Do not play League, touch UI, implement A5/A6, C/D, or merge. Native N1 (including Vanguard/injected overlay) and Riot policy remain OPEN.
+
+
 
 ## 2026-11-20 NEWEST HANDOFF — B5 verified enemy reaction; A3 NEXT only after final-head SUCCESS
 

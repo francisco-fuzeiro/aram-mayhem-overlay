@@ -7,11 +7,18 @@ from PIL import Image
 from backend.api import server
 from backend.collectors import screen_ocr, slot_title_ocr
 from backend.collectors.league_window import LeagueWindow
+from backend.collectors.window_capture import CaptureProof
 from backend.diagnostic_events import _clean
 
 
 WINDOW = LeagueWindow(7, 8, 31, 2552, 1384, True)
 NAMES = {"1": "En Passant", "2": "Ravenous Bind", "3": "It's Killing Time"}
+
+
+def proven(region, game=WINDOW):
+    return screen_ocr.RegionCapture(
+        region, CaptureProof("wgc", game.hwnd, game.rect, 10.0, "other"), "ok",
+    )
 
 
 def test_ocr_scan_stage_distinguishes_executable_from_missing_game_window(monkeypatch):
@@ -28,19 +35,18 @@ def test_ocr_scan_stage_distinguishes_executable_from_missing_game_window(monkey
     assert watcher.last_scan_stage == "not_scanned"
 
 
-def test_ocr_scan_stage_separates_focus_capture_and_geometry(monkeypatch):
+def test_ocr_scan_stage_separates_capture_failure_and_geometry(monkeypatch):
     watcher = screen_ocr.ScreenWatcher()
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: LeagueWindow(7, 8, 31, 2552, 1384, False))
-    assert watcher.check(NAMES)[0] == "not_focused"
-    assert watcher.last_scan_stage == "game_not_focused"
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: WINDOW)
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: None)
-    assert watcher.check(NAMES)[0] == "unavailable"
-    assert watcher.last_scan_stage == "capture_unavailable"
-    invalid = LeagueWindow(7, 8, 31, 1608, 1031, True)  # 16:10 unsupported C1 calibration
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k:
+                        screen_ocr.RegionCapture(None, None, "invalid_frame"))
+    assert watcher.check(NAMES)[0] == "capture_unavailable"
+    assert watcher.last_scan_stage == "capture_invalid"
+    invalid = LeagueWindow(7, 8, 31, 1608, 1031, False)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: invalid)
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: Image.new("RGB", (1120, 280)))
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k:
+                        proven(Image.new("RGB", (1120, 280)), invalid))
     assert watcher.check(NAMES)[0] == "unavailable"
     assert watcher.last_scan_stage == "geometry_unsupported"
 
@@ -51,7 +57,7 @@ def test_ocr_scan_stage_distinguishes_unreadable_text_from_verified_offer(monkey
     strip = Image.new("RGB", (int(2544 * (region[2] - region[0])), int(1353 * (region[3] - region[1]))))
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: WINDOW)
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: strip)
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *_a, **_k: proven(strip))
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", lambda *_a: None)
     watcher.check(NAMES)
     assert watcher.last_scan_stage == "titles_verifying"

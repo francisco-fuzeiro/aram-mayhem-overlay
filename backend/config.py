@@ -29,6 +29,7 @@ _TYPE_SPECS: dict[str, type | tuple[type, ...]] = {
     "experimental_augment_evidence": bool,
     "lcu_history_enabled": bool,
     "ocr_debug_screenshots": bool,
+    "allow_screen_copy_fallback": bool,
 }
 
 DEFAULTS: dict = {
@@ -58,6 +59,8 @@ DEFAULTS: dict = {
     "lcu_history_enabled": False,
     # Diagnostic images require explicit opt-in; no screenshots by default.
     "ocr_debug_screenshots": False,
+    # Opt-in only: MSS is still blocked by any z-order overlap on title bands.
+    "allow_screen_copy_fallback": False,
 
     # GitHub bug report integration
     "github_token": "",   # personal access token (repo scope)
