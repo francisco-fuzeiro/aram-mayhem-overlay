@@ -532,7 +532,7 @@ test("M5/C4: pending and uncertain states do not expand in-game augment advice",
     const due = {...gameUpdate("Jinx"), scan_window_open: true, offer_state: "pending"};
     h.api.handleMessage(due);
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...due, offer_state: "present"});
+    h.api.handleMessage({...due, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({...due, offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
@@ -557,7 +557,7 @@ test("M5/C4: verified gone hides advice without auto-choosing an augment", () =>
 
 test("M5/C4b: first unverified visual transition collapses old advice immediately", () => {
     const h = harness();
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({type: "ocr_result", status: "transition", offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
@@ -566,7 +566,7 @@ test("M5/C4b: first unverified visual transition collapses old advice immediatel
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
     h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
 });
 
@@ -621,7 +621,7 @@ test("M5/C4c: OCR results from old matches or old offer epochs are ignored", () 
 test("M5/C4c: disabling OCR collapses old advice immediately even without a game update", () => {
     const h = harness();
     h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:4",
-        offer_epoch: 2, offer_state: "present", scan_window_open: true});
+        offer_epoch: 2, offer_state: "present", scan_window_open: true, ocr_phase: "detected", ocr_stale: false});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({type: "ack", action: "toggle_ocr", enabled: false,
         offer_epoch: 3, offer_state: "suspended", match_id: "lcu:4"});
