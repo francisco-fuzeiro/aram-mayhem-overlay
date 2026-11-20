@@ -212,9 +212,6 @@ class ScreenWatcher:
                 self._refocus_pending = True
                 self._transition_open = False
                 self._set_scan_stage("ocr_unavailable")
-                self._set_scan_stage("game_window_unavailable")
-                self._set_scan_stage("capture_unavailable")
-                self._set_scan_stage("geometry_unsupported")
                 return ("unavailable", None)
 
             game = find_league_window()
@@ -224,6 +221,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("game_window_unavailable")
                 return ("unavailable", None)
             if not game.focused:
                 self._capture_stale = True
@@ -246,6 +244,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("capture_unavailable")
                 return ("unavailable", None)
             if self._capture_stale:
                 self._temporal.suspend()
@@ -261,6 +260,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("geometry_unsupported")
                 return ("unavailable", None)
 
             # A separate classifier may be plugged in ONLY after real native
@@ -308,7 +308,6 @@ class ScreenWatcher:
                 self._transition_open = False
                 self._refocus_pending = False
                 self._set_scan_stage("titles_transition")
-                self._set_scan_stage("titles_transition")
                 return ("transition", None)
 
             if pending:
@@ -319,8 +318,7 @@ class ScreenWatcher:
                     # B2: never claim an unchanged verified offer if no
                     # historical C3 snapshot exists on this focus recovery.
                     self._set_scan_stage("titles_verifying")
-                    self._set_scan_stage("titles_unchanged" if current is not None else "titles_unidentified")
-            return ("unchanged" if current is not None else "no_augments", None)
+                    return ("unchanged" if current is not None else "no_augments", None)
                 if current is not None:
                     self._transition_open = True
                     self._set_scan_stage("titles_verifying")
@@ -343,8 +341,10 @@ class ScreenWatcher:
                 # two fresh OCR confirmations across the three physical slots.
                 self._temporal.suspend()
                 self._transition_open = False
+                self._set_scan_stage("titles_transition")
                 return ("transition", None)
 
+            self._set_scan_stage("titles_unchanged" if current is not None else "titles_unidentified")
             return ("unchanged" if current is not None else "no_augments", None)
 
     @property
