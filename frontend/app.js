@@ -21,6 +21,9 @@
     let searchDebounce = null;
     let ocrAvailable = false;
     let scanning = false;
+    let buildPinnedByHotkey = false;
+    let recoveredOffer = null;
+    let enemyManuallyOpen = false;
     const buildStyles = ["Balanced", "Damage", "Survival", "Utility"];
 
     // -- DOM refs --
@@ -39,20 +42,15 @@
     const rerollBanner = $("reroll-banner");
     const rerollReason = $("reroll-reason");
     const buildList = $("build-list");
+    const buildNext = $("build-next");
+    const dueHint = $("augment-due-hint");
+    const augmentRecover = $("augment-recover");
+    const offerActionStatus = $("augment-action-status");
     const buildFooter = $("build-footer");
     const buildAlternatives = $("build-alternatives");
     const buildStyleCurrent = $("build-style-current");
     const enemyList = $("enemy-list");
-    const augmentSearch = $("augment-search");
-    const tierFilter = $("tier-filter");
-    const searchResults = $("search-results");
-    const selectedAugments = $("selected-augments");
-    const btnEvaluate = $("btn-evaluate");
-    const btnClearInput = $("btn-clear-input");
-    const btnScan = $("btn-scan");
-    const ocrAutoCheckbox = $("ocr-auto");
     const ocrStatusBadge = $("ocr-status");
-    const ocrDetected = $("ocr-detected");
     const augmentConfirm = $("augment-confirm");
     const augmentToast = $("augment-toast");
     const augmentProgress = $("augment-progress");
@@ -66,8 +64,8 @@
         await checkOcrStatus();
         connectWebSocket();
         bindSectionToggles();
-        bindAugmentInput();
-        bindOcrControls();
+        bindOfferRecovery();
+        bindWindowMessages();
         bindKeyboard();
         bindHistorySync();
         await loadBuildPreference();
@@ -80,19 +78,6 @@
             staticNames = await res.json();
         } catch (e) {
             console.warn("Failed to fetch static names:", e);
-        }
-    }
-
-    async function loadBuildPreference() {
-        try {
-            const response = await fetch("/api/preferences", { cache: "no-store" });
-            if (!response.ok) return;
-            const preferences = await response.json();
-            if (buildStyles.includes(preferences.build_style)) {
-                buildStyleCurrent.textContent = preferences.build_style;
-            }
-        } catch (error) {
-            // Live updates also provide the selected style once the game starts.
         }
     }
 
@@ -129,9 +114,6 @@
         ocrStatusBadge.textContent = label + (ocrStale ? " · STALE" : "");
         ocrStatusBadge.className = "ocr-status-badge " + cssClass;
         ocrStatusBadge.title = detail + (ocrStale ? " — previous cards not verified" : "");
-        btnScan.disabled = ocrPhase === "disabled" || ocrPhase === "ocr_missing";
-        const help = $("ocr-manual-help");
-        if (help) help.classList.toggle("hidden", ocrPhase !== "ocr_missing");
         $("section-augments").classList.toggle("ocr-focus-stale", ocrStale);
     }
 
@@ -208,19 +190,27 @@
         offerState = "inactive";
         offerEpoch = null;
         currentOffers = [];
+        buildPinnedByHotkey = false;
+        recoveredOffer = null;
+        enemyManuallyOpen = false;
         scanning = false;
         stale = false;
         ocrPhase = "no_offer";
         ocrStale = false;
         $("section-augments").classList.remove("ocr-focus-stale");
         $("app").classList.remove("data-stale");
-        champName.textContent = "---";
-        gameTime.textContent = "--:--";
-        goldEl.textContent = "--";
+        if (champName) champName.textContent = "---";
+        if (gameTime) gameTime.textContent = "--:--";
+        if (goldEl) goldEl.textContent = "--";
         phaseEl.textContent = "---";
+        buildNext.textContent = "Next: unavailable";
+        dueHint.classList.add("hidden");
+        offerActionStatus.classList.add("hidden");
+        buildList.classList.add("hidden");
+        buildAlternatives.classList.add("hidden");
+        buildFooter.classList.add("hidden");
 
-        for (const el of [augmentList, buildList, buildAlternatives, enemyList,
-                          ocrDetected, searchResults, selectedAugments, augmentConfirm]) {
+        for (const el of [augmentList, buildList, buildAlternatives, enemyList, augmentConfirm]) {
             el.innerHTML = "";
             el.replaceChildren();
         }
@@ -233,15 +223,11 @@
         augmentToast.innerHTML = "";
         augmentToast.classList.add("hidden");
         augmentConfirm.classList.add("hidden");
-        ocrDetected.classList.add("hidden");
         clearTimeout(toastTimeout);
         toastTimeout = null;
         clearTimeout(searchDebounce);
         searchDebounce = null;
-        augmentSearch.value = "";
-        btnScan.textContent = "Scan Screen";
         updateOcrStatusBadge();
-        renderSelectedAugments();
         updateOcrStatusBadge();
     }
 
@@ -257,9 +243,9 @@
     }
 
     function hideOldHeader() {
-        champName.textContent = "---";
-        gameTime.textContent = "--:--";
-        goldEl.textContent = "--";
+        if (champName) champName.textContent = "---";
+        if (gameTime) gameTime.textContent = "--:--";
+        if (goldEl) goldEl.textContent = "--";
         phaseEl.textContent = "---";
     }
 
@@ -479,12 +465,7 @@
             return;
         }
 
-        if (msg.type === "preferences_updated") {
-            if (buildStyles.includes(msg.build_style)) {
-                buildStyleCurrent.textContent = msg.build_style;
-            }
-            return;
-        }
+        if (msg.type === "preferences_updated") return;
 
         if (msg.type === "ack" && msg.action === "toggle_ocr") {
             // A settings change invalidates every old OCR observation.
@@ -514,7 +495,7 @@
         waitingPanel.classList.toggle("hidden", !show);
         champSelectSection.classList.add("hidden");
 
-        const sections = ["section-augments", "section-input", "section-build", "section-enemies"];
+        const sections = ["section-augments", "section-build", "section-enemies"];
         sections.forEach((id) => {
             $(id).classList.toggle("hidden", show);
         });
@@ -555,9 +536,9 @@
         showWaiting(true);
         waitingPanel.classList.add("hidden");
         champSelectSection.classList.remove("hidden");
-        champName.textContent = "Champion Select";
-        gameTime.textContent = "--:--";
-        goldEl.textContent = "--";
+        if (champName) champName.textContent = "Champion Select";
+        if (gameTime) gameTime.textContent = "--:--";
+        if (goldEl) goldEl.textContent = "--";
         phaseEl.textContent = "Draft";
 
         champSelectList.replaceChildren();
@@ -605,17 +586,17 @@
 
     function renderHeader(data) {
         const bs = data.build_state;
-        champName.textContent = bs.champion_name || bs.champion_id || "---";
+        if (champName) champName.textContent = bs.champion_name || bs.champion_id || "---";
         phaseEl.textContent = data.phase || "---";
 
         if (data.game_time != null) {
             const mins = Math.floor(data.game_time / 60);
             const secs = Math.floor(data.game_time % 60);
-            gameTime.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+            if (gameTime) gameTime.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
         }
 
         if (data.current_gold != null) {
-            goldEl.textContent = data.current_gold + "g";
+            if (goldEl) goldEl.textContent = data.current_gold + "g";
         }
 
         // Level display
@@ -939,8 +920,7 @@
 
     function renderOcrResult(detected, augmentChoices) {
         if (!detected || detected.length === 0) {
-            ocrDetected.classList.add("hidden");
-            ocrDetected.replaceChildren();
+                ocrDetected.replaceChildren();
             return;
         }
 
@@ -978,7 +958,6 @@
     function autoExpandSections(data) {
         const augSection = $("section-augments");
         const buildSection = $("section-build");
-        const inputSection = $("section-input");
         const enemySection = $("section-enemies");
 
         // The live phase is "in_game" during an augment offer, so looking
@@ -1077,8 +1056,7 @@
 
         btnClearInput.addEventListener("click", () => {
             selectedAugmentIds = [];
-            renderSelectedAugments();
-            searchResults.innerHTML = "";
+                searchResults.innerHTML = "";
             augmentSearch.value = "";
             wsSend({ type: "clear_augments" });
         });
@@ -1126,8 +1104,7 @@
             item.addEventListener("click", () => {
                 if (selectedAugmentIds.length < 3 && !selectedAugmentIds.includes(aug.id)) {
                     selectedAugmentIds.push(aug.id);
-                    renderSelectedAugments();
-                    renderSearchResults(results);
+                                renderSearchResults(results);
                 }
             });
             searchResults.appendChild(item);
@@ -1147,8 +1124,7 @@
             `;
             chip.querySelector(".chip-remove").addEventListener("click", () => {
                 selectedAugmentIds = selectedAugmentIds.filter((a) => a !== id);
-                renderSelectedAugments();
-            });
+                    });
             selectedAugments.appendChild(chip);
         });
 
@@ -1173,7 +1149,6 @@
         feedbackSection.classList.remove("hidden");
         feedbackSection.classList.remove("collapsed");
         $("section-augments").classList.add("hidden");
-        $("section-input").classList.add("hidden");
         $("section-build").classList.add("hidden");
         $("section-enemies").classList.add("hidden");
     }
@@ -1216,8 +1191,7 @@
         if (params.get("mode") !== "overlay") return;
 
         document.body.classList.add("overlay-mode");
-        // Keep manual augment input accessible when OCR is unavailable.
-        // Collapsed by default; it can be expanded with Alt+O to interact.
+        // OCR and preferences are configured in desktop Settings.
     }
 
     // -- Boot --
