@@ -162,7 +162,7 @@ def test_watcher_emits_slot_matches_and_never_calls_legacy_whole_region(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_rest_scan_all_unknowns_clear_stale_previous_card_ids(monkeypatch):
+async def test_rest_scan_unknown_titles_without_capture_proof_preserves_old_ids(monkeypatch):
     from backend.api import server
     monkeypatch.setattr(server, "game_state", server.GameState())
     monkeypatch.setattr(server, "ocr_available", lambda: True)
@@ -176,24 +176,29 @@ async def test_rest_scan_all_unknowns_clear_stale_previous_card_ids(monkeypatch)
     }
     server.game_state.scan_window_open = True
     server.game_state.offer_lifecycle.open()
+    server.game_state.ocr_stale = True
     result = await server.ocr_scan()
-    assert result["augment_choices_set"] == []
-    assert result["ocr_slots"] == dict.fromkeys(SLOTS)
-    assert [d["slot"] for d in result["detected"]] == list(SLOTS)
-    assert all(d["id"] is None for d in result["detected"])
-    assert server.game_state.ocr_last_detected == []
+    assert result["status"] == "transition"
+    assert result["detected"] == []
+    assert result["augment_choices_set"] == ["previous"]
+    assert result["ocr_slots"]["left"] == "previous"
+    assert result["stale"] is True
+    assert server.game_state.ocr_last_detected == ["previous"]
 
 
-def test_manual_scan_labels_partial_offer_without_shifting_slots(monkeypatch):
+def test_manual_scan_partial_unproven_titles_never_publish_or_shift_slots(monkeypatch):
     from backend.api import server
-    monkeypatch.setattr(server, "detect_augments", lambda names, *, save: SlotMatches(
-        {"left": None, "centre": ("2", "Ravenous Bind", 100),
-         "right": ("3", "It's Killing Time", 99)},
-    ))
+    matches = SlotMatches({
+        "left": None, "centre": ("2", "Ravenous Bind", 100),
+        "right": ("3", "It's Killing Time", 99),
+    })
+    monkeypatch.setattr(server, "detect_augments", lambda names, *, save: matches)
     ids, detected = server._run_ocr_scan_manual()
-    assert ids == ["2", "3"]
-    assert [d["slot"] for d in detected] == list(SLOTS)
-    assert [d["id"] for d in detected] == [None, "2", "3"]
+    assert ids == []
+    assert detected == []  # mocked recognition is not proof of A3 capture
+    ordered = server._slot_detection_payload(matches)
+    assert [d["slot"] for d in ordered] == list(SLOTS)
+    assert [d["id"] for d in ordered] == [None, "2", "3"]
 
 
 @pytest.mark.asyncio
