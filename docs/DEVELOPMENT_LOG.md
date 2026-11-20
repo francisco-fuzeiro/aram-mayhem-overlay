@@ -2,6 +2,13 @@
 
 Append-only timeline. Entries are factual snapshots, not future promises. For the latest task plan, read [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
+## 2026-11-20 — Imported Claude v3 correction and future-feature blueprints (DOCUMENTATION ONLY)
+
+- Reviewed the user's 2026-11-20 v3 corrections against all six prior critical contract gaps. V3 separates offered identity/candidate/confirmed pick, gates two-source versioned item availability, preserves a verified boots→MS swap, names a pinned WGC adapter and fail-closed capture proof, distinguishes OCR states, and adds Riot-policy PG. A1 can be implemented entirely offline. This review does NOT prove Riot authorization, game accuracy, hardware WGC success or Mayhem shop ground truth.
+- User separately supplied feature blueprint `ARAM_features_GPT_2026-11-20.zip` and explicitly prioritised corrections before new features. Archived exact original correction and future-feature ZIPs, readable Markdown phase plans, JSON evidence and fixture manifest under [`docs/plans/ARAM_2026-11-20/`](plans/ARAM_2026-11-20/README.md); source PNGs are in the v3 ZIP and not installed as public test fixtures yet.
+- Created a standalone **docs-only child draft** based on `fix/p0-ocr-prerequisite-recovery` (#48); updated canonical TODO, implementation order, project state and continuation skill. No backend/frontend production code modified; no merge. New feature phases V/K/X/H/L/I are explicitly deferred until corrected N1 acceptance and a separate user go-ahead.
+- Next: on the exact documentation PR HEAD after final CI, create a new stacked draft branch for A1, write RED tests before code, and implement only Mayhem catalog dedup / strict distinct normalized titles / cache schema and shared OCR title catalog. User must not need to launch League for A1.
+
 ## 2026-11-20 — Real custom-game regression FAILED; approved product changes documented (docs only)
 
 - User switched local checkout from `docs/m5-c1-evidence-gate` `a7a6c20` to tested [draft PR #48](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/48) `fix/p0-ocr-prerequisite-recovery` `a796e7f`, preserved untracked `funcionalidades.md`; native pregame API confirmed English OCR and Mayhem catalog available, then actual League custom test reached in-game build/augment sections but OCR failed to identify actual **Goliath / Back To Basics / Biggest Snowball Ever** L/C/R.

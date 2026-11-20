@@ -1,0 +1,55 @@
+{
+ "note": "Approximate title bands cut from user Windows snips (not calibrated client geometry). Valid for OCR text and card-background tests, NOT for geometry tests.",
+ "cases": [
+  {
+   "file": "snip_121107_goliath.png",
+   "expected_name": "Goliath",
+   "rarity": "kPrismatic",
+   "teal_fraction": 0.958
+  },
+  {
+   "file": "snip_121107_backtobasics.png",
+   "expected_name": "Back To Basics",
+   "rarity": "kPrismatic",
+   "teal_fraction": 0.922
+  },
+  {
+   "file": "snip_121107_biggestsnowballever.png",
+   "expected_name": "Biggest Snowball Ever",
+   "rarity": "kPrismatic",
+   "teal_fraction": 0.789
+  },
+  {
+   "file": "snip_023747_enpassant.png",
+   "expected_name": "En Passant",
+   "rarity": "kPrismatic",
+   "teal_fraction": 0.939
+  },
+  {
+   "file": "snip_023747_ravenousbind.png",
+   "expected_name": "Ravenous Bind",
+   "rarity": "kGold",
+   "teal_fraction": 0.913
+  },
+  {
+   "file": "snip_023747_itskillingtime.png",
+   "expected_name": "It's Killing Time",
+   "rarity": "kGold",
+   "teal_fraction": 0.908
+  },
+  {
+   "file": "snip_015021_takeemdowndowndown.png",
+   "expected_name": "Take'em Down Down Down",
+   "rarity": "kGold",
+   "teal_fraction": 0.859,
+   "two_line": true
+  },
+  {
+   "file": "snip_015907_takeemdowndowndown.png",
+   "expected_name": "Take'em Down Down Down",
+   "rarity": "kGold",
+   "teal_fraction": 0.859,
+   "two_line": true
+  }
+ ]
+}
