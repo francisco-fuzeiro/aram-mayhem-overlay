@@ -253,6 +253,29 @@
             $("ocr-summary").textContent = status.available
                 ? "Tesseract detected. Live augment recognition is not yet verified."
                 : "OCR unavailable. Automatic scanning needs attention.";
+            // Never render backend-supplied diagnostic strings directly.
+            const stages = {
+                not_scanned: "No scan has run in the current offer.",
+                ocr_unavailable: "OCR dependency was unavailable during the last scan.",
+                game_window_unavailable: "League game window was not found.",
+                game_not_focused: "League game window was not focused.",
+                capture_unavailable: "Focused League capture was unavailable.",
+                geometry_unsupported: "Current League client geometry is not calibrated.",
+                titles_verifying: "Augment title slots are still being verified.",
+                titles_unidentified: "The scan could not identify any of the visible card titles (or no offer was present).",
+                titles_detected: "Augment titles were identified in a previous scan; real-game accuracy remains unverified.",
+                titles_unchanged: "Last scan found no newly verified title changes.",
+                titles_transition: "A title transition or obstruction prevented fresh advice.",
+                verified_absence: "Independently verified offer absence (requires native calibration).",
+            };
+            const stage = Object.hasOwn(stages, status.scan_stage) ? status.scan_stage : "not_scanned";
+            $("ocr-scan-detail").textContent = "Last scan: " + stages[stage] +
+                (status.scan_window_open === true
+                    ? " Automatic offer scanning is armed."
+                    : " No active automatic offer scan.") +
+                (status.catalog_available === false
+                    ? " Augment catalog is empty; title matching cannot succeed."
+                    : "");
             const setup = typeof status.next_step === "string" && status.next_step.length <= 300
                 ? status.next_step
                 : status.available
@@ -270,6 +293,7 @@
                     " Manual augment input remains available.";
         } catch (error) {
             $("ocr-summary").textContent = "Unable to check OCR status: " + error.message;
+            $("ocr-scan-detail").textContent = "Last scan status unavailable.";
             $("ocr-next-step").textContent = "Check the local API connection, then select Recheck.";
             $("diagnostics-ocr").textContent = "OCR status check failed: " + error.message;
         } finally {

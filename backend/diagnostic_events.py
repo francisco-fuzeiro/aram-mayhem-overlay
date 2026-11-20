@@ -32,6 +32,15 @@ SCHEMA: dict[str, dict[str, object]] = {
         "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "offer_disappeared", "reset", "unknown")),
         "level": "int",
     },
+    "ocr_scan_stage": {
+        "stage": frozenset((
+            "not_scanned", "ocr_unavailable", "game_window_unavailable",
+            "game_not_focused", "capture_unavailable", "geometry_unsupported",
+            "titles_verifying", "titles_unidentified",
+            "titles_detected", "titles_unchanged", "titles_transition",
+            "verified_absence",
+        )),
+    },
     "ocr_recognition": {
         "outcome": frozenset((
             "detected", "unchanged", "disappeared", "no_augments", "unavailable",

@@ -158,6 +158,10 @@ D6–D8 are **product core work**, not prerequisites for prototyping the Setting
 
 ## D5 — First-run OCR and diagnostics
 
+> **2026-11-20 P0 live observation / offline instrumentation:** A user reports that the OCR dependency is detected but in-game augment cards are still not recognized ([issue #46](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/46), PL-15). New [draft PR #47](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/47) is stacked on D5a #45 and adds only bounded, privacy-safe scan-stage evidence and Settings diagnostics, not image-classifier accuracy. Tests-first [RED 44646740586](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44646740586); corrected [code GREEN 44647421372](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44647421372) **551 Python/53 JS**, after reverting a catalog guard that broke C3 regression tests. The real cause of missed cards is not established. D5b OCR recognition, data/patch/catalog, source quality, special four-card UI and grouped Windows/League acceptance remain separate OPEN gates; final docs-HEAD CI still required.
+
+
+
 > **2026-11-19 D5a offline code gate GREEN, device OPEN:** [draft PR #45](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/45) stacked on C4 #44 adds truthful, safe OCR dependency reasons and setup steps to the existing pre-game Settings/OCR API. [RED 44639937927](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44639937927) (five expected new failures), [GREEN code 44640112417](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44640112417) (**546 Python/51 JS**). No installer, Tesseract auto-install, new OCR matching algorithm or native acceptance. D5b live recognition remains separate; D5c's external Claude desktop UX audit is still unfulfilled and must be explicitly resolved/deferred before D6 according to this plan. Final docs-HEAD CI still required.
 
 - **D5a:** local Tesseract executable detection; explicit status and guided install path, no hidden installation.

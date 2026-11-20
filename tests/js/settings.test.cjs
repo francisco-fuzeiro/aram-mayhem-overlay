@@ -404,3 +404,33 @@ test("D5a older boolean-only OCR response keeps the fallback useful", async () =
     assert.match(h.element("ocr-summary").textContent, /OCR unavailable/);
     assert.match(h.element("ocr-next-step").textContent, /Install Tesseract/);
 });
+
+
+test("P0 scan-stage diagnostics distinguish installed OCR from unreadable offer titles", async () => {
+    const h = harness((url, options) => {
+        if (url === "/api/ocr/status") return {body: {
+            available: true, reason: "ready", scan_window_open: true,
+            scan_stage: "titles_unidentified",
+            next_step: "Dependency ready; game recognition remains unverified.",
+        }};
+        return successful(url, options);
+    });
+    await ready();
+    assert.match(html, /id="ocr-scan-detail"/);
+    assert.match(h.element("ocr-summary").textContent, /Tesseract detected/);
+    assert.match(h.element("ocr-scan-detail").textContent, /could not identify/);
+    assert.doesNotMatch(h.element("ocr-scan-detail").textContent, /Tesseract not installed/);
+});
+
+test("P0 scan-stage diagnostics never show unsafe unknown stage codes", async () => {
+    const h = harness((url, options) => {
+        if (url === "/api/ocr/status") return {body: {
+            available: true, scan_stage: "C:/private/account",
+            scan_window_open: false,
+        }};
+        return successful(url, options);
+    });
+    await ready();
+    assert.match(h.element("ocr-scan-detail").textContent, /No scan/);
+    assert.doesNotMatch(h.element("ocr-scan-detail").textContent, /private/);
+});

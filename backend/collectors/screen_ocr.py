@@ -164,6 +164,20 @@ class ScreenWatcher:
         self._refocus_pending = False
         self._transition_open = False
         self._last_detected: list[tuple[str, str, int]] = []
+        self._last_scan_stage = "not_scanned"
+
+    @property
+    def last_scan_stage(self) -> str:
+        with self._lock:
+            return self._last_scan_stage
+
+    def _set_scan_stage(self, stage: str) -> None:
+        # Only internal bounded constants, never untrusted OCR text or paths.
+        from backend.diagnostic_events import events
+        if stage not in SCAN_STAGES:
+            stage = "not_scanned"
+        self._last_scan_stage = stage
+        events.transition("ocr_scan_stage", stage=stage)
 
     def reset(self) -> None:
         """Forget the completed offer, without altering any player action."""
@@ -174,6 +188,7 @@ class ScreenWatcher:
             self._refocus_pending = False
             self._transition_open = False
             self._last_detected = []
+            self._set_scan_stage("not_scanned")
 
     def check(
         self,
@@ -196,6 +211,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("ocr_unavailable")
                 return ("unavailable", None)
 
             game = find_league_window()
@@ -205,6 +221,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("game_window_unavailable")
                 return ("unavailable", None)
             if not game.focused:
                 self._capture_stale = True
@@ -212,6 +229,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("game_not_focused")
                 return ("not_focused", None)
 
             # Capture only the verified foreground League client ROI.
@@ -222,6 +240,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("capture_unavailable")
                 return ("unavailable", None)
             if self._capture_stale:
                 self._temporal.suspend()
@@ -237,6 +256,7 @@ class ScreenWatcher:
                 self._absence_gate.suspend()
                 self._refocus_pending = True
                 self._transition_open = False
+                self._set_scan_stage("geometry_unsupported")
                 return ("unavailable", None)
 
             # A separate classifier may be plugged in ONLY after real native
@@ -272,6 +292,7 @@ class ScreenWatcher:
                 # observer exists yet, so this cannot fire in actual games.
                 if self._absence_gate.observe(cue, key):
                     self._transition_open = False
+                    self._set_scan_stage("verified_absence")
                     return ("disappeared", None)
             else:
                 self._absence_gate.observe(None, key)
@@ -282,6 +303,7 @@ class ScreenWatcher:
                 self._temporal.suspend()
                 self._transition_open = False
                 self._refocus_pending = False
+                self._set_scan_stage("titles_transition")
                 return ("transition", None)
 
             if pending:
@@ -291,10 +313,13 @@ class ScreenWatcher:
                 if self._refocus_pending:
                     # B2: never claim an unchanged verified offer if no
                     # historical C3 snapshot exists on this focus recovery.
+                    self._set_scan_stage("titles_verifying")
                     return ("unchanged" if current is not None else "no_augments", None)
                 if current is not None:
                     self._transition_open = True
+                    self._set_scan_stage("titles_verifying")
                     return ("transition", None)
+                self._set_scan_stage("titles_verifying")
                 return ("no_augments", None)
 
             if result is not None:
@@ -303,6 +328,7 @@ class ScreenWatcher:
                 self._last_detected = list(result)
                 if save:
                     save_screenshot(img, label="verified_title_slots")
+                self._set_scan_stage("titles_detected")
                 return ("detected", result)
 
             if self._transition_open:
@@ -311,8 +337,10 @@ class ScreenWatcher:
                 # two fresh OCR confirmations across the three physical slots.
                 self._temporal.suspend()
                 self._transition_open = False
+                self._set_scan_stage("titles_transition")
                 return ("transition", None)
 
+            self._set_scan_stage("titles_unchanged" if current is not None else "titles_unidentified")
             return ("unchanged" if current is not None else "no_augments", None)
 
     @property
@@ -329,6 +357,17 @@ class ScreenWatcher:
     def has_detection(self) -> bool:
         with self._lock:
             return self._temporal.snapshot() is not None
+
+
+# Fixed codes for safe, bounded OCR diagnostics. Never record captured pixels,
+# raw OCR strings, player data or local filesystem paths.
+SCAN_STAGES = frozenset((
+    "not_scanned", "ocr_unavailable", "game_window_unavailable",
+    "game_not_focused", "capture_unavailable", "geometry_unsupported",
+    "titles_verifying", "titles_unidentified",
+    "titles_detected", "titles_unchanged", "titles_transition",
+    "verified_absence",
+))
 
 
 # -- Module-level singleton --
