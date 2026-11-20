@@ -325,3 +325,12 @@ def test_unknown_inventory_disables_precise_next_purchase(monkeypatch, tmp_path)
     assert state.gold_to_next == 0
     assert state.build_unavailable_reason == "inventory_unknown"
     assert state.boot_replacement is None
+
+
+def test_passive_alias_merges_awe_with_manaflow_without_false_wounds_group():
+    items = {
+        "a": {"description": "<mainText><passive>Awe:</passive><passive>Grievous Wounds:</passive></mainText>"},
+        "b": {"description": "<passive>Manaflow:</passive><passive>Grievous Wounds:</passive>"},
+        "c": {"description": "<passive>Grievous Wounds:</passive>"},
+    }
+    assert exclusive_groups(items) == {"Manaflow": frozenset({"a", "b"})}
