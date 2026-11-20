@@ -44,6 +44,7 @@ class SlotTemporalTracker:
         self._has_identified_card = False
         self._refresh_required = False
         self._unknown_retry_ticks: dict[str, int] = {}
+        self.last_emit_reverified = False
 
     def suspend(self) -> None:
         """On focus/capture loss preserve old identities, but distrust old hashes.
@@ -54,6 +55,7 @@ class SlotTemporalTracker:
         self._baselines.clear()
         self._pending.clear()
         self._refresh_required = True
+        self.last_emit_reverified = False
 
     @property
     def has_pending(self) -> bool:
@@ -88,6 +90,7 @@ class SlotTemporalTracker:
         None means no publishable change (not an offer disappearance). A
         SlotMatches result includes explicit unknowns and unchanged positions.
         """
+        self.last_emit_reverified = False
         if list(crops) != list(SLOTS):
             raise ValueError("exactly three ordered, client-bounded crops required")
 
@@ -177,6 +180,8 @@ class SlotTemporalTracker:
             if len(self._baselines) != len(SLOTS):
                 return None
             self._refresh_required = False
-            return self.snapshot()
+            refreshed = self.snapshot()
+            self.last_emit_reverified = refreshed is not None
+            return refreshed
 
         return self.snapshot() if changed else None
