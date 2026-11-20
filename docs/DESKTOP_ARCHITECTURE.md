@@ -2,6 +2,16 @@
 
 Status: **approved architecture; D1 #13, D2 #14 (Windows lifecycle accepted), D3 #15 (user-reported Settings acceptance), D4a #16 (persisted v1 API), D4b #17 (simulated preview / Qt appearance application), all stacked draft PRs**. Actual D4b Windows display acceptance remains pending. Baseline: 2026-11-18. All PRs remain stacked drafts; `main` unchanged.
 
+## 2026-11-20 approved refinements from FAILED native custom game (NOT IMPLEMENTED)
+
+See [`PLAYTEST_FINDINGS_2026-11-20.md`](PLAYTEST_FINDINGS_2026-11-20.md), P0 [#46](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/46), item-gating [#49](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/49), contextual UX [#50](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/50).
+
+1. **AUGMENTS is one single in-game panel.** Merge historical `AUGMENT PICK` and `DETECT AUGMENTS`; show only current verified L/C/R cards and concise scores, never redundant OCR debug controls during combat. Technical controls in pregame Settings and a nonintrusive fallback if OCR cannot identify a card. The actual custom-game OCR was still failing at #48 `a796e7f` despite Tesseract/catalog readiness.
+2. **One dynamically recalculated build, not multiple alternatives.** Retain player's pregame build-style bias if desired, but render only one feasible route/next justified purchase, changing as confirmed chosen augments, owned items, gold/slots, visible enemy itemization and team context change. Explicitly gate Mayhem quest/augment-only items and non-shop items by verified eligibility. Ultra Hydra was incorrectly recommended without enabling augment; do not invent item IDs or unlock conditions.
+3. **HUD exclusion is mandatory.** Top-right panel in screenshot obstructed native League score, time and gold. Overlay should remain hidden/minimal during combat and leave native HUD readable, show augment guidance only during verified cards, build only with a verified shop trigger (no guessed shop-open state). Placement/scale controlled from pregame Settings; Qt click-through/Alt+O/Alt+H remain safe.
+4. **Manual OCR must be usable but cannot bypass focus safety.** `NOT FOCUSED` currently conflates unavailable/stale/focus states, with disabled `Scan Screen` in interactive overlay. Distinguish bounded failure stage and provide a safe recovery design. Never capture an unfocused desktop merely to enable the manual button.
+5. **Release remains blocked.** This was a native Windows FAIL. The user may close their custom test; no new live games until offline evidence, focused tests-first fixes and final-head CI. Four-card Maestro special offers need separate measured layout. No automatic buys/picks or third-party unverified signals.
+
 ## Design principles
 
 1. **One local Python engine, two independent UI surfaces.** Keep the existing FastAPI/Live Client Data API/OCR/scoring backend; do not fork or rewrite the recommendation engine.

@@ -1,5 +1,8 @@
 # ARAM Oracle — M4/M5 C1–C4 grouped native acceptance plan
 
+> **Patch 26.23 additional stop case:** A Maestro Headliner special offer may expose four augment options. The current C1–C4 title geometry and C3 physical slot contract are calibrated for three cards only. During the final grouped campaign, record four-card offers separately as **unsupported / no inferred L/C/R identities** unless a new measured, privacy-reviewed four-slot layout and independent tests have already been implemented. Do not count a misprojected 3-card crop as a successful recognition. No four-card Windows sample is available yet.
+
+
 **Status: plan only. No Windows/League acceptance executed.**
 
 This is the single, controlled end-of-development test campaign requested

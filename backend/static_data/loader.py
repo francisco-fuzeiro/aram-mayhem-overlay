@@ -387,8 +387,16 @@ def _load_augments() -> dict[str, AugmentData]:
 
     cache_file = CACHE_DIR / f"augments_v{_AUGMENT_CACHE_SCHEMA}_{version}.json"
     if cache_file.exists():
-        cached = json.loads(cache_file.read_text(encoding="utf-8"))
-        return _parse_augment_cache(cached)
+        try:
+            cached = json.loads(cache_file.read_text(encoding="utf-8"))
+            # An outage in an older build could persist an empty patch cache.
+            # A blank or malformed catalog cannot identify any OCR title;
+            # retry the source instead of treating it as a valid cache hit.
+            parsed = _parse_augment_cache(cached) if isinstance(cached, dict) else {}
+            if parsed:
+                return parsed
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            _loader_logger.warning("Invalid augment cache; retrying source")
 
     # Fetch ARAM Mayhem augments from cherry-augments.json (primary source)
     try:
@@ -454,8 +462,10 @@ def _load_augments() -> dict[str, AugmentData]:
     # Apply overrides
     result = _apply_overrides(result)
 
-    # Cache
-    cache_file.write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
+    # Never persist a transient empty catalog: the next launch must be
+    # allowed to recover without a forced manual cache deletion.
+    if cache_data:
+        cache_file.write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
 
     return result
 
