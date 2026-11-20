@@ -1,0 +1,5 @@
+{
+  "version": "2026-11-20.1",
+  "force_class": {},
+  "_doc": "Each entry: {\"<id>\": {\"class\": \"not_purchasable\", \"reason\": \"...\", \"source\": \"N1 evidence | patch notes URL\"}}"
+}

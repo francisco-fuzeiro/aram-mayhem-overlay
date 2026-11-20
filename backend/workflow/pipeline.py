@@ -77,6 +77,23 @@ class Pipeline:
             ally_profile=ally_profile,
             build_style=snapshot.build_style,
         )
+        meta = self.data.item_pool_meta
+        if meta is not None:
+            build_state.data_version = {
+                "policy_version": meta.policy_version,
+                "ddragon_version": meta.ddragon_version,
+                "cdragon_patch": meta.cdragon_patch,
+                "overrides_version": meta.overrides_version,
+                "availability": meta.availability,
+            }
+            if meta.availability != "verified_two_source":
+                # Recognition-only names are not permission to recommend buys.
+                build_state.next_item_id = None
+                build_state.gold_to_next = 0
+                build_state.full_build = []
+                build_state.alternatives = {}
+                build_state.boot_replacement = None
+                build_state.build_unavailable_reason = "item_availability_unknown"
 
         return PipelineResult(
             phase=snapshot.phase,
