@@ -4,6 +4,11 @@ description: Resume ARAM Oracle development safely across ChatGPT project conver
 ---
 
 
+## 2026-11-20 latest handoff — historical user events.jsonl triaged, NO current-version proof
+
+- The user supplied a real privacy-safe `events.jsonl` (653 events, four 2026-11-19/20 games). 592 OCR attempts = 347 `not_focused`, 242 `detected`, 2 `no_augments`, 1 `unavailable`. Among the 242 detected, 208 confidence values are **below 90**; four level-3 scan windows persisted until `reset` at match end, with no confirmation event. Exact counts and caveats documented at [Issue #46](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/46#issuecomment-7030845241); **do not commit the raw user log**.
+- **Do not mistake old logs for current app validation.** This uploaded log ends **2026-11-20 00:27 UTC**; #47 corrected OCR-stage commit `14ebfbf8` is timestamped **00:37:59 UTC** and #48 comes later. No `ocr_scan_stage` entries in an earlier log are expected; absence alone does NOT prove the current running Windows build is stale. Strict C2 title matching requires >=90 and C3 two-read stability, which the old `detected` events do not verify. The current Windows backend executable/check-out commit is UNKNOWN. Next prioritize **P0-BUILD-01** read-only runtime provenance and then pregame #47 stage/#48 English+catalog status; no repeat League game until the planned grouped acceptance. Preserve all draft PRs and do not touch `main`.
+
 ## 2026-11-20 latest P0 handoff — catalog recovery and English OCR readiness, draft PR #48
 
 - New [draft PR #48](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/48), branch `fix/p0-ocr-prerequisite-recovery`, directly on draft #47 `fix/p0-ocr-scan-stage-observability` HEAD `77989a28` (which has exact-final-HEAD Windows Actions 44647789526 SUCCESS: 551 Python and 53 JS). Upstream #45 and #44 remain draft; **never modify/merge `main`**. Current GitHub repository visibility is public.
