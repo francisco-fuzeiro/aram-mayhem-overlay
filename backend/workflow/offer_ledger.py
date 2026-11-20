@@ -75,6 +75,18 @@ class OfferLedger:
         if slot not in SLOTS:
             raise LedgerError("bad_slot")
 
+    def set_current_epoch(self, epoch: int) -> None:
+        """Fence only the newest open offer to a new server capture generation."""
+        if not self.offers:
+            return
+        if type(epoch) is not int or epoch <= self._epoch:
+            raise LedgerError("stale_epoch")
+        latest = self.offers[-1]
+        if latest.state not in ("due", "visible", "awaiting_confirm"):
+            return
+        latest.epoch = epoch
+        self._epoch = epoch
+
     def on_level(self, level: int) -> Offer | None:
         if type(level) is not int or level < 0:
             return None
@@ -105,13 +117,17 @@ class OfferLedger:
             raise LedgerError("not_in_offer")
         if len(nonnull) != len(set(nonnull)):
             raise LedgerError("identity_conflict")
-        # Validate the whole observation before mutating any slot.
-        for slot, augment_id in slots.items():
-            if augment_id is None:
-                continue
-            for other, identity in offer.slots.items():
-                if other != slot and identity.augment_id == augment_id and slots.get(other) != augment_id:
-                    raise LedgerError("identity_conflict")
+        # A complete fresh OCR observation may move an identity to a new
+        # position while removing it from the old one. Only the post-update
+        # identities may be required unique; never mutate on conflict.
+        final = {
+            slot: slots[slot] if slots[slot] is not None
+            else offer.slots[slot].augment_id
+            for slot in SLOTS
+        }
+        final_ids = [value for value in final.values() if value is not None]
+        if len(set(final_ids)) != len(final_ids):
+            raise LedgerError("identity_conflict")
         for slot, augment_id in slots.items():
             if augment_id is None:
                 continue
