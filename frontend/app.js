@@ -17,6 +17,7 @@
     let currentOcrSlots = null;
     let offerState = "inactive";
     let offerEpoch = null;
+    let currentOffers = [];
     let searchDebounce = null;
     let ocrAvailable = false;
     let scanning = false;
@@ -206,6 +207,7 @@
         currentOcrSlots = null;
         offerState = "inactive";
         offerEpoch = null;
+        currentOffers = [];
         scanning = false;
         stale = false;
         ocrPhase = "no_offer";
@@ -377,6 +379,7 @@
                 currentOcrSlots = normalizedOcrSlots(msg.ocr_slots);
             }
             if (typeof msg.offer_state === "string") offerState = msg.offer_state;
+            currentOffers = Array.isArray(msg.offers) ? msg.offers : [];
             lastResult = msg;
             renderUpdate(msg);
             return;
@@ -397,6 +400,7 @@
                 msg.offer_epoch !== offerEpoch) return;
             if (msg.status === "superseded") return;
             if (typeof msg.offer_state === "string") offerState = msg.offer_state;
+            if (Array.isArray(msg.offers)) currentOffers = msg.offers;
 
             // Legacy packets cannot turn a focus indicator into a capture gate.
             const phase = OCR_PHASE_LABELS[msg.phase] ? msg.phase
@@ -665,6 +669,22 @@
         }, 4000);
     }
 
+    function confirmTarget(augmentId) {
+        if (typeof augmentId !== "string") return null;
+        const valid = currentOffers.filter(offer =>
+            offer && Number.isSafeInteger(offer.offer_id) &&
+            Number.isSafeInteger(offer.epoch) &&
+            ["visible", "awaiting_confirm"].includes(offer.state) &&
+            offer.slots && Object.values(offer.slots).some(slot =>
+                slot && slot.augment_id === augmentId));
+        const awaiting = valid.filter(offer => offer.state === "awaiting_confirm")
+            .sort((a, b) => a.offer_id - b.offer_id);
+        const visible = valid.filter(offer => offer.state === "visible")
+            .sort((a, b) => b.offer_id - a.offer_id);
+        const target = awaiting[0] || visible[0];
+        return target ? { offer_id: target.offer_id, epoch: target.epoch } : null;
+    }
+
     function showConfirmPanel(msg) {
         // Keep the existing section state: no forced combat-time expansion
         // or input. Players can confirm later when it is safe.
@@ -692,7 +712,11 @@
                 ${isBestGuess ? '<span class="confirm-hint">likely</span>' : ""}
             `;
             btn.addEventListener("click", () => {
-                wsSend({ type: "choose_augment", augment_id: c.id });
+                if (Number.isSafeInteger(msg.offer_id) &&
+                    Number.isSafeInteger(msg.epoch)) {
+                    wsSend({ type: "choose_augment", augment_id: c.id,
+                             offer_id: msg.offer_id, epoch: msg.epoch });
+                }
                 augmentConfirm.classList.add("hidden");
             });
             augmentConfirm.appendChild(btn);
@@ -805,7 +829,9 @@
             `;
 
             card.querySelector(".btn-choose").addEventListener("click", () => {
-                wsSend({ type: "choose_augment", augment_id: rec.augment_id });
+                const target = confirmTarget(rec.augment_id);
+                if (target) wsSend({ type: "choose_augment",
+                                     augment_id: rec.augment_id, ...target });
             });
 
             augmentList.appendChild(card);
