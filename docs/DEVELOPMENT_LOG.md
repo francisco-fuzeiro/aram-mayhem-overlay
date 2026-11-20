@@ -2,6 +2,13 @@
 
 Append-only timeline. Entries are factual snapshots, not future promises. For the latest task plan, read [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
+## 2026-11-20 — First user-supplied Windows structured log, historical OCR triage
+
+- Analyzed the exact uploaded `events.jsonl`: 653 valid events across four match sessions, ending 2026-11-20 00:27 UTC. For 592 `ocr_recognition` events: 347 not-focused, 242 detected, 2 no-augments, 1 unavailable. Of the 242 `detected`, 208 reported confidence under the current strict C2 threshold 90; recorded match counts for 3/2/1 cards were 153/37/52. Four level-3 OCR windows closed only with `reset` at match end. No confirmed augment selections or `ocr_scan_stage` events in the historical file.
+- Provenance gate: corrected #47 OCR-stage code `14ebfbf8` was committed 00:37:59 UTC (later than the log's last event), and #48 after 01:13 UTC. Missing stage codes therefore reflect old logs, not necessarily a stale currently installed app; no Windows local git/executable SHA was supplied. Do not claim current native C2/C3 recognition or tune algorithm from this file.
+- Preserved privacy by posting **only aggregates** to [Issue #46](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/46#issuecomment-7030845241) without adding the raw log to GitHub. P0-LOG-01 evidence triage complete; P0-BUILD-01 version/launch-origin identification and a single grouped Windows acceptance remain open. No code change or `main` merge.
+
+
 ## 2026-11-18 — Project setup and original overlay
 
 - Project goal: League of Legends ARAM Mayhem companion with in-game augment recommendations, Champion Select ranking, prior augment synergies, build adaptation and enemy team context; custom 0.0–10.0 scores, not win-rate display.
