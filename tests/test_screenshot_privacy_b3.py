@@ -9,6 +9,7 @@ import pytest
 
 from backend.collectors import screen_ocr
 from backend.collectors.league_window import LeagueWindow
+from backend.collectors.window_capture import CaptureProof, CaptureResult
 from backend.config import DEFAULTS, Config, config
 from backend.api import server
 from backend.diagnostic_events import default_log_dir
@@ -22,6 +23,11 @@ def league(focused=True):
 
 def image_of_augment_region():
     return Image.new("RGB", (1344, 302), (21, 37, 99))
+
+
+def verified_proof(game=None):
+    game = game or league()
+    return CaptureProof("wgc", game.hwnd, game.rect, 10.0, "other")
 
 
 @pytest.fixture
@@ -48,11 +54,11 @@ def test_no_image_saved_by_default_even_if_save_requested(monkeypatch, tmp_path)
     monkeypatch.setattr(screen_ocr, "SCREENSHOT_DIR", tmp_path / "screenshots")
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league())
     assert screen_ocr.screenshot_opted_in() is False
-    assert screen_ocr.save_screenshot(image_of_augment_region(), label="ocr") is None
+    assert screen_ocr.save_screenshot(image_of_augment_region(), label="ocr", proof=verified_proof()) is None
     assert not (tmp_path / "screenshots").exists()
 
 
-def test_explicit_optin_cannot_save_when_league_loses_focus(debug_env, monkeypatch):
+def test_explicit_optin_cannot_save_unverified_image_even_without_focus(debug_env, monkeypatch):
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
     assert screen_ocr.save_screenshot(image_of_augment_region(), label="ocr") is None
     assert not list(debug_env.glob("*.png"))
@@ -62,7 +68,7 @@ def test_opted_in_images_are_three_narrow_card_title_crops_only(debug_env):
     image = image_of_augment_region()
     first = screen_ocr.save_screenshot(
         image, label="ocr", ocr_texts=["PRIVATE SCREEN TEXT"],
-        matches=[("internal", "PRIVATE AUGMENT", 92)],
+        matches=[("internal", "PRIVATE AUGMENT", 92)], proof=verified_proof(),
     )
     paths = list(debug_env.glob("*.png"))
     assert first is not None and first in paths
@@ -155,8 +161,14 @@ def test_custom_ocr_region_cannot_escape_game_or_request_full_window(monkeypatch
     assert screen_ocr.get_augment_region(1920, 1080) == (0.1, 0.2, 0.9, 0.45)
 
 
-def test_cached_game_handle_rechecks_foreground_before_mss(monkeypatch):
+def test_cached_game_handle_rejects_unverified_window_mismatch(monkeypatch):
     monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
     monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
-    monkeypatch.setattr(screen_ocr.mss, "mss", lambda: pytest.fail("captured after focus loss"))
-    assert screen_ocr.capture_augment_region(league_window=league(True)) is None
+    wrong = LeagueWindow(99, 0, 0, 1920, 1080, False)
+    monkeypatch.setattr(screen_ocr, "capture_league_client", lambda *a, **kw:
+                        CaptureResult(
+                            Image.new("RGB", (1920, 1080)),
+                            verified_proof(wrong), "ok",
+                        ))
+    result = screen_ocr.capture_augment_region(league_window=league(True))
+    assert result.reason == "window_changed" and result.image is None
