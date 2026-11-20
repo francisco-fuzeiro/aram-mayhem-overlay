@@ -6,9 +6,7 @@ never replaced with invented negative League screenshots. No game is launched.
 from __future__ import annotations
 
 from hashlib import sha256
-from io import BytesIO
 from pathlib import Path
-from zipfile import ZipFile
 
 from PIL import Image
 
@@ -22,7 +20,6 @@ from backend.diagnostic_events import SCHEMA, _clean, events
 
 ROOT = Path(__file__).resolve().parents[1]
 TITLES = ROOT / "tests" / "fixtures" / "ocr_titles"
-V3_ZIP = ROOT / "docs" / "plans" / "ARAM_2026-11-20" / "sources" / "ARAM_blueprints_GPT_2026-11-20_v3.zip"
 NO_OFFER_SHA16 = {
     "card_centre_1795134399156658000_1.png": "5ff58b0e19c6cb7d",
     "card_left_1795134399156658000_0.png": "3ce0daf3992ffd7a",
@@ -40,20 +37,15 @@ def title_images():
 
 
 def no_offer_images():
-    """Load the five *real* approved negatives from the committed v3 archive."""
-    with ZipFile(V3_ZIP) as archive:
-        names = {
-            name.rsplit("/", 1)[-1]: name
-            for name in archive.namelist()
-            if "/no_offer_2544x1353/" in name and name.endswith(".png")
-        }
-        assert set(names) == set(NO_OFFER_SHA16)
-        images = {}
-        for basename, member in names.items():
-            payload = archive.read(member)
-            assert sha256(payload).hexdigest()[:16] == NO_OFFER_SHA16[basename]
-            images[basename] = Image.open(BytesIO(payload)).convert("RGB")
-        return images
+    """Load all five reviewed negatives; verify bytes against the v3 manifest."""
+    directory = TITLES / "no_offer"
+    paths = sorted(directory.glob("*.png"))
+    assert {path.name for path in paths} == set(NO_OFFER_SHA16)
+    images = {}
+    for path in paths:
+        assert sha256(path.read_bytes()).hexdigest()[:16] == NO_OFFER_SHA16[path.name]
+        images[path.name] = Image.open(path).convert("RGB")
+    return images
 
 
 def test_c1_calibration_constants_and_shadow_default():
