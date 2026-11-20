@@ -418,7 +418,13 @@ def champ_select_status():
 @app.get("/api/ocr/status")
 def ocr_status():
     readiness = ocr_capture.readiness_status()
+    observed_stage = getattr(screen_watcher, "last_scan_stage", "not_scanned")
+    # A mocked or outdated watcher must not inject free-form diagnostics.
+    if observed_stage not in ocr_capture.SCAN_STAGES:
+        observed_stage = "not_scanned"
     return {
+        "scan_window_open": bool(game_state.scan_window_open),
+        "scan_stage": observed_stage,
         "available": readiness["available"],
         "reason": readiness["reason"],
         "next_step": readiness["next_step"],
