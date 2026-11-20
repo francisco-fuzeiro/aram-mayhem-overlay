@@ -844,39 +844,41 @@ async def game_ws(websocket: WebSocket):
                 }))
 
             elif msg_type == "scan_augments":
-                # Manual OCR cannot run or publish outside a current pick
-                # window. The generation is captured BEFORE async OCR so
-                # a completed/changed offer cannot receive late results.
+                # Same A3/A4-proven gate as REST and Alt+S. Pending stat/choice
+                # confirmation is not a veto to reading cards, but an unverified
+                # scan can never add an augment or resurrect a closed offer.
                 async with game_state.lock:
                     request_match = game_state.match_id
                     request_epoch = game_state.offer_epoch
-                    allowed = (
-                        game_state.scan_window_open and game_state.ocr_enabled
-                        and not game_state.confirmation_pending
-                        and not game_state.awaiting_stat_delta
-                    )
-                ids, detected = ([], [])
-                if allowed:
-                    ids, detected = await asyncio.to_thread(_run_ocr_scan_manual)
+                    allowed = game_state.scan_window_open and game_state.ocr_enabled
+                result = ([], [])
+                if allowed and ocr_available():
+                    result = await asyncio.to_thread(_run_ocr_scan_manual)
+                ids, detected, proven, reverified, foreground = _manual_scan_parts(result)
                 async with game_state.lock:
                     applied = allowed and game_state.accept_manual_ocr(
                         ids, detected, match_id=request_match,
-                        offer_epoch=request_epoch,
+                        offer_epoch=request_epoch, capture_proven=proven,
+                        reverified=reverified,
                     )
                     if applied:
+                        game_state.ocr_foreground = foreground
                         status = "detected"
                     elif (allowed and game_state.match_id == request_match
                           and game_state.offer_epoch == request_epoch
                           and game_state.scan_window_open
                           and game_state.ocr_enabled):
-                        # The watcher may be verifying a changed title.
-                        # Never republish historical card identities.
                         game_state.offer_lifecycle.observe("transition")
+                        game_state.set_ocr_phase("verifying")
                         status = "transition"
                     else:
                         status = "superseded"
                     message = {
                         "type": "ocr_result", "status": status,
+                        "phase": game_state.ocr_phase,
+                        "stale": game_state.ocr_stale,
+                        "reverified": bool(applied and reverified),
+                        "foreground": game_state.ocr_foreground,
                         "detected": detected if applied else [],
                         "augment_choices": list(game_state.augment_choices),
                         "offer_state": game_state.offer_state,
@@ -926,6 +928,8 @@ async def game_ws(websocket: WebSocket):
                     stale_message = {
                         "type": "ocr_result",
                         "status": "disabled" if not requested else "unavailable",
+                        "phase": game_state.ocr_phase,
+                        "foreground": game_state.ocr_foreground,
                         "stale": game_state.ocr_stale,
                         "offer_state": game_state.offer_state,
                         "offer_epoch": game_state.offer_epoch,
