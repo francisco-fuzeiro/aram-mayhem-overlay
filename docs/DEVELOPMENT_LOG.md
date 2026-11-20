@@ -1,5 +1,14 @@
 # Overlay LoL — Development Log
 
+## 2026-11-20 — D2 v3 unified AUGMENTS/compact BUILD/Settings OCR (draft PR #68, CI gate open)
+
+- Verified D1 [draft #67](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/67), HEAD `64980f7098efeaa9bb128d4df8aff877857d4d9d`, and [Windows #44836316922](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44836316922) SUCCESS. Created `fix/d2-unified-augment-overlay` from exact parent SHA; [draft #68](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/68) directly targets #67, no merge, main unchanged.
+- RED-first `3115cae57b22f2368f78b439fe6c205120eed7ea` [Windows #44839445847](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44839445847): 57 pre-existing JavaScript tests passed, all six new D2 expectations failed; Python 1,944 and three syntax checks passed. Correctly proved absent D2 behavior before implementation.
+- Removed duplicate in-game DETECT AUGMENTS and HUD champion/time/gold; C2 ledger drives single AUGMENTS panel. Due offers stay collapsed with a small Alt+S hint; verified/recovered/awaiting offers show left/centre/right identity, explicit Pick, candidate-only likely note, and inline voluntary Alt+O search for unknown slots. 409/422 conflicts show one message and refresh, with no retries or guessed picks. One next-item line remains; detailed build (including existing optional boot-swap metadata) appears only while dead or pinned by local Alt+B. Enemies collapsed unless manually opened while interactive. OCR enable/scan/phase/foreground/last proven capture backend and shortcut information are in desktop Settings.
+- Necessary read-only integration outside principal UI allowlist: `backend/api/server.py` serializes existing `snapshot.is_dead` for death-only build presentation and exposes the last verified capture backend; `backend/collectors/screen_ocr.py` holds a read-only, reset-on-failure capture-backend diagnostic. Neither changes A3 capture proof, WGC fallback, OCR thresholds, temporal validation, C1 shadow cue, C2 confirmation or gameplay decisions. Qt Alt+S recovers an eligible due offer before current guarded OCR; Alt+B only posts a WebView presentation event.
+- Reconciled old M2/M5/A5/F4 tests against verified C2 offers and Settings-only OCR; added tagged identify/confirm/conflict plus Settings scan/toggle tests. One pre-D2 Python UI-source assertion was migrated to the new per-slot fallback. **Exact code+docs HEAD Windows CI and N1 native acceptance are pending; never claim live OCR/UI success.** No C3/S1, installer, Settings Alt+S remapping, gameplay additions, League session or merges.
+
+
 Append-only timeline. Entries are factual snapshots, not future promises. For the latest task plan, read [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
 ## 2026-11-20 — D1 v3 HUD geometry (draft PR #67, offline code GREEN)
