@@ -95,7 +95,7 @@ def test_user_data_directory_and_retention_count_and_age(debug_env):
     old_time = time.time() - 9 * 86400
     os.utime(old, (old_time, old_time))
     for i in range(12):
-        assert screen_ocr.save_screenshot(image_of_augment_region(), label="ocr")
+        assert screen_ocr.save_screenshot(image_of_augment_region(), label="ocr", proof=verified_proof())
     paths = list(debug_env.glob("*.png"))
     assert not old.exists()
     assert 0 < len(paths) <= screen_ocr.MAX_SCREENSHOTS
