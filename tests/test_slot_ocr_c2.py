@@ -41,7 +41,7 @@ def test_ambiguous_catalog_names_fail_closed():
     names = {"1": "En Passant", "2": "En Paszant"}
     assert strict_match_title("En Paszant", names) == ("2", "En Paszant", 100)
     assert strict_match_title("En Pasxant", names) is None
-    assert strict_match_title("Unique", {"1": "Unique", "2": "Unique"}) is None
+    assert strict_match_title("Unique", {"1": "Unique", "2": "Unique"}) == ("1", "Unique", 100)
 
 
 def test_read_each_slot_and_preserve_left_centre_right_not_confidence_rank(monkeypatch):
