@@ -362,6 +362,7 @@ async def test_c4_verified_offer_occlusion_suspends_without_clearing_or_choosing
         watcher_result=("occluded", [], None),
     )
     state.scan_window_open = True
+    state.offer_lifecycle.open()
     state.set_ocr_phase("detected")
     await poll_tick(state, deps, 42.0)
     assert state.offer_state == "suspended"
