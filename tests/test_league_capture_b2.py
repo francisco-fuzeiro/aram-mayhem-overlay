@@ -14,68 +14,67 @@ def league(*, focused=True):
     )
 
 
-def test_mss_crop_uses_game_client_rect_not_selected_monitor(monkeypatch):
+def _verified_client(*, foreground="other"):
+    from PIL import Image
+    from backend.collectors.window_capture import CaptureProof, CaptureResult
+    game = league(focused=False)
+    return CaptureResult(
+        Image.new("RGB", (1920, 1080), (21, 37, 99)),
+        CaptureProof("wgc", game.hwnd, game.rect, 10.0, foreground), "ok",
+    )
+
+
+def test_verified_window_source_crops_game_roi_not_monitor(monkeypatch):
     monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league())
-    grabbed = []
-    class FakeMSS:
-        @property
-        def monitors(self):
-            raise AssertionError("monitor fallback must never be used")
-        def __enter__(self):
-            return self
-        def __exit__(self, *args):
-            pass
-        def grab(self, rect):
-            grabbed.append(rect)
-            return type("Shot", (), {"size": (rect["width"], rect["height"]), "bgra": b""})()
-    monkeypatch.setattr(screen_ocr.mss, "mss", lambda: FakeMSS())
-    monkeypatch.setattr(screen_ocr.Image, "frombytes", lambda *args: "cropped")
-    assert screen_ocr.capture_augment_region() == "cropped"
-    assert grabbed == [{
-        "left": -1632, "top": 337, "width": 1344, "height": 302,
-    }]
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr, "capture_league_client", lambda *a, **kw: _verified_client())
+    region = screen_ocr.capture_augment_region()
+    assert region.reason == "ok"
+    assert region.proof.backend == "wgc"
+    assert region.image.size == (1344, 302)
 
 
-def test_alt_tab_blocks_capture_without_opening_mss(monkeypatch):
+def test_unverified_image_is_not_returned_from_capture(monkeypatch):
     monkeypatch.setattr(screen_ocr, "OCR_AVAILABLE", True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
-    monkeypatch.setattr(screen_ocr.mss, "mss", lambda: pytest.fail("captured desktop"))
-    assert screen_ocr.capture_augment_region() is None
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    from backend.collectors.window_capture import CaptureResult
+    monkeypatch.setattr(screen_ocr, "capture_league_client",
+                        lambda *a, **kw: CaptureResult(None, None, "invalid_frame"))
+    result = screen_ocr.capture_augment_region()
+    assert result.image is None and result.proof is None
 
 
-def test_watcher_blur_returns_not_focused_without_capture_ocr_or_forgetting_slots(monkeypatch):
+def test_watcher_occlusion_suspends_pending_without_reading_ocr(monkeypatch):
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *args, **kw: pytest.fail("captured"))
-    monkeypatch.setattr(screen_ocr, "extract_text", lambda *args: pytest.fail("OCR invoked"))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    from backend.collectors.window_capture import CaptureResult
+    monkeypatch.setattr(screen_ocr, "capture_league_client",
+                        lambda *a, **kw: CaptureResult(None, None, "occluded", "other"))
+    from backend.collectors import slot_title_ocr
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot",
+                        lambda *args: pytest.fail("unsafe OCR"))
     watcher = screen_ocr.ScreenWatcher()
-    watcher._last_detected = [("known", "Known", 95)]
-    watcher._frozen_hash = "old"
-    assert watcher.check({"known": "Known"}) == ("not_focused", None)
-    assert watcher.last_detected == [("known", "Known", 95)]
+    watcher._temporal._pending = {"left": "old"}
+    assert watcher.check({"known": "Known"}) == ("occluded", None)
+    assert watcher.last_scan_stage == "game_occluded"
+    assert not watcher._temporal.has_unverified_changes
 
 
-def test_refocus_forces_fresh_ocr_even_if_hash_would_match_previous_frame(monkeypatch):
+def test_foreground_loss_does_not_block_verified_wgc_ocr(monkeypatch):
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    state = {"focused": False}
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=state["focused"]))
-    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *args, **kw: "frame")
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    monkeypatch.setattr(screen_ocr, "capture_league_client", lambda *a, **kw: _verified_client())
     monkeypatch.setattr(screen_ocr, "_perceptual_hash", lambda img: "0" * 64)
     monkeypatch.setattr(screen_ocr, "crop_title_slots", lambda *_args: {
         slot: "synthetic" for slot in ("left", "centre", "right")
     })
     reads = []
+    from backend.collectors import slot_title_ocr
     def read(slot, _crop, _names):
         reads.append(slot)
         return ("new", "New", 95) if slot == "left" else None
-    from backend.collectors import slot_title_ocr
     monkeypatch.setattr(slot_title_ocr, "recognize_title_slot", read)
     watcher = screen_ocr.ScreenWatcher()
-    watcher._last_detected = [("old", "Old", 90)]
-    assert watcher.check({})[0] == "not_focused"
-    state["focused"] = True
-    # Refocus does not reuse the previous hash or accept one frame.
     assert watcher.check({})[0] == "no_augments"
     action, matches = watcher.check({})
     assert action == "detected"
@@ -83,10 +82,13 @@ def test_refocus_forces_fresh_ocr_even_if_hash_would_match_previous_frame(monkey
     assert reads == ["left", "centre", "right"] * 2
 
 
-def test_manual_scan_cannot_ocr_an_unfocused_window(monkeypatch):
+def test_manual_scan_rejects_unverified_frame(monkeypatch):
     monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
-    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(focused=False))
-    monkeypatch.setattr(screen_ocr, "extract_text", lambda *args: pytest.fail("OCR invoked"))
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: league(False))
+    from backend.collectors.window_capture import CaptureResult
+    monkeypatch.setattr(screen_ocr, "capture_league_client",
+                        lambda *a, **kw: CaptureResult(None, None, "invalid_frame"))
+    monkeypatch.setattr(screen_ocr, "extract_text", lambda *args: pytest.fail("unsafe OCR"))
     assert screen_ocr.detect_augments({"one": "One"}, save=False) == []
 
 
