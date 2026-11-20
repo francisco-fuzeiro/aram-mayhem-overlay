@@ -180,3 +180,24 @@ def test_offer_epoch_external_fence_invalidates_stale_confirm(ledger):
     assert first.epoch == old_epoch + 5
     assert ledger.active_augment_ids() == []
     assert ledger.confirm(1, first.epoch, "101").picked_id == "101"
+
+
+def test_identity_override_event_contains_no_augment_id(monkeypatch, ledger):
+    from backend.api import server
+    from backend.diagnostic_events import _clean
+    events = []
+    monkeypatch.setattr(server.event_log, "emit",
+                        lambda name, **data: events.append((name, data)))
+    offer = ledger.on_level(3)
+    ledger.open_for_recovery(1)
+    ledger.identify(1, offer.epoch, "left", "101", {"101", "102"})
+    server._ledger_verified_titles(
+        ledger, {"left": "102", "centre": None, "right": None}, offer.epoch,
+    )
+    assert events == [("identity_overridden", {
+        "slot": "left", "verified_by": "ocr",
+    })]
+    assert _clean(events[0][0], {**events[0][1], "augment_id": "101"}) == {
+        "slot": "left", "verified_by": "ocr",
+    }
+    assert ledger.active_augment_ids() == []
