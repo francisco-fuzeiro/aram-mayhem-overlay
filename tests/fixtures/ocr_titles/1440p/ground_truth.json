@@ -1,0 +1,82 @@
+{
+ "client_rect": [
+  0,
+  0,
+  2560,
+  1440
+ ],
+ "roi": [
+  0.15,
+  0.22,
+  0.85,
+  0.5
+ ],
+ "note": "Title-band crops only (no HUD/desktop). expected_name null = must return None (dialog/blank/animation).",
+ "cases": [
+  {
+   "file": "region_1795025142_left.png",
+   "slot": "left",
+   "expected_name": "Impassable"
+  },
+  {
+   "file": "region_1795025142_centre.png",
+   "slot": "centre",
+   "expected_name": "Shark Bait"
+  },
+  {
+   "file": "region_1795025142_right.png",
+   "slot": "right",
+   "expected_name": "Donation"
+  },
+  {
+   "file": "ocr_1795024923_centre.png",
+   "slot": "centre",
+   "expected_name": "Upgrade Stormsurge"
+  },
+  {
+   "file": "ocr_1795024923_right.png",
+   "slot": "right",
+   "expected_name": "Tooth Fairy"
+  },
+  {
+   "file": "ocr_1795025241_left.png",
+   "slot": "left",
+   "expected_name": "Get Jinxed"
+  },
+  {
+   "file": "ocr_1795025241_centre.png",
+   "slot": "centre",
+   "expected_name": "Shark Bait"
+  },
+  {
+   "file": "ocr_1795025241_right.png",
+   "slot": "right",
+   "expected_name": "Donation"
+  },
+  {
+   "file": "ocr_1795025015_left.png",
+   "slot": "left",
+   "expected_name": "Impassable"
+  },
+  {
+   "file": "ocr_1795025015_centre.png",
+   "slot": "centre",
+   "expected_name": "Upgrade Stormsurge"
+  },
+  {
+   "file": "ocr_1795025015_right.png",
+   "slot": "right",
+   "expected_name": "Donation"
+  },
+  {
+   "file": "ocr_1795025002_centre.png",
+   "slot": "centre",
+   "expected_name": null
+  },
+  {
+   "file": "ocr_1795025367_centre.png",
+   "slot": "centre",
+   "expected_name": null
+  }
+ ]
+}
