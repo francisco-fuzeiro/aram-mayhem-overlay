@@ -563,6 +563,7 @@ def ocr_status():
         "stale": game_state.ocr_stale,
         "stale_since_epoch": game_state.ocr_stale_since_epoch,
         "foreground": game_state.ocr_foreground,
+        "capture_backend": getattr(screen_watcher, "last_capture_backend", None),
         "offers": game_state.offer_ledger.payload(),
     }
 
