@@ -19,6 +19,11 @@ def pending_offer(monkeypatch):
     state.stat_snapshot_level_before = 3
     state.stat_snapshot_items_before = ("1001",)
     state.augment_choices = ["a", "b", "c"]
+    offer = state.offer_ledger.on_level(3)
+    state.offer_ledger.on_verified_titles(
+        {"left": "a", "centre": "b", "right": "c"}, offer.epoch,
+    )
+    state.offer_ledger.on_titles_unverified()
 
     augments = {
         aid: SimpleNamespace(id=aid, name="card " + aid, tier=AugmentTier.GOLD)
@@ -105,6 +110,7 @@ async def test_a3_missing_baseline_metadata_fails_closed(pending_offer):
 async def test_a3_unobserved_offer_never_guesses_from_whole_catalog(pending_offer):
     state, data, broadcast, matcher, _events = pending_offer
     state.augment_choices.clear()
+    state.offer_ledger = server.OfferLedger(server.AUGMENT_PICK_LEVELS_SORTED)
     await server._try_stat_delta_match(snapshot())
 
     message = json.loads(broadcast.await_args.args[0])
@@ -172,8 +178,10 @@ async def test_a3_explicit_manual_choice_resolves_pending_state(pending_offer, m
     assert state.delta_wait_ticks == 0
     assert state.augment_choices == []
     assert state.stat_snapshot_before == {}
-    assert client.sent == [{
-        "type": "ack", "action": "choose_augment",
-        "chosen_augments": ["b"],
-    }]
+    assert len(client.sent) == 1
+    assert client.sent[0]["type"] == "ack"
+    assert client.sent[0]["action"] == "choose_augment"
+    assert client.sent[0]["chosen_augments"] == ["b"]
+    assert client.sent[0]["offer_id"] == 1
+    assert client.sent[0]["epoch"] == state.offer_ledger.offers[0].epoch
     assert ("augment_confirmation", {"method": "manual", "kind": "augment"}) in events
