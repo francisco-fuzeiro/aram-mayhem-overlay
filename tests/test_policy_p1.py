@@ -64,10 +64,12 @@ def test_websocket_snapshot_redacts_nested_win_statistics(monkeypatch):
     state = server.GameState()
     state.pipeline = SimpleNamespace(run=lambda _snapshot: _recommendation_result())
     monkeypatch.setattr(server, "game_state", state)
-    with TestClient(server.app) as client:
-        with client.websocket_connect("/ws/game") as ws:
-            ws.send_json({"type": "snapshot", "data": {"phase": "in_game"}})
-            update = ws.receive_json()
+    # Use the existing integration-test pattern: do not start lifespan here,
+    # which would replace our isolated pipeline with a production Pipeline.
+    client = TestClient(server.app)
+    with client.websocket_connect("/ws/game") as ws:
+        ws.send_json({"type": "snapshot", "data": {"phase": "in_game"}})
+        update = ws.receive_json()
     assert update["type"] == "update"
     _assert_no_augment_win_stats(update)
     assert update["recommendations"][0]["score"] == 7.5
