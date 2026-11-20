@@ -47,7 +47,7 @@ def test_old_schema_augment_cache_is_not_reused(tmp_path, monkeypatch):
 
     def fake_get(url, **kwargs):
         if url == loader.CD_AUGMENTS_URL:
-            return Response([{"id": 9001, "name": "Valid Card", "rarity": "kGold"}])
+            return Response([{"id": 9001, "name": "Valid Card", "nameTRA": "Valid Card", "rarity": "kGold"}])
         if url == loader.CD_ARENA_DESC_URL:
             return Response({"augments": []})
         raise AssertionError(f"Unexpected request: {url}")

@@ -30,7 +30,7 @@ def _setup(tmp_path, monkeypatch):
 
 def _healthy_response(url, **_kwargs):
     if url == loader.CD_AUGMENTS_URL:
-        return _Response([{"id": 90001, "name": "Fixture Title", "rarity": "kGold"}])
+        return _Response([{"id": 90001, "name": "Fixture Title", "nameTRA": "Fixture Title", "rarity": "kGold"}])
     if url == loader.CD_ARENA_DESC_URL:
         return _Response({"augments": []})
     raise AssertionError("unexpected source")

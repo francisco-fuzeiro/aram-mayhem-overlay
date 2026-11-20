@@ -51,11 +51,11 @@ def test_name_hint_description_keywords_and_override_provenance(tmp_path, monkey
         calls.append(url)
         if url == loader.CD_AUGMENTS_URL:
             return Response([
-                {"id": 501, "name": "Blunt Force", "rarity": "kGold"},
-                {"id": 502, "name": "Description Card", "rarity": "kGold"},
-                {"id": 503, "name": "Override Card", "rarity": "kGold"},
-                {"id": 504, "name": "Empty Override Card", "rarity": "kGold"},
-                {"id": 505, "name": "Shark Bait", "rarity": "kGold"},
+                {"id": 501, "name": "Blunt Force", "nameTRA": "Blunt Force", "augmentSmallIconPath": "/Kiwi/test", "rarity": "kGold"},
+                {"id": 502, "name": "Description Card", "nameTRA": "Description Card", "augmentSmallIconPath": "/Kiwi/test", "rarity": "kGold"},
+                {"id": 503, "name": "Override Card", "nameTRA": "Override Card", "augmentSmallIconPath": "/Kiwi/test", "rarity": "kGold"},
+                {"id": 504, "name": "Empty Override Card", "nameTRA": "Empty Override Card", "augmentSmallIconPath": "/Kiwi/test", "rarity": "kGold"},
+                {"id": 505, "name": "Shark Bait", "nameTRA": "Shark Bait", "augmentSmallIconPath": "/Kiwi/test", "rarity": "kGold"},
             ])
         if url == loader.CD_ARENA_DESC_URL:
             return Response({"augments": [
