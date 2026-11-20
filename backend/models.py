@@ -131,6 +131,13 @@ class ItemData:
     move_speed_flat: float = 0.0
     move_speed_percent: float = 0.0
     item_class: str = "unknown"  # Recognition is not proof of shop availability.
+    from_ids: tuple[str, ...] = ()  # Direct recipe, with repeated components intact.
+    into_ids: tuple[str, ...] = ()
+
+    @property
+    def final(self) -> bool:
+        from backend.static_data.item_policy import RECOMMENDABLE_CLASSES
+        return self.item_class in RECOMMENDABLE_CLASSES
 
 
 @dataclass
