@@ -274,3 +274,24 @@ def test_untrusted_proofless_roi_never_reaches_watcher(monkeypatch):
     watcher = screen_ocr.ScreenWatcher()
     assert watcher.check({}) == ("capture_unavailable", None)
     assert watcher.last_scan_stage == "capture_invalid"
+
+
+def test_verified_recovery_resets_wgc_invalid_streak_budget():
+    sources = []
+    def factory(hwnd):
+        source = FakeFrame(np.zeros((540, 960, 4), dtype=np.uint8))
+        sources.append(source)
+        return source
+
+    for _ in range(10):
+        assert capture(factory=factory).reason == "invalid_frame"
+    # The first new session recovers once. A later unrelated failure streak
+    # must get one fresh restart rather than being called permanently degraded.
+    sources[1].frame = valid_bgra()
+    assert capture(factory=factory).reason == "ok"
+    sources[1].frame = np.zeros((540, 960, 4), dtype=np.uint8)
+    for _ in range(10):
+        assert capture(factory=factory).reason == "invalid_frame"
+    assert len(sources) == 2
+    assert capture(factory=factory).reason == "invalid_frame"
+    assert len(sources) == 3
