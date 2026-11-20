@@ -207,3 +207,70 @@ def test_explicit_degraded_fallback_still_checks_occlusion(monkeypatch):
         capture(factory=lambda hwnd: source)
     monkeypatch.setattr(wc, "_mss_grab", lambda rect: Image.fromarray(valid_bgra()[:, :, :3], "RGB"))
     assert capture(allow_screen_copy_fallback=True).proof.backend == "mss_zorder"
+
+def test_wgc_adapter_copies_transient_frame_and_closes_once(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    callbacks = {}
+    controls = []
+    constructor_args = []
+    class FakeControl:
+        def __init__(self):
+            self.calls = 0
+        def stop(self):
+            self.calls += 1
+    class FakeWindowsCapture:
+        def __init__(self, **kwargs):
+            constructor_args.append(kwargs)
+        def event(self, fn):
+            callbacks[fn.__name__] = fn
+            return fn
+        def start_free_threaded(self):
+            control = FakeControl()
+            controls.append(control)
+            return control
+
+    monkeypatch.setitem(sys.modules, "windows_capture",
+                        SimpleNamespace(WindowsCapture=FakeWindowsCapture))
+    source = wc.WgcFrameSource(17)
+    frame = valid_bgra()
+    original = frame[20, 30, 0]
+    callbacks["on_frame_arrived"](SimpleNamespace(frame_buffer=frame), controls[0])
+    frame[20, 30, 0] = original ^ 255
+    captured, arrival = source.latest()
+    assert captured[20, 30, 0] == original
+    assert isinstance(arrival, float) and arrival > 0
+    assert constructor_args[0]["window_hwnd"] == 17
+    assert constructor_args[0]["minimum_update_interval"] == 100
+    assert constructor_args[0]["cursor_capture"] is False
+    source.close()
+    source.close()
+    assert controls[0].calls == 1
+    assert source.latest() is None
+
+
+def test_wgc_window_frame_offset_is_cropped_to_client(monkeypatch):
+    api = FakeWin32()
+    class BorderWin32(FakeWin32):
+        def frame_bounds(self, hwnd):
+            return (GAME.left - 8, GAME.top - 8, GAME.right + 8, GAME.bottom + 8)
+    api = BorderWin32()
+    frame = np.zeros((556, 976, 4), dtype=np.uint8)
+    frame[8:548, 8:968] = valid_bgra()
+    result = capture(api=api, factory=lambda hwnd: FakeFrame(frame))
+    assert result.reason == "ok" and result.image.size == (960, 540)
+    assert result.image.getpixel((30, 20)) == (0, 20, 30)
+
+
+def test_untrusted_proofless_roi_never_reaches_watcher(monkeypatch):
+    from backend.collectors import screen_ocr, slot_title_ocr
+    monkeypatch.setattr(screen_ocr, "is_available", lambda: True)
+    monkeypatch.setattr(screen_ocr, "find_league_window", lambda: GAME)
+    monkeypatch.setattr(screen_ocr, "capture_augment_region", lambda *a, **k:
+                        Image.new("RGB", (672, 151)))
+    monkeypatch.setattr(slot_title_ocr, "recognize_title_slot",
+                        lambda *a: pytest.fail("no OCR for proofless frame"))
+    watcher = screen_ocr.ScreenWatcher()
+    assert watcher.check({}) == ("capture_unavailable", None)
+    assert watcher.last_scan_stage == "capture_invalid"
