@@ -405,7 +405,8 @@
                 : msg.status === "disabled" ? "disabled"
                 : msg.status === "transition" ? "verifying"
                 : msg.status === "detected" ? "detected"
-                : msg.status === "disappeared" ? "no_offer" : "no_offer";
+                : msg.status === "disappeared" ? "no_offer"
+                : Array.isArray(msg.detected) && msg.detected.length ? "detected" : "no_offer";
             const closed = msg.status === "disappeared" && offerState === "gone";
             updateOcrPhase(phase, msg.stale, msg.reverified === true, closed);
 
