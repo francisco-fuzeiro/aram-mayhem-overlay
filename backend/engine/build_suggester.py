@@ -207,6 +207,10 @@ def _boot_replacement(
     """
     if not catalog_verified:
         return None
+    # A scoring model for an unrecognized champion is insufficient evidence
+    # for a destructive late-game sell recommendation.
+    if item_data is not None and item_data.get_champion(champion.id) is None:
+        return None
     if inventory is not None:
         if inventory.used_slots != slots:
             return None
