@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.models import ChampionMeta, GamePhase, GameSnapshot, ItemData, StatVector
+from backend.models import ChampionMeta, EnemyState, GamePhase, GameSnapshot, ItemData, StatVector
 from backend.engine.build_suggester import suggest_build
 from backend.engine.inventory import INVENTORY_SLOTS, Inventory, build_inventory, remaining_cost
 from backend.static_data.loader import StaticData, _load_items
@@ -114,8 +114,9 @@ def test_hydra_recursive_recipe_cost_uses_fixture_prices_only_once(
 def test_hydra_uses_tiamat_instead_of_also_consuming_its_long_swords(monkeypatch, tmp_path):
     data = _data(monkeypatch, tmp_path)
     gold, consumed = remaining_cost("3074", Counter({"3077": 1, "1036": 2}), data)
-    assert gold == _price("3074") - _price("3077") - _price("1036")
-    assert consumed == Counter({"3077": 1, "1036": 1})
+    # Both longs are still usable in the OTHER branches (1053 and 3133).
+    assert gold == _price("3074") - _price("3077") - 2 * _price("1036")
+    assert consumed == Counter({"3077": 1, "1036": 2})
 
 
 def test_hydra_cannot_reuse_one_long_sword_across_recipe_branches(monkeypatch, tmp_path):
@@ -165,11 +166,20 @@ def test_pipeline_canonicalizes_enemy_items_and_keeps_item_pool_gate(monkeypatch
         "lux": ChampionMeta(id="lux", name="Lux", stats=StatVector(ap=0.9)),
     }
     monkeypatch.setattr("backend.workflow.pipeline.get_all_personal_winrates", lambda _: {})
+    original_get_item = data.get_item
+    observed_lookups = []
+
+    def observe_item(item_id):
+        observed_lookups.append(item_id)
+        return original_get_item(item_id)
+
+    data.get_item = observe_item
     snapshot = GameSnapshot(
         game_id="b2-offline", phase=GamePhase.IN_GAME,
         champion_id="lux", augment_choices=[], chosen_augments=[],
         purchased_items=["773074", "1036", "226668"], current_gold=0, game_time=20,
-        enemy_champion_ids=[],
+        enemy_champion_ids=["lux"],
+        enemy_states=[EnemyState("lux", ["3040"])],
     )
     result = Pipeline(data).run(snapshot)
     assert result is not None
@@ -177,3 +187,4 @@ def test_pipeline_canonicalizes_enemy_items_and_keeps_item_pool_gate(monkeypatch
     assert "1036" not in result.build_state.full_build
     assert "226668" not in result.build_state.full_build
     assert result.build_state.data_version["availability"] == "verified_two_source"
+    assert "3003" in observed_lookups  # Special recipe alias of enemy 3040.
