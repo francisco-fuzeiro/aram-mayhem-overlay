@@ -20,10 +20,10 @@ def champion(identifier, role, **stats):
     )
 
 
-def item(identifier, tags=(), **stats):
+def item(identifier, tags=(), properties=(), **stats):
     return ItemData(
         identifier, identifier.title(), 1500, StatVector(**stats),
-        tags=list(tags),
+        tags=list(tags), properties=frozenset(properties),
     )
 
 
@@ -31,8 +31,8 @@ def test_enemy_threat_uses_known_champion_stats_and_visible_items_only():
     tank = champion("tank", "tank", hp=0.9, hard_cc=0.9)
     mage = champion("mage", "mage", ap=0.95, cdr=0.7)
     items = {
-        "armor": item("armor", ["Armor"]),
-        "mr": item("mr", ["SpellBlock"]),
+        "armor": item("armor", properties={"armor"}),
+        "mr": item("mr", properties={"magic_resist"}),
     }
     threats = analyze_enemies(
         [
@@ -150,7 +150,7 @@ def test_lcda_only_exposes_visible_teams_and_enemy_items():
 
 
 def test_unknown_champion_still_counts_visible_item_metadata():
-    armor = item("armor", ["Armor"])
+    armor = item("armor", properties={"armor"})
     profile = analyze_enemies(
         [EnemyState("not-in-catalog", ["armor", "unknown-item"])],
         lambda _: None,
@@ -166,7 +166,7 @@ def test_unknown_champion_still_counts_visible_item_metadata():
 
 def test_partial_enemy_catalog_cannot_report_high_confidence():
     known = champion("known", "mage", ap=0.8)
-    item_db = {"armor": item("armor", ["Armor"])}
+    item_db = {"armor": item("armor", properties={"armor"})}
     players = [EnemyState("known", ["armor"]) for _ in range(4)]
     players.append(EnemyState("missing", ["armor"]))
     partial = analyze_enemies(players, {"known": known}.get, item_db.get)

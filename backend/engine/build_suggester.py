@@ -14,6 +14,42 @@ from backend.engine.team_context import EnemyThreatProfile, AllyTeamProfile
 logger = logging.getLogger("aram-oracle.engine.build")
 
 BUILD_STYLES = ("Balanced", "Damage", "Survival", "Utility")
+ENEMY_REACTION_BONUS = 0.15
+ENEMY_REACTION_MAX = 0.30
+
+
+def _enemy_reaction_bonus(
+    item: ItemData,
+    champion: ChampionMeta,
+    enemy: EnemyThreatProfile | None,
+) -> float:
+    """Bounded additive response only to observed enemy item/kit signals."""
+    if (enemy is None or enemy.enemies_analyzed == 0
+            or item.item_class != "final" or not item.properties):
+        return 0.0
+    properties = item.properties
+    ap_champion = (
+        champion.role.lower() == "mage"
+        or champion.stats.ap > champion.stats.ad
+    )
+    reactions = 0
+    if ((enemy.sustain_pressure >= 0.35 or enemy.healing_items >= 3)
+            and "anti_heal" in properties):
+        reactions += 1
+    if (enemy.armor_items >= 3 or enemy.tanks >= 2):
+        if ("magic_pen" if ap_champion else "armor_pen") in properties:
+            reactions += 1
+    if enemy.magic_resist_items >= 3 and "magic_pen" in properties:
+        reactions += 1
+    if enemy.physical_pressure >= 0.6 and "armor" in properties:
+        reactions += 1
+    if enemy.magic_pressure >= 0.6 and "magic_resist" in properties:
+        reactions += 1
+    if enemy.burst_pressure >= 0.5 and properties & {"shield", "health"}:
+        reactions += 1
+    if enemy.cc_pressure >= 0.5 and properties & {"tenacity", "cleanse"}:
+        reactions += 1
+    return min(ENEMY_REACTION_MAX, ENEMY_REACTION_BONUS * reactions)
 
 def _item_name_key(item: ItemData) -> str:
     """Treat catalog variants with the same display name as one build choice.
@@ -105,7 +141,8 @@ def _rank_items(
         available,
         key=lambda item: (
             -(score_item(champion, item, augments) +
-              weight * _item_role_bonus(item, enemy, allies, direction)),
+              weight * _item_role_bonus(item, enemy, allies, direction) +
+              _enemy_reaction_bonus(item, champion, enemy)),
             item.id,
         ),
     )
@@ -245,7 +282,7 @@ def _boot_replacement(
     def contextual_value(item: ItemData) -> float:
         return score_item(champion, item, augments) + weight * _item_role_bonus(
             item, enemy, allies, style
-        )
+        ) + _enemy_reaction_bonus(item, champion, enemy)
 
     boot_value = contextual_value(current_boot)
     observed = set(owned_ids)

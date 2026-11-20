@@ -167,7 +167,7 @@ def test_verified_two_source_pool_and_versioned_cache(monkeypatch, tmp_path):
     assert "226668" not in catalog.pool_ids
     assert "3040" not in catalog.pool_ids
     assert data.get_item("3074").name == "Ravenous Hydra"
-    assert list(tmp_path.glob("items_v4_16.23.1*.json"))
+    assert list(tmp_path.glob("items_v5_16.23.1*.json"))
 
 
 def test_offline_uses_only_verified_same_version_cache(monkeypatch, tmp_path):
@@ -194,7 +194,7 @@ def test_no_cache_or_wrong_version_fails_closed_with_names(monkeypatch, tmp_path
     assert data.get_item("3074").item_class == "unknown"
     assert not catalog.pool_ids
     assert catalog.data_source == "ddragon_unverified"
-    (tmp_path / "items_v4_16.22.1.json").write_text(
+    (tmp_path / "items_v5_16.22.1.json").write_text(
         json.dumps({"schema": 3, "meta": {"ddragon_version": "16.22.1",
         "availability": "verified_two_source"}, "items": {}}), encoding="utf-8")
     assert _load_items().meta.availability == "unknown"
@@ -202,7 +202,7 @@ def test_no_cache_or_wrong_version_fails_closed_with_names(monkeypatch, tmp_path
 
 def test_mismatched_cdragon_patch_and_schema2_cache_are_not_trusted(monkeypatch, tmp_path):
     offline_loader(monkeypatch, tmp_path, patch="16.24.1")
-    (tmp_path / "items_v4_16.23.1.json").write_text(
+    (tmp_path / "items_v5_16.23.1.json").write_text(
         json.dumps({"schema": 2, "items": {"3074": {}}}), encoding="utf-8")
     catalog = _load_items()
     assert catalog.meta.availability == "unknown"

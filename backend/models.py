@@ -133,6 +133,7 @@ class ItemData:
     item_class: str = "unknown"  # Recognition is not proof of shop availability.
     from_ids: tuple[str, ...] = ()  # Direct recipe, with repeated components intact.
     into_ids: tuple[str, ...] = ()
+    properties: frozenset[str] = field(default_factory=frozenset)
 
     @property
     def final(self) -> bool:

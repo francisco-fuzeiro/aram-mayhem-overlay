@@ -5,6 +5,7 @@ Unknown, inconsistent or differently versioned evidence is never eligible.
 """
 from __future__ import annotations
 
+import html
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -160,3 +161,46 @@ def sources_agree(dd: dict, cd: dict) -> bool:
         except (TypeError, ValueError):
             return False
     return True
+
+
+ITEM_PROPERTY_NAMES = frozenset({
+    "armor", "magic_resist", "health", "lifesteal", "omnivamp",
+    "anti_heal", "armor_pen", "magic_pen", "tenacity", "shield", "cleanse",
+})
+
+
+def item_properties(dd: dict) -> frozenset[str]:
+    """Derive B5 item properties solely from Data Dragon stats and text.
+
+    No manually maintained item-ID lists or inferred conditional ownership.
+    HTML markup is removed before testing complete text terms.
+    """
+    stats = dd.get("stats") or {}
+    if not isinstance(stats, dict):
+        stats = {}
+    raw_description = dd.get("description") or ""
+    description = html.unescape(re.sub(r"<[^>]*>", " ", str(raw_description)))
+    properties = set()
+    for source, target in (
+        ("FlatArmorMod", "armor"),
+        ("FlatSpellBlockMod", "magic_resist"),
+        ("FlatHPPoolMod", "health"),
+        ("PercentLifeStealMod", "lifesteal"),
+    ):
+        value = stats.get(source)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+            properties.add(target)
+    for phrase, target in (
+        ("Omnivamp", "omnivamp"),
+        ("Magic Penetration", "magic_pen"),
+        ("Tenacity", "tenacity"),
+        ("Shield", "shield"),
+        ("Quicksilver", "cleanse"),
+    ):
+        if phrase in description:
+            properties.add(target)
+    if re.search(r"\bWounds\b", description):
+        properties.add("anti_heal")
+    if "Armor Penetration" in description or "Lethality" in description:
+        properties.add("armor_pen")
+    return frozenset(properties)
