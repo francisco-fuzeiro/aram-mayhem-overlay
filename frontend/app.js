@@ -11,7 +11,8 @@
     let lastResult = null;
     let activeMatchId = null;
     let stale = false;
-    let ocrFocusStale = false;
+    let ocrPhase = "no_offer";
+    let ocrStale = false;
     let selectedAugmentIds = [];
     let currentOcrSlots = null;
     let offerState = "inactive";
@@ -94,44 +95,52 @@
         }
     }
 
+    const OCR_PHASE_LABELS = Object.freeze({
+        disabled: ["OCR OFF", "OCR disabled in Settings", "ocr-missing"],
+        ocr_missing: ["NO OCR", "Tesseract not installed", "ocr-missing"],
+        no_game: ["NO GAME VIEW", "League game window unavailable", "ocr-paused"],
+        capture_unavailable: ["NO CAPTURE", "Verified game capture unavailable", "ocr-paused"],
+        occluded: ["CARDS COVERED", "League cards covered by another window", "ocr-paused"],
+        no_offer: ["OCR", "No verified augment offer visible", "ocr-ready"],
+        verifying: ["VERIFYING", "Confirming three physical card titles", "ocr-scanning"],
+        detected: ["OCR", "Augment titles verified", "ocr-ready"],
+        unreadable: ["UNREADABLE", "One or more titles could not be identified", "ocr-paused"],
+    });
+
     async function checkOcrStatus() {
         try {
             const res = await fetch("/api/ocr/status");
             const data = await res.json();
-            ocrAvailable = data.available;
-            updateOcrStatusBadge();
+            ocrAvailable = Boolean(data.available);
+            ocrPhase = data.enabled === false ? "disabled"
+                : !ocrAvailable ? "ocr_missing"
+                : OCR_PHASE_LABELS[data.phase] ? data.phase : "no_offer";
+            ocrStale = Boolean(data.stale);
         } catch (e) {
             ocrAvailable = false;
-            updateOcrStatusBadge();
+            ocrPhase = "ocr_missing";
         }
+        updateOcrStatusBadge();
     }
 
     function updateOcrStatusBadge() {
-        if (ocrFocusStale) {
-            ocrStatusBadge.textContent = "NOT FOCUSED";
-            ocrStatusBadge.className = "ocr-status-badge ocr-paused";
-            ocrStatusBadge.title = "League is not focused — previous cards are stale";
-            btnScan.disabled = true;
-            return;
-        }
-        if (ocrAvailable) {
-            ocrStatusBadge.textContent = "OCR";
-            ocrStatusBadge.className = "ocr-status-badge ocr-ready";
-            ocrStatusBadge.title = "Tesseract OCR ready";
-            btnScan.disabled = false;
-        } else {
-            ocrStatusBadge.textContent = "NO OCR";
-            ocrStatusBadge.className = "ocr-status-badge ocr-missing";
-            ocrStatusBadge.title = "Tesseract not installed";
-            btnScan.disabled = true;
-        }
+        const [label, detail, cssClass] = OCR_PHASE_LABELS[ocrPhase] || OCR_PHASE_LABELS.no_offer;
+        ocrStatusBadge.textContent = label + (ocrStale ? " · STALE" : "");
+        ocrStatusBadge.className = "ocr-status-badge " + cssClass;
+        ocrStatusBadge.title = detail + (ocrStale ? " — previous cards not verified" : "");
+        btnScan.disabled = scanning || ocrPhase === "disabled" || ocrPhase === "ocr_missing";
         const help = $("ocr-manual-help");
-        if (help) help.classList.toggle("hidden", ocrAvailable);
+        if (help) help.classList.toggle("hidden", ocrPhase !== "ocr_missing");
+        $("section-augments").classList.toggle("ocr-focus-stale", ocrStale);
     }
 
-    function setOcrFocusStale(value) {
-        ocrFocusStale = Boolean(value);
-        $("section-augments").classList.toggle("ocr-focus-stale", ocrFocusStale);
+    function updateOcrPhase(phase, staleValue, reverified = false, offerClosed = false) {
+        if (typeof phase === "string" && OCR_PHASE_LABELS[phase]) ocrPhase = phase;
+        if (staleValue === true) {
+            ocrStale = true;
+        } else if (offerClosed || (ocrPhase === "detected" && reverified)) {
+            ocrStale = false;
+        }
         updateOcrStatusBadge();
     }
 
@@ -199,7 +208,8 @@
         offerEpoch = null;
         scanning = false;
         stale = false;
-        ocrFocusStale = false;
+        ocrPhase = "no_offer";
+        ocrStale = false;
         $("section-augments").classList.remove("ocr-focus-stale");
         $("app").classList.remove("data-stale");
         champName.textContent = "---";
@@ -228,7 +238,7 @@
         searchDebounce = null;
         augmentSearch.value = "";
         btnScan.textContent = "Scan Screen";
-        btnScan.disabled = !ocrAvailable;
+        updateOcrStatusBadge();
         renderSelectedAugments();
         updateOcrStatusBadge();
     }
@@ -966,7 +976,7 @@
         // for "aug_pick" in phase never opened the recommendations.
         // A due level is only a scan opportunity; titles must be verified
         // before the live augment panel is shown.
-        const pickActive = offerState === "present" && !ocrFocusStale;
+        const pickActive = offerState === "present" && ocrPhase === "detected" && !ocrStale;
         // Neither a level threshold nor missing OCR proves an offer is open.
         if (pickActive) {
             augSection.classList.remove("collapsed");
@@ -1166,6 +1176,8 @@
                 scanning,
                 offerState,
                 offerEpoch,
+                ocrPhase,
+                ocrStale,
             }),
         });
     } else {
