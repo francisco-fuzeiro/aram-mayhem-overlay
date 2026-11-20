@@ -12,7 +12,8 @@ from dataclasses import asdict
 from backend.static_data.item_groups import exclusive_groups
 from backend.static_data.item_policy import (
     ITEM_POLICY_VERSION, POOL_CLASSES, RECOMMENDABLE_CLASSES, ItemPoolMeta,
-    classify_item, cdragon_matches, load_item_overrides, patch_of, sources_agree,
+    classify_item, cdragon_matches, item_properties, ITEM_PROPERTY_NAMES,
+    load_item_overrides, patch_of, sources_agree,
 )
 
 from backend.collectors.slot_title_ocr import _normalize
@@ -169,9 +170,9 @@ ITEM_STAT_MAP: dict[str, str] = {
 
 _loader_logger = logging.getLogger("aram-oracle.loader")
 
-# Cache schema v2 stores listed movement-speed bonuses. Old caches cannot
-# support a safe boot-swap comparison, so require a new item cache.
-_ITEM_CACHE_SCHEMA = 4
+# B3 schema 4 stored passive groups and movement speed. B5 adds verified
+# properties; schema 5 rejects otherwise plausible stale caches.
+_ITEM_CACHE_SCHEMA = 5
 # Version in the filename prevents reuse of contributions parsed by older rules.
 _AUGMENT_CACHE_SCHEMA = 4
 MAYHEM_MIN_AUGMENT_ID = 1000
@@ -813,6 +814,7 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
             "move_speed_flat": move_flat,
             "move_speed_percent": move_pct,
             "item_class": category,
+            "properties": item_properties(data),
             "from_ids": tuple(str(value) for value in (data.get("from") or [])),
             "into_ids": tuple(str(value) for value in (data.get("into") or [])),
         }
@@ -837,6 +839,7 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
             move_speed_flat=data["move_speed_flat"],
             move_speed_percent=data["move_speed_percent"],
             item_class=data["item_class"],
+            properties=data["properties"],
             from_ids=data["from_ids"], into_ids=data["into_ids"],
         )
     special_recipes = {}
@@ -878,6 +881,7 @@ def _encode_item_cache(catalog):
                 "move_speed_flat": item.move_speed_flat,
                 "move_speed_percent": item.move_speed_percent,
                 "item_class": item.item_class,
+                "properties": sorted(item.properties),
                 "from_ids": list(item.from_ids), "into_ids": list(item.into_ids),
             } for ident, item in catalog.items()
         },
@@ -899,7 +903,18 @@ def _verified_cached_items(path, version, overrides_version):
                 or not re.fullmatch(r"[a-f0-9]{64}", meta.cdragon_sha256)
                 or not meta.cdragon_fetched_at):
             return None
-        items = _parse_item_cache(data["items"])
+        cached_rows = data["items"]
+        if not isinstance(cached_rows, dict) or not cached_rows:
+            return None
+        for row in cached_rows.values():
+            if not isinstance(row, dict) or not isinstance(row.get("properties"), list):
+                return None
+            properties = row["properties"]
+            if (len(properties) != len(set(properties))
+                    or any(not isinstance(p, str) or p not in ITEM_PROPERTY_NAMES
+                           for p in properties)):
+                return None
+        items = _parse_item_cache(cached_rows)
         classes = data["classes"]
         if not isinstance(classes, dict) or not items:
             return None
@@ -1028,6 +1043,7 @@ def _parse_item_cache(cached: dict) -> dict[str, ItemData]:
             move_speed_flat=data.get("move_speed_flat", 0.0),
             move_speed_percent=data.get("move_speed_percent", 0.0),
             item_class=data.get("item_class", "unknown"),
+            properties=frozenset(data.get("properties") or ()),
             from_ids=tuple(str(value) for value in (data.get("from_ids") or ())),
             into_ids=tuple(str(value) for value in (data.get("into_ids") or ())),
         )

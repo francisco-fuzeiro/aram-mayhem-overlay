@@ -26,6 +26,9 @@ class EnemyThreatProfile:
     burst_pressure: float = 0.0
     armor_items: int = 0
     magic_resist_items: int = 0
+    healing_items: int = 0
+    shield_items: int = 0
+    tenacity_items: int = 0
     visible_items: int = 0
     unknown_items: int = 0
     high_kill_enemies: int = 0
@@ -106,24 +109,28 @@ def analyze_enemies(
         return EnemyThreatProfile()
 
     known = tanks = armor = magic_resist = items_seen = high_kill = 0
+    healing = shields = tenacity = 0
     unknown_items = 0
     magic_sum = physical_sum = cc_sum = sustain_sum = shield_sum = burst_sum = 0.0
 
     for player in enemy_states:
         # The inventory is visible independently of our champion catalog.
         # Do not lose verified item observations when a champion is unmapped.
-        player_lifesteal = 0.0
+        player_healing_items = 0
         for item_id in player.item_ids:
             items_seen += 1
             item: ItemData | None = get_item(item_id)
             if item is None:
                 unknown_items += 1
                 continue
-            tags = {str(tag).lower() for tag in item.tags}
-            armor += int("armor" in tags)
-            magic_resist += int(bool(tags & {"spellblock", "magicresist", "magic_resist"}))
-            if "lifesteal" in tags:
-                player_lifesteal += 0.05
+            properties = item.properties
+            armor += int("armor" in properties)
+            magic_resist += int("magic_resist" in properties)
+            heals = bool(properties & {"lifesteal", "omnivamp"})
+            healing += int(heals)
+            player_healing_items += int(heals)
+            shields += int("shield" in properties)
+            tenacity += int("tenacity" in properties)
 
         champion: ChampionMeta | None = get_champion(player.champion_id)
         if champion is None:
@@ -136,7 +143,7 @@ def analyze_enemies(
                                  (0.15 if role in ("marksman", "assassin") else 0))
         cc_sum += _clamp01(max(stats.hard_cc, stats.soft_cc * 0.6,
                                champion.cc_profile.cc_uptime_rating))
-        sustain_sum += _clamp01(stats.heal_power) + player_lifesteal
+        sustain_sum += _clamp01(stats.heal_power) + 0.05 * player_healing_items
         shield_sum += _clamp01(stats.shield)
         burst_sum += _clamp01(max(stats.lethality, stats.ap * 0.7))
 
@@ -150,6 +157,8 @@ def analyze_enemies(
             enemies_visible=len(enemy_states), visible_items=items_seen,
             unknown_items=unknown_items, armor_items=armor,
             magic_resist_items=magic_resist,
+            healing_items=healing, shield_items=shields,
+            tenacity_items=tenacity,
         )
 
     power_total = magic_sum + physical_sum
@@ -167,6 +176,8 @@ def analyze_enemies(
         burst_pressure=round(_clamp01(burst_sum / known), 2),
         armor_items=armor,
         magic_resist_items=magic_resist,
+        healing_items=healing, shield_items=shields,
+        tenacity_items=tenacity,
         visible_items=items_seen,
         unknown_items=unknown_items,
         high_kill_enemies=high_kill,
