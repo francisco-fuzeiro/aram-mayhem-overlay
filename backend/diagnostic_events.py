@@ -60,6 +60,10 @@ SCHEMA: dict[str, dict[str, object]] = {
         "cue": frozenset(("present", "absent", "mixed")),
         "ocr": frozenset(("titles", "none")),
     },
+    "identity_overridden": {
+        "slot": frozenset(("left", "centre", "right")),
+        "verified_by": frozenset(("ocr",)),
+    },
     "augment_inference": {
         "result": frozenset(("pending", "auto", "ambiguous", "none")),
         "confidence": "confidence1",
