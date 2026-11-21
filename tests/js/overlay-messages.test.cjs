@@ -902,3 +902,15 @@ test("D2: awaiting-confirm unknown slot supports identity, not an implicit pick"
     assert.equal(h.requests.filter(x => x.url === "/api/offers/confirm").length, 0);
     assert.equal(h.element("augment-progress").textContent, "0/4");
 });
+
+test("D2: newer due offer suppresses an older awaiting-confirm panel", () => {
+    const h = harness();
+    const old = d2Offer("awaiting_confirm", "ocr");
+    const newer = {...d2Offer("due", null), offer_id: 2, epoch: 8};
+    h.api.handleMessage({...gameUpdate("Jinx"),
+        offers: [old, newer], offer_epoch: 8,
+        ocr_phase: "detected", ocr_stale: false});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("augment-list").children.length, 0);
+    assert.match(h.element("augment-due-hint").textContent, /Augment 2 available/);
+});
