@@ -1,5 +1,15 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-21 — N1 JavaScript browser bootstrap (PR #71)
+
+- [x] **N1-PF-06a RED:** a user Windows terminal caught `ReferenceError: loadBuildPreference is not defined` at `frontend/app.js:70`; old style handler was removed after Settings separation, but the boot call survived. Browser-branch test on `2c631fa5d8c1eb0d21de84af17c8d7c70854454f` [Windows #44955660838](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44955660838) reproduced exactly one expected JS failure; 72 existing JS and 1,945 Python passed.
+- [x] **N1-PF-06b GREEN (automated):** `f7801669580b6557f5104c2fcdd0335e3f316b11` [Windows #44955851710](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44955851710) SUCCESS, 1,945 Python / 73 JS / 3 syntax; removed only the obsolete frontend call. Full browser init now exercises native controls with no in-game style controls. [Draft PR #71](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/71) stacked on #70. Verify Windows exact-final docs SHA before acceptance.
+- [x] **N1-PF-02b initial warm-API Qt open and Alt+H display:** observed on user's Windows following #70. Sustained stability and other hotkeys **not** proven.
+- [ ] **N1-PF-06c native post-fix UI:** checkout final #71 SHA, verify Settings/tray persists, Alt+H, hide/quit and no `loadBuildPreference` console failure on user's Windows. Leave gameplay NOT TESTED.
+- [ ] **N1-PF-03 cold API 15s timeout:** independent problem observed; exact cause/duration unverified, no threshold change.
+- [ ] **V1 OCR engine comparison (separate investigation):** Claude-reported PP-OCRv4 26/26 crops is unverified evidence; assess against current Tesseract with holdout/latency/privacy/Windows measurements. No engine replacement authorized within N1.
+
+
 ## 2026-11-21 — N1 native Windows preflight and authorized Qt crash repair
 
 - [x] **N1-PF-01 — Device dependency/API preflight evidence:** Tesseract English available; WGC Python package installed; user local API reports `/health` 200, 172 champions / 328 augments / 863 items and successful Settings/OCR-status HTTP responses. Not live OCR or Mayhem purchasability acceptance.
