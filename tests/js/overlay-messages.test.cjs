@@ -882,3 +882,23 @@ test("D2: explicit Alt+S recovery opens unidentified cards without OCR and never
         offer_id: 1, epoch: 7, offers: [due]});
     assert.equal(h.api.getState().offerEpoch, 8);
 });
+
+test("D2: awaiting-confirm unknown slot supports identity, not an implicit pick", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    const offer = d2Offer("awaiting_confirm", null);
+    offer.slots.centre = {augment_id: null, source: null};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        offer_epoch: 7, ocr_phase: "no_offer", ocr_stale: true,
+        augment_state: {chosen: 0, max: 4}});
+    const centre = h.element("augment-list").children[1];
+    const input = centre.children.find(child => child.tagName === "INPUT");
+    assert.ok(input);
+    input.value = "En";
+    await input.handlers.input();
+    const results = centre.children.find(child => child.className === "search-results");
+    await results.children[0].handlers.click();
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/identify").length, 1);
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/confirm").length, 0);
+    assert.equal(h.element("augment-progress").textContent, "0/4");
+});
