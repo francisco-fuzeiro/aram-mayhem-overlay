@@ -946,6 +946,15 @@ def _load_items() -> ItemCatalog:
     unknown_meta = _unknown_item_meta(version, overrides["version"])
     cache_file = CACHE_DIR / f"items_v{_ITEM_CACHE_SCHEMA}_{version}.json"
 
+    # A same-patch, two-source verified cache is sufficient without waiting
+    # for fresh external HTTP requests on every desktop launch. Force-refresh
+    # still deletes this file before loading; invalid proof fails closed.
+    if overrides["version"] != "invalid":
+        cached = _verified_cached_items(cache_file, version, overrides["version"])
+        if cached is not None:
+            _report_item_data_source("cache")
+            return cached
+
     dd_items = {}
     if version != "unknown":
         try:
