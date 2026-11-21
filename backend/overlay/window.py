@@ -99,7 +99,7 @@ if PYQT_AVAILABLE:
         """Custom page that suppresses console noise and link navigation."""
 
         def javaScriptConsoleMessage(self, level, message, line, source):
-            if level >= QWebEnginePage.JavaScriptConsoleMessageLevel.ErrorMessageLevel:
+            if level.value >= QWebEnginePage.JavaScriptConsoleMessageLevel.ErrorMessageLevel.value:
                 logger.error("JS [%s:%d]: %s", source, line, message)
 
         def acceptNavigationRequest(self, url, nav_type, is_main_frame):
