@@ -847,8 +847,18 @@ async def recover_offer(req: OfferRecoverRequest):
         game_state.scan_window_open = True
         game_state.offer_lifecycle.open()
         screen_watcher.reset()
-        return {"offer_id": offer.offer_id, "epoch": offer.epoch,
-                "offers": game_state.offer_ledger.payload()}
+        recovery = {
+            "offer_id": offer.offer_id, "epoch": offer.epoch,
+            "offers": game_state.offer_ledger.payload(),
+            "match_id": game_state.match_id,
+        }
+    # A manual Alt+S recovery runs outside WebView. Publish its identity
+    # only after the ledger lock is released so inline identification can open
+    # even when OCR is unavailable. This never confirms a pick.
+    await _broadcast(json.dumps({
+        "type": "offer_recovered", **recovery,
+    }))
+    return recovery
 
 
 class BugReportRequest(BaseModel):
