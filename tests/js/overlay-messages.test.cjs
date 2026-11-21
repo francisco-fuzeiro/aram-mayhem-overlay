@@ -89,14 +89,11 @@ function harness({browserBoot = false} = {}) {
         location, handlers: windowHandlers,
         addEventListener(kind, handler) { this.handlers[kind] = handler; },
     };
-    const bootstrapTail = `        init();
-    }
-})();`;
-    if (browserBoot) assert.ok(source.includes(bootstrapTail), "real browser init is present");
+    const bootstrapCall = "        init();";
+    if (browserBoot) assert.equal(source.split(bootstrapCall).length, 2,
+        "exactly one real browser startup call is present");
     const evaluatedSource = browserBoot
-        ? source.replace(bootstrapTail, `        globalThis.__n1BootPromise = init();
-    }
-})();`)
+        ? source.replace(bootstrapCall, "        globalThis.__n1BootPromise = init();")
         : source;
     const globals = {
         document, WebSocket: Socket,
