@@ -1,6 +1,6 @@
 # N1 v3 — Native Windows ARAM Mayhem acceptance
 
-**Status:** DEVICE PREFLIGHT PARTIAL / N1 CODE CRASH REGRESSION GREEN / NATIVE RETEST AND GAMEPLAY OPEN (2026-11-21). No post-fix native PASS is claimed.
+**Status:** DEVICE PREFLIGHT PARTIAL / QT WARM START OBSERVED / JS BOOT CODE GREEN / POST-FIX LIVE RETEST OPEN (2026-11-21). No League gameplay PASS is claimed.
 
 ## Authority and scope
 
@@ -27,6 +27,22 @@ Evidence is from the user's local Windows PowerShell/browser screenshots, not fr
 **Crash correction authorized by user:** branch `fix/n1-qt-console-crash`, stacked draft PR #70 directly on #69. Tests-only `d3417ebc6c8e693c57e014810317e80218df82cf` [Windows RED #44953828531](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44953828531): exactly one `test_n1_qt_console_levels_do_not_raise_and_only_log_errors` FAIL with the same enum `>=` TypeError, 1,944 other Python tests PASS. Production `34e60d789a7e0985dad5f845a0a1b4ce6f8cc324` [Windows code GREEN #44953995394](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44953995394): **1,945 Python PASS, 72 JavaScript PASS, three JS syntax checks PASS**, 51 Python warnings. Only the Qt callback comparison changes from enum ordering to `level.value >= ...ErrorMessageLevel.value`; no user actions, new gameplay, OCR, fallback, HUD geometry or build code changed. This proves the **offline regression fix only**. Exact final documentation-HEAD Windows success must be verified separately.
 
 **Next native preflight:** use the final PR #70 SHA, first with a compatible API already running to isolate Qt; observe whether the Settings window/tray persists and verify console errors no longer close the app. Then, in a separate run without an existing API, measure the cold-start duration and actual API readiness stage. A code fix for the 15s timeout is **not yet authorized or justified by an exact causal measurement**. Preserve fail-closed behavior, no repeated League session.
+
+## 2026-11-21 N1 browser bootstrap correction — PR #71 (separate from OCR V1)
+
+**Native user observation:** On the patched Qt-host commit from PR #70 and with a separately running API, Windows desktop Settings opened quickly and remained visible long enough for the user to interact. **Alt+H displayed the overlay**. The visible `Live game data temporarily unavailable` message and sparse content are **not, by themselves, a no-League defect**, but cannot validate the WebSocket or gameplay. The terminal disclosed a definite frontend error: `JS [http://localhost:8765/static/app.js:70]: Uncaught ReferenceError: loadBuildPreference is not defined`. The historical `loadBuildPreference()` call remained in `init()` after pre-game build-style selection was moved into desktop Settings; it prevented subsequent `bindNativeWindowControls()` from executing.
+
+| Subcase | Status | Evidence and limitation |
+|---|---|---|
+| N1-PF-02b | **PASS initial** | User Windows screenshot: Qt Settings opened on PR #70; Alt+H revealed overlay. Long-duration stability, other shortcuts and native focus still NOT TESTED |
+| N1-PF-06a | **FAIL reproduced on pre-fix version** | Native Qt JS console ReferenceError at frontend/app.js:70, independent of the missing League game |
+| N1-PF-06b | **PASS automated only; NOT TESTED native on new SHA** | `frontend/app.js` stale call removed; full browser `init()` regression now completes and wires WebSocket, Qt hide/quit, window messages and keyboard listener |
+| N1-PF-03 | **BLOCKED causal attribution** | Original 15s cold API timeout remains under investigation, unmodified |
+| N1 gameplay | **NOT TESTED** | OCR, L/C/R, rerolls, HUD, in-game build, monitor/DPI, privacy and Riot release remain open |
+
+**Authorized correction and audit:** [draft PR #71](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/71) is stacked directly on #70 → #69 → #68. Tests-only `2c631fa5d8c1eb0d21de84af17c8d7c70854454f` [Windows RED #44955660838](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44955660838): 1,945 Python PASS, 72 older JS PASS, **exactly one JS FAIL** `ReferenceError: loadBuildPreference is not defined` from executing the real browser initialization branch. Production `f7801669580b6557f5104c2fcdd0335e3f316b11` [Windows code GREEN #44955851710](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44955851710): **1,945 Python PASS (51 warnings), 73 JavaScript PASS (zero failures, zero skips), three syntax checks PASS**. Source change is solely removal of `await loadBuildPreference();` in `frontend/app.js`; test harness only elsewhere. Earlier test-only attempts #44955076665 (test syntax error) and #44955293039 (unrelated intermittent Python async timeout) **were not accepted as valid RED evidence**; the valid RED is #44955660838. Check exact final documentation SHA in Windows Actions before declaring documentation gate passed. No game, OCR thresholds, WGC, stale/epoch rules, selection, HUD, recommendation, Riot or future V1 change.
+
+**Next user PC actions after final CI:** checkout exact final PR #71 SHA; launch with compatible API already ready; confirm Settings/tray, Alt+H, Qt hide/quit controls and no ReferenceError in terminal. Then measure cold-start without API separately, before any minimal timeout proposal. No need for League until preflight is stable.
 
 ## Status vocabulary
 

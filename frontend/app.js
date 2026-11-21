@@ -67,7 +67,6 @@
         bindWindowMessages();
         bindKeyboard();
         bindHistorySync();
-        await loadBuildPreference();
         bindNativeWindowControls();
     }
 
