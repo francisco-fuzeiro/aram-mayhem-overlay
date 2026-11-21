@@ -856,3 +856,29 @@ test("D2: manual slots disappear when identity becomes known", () => {
     assert.equal(h.element("augment-list").children[0].children
         .some(child => child.tagName === "INPUT"), false);
 });
+
+test("D2: explicit Alt+S recovery opens unidentified cards without OCR and never picks", () => {
+    const h = harness();
+    const due = d2Offer("due", null);
+    for (const slot of ["left", "centre", "right"]) {
+        due.slots[slot] = {augment_id: null, source: null};
+    }
+    h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:9",
+        offers: [due], offer_epoch: 7, ocr_phase: "ocr_missing",
+        ocr_stale: false, augment_state: {chosen: 0, max: 4}});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    const recovered = {...due, state: "visible", epoch: 8};
+    h.api.handleMessage({type: "offer_recovered", match_id: "lcu:8",
+        offer_id: 1, epoch: 8, offers: [recovered]});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({type: "offer_recovered", match_id: "lcu:9",
+        offer_id: 1, epoch: 8, offers: [recovered]});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    assert.equal(h.element("augment-list").children.length, 3);
+    assert.match(h.element("augment-list").children[0].innerHTML, /Unknown/);
+    assert.equal(h.element("augment-progress").textContent, "0/4");
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/confirm").length, 0);
+    h.api.handleMessage({type: "offer_recovered", match_id: "lcu:9",
+        offer_id: 1, epoch: 7, offers: [due]});
+    assert.equal(h.api.getState().offerEpoch, 8);
+});
