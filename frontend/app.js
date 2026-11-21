@@ -791,8 +791,8 @@
     async function identifyOfferSlot(offerId, epoch, slot, augmentId) {
         if (!OFFER_SLOTS.includes(slot) || typeof augmentId !== "string") return false;
         const offer = currentOffers.find(o => o.offer_id === offerId && o.epoch === epoch &&
-            o.state === "visible" && o.slots && o.slots[slot] &&
-            !o.slots[slot].augment_id);
+            ["visible", "awaiting_confirm"].includes(o.state) &&
+            o.slots && o.slots[slot] && !o.slots[slot].augment_id);
         if (!offer) return false;
         const match = activeMatchId;
         const updated = await sendOfferAction("/api/offers/identify", {
@@ -927,7 +927,8 @@
                 likely.textContent = "Likely: " + name + " · confirm with Alt+" + (index + 1);
                 row.appendChild(likely);
             }
-            if (interactive && !id && offer.state === "visible") {
+            if (interactive && !id &&
+                ["visible", "awaiting_confirm"].includes(offer.state)) {
                 appendSlotSearch(row, offer, slot);
             } else if (interactive && id) {
                 const pick = document.createElement("button");
