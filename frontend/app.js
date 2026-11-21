@@ -719,13 +719,15 @@
     const OFFER_SLOTS = Object.freeze(["left", "centre", "right"]);
 
     function activeOffer() {
-        const options = currentOffers.filter((offer) =>
+        // Never resurrect an older awaiting-confirm offer over a newer due
+        // or picked offer. Only the latest ledger entry represents the live cue.
+        const latest = currentOffers.filter((offer) =>
             offer && Number.isSafeInteger(offer.offer_id) &&
-            Number.isSafeInteger(offer.epoch) && offer.slots &&
-            ["visible", "awaiting_confirm"].includes(offer.state));
-        const waiting = options.filter((offer) => offer.state === "awaiting_confirm")
-            .sort((x, y) => x.offer_id - y.offer_id);
-        return waiting[0] || options.sort((x, y) => y.offer_id - x.offer_id)[0] || null;
+            Number.isSafeInteger(offer.epoch))
+            .sort((x, y) => y.offer_id - x.offer_id)[0];
+        return latest && latest.slots &&
+            ["visible", "awaiting_confirm"].includes(latest.state)
+            ? latest : null;
     }
 
     function offerCanOpen(offer, data = lastResult || {}) {
