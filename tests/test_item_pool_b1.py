@@ -315,3 +315,50 @@ def test_legacy_offline_cache_recognizes_names_without_promoting_items(monkeypat
     data = StaticData()
     data._items = catalog
     assert data.recommendable_items() == []
+
+
+def test_n1_warm_verified_cache_skips_slow_item_network(monkeypatch, tmp_path):
+    """Cold desktop startup must not call a slow source for an exact verified cache."""
+    from backend.static_data import loader
+
+    offline_loader(monkeypatch, tmp_path)
+    first = _load_items()
+    assert first.meta.availability == "verified_two_source"
+    assert first.data_source == "network"
+
+    def unexpected_network(url, timeout=15):
+        raise AssertionError(f"cached same-patch items triggered network: {url}")
+
+    monkeypatch.setattr(loader.requests, "get", unexpected_network)
+    cached = _load_items()
+    assert cached.data_source == "cache"
+    assert cached.meta.availability == "verified_two_source"
+    assert cached.meta.cdragon_sha256 == first.meta.cdragon_sha256
+    assert cached.pool_ids == first.pool_ids
+    assert cached.recommendable_ids == first.recommendable_ids
+
+
+def test_n1_corrupt_verified_cache_cannot_enable_shop_when_sources_fail(
+    monkeypatch, tmp_path,
+):
+    """Cache-first still has to reject invalid proof before any shop advice."""
+    from backend.static_data import loader
+
+    offline_loader(monkeypatch, tmp_path)
+    _load_items()
+    cache_file = tmp_path / "items_v5_16.23.1.json"
+    cached = json.loads(cache_file.read_text(encoding="utf-8"))
+    cached["meta"]["cdragon_sha256"] = "not-a-source-proof"
+    cache_file.write_text(json.dumps(cached), encoding="utf-8")
+
+    def unavailable(url, timeout=15):
+        raise requests.ConnectionError("offline")
+
+    monkeypatch.setattr(loader.requests, "get", unavailable)
+    result = _load_items()
+    assert result.meta.availability == "unknown"
+    assert not result.pool_ids
+    assert not result.recommendable_ids
+    data = StaticData()
+    data._items = result
+    assert data.recommendable_items() == []
