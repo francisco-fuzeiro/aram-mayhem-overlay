@@ -1,4 +1,7 @@
 ---
+name: continue-aram-oracle
+description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
+---
 
 ## 2026-11-21 NEWEST HANDOFF — N1 v3 PREPARED ONLY; D2 FINAL CI CONFIRMED
 
@@ -6,10 +9,6 @@
 - User explicitly authorized **N1 ONLY**, not implementation of new gameplay features. New child docs-only branch `test/n1-native-acceptance-v3` holds [N1 native evidence ledger, status definitions and one grouped borderless/OP.GG custom game protocol](../../../docs/N1_NATIVE_ACCEPTANCE.md). **No native test has yet run on D2**. Mark all native items NOT TESTED until user's Windows evidence; existing failed game was on an earlier SHA, not D2. Do not infer success from Windows Actions.
 - GitHub repository visibility is currently reported **public** by the connected repository metadata, contrary to the user's "private" label. No visibility modification authorized. Never upload private `events.jsonl`, full-screen capture, IDs or paths. Official Riot League restrictions and Developer Portal registration/review apply; whether dynamic session-specific recommendations are permitted for public distribution remains unresolved/BLOCKED. C1 observer stays shadow-only; no unverified closure/pick, no OCR threshold 90/8 changes, no unsafe WGC fallback changes, no UI/game input, no C3/S1, installer, Alt+S Settings rebinding or `main` merge.
 - **Next action:** finish offline preflight and obtain one user-operated Windows Mayhem custom-game evidence campaign per `docs/N1_NATIVE_ACCEPTANCE.md`; classify native cases PASS/FAIL/BLOCKED/NOT TESTED. If a *reproduced* N1 bug requires code, request specific user permission, create a separate child branch/draft PR stacked onto #68/N1 docs as appropriate, tests RED->GREEN and full exact-final SHA Windows CI. Until then no code corrections or policy assumptions. Keep four continuity docs and this skill current and verify CI on final docs SHA.
-
-name: continue-aram-oracle
-description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
----
 
 ## 2026-11-21 NEWEST HANDOFF — D2 v3 CODE GREEN IN DRAFT #68; FINAL DOC-HEAD CI GATE
 
