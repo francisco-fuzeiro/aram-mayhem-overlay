@@ -1,5 +1,13 @@
 # Overlay LoL — Development Log
 
+## 2026-11-21 — N1 v3 evidence-first native validation preparation (no source-code change)
+
+- Confirmed directly through GitHub: D2 [draft #68](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/68), directly based on D1 [draft #67](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/67), exact D2 HEAD `14ed84be8045403bfea9ccb3cad89cf14bf4d494`, no merges, `main` untouched. Exact-head [Windows #44841552493](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44841552493) completed SUCCESS; fetched job logs confirm **1,944 Python passed (51 warnings), 72 JavaScript passed (0 failures) and three JS syntax-check steps success**.
+- Read `AGENTS.md`, continuation skill, state/TODO/log/phases, archived v3 index/audit/global rules, and the N1 acceptance section of M-D. Prepared [N1 ledger and one custom borderless Mayhem playbook](N1_NATIVE_ACCEPTANCE.md) on child branch `test/n1-native-acceptance-v3`, no code changes. All native N1 cases remain NOT TESTED; native access to League/Vanguard/WGC/HUD requires the user's Windows PC. Prior 2026-11-20 gameplay failures are a historical baseline, not re-tested failures on D2.
+- Rechecked official Riot League and general developer policies: augmentation win-rate displays and apps that dictate decisions are disallowed; public product registration/audit is required; dynamic per-game recommendation approval is unresolved. GitHub repository metadata reports **public** visibility; no sensitive user evidence is stored in GitHub and visibility was not changed. C1 shadow-only, 90/8, epoch/stale safety, WGC fallback, no League input and confirmed-only builds preserved.
+- N1 status: **preparation done, native acceptance OPEN**. Minimal N1 fixes only if reproduced with evidence and separately authorized; no S1/C3, installer, gameplay features, Alt+S rebinding or merge. No new tests executed locally; pre-existing verified Windows runner evidence is explicitly CI-only.
+
+
 ## 2026-11-21 — D2 v3 unified AUGMENTS/compact BUILD/Settings OCR (draft PR #68, code GREEN)
 
 - **Verified code-head GREEN:** [Windows #44841262409](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44841262409), `53e1e7cf9097bd81c46cf9117a1d3e1bc421721e`: 1,944 Python, 72 JavaScript, all three JavaScript syntax checks SUCCESS. Final docs-only HEAD CI remains a separate mandatory check. The latest D2 regressions cover manual Alt+S due recovery even without OCR, awaited-confirm unknown-slot identity without pick, and newest-due-over-older-awaiting priority.
