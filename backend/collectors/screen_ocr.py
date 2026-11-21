@@ -173,12 +173,18 @@ class ScreenWatcher:
         self._last_detected: list[tuple[str, str, int]] = []
         self._last_scan_stage = "not_scanned"
         self._last_foreground = "other"  # A5 diagnostic, never a capture gate.
+        self._last_capture_backend: str | None = None  # Read-only D2 diagnostics.
         self._last_background_observation: tuple[str, str] | None = None
 
     @property
     def last_scan_stage(self) -> str:
         with self._lock:
             return self._last_scan_stage
+
+    @property
+    def last_capture_backend(self) -> str | None:
+        with self._lock:
+            return self._last_capture_backend
 
     def _set_scan_stage(self, stage: str) -> None:
         # Only internal bounded constants, never untrusted OCR text or paths.
@@ -214,6 +220,7 @@ class ScreenWatcher:
             self._last_detected = []
             self._set_scan_stage("not_scanned")
             self._last_foreground = "other"
+            self._last_capture_backend = None
             self._last_background_observation = None
             reset_capture_state()  # End of offer/match closes the WGC HWND session.
 
@@ -237,6 +244,7 @@ class ScreenWatcher:
         """Discard pending OCR and preserve A3's conservative failure mapping."""
         self._capture_stale = True
         self._last_foreground = "other"
+        self._last_capture_backend = None
         self._last_background_observation = None
         self._temporal.suspend()
         self._absence_gate.suspend()
@@ -297,6 +305,7 @@ class ScreenWatcher:
                 return self._capture_failure(reason)
             capture = result
             self._last_foreground = capture.proof.foreground
+            self._last_capture_backend = capture.proof.backend
             img = capture.image
             if self._capture_stale:
                 self._temporal.suspend()

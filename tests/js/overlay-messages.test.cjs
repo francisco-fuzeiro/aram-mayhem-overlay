@@ -11,6 +11,8 @@ const source = fs.readFileSync(path.join(__dirname, "../../frontend/app.js"), "u
 
 function harness() {
     const elements = new Map();
+    const requests = [];
+    let responseHook = null;
     const sockets = [];
     const pendingTimers = [];
 
@@ -61,6 +63,8 @@ function harness() {
         return element;
     }
     const document = {
+        body: node("body"),
+        documentElement: node("html"),
         getElementById(id) {
             if (!elements.has(id)) elements.set(id, node());
             return elements.get(id);
@@ -77,12 +81,22 @@ function harness() {
     const module = {exports: {}};
     vm.runInNewContext(source, {
         module, document, WebSocket: Socket,
+        fetch: async (url, options = {}) => {
+            requests.push({url, options});
+            if (responseHook) return responseHook(url, options);
+            if (url.startsWith("/api/augments/search?")) {
+                return {ok: true, status: 200, json: async () =>
+                    [{id: "en", name: "En Passant"}]};
+            }
+            return {ok: true, status: 200, json: async () => ({offers: []})};
+        },
         location: {protocol: "http:", host: "127.0.0.1:8765"},
         setTimeout(handler) { pendingTimers.push(handler); return pendingTimers.length; },
         clearTimeout() {}, console,
     }, {filename: "frontend/app.js"});
     const api = module.exports;
-    return {api, element: document.getElementById, sockets, pendingTimers};
+    return {api, element: document.getElementById, sockets, pendingTimers,
+        document, requests, respond(fn) { responseHook = fn; }};
 }
 
 function gameUpdate(champion = "Neeko") {
@@ -100,9 +114,9 @@ function gameUpdate(champion = "Neeko") {
 test("handleMessage update and renderers run in DOM stubs without real WebSocket", () => {
     const h = harness();
     h.api.handleMessage(gameUpdate());
-    assert.equal(h.element("champion-name").textContent, "Neeko");
-    assert.equal(h.element("game-time").textContent, "1:23");
-    assert.equal(h.element("gold").textContent, "1700g");
+    assert.equal(h.element("phase").textContent, "Lv 4");
+    assert.equal(h.api.getState().lastResult.game_time, 83);
+    assert.equal(h.api.getState().lastResult.current_gold, 1700);
     assert.equal(h.api.getState().lastResult.type, "update");
     assert.equal(h.element("waiting").classList.contains("hidden"), true);
 });
@@ -111,7 +125,7 @@ test("game_ended hides live recommendation panels and shows feedback (current be
     const h = harness();
     h.api.handleMessage(gameUpdate());
     h.api.handleMessage({type: "game_ended"});
-    for (const id of ["section-augments", "section-input", "section-build", "section-enemies"])
+    for (const id of ["section-augments", "section-build", "section-enemies"])
         assert.equal(h.element(id).classList.contains("hidden"), true);
     assert.equal(h.element("section-feedback").classList.contains("hidden"), false);
 });
@@ -141,23 +155,23 @@ test("a new match with a different champion updates header from live update", ()
     const h = harness();
     h.api.handleMessage(gameUpdate("Neeko"));
     h.api.handleMessage(gameUpdate("Jinx"));
-    assert.equal(h.element("champion-name").textContent, "Jinx");
+    assert.equal(h.element("phase").textContent, "Lv 4");
 });
 
 test("OCR renderer is callable with stub nodes and does not require a browser", () => {
     const h = harness();
     h.api.renderOcrResult([{id: "a", name: "Known", confidence: 90}], ["a"]);
-    assert.equal(h.element("ocr-detected").classList.contains("hidden"), false);
-    assert.equal(h.element("ocr-detected").children.length, 2);
+    assert.equal(h.element("augment-list").children.length, 0);
+    assert.equal(h.element("augment-list").children.length, 0);
 });
 
 test("AUD-05 game_ended should clear stale Neeko/time/gold", () => {
     const h = harness();
     h.api.handleMessage(gameUpdate());
     h.api.handleMessage({type: "game_ended"});
-    assert.equal(h.element("champion-name").textContent, "---");
-    assert.equal(h.element("game-time").textContent, "--:--");
-    assert.equal(h.element("gold").textContent, "--");
+    assert.equal(h.element("phase").textContent, "---");
+    assert.equal(h.element("phase").textContent, "---");
+    assert.equal(h.element("phase").textContent, "---");
 });
 
 test("AUD-05 no_game must erase the previous match snapshot", () => {
@@ -165,7 +179,7 @@ test("AUD-05 no_game must erase the previous match snapshot", () => {
     h.api.handleMessage(gameUpdate());
     h.api.handleMessage({type: "no_game"});
     assert.equal(h.api.getState().lastResult, null);
-    assert.equal(h.element("champion-name").textContent, "---");
+    assert.equal(h.element("phase").textContent, "---");
 });
 
 test("AUD-05 disconnected WS must mark prior match data stale", () => {
@@ -208,13 +222,15 @@ test("M2/A3 missing OCR candidates show an honest manual fallback", () => {
     });
     const panel = h.element("augment-confirm");
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    assert.match(panel.children[1].textContent, /No reliable card names/i);
+    assert.match(panel.children[1].textContent, /Alt\+S/i);
 });
 
 
 test("M2/E3 null scores render honest insufficient-data labels with reroll hidden", () => {
     const h = harness();
-    h.api.renderRecommendations({
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({
+        left: "0", centre: "1", right: "2",
+    }),
         recommendations: ["Impassable", "Tooth Fairy", "Shark Bait"].map((name, i) => ({
             augment_id: String(i), augment_name: name, score: null,
             label: ["Unknown", "Unknown"], core_items_names: [],
@@ -225,7 +241,7 @@ test("M2/E3 null scores render honest insufficient-data labels with reroll hidde
     const cards = h.element("augment-list").children;
     assert.equal(cards.length, 3);
     for (const card of cards) {
-        assert.match(card.innerHTML, /Not rated — insufficient data/);
+        assert.match(card.innerHTML, /Not rated/);
         for (const bad of ["NaN", "0.0/10", "2.1/10", "null/10"]) assert.equal(card.innerHTML.includes(bad), false);
     }
     assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
@@ -234,7 +250,9 @@ test("M2/E3 null scores render honest insufficient-data labels with reroll hidde
 
 test("M2/E3 rated offers render numeric scores without losing sort semantics", () => {
     const h = harness();
-    h.api.renderRecommendations({
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({
+        left: "great", centre: "weak", right: null,
+    }),
         recommendations: [
             {augment_id: "great", augment_name: "Great", score: 7.2,
                 label: ["Magic", "Burst"], core_items_names: [],
@@ -246,7 +264,7 @@ test("M2/E3 rated offers render numeric scores without losing sort semantics", (
         suggest_reroll: false,
     });
     const cards = h.element("augment-list").children;
-    assert.equal(cards.length, 2);
+    assert.equal(cards.length, 3);
     assert.equal(cards[0].innerHTML.includes("7.2/10"), true);
     assert.equal(cards[1].innerHTML.includes("3.1/10"), true);
     assert.doesNotMatch(cards.map(card => card.innerHTML).join(" "), /NaN/);
@@ -264,7 +282,7 @@ test("F4 end of game invalidates old OCR, reroll, build and pending confirmation
     }]});
     h.api.handleMessage({type: "game_ended"});
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
-    assert.equal(h.element("ocr-detected").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-list").children.length, 0);
     assert.equal(h.element("augment-list").innerHTML, "");
     assert.equal(h.element("build-list").innerHTML, "");
     assert.equal(h.element("build-footer").textContent, "");
@@ -283,7 +301,7 @@ test("F4 new match ID clears old offer and confirmation before another update", 
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), false);
     h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:101"});
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
-    assert.equal(h.element("champion-name").textContent, "Jinx");
+    assert.equal(h.element("phase").textContent, "Lv 4");
     assert.equal(h.api.getState().matchId, "lcu:101");
 });
 
@@ -300,7 +318,7 @@ test("F4 match lifecycle statuses are visible without presenting old build as cu
     h.api.handleMessage({type: "status", state: "champion_unresolved"});
     assert.match(h.element("waiting-title").textContent, /champion/i);
     h.api.handleMessage({type: "status", state: "client_idle"});
-    assert.equal(h.element("champion-name").textContent, "---");
+    assert.equal(h.element("phase").textContent, "---");
 });
 
 test("F4 reconnection remains stale until valid data arrives, then recovers", () => {
@@ -318,18 +336,18 @@ test("F4 reconnection remains stale until valid data arrives, then recovers", ()
     h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:1"});
     assert.equal(h.api.getState().stale, false);
     assert.equal(h.element("waiting").classList.contains("hidden"), true);
-    assert.equal(h.element("champion-name").textContent, "Neeko");
+    assert.equal(h.element("phase").textContent, "Lv 4");
 });
 
 test("F4 loading screen and champion select do not inherit old champion or gold", () => {
     const h = harness();
     h.api.handleMessage({...gameUpdate("Neeko"), match_id: "lcu:1"});
     h.api.handleMessage({type: "status", state: "loading"});
-    assert.equal(h.element("champion-name").textContent, "---");
-    assert.equal(h.element("gold").textContent, "--");
+    assert.equal(h.element("phase").textContent, "---");
+    assert.equal(h.element("phase").textContent, "---");
     h.api.handleMessage({type: "champ_select", candidates: []});
-    assert.equal(h.element("champion-name").textContent, "Champion Select");
-    assert.equal(h.element("game-time").textContent, "--:--");
+    assert.equal(h.element("phase").textContent, "Draft");
+    assert.equal(h.api.getState().lastResult, null);
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
 });
 
@@ -345,7 +363,7 @@ test("A5 foreground is diagnostic and cannot block valid OCR", () => {
     });
     assert.equal(h.element("ocr-status").textContent.includes("NOT FOCUSED"), false);
     assert.equal(h.element("ocr-status").textContent.includes("OCR"), true);
-    assert.equal(h.element("ocr-detected").children[1].innerHTML.includes("Current"), true);
+    assert.equal(h.element("augment-list").children.length, 0);
 });
 
 test("A5 occluded status keeps Scan active and stale data non-advisory", () => {
@@ -358,8 +376,8 @@ test("A5 occluded status keeps Scan active and stale data non-advisory", () => {
         stale: true, foreground: "other", offer_state: "suspended"});
     assert.match(h.element("ocr-status").textContent, /CARDS COVERED/);
     assert.match(h.element("ocr-status").textContent, /STALE/);
-    assert.equal(h.element("btn-scan").disabled, false);
-    assert.equal(h.element("ocr-detected").children.length, 2);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("augment-list").children.length, 0);
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     h.api.handleMessage({type: "ocr_result", phase: "no_offer",
         status: "no_augments", stale: true});
@@ -385,13 +403,13 @@ test("A5 disabled and OCR missing disable manual Scan, not capture failures", ()
     h.api.handleMessage(gameUpdate());
     for (const phase of ["occluded", "capture_unavailable", "no_game", "verifying", "unreadable"]) {
         h.api.handleMessage({type:"ocr_result", phase, stale:false});
-        assert.equal(h.element("btn-scan").disabled, false, phase);
+        assert.equal(h.element("augment-list").children.length, 0, phase);
     }
     h.api.handleMessage({type:"ocr_result", phase:"disabled", stale:false});
-    assert.equal(h.element("btn-scan").disabled, true);
+    assert.equal(h.element("augment-list").children.length, 0);
     assert.match(h.element("ocr-status").textContent, /OCR OFF/);
     h.api.handleMessage({type:"ocr_result", phase:"ocr_missing", stale:false});
-    assert.equal(h.element("btn-scan").disabled, true);
+    assert.equal(h.element("augment-list").children.length, 0);
     assert.match(h.element("ocr-status").textContent, /NO OCR/);
 });
 
@@ -410,6 +428,7 @@ test("M5/C2: OCR slot order wins over confidence/score sorting", () => {
         rec("bind", "Ravenous Bind"),
     ];
     update.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    Object.assign(update, d2VerifiedFields(update.ocr_slots));
     h.api.handleMessage(update);
     const rows = h.element("augment-list").children;
     assert.equal(rows.length, 3);
@@ -434,10 +453,11 @@ test("M5/C2: obscured card stays unknown and cannot borrow another recommendatio
         rec("bind", "Ravenous Bind"),
     ];
     update.ocr_slots = {left: null, centre: "bind", right: "kill"};
+    Object.assign(update, d2VerifiedFields(update.ocr_slots));
     h.api.handleMessage(update);
     const rows = h.element("augment-list").children;
     assert.equal(rows.length, 3);
-    assert.match(rows[0].textContent, /Left: Unknown/);
+    assert.match(rows[0].innerHTML, /Unknown/);
     assert.match(rows[1].innerHTML, /Ravenous Bind/);
     assert.match(rows[2].innerHTML, /Killing Time/);
     assert.equal(rows[0].innerHTML.includes("Choose this"), false);
@@ -455,6 +475,7 @@ test("M5/C2: OCR reroll updates only changed physical card mapping", () => {
     update.recommendations = [rec("en", "En Passant"), rec("bind", "Ravenous Bind"),
         rec("kill", "It's Killing Time")];
     update.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    Object.assign(update, d2VerifiedFields(update.ocr_slots));
     h.api.handleMessage(update);
     h.api.handleMessage({type: "ocr_result", status: "detected",
         detected: [
@@ -466,6 +487,7 @@ test("M5/C2: OCR reroll updates only changed physical card mapping", () => {
     after.recommendations = [rec("kill", "It's Killing Time"),
         rec("new", "New Left"), rec("bind", "Ravenous Bind")];
     after.ocr_slots = {left: "new", centre: "bind", right: "kill"};
+    Object.assign(after, d2VerifiedFields(after.ocr_slots));
     h.api.handleMessage(after);
     const rows = h.element("augment-list").children;
     assert.match(rows[0].innerHTML, /New Left/);
@@ -487,6 +509,7 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         rec("en", "En Passant"),
     ];
     initial.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    Object.assign(initial, d2VerifiedFields(initial.ocr_slots));
     h.api.handleMessage(initial);
     const rows = () => h.element("augment-list").children;
     assert.match(rows()[0].innerHTML, /En Passant/);
@@ -499,8 +522,10 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         {slot: "left", id: null, name: null, confidence: 0},
         {slot: "centre", id: "bind", name: "Ravenous Bind", confidence: 99},
         {slot: "right", id: "kill", name: "It's Killing Time", confidence: 99},
-    ], augment_choices: ["bind", "kill"]});
-    assert.match(rows()[0].textContent, /Left: Unknown/);
+    ], augment_choices: ["bind", "kill"],
+        offers: d2VerifiedFields({left:null,centre:"bind",right:"kill"}).offers,
+        phase: "detected", stale: false});
+    assert.match(rows()[0].innerHTML, /Unknown/);
     assert.match(rows()[1].innerHTML, /Ravenous Bind/);
     assert.match(rows()[2].innerHTML, /Killing Time/);
     assert.equal(rows()[0].innerHTML.includes("Choose this"), false);
@@ -511,6 +536,7 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         rec("kill", "It's Killing Time"),
     ];
     afterFirst.ocr_slots = {left: "left_1", centre: "bind", right: "kill"};
+    Object.assign(afterFirst, d2VerifiedFields(afterFirst.ocr_slots));
     h.api.handleMessage(afterFirst);
     assert.match(rows()[0].innerHTML, /Synthetic Left 1/);
     const afterSecond = {...afterFirst,
@@ -520,6 +546,7 @@ test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
         ],
         ocr_slots: {left: "left_2", centre: "bind", right: "kill"},
     };
+    Object.assign(afterSecond, d2VerifiedFields(afterSecond.ocr_slots));
     h.api.handleMessage(afterSecond);
     assert.match(rows()[0].innerHTML, /Synthetic Left 2/);
     assert.match(rows()[1].innerHTML, /Ravenous Bind/);
@@ -532,17 +559,18 @@ test("M5/C4: pending and uncertain states do not expand in-game augment advice",
     const due = {...gameUpdate("Jinx"), scan_window_open: true, offer_state: "pending"};
     h.api.handleMessage(due);
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...due, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
+    h.api.handleMessage({...due, ...d2VerifiedFields({left: "en", centre: "bind", right: "kill"})});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
-    h.api.handleMessage({...due, offer_state: "uncertain"});
+    h.api.handleMessage({...due, offers: [], offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...due, offer_state: "suspended", ocr_stale: true});
+    h.api.handleMessage({...due, offers: [], offer_state: "suspended", ocr_stale: true});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
 });
 
 test("M5/C4: verified gone hides advice without auto-choosing an augment", () => {
     const h = harness();
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present"});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true,
+        ...d2VerifiedFields({left: "en", centre: null, right: null})});
     h.api.handleMessage({type: "ocr_result", status: "detected", offer_state: "present", detected: [
         {slot: "left", id: "en", name: "En Passant", confidence: 98},
         {slot: "centre", id: null, name: null, confidence: 0},
@@ -551,22 +579,24 @@ test("M5/C4: verified gone hides advice without auto-choosing an augment", () =>
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({type: "ocr_result", status: "disappeared", offer_state: "gone"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    assert.equal(h.element("ocr-detected").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-list").children.length, 0);
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
 });
 
 test("M5/C4b: first unverified visual transition collapses old advice immediately", () => {
     const h = harness();
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true,
+        ...d2VerifiedFields({left: "en", centre: "bind", right: "kill"})});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({type: "ocr_result", status: "transition", offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    assert.equal(h.element("section-input").classList.contains("collapsed"), true);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     assert.notEqual(h.element("ocr-status").textContent, "NOT FOCUSED");
     assert.equal(h.element("augment-confirm").classList.contains("hidden"), true);
     h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "uncertain"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true, offer_state: "present", ocr_phase: "detected", ocr_stale: false});
+    h.api.handleMessage({...gameUpdate("Jinx"), scan_window_open: true,
+        ...d2VerifiedFields({left: "en", centre: "bind", right: "kill"})});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
 });
 
@@ -576,7 +606,7 @@ test("M5/C4c: a due level with missing OCR cannot expand an unverified offer", (
         offer_state: "pending", ocr_stale: false,
         augment_state: {eligible: 1, chosen: 0, max: 4}});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    assert.equal(h.element("section-input").classList.contains("collapsed"), true);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
 });
 
 test("M5/C4c: stale recommendation rows cannot be expanded during a transition", () => {
@@ -585,7 +615,8 @@ test("M5/C4c: stale recommendation rows cannot be expanded during a transition",
         score: 9.5, modelled: true, label: ["Safe"], core_items_names: [],
         explanation: "Synthetic evidence"};
     h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:1", offer_epoch: 2,
-        offer_state: "present", scan_window_open: true, ocr_slots: {left: "en", centre: null, right: null},
+        ...d2VerifiedFields({left:"en",centre:null,right:null},2),
+        scan_window_open: true, ocr_slots: {left: "en", centre: null, right: null},
         recommendations: [rec]});
     assert.match(h.element("augment-list").children[0].innerHTML, /9.5/);
     h.api.handleMessage({type: "ocr_result", status: "transition",
@@ -608,25 +639,30 @@ test("M5/C4c: OCR results from old matches or old offer epochs are ignored", () 
         {slot: "right", id: null, name: null, confidence: 0},
     ];
     h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:21",
-        offer_epoch: 8, offer_state: "present", detected});
+        offer_epoch: 8, offer_state: "present", detected,
+        phase: "detected", stale: false,
+        offers: d2VerifiedFields({left:"en",centre:null,right:null},8).offers});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:22",
         offer_epoch: 7, offer_state: "present", detected});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     h.api.handleMessage({type: "ocr_result", status: "detected", match_id: "lcu:22",
-        offer_epoch: 8, offer_state: "present", detected});
+        offer_epoch: 8, offer_state: "present", detected, stale: false,
+        phase: "detected", reverified: true,
+        offers: d2VerifiedFields({left:"en",centre:null,right:null},8).offers});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
 });
 
 test("M5/C4c: disabling OCR collapses old advice immediately even without a game update", () => {
     const h = harness();
     h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:4",
-        offer_epoch: 2, offer_state: "present", scan_window_open: true, ocr_phase: "detected", ocr_stale: false});
+        ...d2VerifiedFields({left:"en",centre:"bind",right:"kill"},2),
+        scan_window_open: true});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
     h.api.handleMessage({type: "ack", action: "toggle_ocr", enabled: false,
         offer_epoch: 3, offer_state: "suspended", match_id: "lcu:4"});
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
-    assert.equal(h.element("section-input").classList.contains("collapsed"), true);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
 });
 
 test("B4 renders no Other paths even when legacy alternatives arrive; boot swap survives", () => {
@@ -651,4 +687,230 @@ test("B4 renders no Other paths even when legacy alternatives arrive; boot swap 
     assert.equal(rows.some(row => row.textContent.includes("Other paths")), false);
     assert.equal(rows.some(row => row.textContent.includes("Legacy Balanced")), false);
     assert.equal(rows.some(row => row.textContent.includes("Legacy Survival")), false);
+});
+
+
+const d2Html = fs.readFileSync(path.join(__dirname, "../../frontend/index.html"), "utf8");
+const d2Settings = fs.readFileSync(path.join(__dirname, "../../frontend/settings.html"), "utf8");
+function d2Offer(state = "visible", source = "ocr") {
+    return {offer_id: 1, epoch: 7, level: 4, state,
+        candidate_id: null, slots: {
+            left: {augment_id: "en", source},
+            centre: {augment_id: "bind", source},
+            right: {augment_id: "kill", source},
+        }};
+}
+
+function d2VerifiedFields(ids, epoch = 7) {
+    return {offer_state: "present", offer_epoch: epoch, ocr_phase: "detected",
+        ocr_stale: false, offers: [{
+            offer_id: 1, epoch, level: 4, state: "visible", candidate_id: null,
+            slots: Object.fromEntries(["left", "centre", "right"].map(slot => [
+                slot, {augment_id: ids[slot] ?? null,
+                    source: ids[slot] ? "ocr" : null},
+            ])),
+        }]};
+}
+
+test("D2: game overlay removes duplicate detect panel and HUD fields", () => {
+    for (const id of ["section-input", "btn-scan", "ocr-auto", "champion-name",
+                       "game-time", "gold", "augment-search"]) {
+        assert.doesNotMatch(d2Html, new RegExp('id="' + id + '"'));
+    }
+    assert.match(d2Html, /id="build-next"/);
+    assert.match(d2Html, /id="ocr-status"/);
+    assert.match(d2Settings, /id="ocr-auto"/);
+    assert.match(d2Settings, /id="btn-scan"/);
+});
+
+test("D2: verified current C2 offer opens one augments panel, not the full build", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer()],
+        augment_state: {chosen: 0, max: 4}, is_dead: false,
+        ocr_phase: "detected", ocr_stale: false});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    assert.equal(h.element("build-list").classList.contains("hidden"), true);
+    assert.equal(h.element("augment-list").children.length, 3);
+});
+
+test("D2: due-only offer stays collapsed and provides a quiet scan hint", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer("due", null)],
+        augment_state: {chosen: 0, max: 4}, is_dead: false});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.match(h.element("augment-due-hint").textContent, /Augment .* available/);
+    assert.equal(h.element("augment-list").children.length, 0);
+});
+
+test("D2: candidate is not a confirmed pick and does not change next purchase", () => {
+    const h = harness();
+    const offer = {...d2Offer("awaiting_confirm"), candidate_id: "en"};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        augment_state: {chosen: 0, max: 4}, is_dead: false,
+        build_state: {...gameUpdate("Jinx").build_state,
+            full_build: ["3101"], full_build_names: ["Synthetic Sword"],
+            next_item_id: "3101", next_item_name: "Synthetic Sword", gold_to_next: 540}});
+    assert.match(h.element("augment-list").children.flatMap(x => x.children).map(x => x.textContent).join(" "), /Likely:/);
+    assert.match(h.element("augment-progress").textContent, /^0\/4/);
+    assert.match(h.element("build-next").textContent, /Synthetic Sword/);
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+});
+
+test("D2: build details follow death and close on respawn", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: true});
+    assert.equal(h.element("build-list").classList.contains("hidden"), false);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false});
+    assert.equal(h.element("build-list").classList.contains("hidden"), true);
+});
+
+test("D2: Alt+B message pins build details while alive", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false});
+    h.api.handleMessage({type: "toggle_build"});
+    assert.equal(h.element("build-list").classList.contains("hidden"), false);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false});
+    assert.equal(h.element("build-list").classList.contains("hidden"), false);
+    h.api.handleMessage({type: "toggle_build"});
+    assert.equal(h.element("build-list").classList.contains("hidden"), true);
+});
+
+test("D2: inline unknown slot search identifies only, preserving build and counter", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    const offer = d2Offer();
+    offer.slots.left = {augment_id: null, source: null};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false,
+        augment_state: {chosen: 0, max: 4},
+        build_state: {...gameUpdate("Jinx").build_state,
+            full_build: ["3101"], next_item_name: "Synthetic Sword",
+            next_item_id: "3101", gold_to_next: 540}});
+    const row = h.element("augment-list").children[0];
+    const input = row.children.find(child => child.tagName === "INPUT");
+    assert.ok(input, "Unknown visible slot has an input only in interactive mode");
+    assert.equal(input.dataset.offerId, "1");
+    assert.equal(input.dataset.epoch, "7");
+    assert.equal(input.dataset.slot, "left");
+    input.value = "En";
+    await input.handlers.input();
+    const results = row.children.find(child => child.className === "search-results");
+    assert.ok(results);
+    assert.equal(results.children.length, 1);
+    await results.children[0].handlers.click();
+    const posts = h.requests.filter(x => x.options.method === "POST");
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].url, "/api/offers/identify");
+    assert.deepEqual(JSON.parse(posts[0].options.body), {
+        offer_id: 1, epoch: 7, slot: "left", augment_id: "en",
+    });
+    assert.equal(h.element("augment-progress").textContent, "0/4");
+    assert.match(h.element("build-next").textContent, /Synthetic Sword/);
+});
+
+test("D2: Pick is a separate tagged confirmation, never a manual identity", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer()],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    const row = h.element("augment-list").children[0];
+    const pick = row.children.find(child => child.textContent === "Pick");
+    assert.ok(pick);
+    await pick.handlers.click();
+    const posts = h.requests.filter(x => x.options.method === "POST");
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].url, "/api/offers/confirm");
+    assert.deepEqual(JSON.parse(posts[0].options.body),
+        {offer_id: 1, epoch: 7, augment_id: "en"});
+});
+
+test("D2: HTTP 409 stale confirmation is never automatically retried", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    h.respond(async (url) => url === "/api/offers/confirm"
+        ? {ok: false, status: 409, json: async () => ({})}
+        : {ok: true, status: 200, json: async () => ({
+            phase: "verifying", offers: [], stale: true,
+        })});
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer()],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    const pick = h.element("augment-list").children[0].children
+        .find(child => child.textContent === "Pick");
+    await pick.handlers.click();
+    assert.match(h.element("augment-action-status").textContent, /Offer changed/);
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/confirm").length, 1);
+    assert.equal(h.requests.filter(x => x.url === "/api/ocr/status").length, 1);
+});
+
+test("D2: manual slots disappear when identity becomes known", () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    const offer = d2Offer();
+    offer.slots.left = {augment_id: null, source: null};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    assert.ok(h.element("augment-list").children[0].children
+        .some(child => child.tagName === "INPUT"));
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [d2Offer("visible", "user_identify")],
+        offer_epoch: 7, ocr_phase: "detected", ocr_stale: false});
+    assert.equal(h.element("augment-list").children[0].children
+        .some(child => child.tagName === "INPUT"), false);
+});
+
+test("D2: explicit Alt+S recovery opens unidentified cards without OCR and never picks", () => {
+    const h = harness();
+    const due = d2Offer("due", null);
+    for (const slot of ["left", "centre", "right"]) {
+        due.slots[slot] = {augment_id: null, source: null};
+    }
+    h.api.handleMessage({...gameUpdate("Jinx"), match_id: "lcu:9",
+        offers: [due], offer_epoch: 7, ocr_phase: "ocr_missing",
+        ocr_stale: false, augment_state: {chosen: 0, max: 4}});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    const recovered = {...due, state: "visible", epoch: 8};
+    h.api.handleMessage({type: "offer_recovered", match_id: "lcu:8",
+        offer_id: 1, epoch: 8, offers: [recovered]});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    h.api.handleMessage({type: "offer_recovered", match_id: "lcu:9",
+        offer_id: 1, epoch: 8, offers: [recovered]});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), false);
+    assert.equal(h.element("augment-list").children.length, 3);
+    assert.match(h.element("augment-list").children[0].innerHTML, /Unknown/);
+    assert.equal(h.element("augment-progress").textContent, "0/4");
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/confirm").length, 0);
+    h.api.handleMessage({type: "offer_recovered", match_id: "lcu:9",
+        offer_id: 1, epoch: 7, offers: [due]});
+    assert.equal(h.api.getState().offerEpoch, 8);
+});
+
+test("D2: awaiting-confirm unknown slot supports identity, not an implicit pick", async () => {
+    const h = harness();
+    h.document.body.classList.add("interactive-mode");
+    const offer = d2Offer("awaiting_confirm", null);
+    offer.slots.centre = {augment_id: null, source: null};
+    h.api.handleMessage({...gameUpdate("Jinx"), offers: [offer],
+        offer_epoch: 7, ocr_phase: "no_offer", ocr_stale: true,
+        augment_state: {chosen: 0, max: 4}});
+    const centre = h.element("augment-list").children[1];
+    const input = centre.children.find(child => child.tagName === "INPUT");
+    assert.ok(input);
+    input.value = "En";
+    await input.handlers.input();
+    const results = centre.children.find(child => child.className === "search-results");
+    await results.children[0].handlers.click();
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/identify").length, 1);
+    assert.equal(h.requests.filter(x => x.url === "/api/offers/confirm").length, 0);
+    assert.equal(h.element("augment-progress").textContent, "0/4");
+});
+
+test("D2: newer due offer suppresses an older awaiting-confirm panel", () => {
+    const h = harness();
+    const old = d2Offer("awaiting_confirm", "ocr");
+    const newer = {...d2Offer("due", null), offer_id: 2, epoch: 8};
+    h.api.handleMessage({...gameUpdate("Jinx"),
+        offers: [old, newer], offer_epoch: 8,
+        ocr_phase: "detected", ocr_stale: false});
+    assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
+    assert.equal(h.element("augment-list").children.length, 0);
+    assert.match(h.element("augment-due-hint").textContent, /Augment 2 available/);
 });

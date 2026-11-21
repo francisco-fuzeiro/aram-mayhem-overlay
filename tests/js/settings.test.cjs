@@ -41,6 +41,12 @@ function harness(respond) {
     });
     const panels = ids.map((id) => element("panel-" + id));
     const calls = [];
+    const sockets = [];
+    class Socket {
+        constructor(url) { this.url = url; this.sent = []; sockets.push(this); }
+        send(message) { this.sent.push(message); }
+        close() { this.onclose?.(); }
+    }
     async function fetch(url, options = {}) {
         calls.push({url, options});
         const result = await respond(url, options);
@@ -60,8 +66,10 @@ function harness(respond) {
             throw new Error("Unexpected selector: " + selector);
         },
     };
-    vm.runInNewContext(source, {document, fetch, console, ARAMOverlayPreferences: overlayModel});
-    return {element, tabs, panels, calls};
+    vm.runInNewContext(source, {document, fetch, console, WebSocket: Socket,
+        location: {protocol: "http:", host: "127.0.0.1:8765"},
+        ARAMOverlayPreferences: overlayModel});
+    return {element, tabs, panels, calls, sockets};
 }
 
 async function ready() {
@@ -76,6 +84,7 @@ function successful(url, options) {
         return {body: {schema_version: 1, overlay: JSON.parse(options.body), saved: true}};
     if (url === "/api/preferences") return {body: {build_style: "Survival"}};
     if (url === "/api/ocr/status") return {body: {available: false}};
+    if (url === "/api/ocr/scan") return {body: {status: "detected"}};
     if (url === "/api/bug-report") return {body: {filename: "report.json"}};
     throw new Error("Unexpected URL: " + url);
 }
@@ -433,4 +442,43 @@ test("P0 scan-stage diagnostics never show unsafe unknown stage codes", async ()
     await ready();
     assert.match(h.element("ocr-scan-detail").textContent, /No scan/);
     assert.doesNotMatch(h.element("ocr-scan-detail").textContent, /private/);
+});
+
+test("D2 OCR controls live in Settings, with honest phase and backend diagnostics", async () => {
+    assert.match(html, /id="ocr-auto"/);
+    assert.match(html, /id="btn-scan"/);
+    assert.match(html, /Alt\+S|Alt\+1\/2\/3/);
+    const h = harness(async (url, options) => url === "/api/ocr/status"
+        ? {body: {available: true, enabled: true, phase: "detected",
+            foreground: "league", capture_backend: "wgc", scan_stage: "titles_detected"}}
+        : successful(url, options));
+    await ready();
+    assert.equal(h.element("ocr-auto").checked, true);
+    assert.equal(h.element("btn-scan").disabled, false);
+    assert.equal(h.element("ocr-phase").textContent, "detected");
+    assert.equal(h.element("ocr-foreground").textContent, "league");
+    assert.equal(h.element("ocr-capture-backend").textContent, "wgc");
+    await h.element("btn-scan").handlers.click();
+    assert.equal(h.calls.filter(x => x.url === "/api/ocr/scan").length, 1);
+    assert.match(h.element("ocr-action-status").textContent, /Scan completed/);
+});
+
+test("D2 Settings OCR toggle uses existing WS action and awaits acknowledgement", async () => {
+    const h = harness(async (url, options) => url === "/api/ocr/status"
+        ? {body: {available: true, enabled: false, phase: "disabled"}}
+        : successful(url, options));
+    await ready();
+    h.element("ocr-auto").checked = true;
+    h.element("ocr-auto").handlers.change();
+    assert.equal(h.sockets.length, 1);
+    assert.equal(h.element("ocr-auto").disabled, true);
+    h.sockets[0].onopen();
+    assert.equal(JSON.parse(h.sockets[0].sent[0]).type, "toggle_ocr");
+    assert.equal(JSON.parse(h.sockets[0].sent[0]).enabled, true);
+    h.sockets[0].onmessage({data: JSON.stringify({
+        type: "ack", action: "toggle_ocr", enabled: true,
+    })});
+    await ready();
+    assert.equal(h.element("ocr-auto").disabled, false);
+    assert.match(h.element("ocr-action-status").textContent, /applied/);
 });

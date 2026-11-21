@@ -11,13 +11,6 @@
         <!-- Header -->
         <div id="header" class="panel header">
             <span class="logo">ARAM ORACLE</span>
-            <span class="separator">|</span>
-            <span id="champion-name" class="champ-name">---</span>
-            <span class="separator">|</span>
-            <span id="game-time" class="game-time">0:00</span>
-            <span class="separator">|</span>
-            <span id="gold" class="gold">0g</span>
-            <span class="separator">|</span>
             <span id="phase" class="phase">---</span>
             <span class="spacer"></span>
             <span id="connection-dot" class="dot disconnected" title="Disconnected"></span>
@@ -51,11 +44,15 @@
         <!-- Augment Recommendations -->
         <div id="section-augments" class="section collapsed">
             <div class="section-header" data-toggle="augments">
-                <span class="arrow">&#9660;</span> AUGMENT PICK
+                <span class="arrow">&#9660;</span> AUGMENTS
                 <span id="augment-progress" class="augment-progress hidden">0/0</span>
+                <span id="ocr-status" class="ocr-status-badge" title="OCR status"></span>
+                <span id="augment-due-hint" class="waiting-sub hidden"></span>
+                <button id="augment-recover" type="button" class="btn hidden">Recover</button>
                 <span id="reroll-badge" class="reroll-badge hidden">REROLL</span>
             </div>
             <div class="section-body" id="augments-body">
+                <div id="augment-action-status" class="aug-explain hidden" role="status" aria-live="polite"></div>
                 <div id="augment-list" class="augment-list">
                     <!-- Populated by JS -->
                 </div>
@@ -71,68 +68,17 @@
             </div>
         </div>
 
-        <!-- OCR Detection + Manual Augment Input -->
-        <div id="section-input" class="section collapsed">
-            <div class="section-header" data-toggle="input">
-                <span class="arrow">&#9660;</span> DETECT AUGMENTS
-                <span id="ocr-status" class="ocr-status-badge" title="OCR status"></span>
-            </div>
-            <div class="section-body" id="input-body">
-                <!-- OCR scan controls -->
-                <div class="ocr-controls">
-                    <button id="btn-scan" class="btn btn-scan">Scan Screen</button>
-                    <label class="ocr-toggle">
-                        <input type="checkbox" id="ocr-auto" checked>
-                        <span>Auto-detect</span>
-                    </label>
-                </div>
-                <div id="ocr-detected" class="ocr-detected hidden">
-                    <!-- Populated by JS on OCR result -->
-                </div>
-
-                <!-- Always available even without Tesseract -->
-                <div id="ocr-manual-help" class="waiting-sub hidden">
-                    OCR unavailable. Install Tesseract to scan automatically, or
-                    enter the three visible augment names below. Use Alt+O to
-                    interact with the overlay.
-                </div>
-                <!-- Manual fallback -->
-                <div class="input-divider"><span>or search manually</span></div>
-                <div class="input-row">
-                    <input type="text" id="augment-search" placeholder="Search augments..."
-                           autocomplete="off" spellcheck="false">
-                    <select id="tier-filter">
-                        <option value="">All</option>
-                        <option value="0">Stat Anvil</option>
-                        <option value="1">Silver</option>
-                        <option value="2">Gold</option>
-                        <option value="3">Prismatic</option>
-                    </select>
-                </div>
-                <div id="search-results" class="search-results"></div>
-                <div id="selected-augments" class="selected-augments"></div>
-                <div class="input-actions">
-                    <button id="btn-evaluate" class="btn btn-evaluate" disabled>Evaluate (0/3)</button>
-                    <button id="btn-clear-input" class="btn btn-clear">Clear</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Build Path -->
-        <div id="section-build" class="section collapsed">
-            <div class="section-header" data-toggle="build">
-                <span class="arrow">&#9660;</span> BUILD PATH
+        <div id="section-build" class="section">
+            <div class="section-header build-static-header">BUILD
             </div>
             <div class="section-body" id="build-body">
-                <div class="waiting-sub">
-                    Preferred style: <strong id="build-style-current">Balanced</strong>
-                    · Configure before the game in Settings (system tray).
-                </div>
-                <div id="build-list" class="build-list">
+                <div id="build-next" class="build-footer">Next: unavailable</div>
+                <div id="build-list" class="build-list hidden">
                     <!-- Populated by JS -->
                 </div>
-                <div id="build-footer" class="build-footer"></div>
-                <div id="build-alternatives" class="build-list"></div>
+                <div id="build-footer" class="build-footer hidden"></div>
+                <div id="build-alternatives" class="build-list hidden"></div>
             </div>
         </div>
 

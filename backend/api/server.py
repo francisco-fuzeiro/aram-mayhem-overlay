@@ -563,6 +563,7 @@ def ocr_status():
         "stale": game_state.ocr_stale,
         "stale_since_epoch": game_state.ocr_stale_since_epoch,
         "foreground": game_state.ocr_foreground,
+        "capture_backend": getattr(screen_watcher, "last_capture_backend", None),
         "offers": game_state.offer_ledger.payload(),
     }
 
@@ -846,8 +847,18 @@ async def recover_offer(req: OfferRecoverRequest):
         game_state.scan_window_open = True
         game_state.offer_lifecycle.open()
         screen_watcher.reset()
-        return {"offer_id": offer.offer_id, "epoch": offer.epoch,
-                "offers": game_state.offer_ledger.payload()}
+        recovery = {
+            "offer_id": offer.offer_id, "epoch": offer.epoch,
+            "offers": game_state.offer_ledger.payload(),
+            "match_id": game_state.match_id,
+        }
+    # A manual Alt+S recovery runs outside WebView. Publish its identity
+    # only after the ledger lock is released so inline identification can open
+    # even when OCR is unavailable. This never confirms a pick.
+    await _broadcast(json.dumps({
+        "type": "offer_recovered", **recovery,
+    }))
+    return recovery
 
 
 class BugReportRequest(BaseModel):
@@ -2228,6 +2239,8 @@ def _serialize_result(
     }
 
     if snapshot:
+        # D2 read-only display cue; no shop-open inference or gameplay action.
+        out["is_dead"] = bool(getattr(snapshot, "is_dead", False))
         out["game_time"] = snapshot.game_time
         out["current_gold"] = snapshot.current_gold
         out["level"] = snapshot.level

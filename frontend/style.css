@@ -1077,3 +1077,53 @@ body.overlay-mode:not(.interactive-mode)::after {
 /* M4/B2: old OCR evidence must not look like current cards after Alt+Tab. */
 .ocr-focus-stale #ocr-detected, .ocr-focus-stale #augment-list { opacity: 0.45; }
 .ocr-status-badge.ocr-paused { opacity: 0.8; }
+
+/* D2: one decision-oriented surface; minimal always-on next purchase. */
+#section-build .build-static-header {
+    cursor: default;
+    color: var(--text-dim);
+}
+#build-next {
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--cyan);
+}
+#augment-due-hint {
+    margin-left: auto;
+    min-width: 0;
+    flex: 1;
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--gold);
+}
+#augment-recover {
+    padding: 2px 6px;
+    font-size: 10px;
+    white-space: nowrap;
+}
+#section-augments .slot-search {
+    display: block;
+    width: 100%;
+    margin-top: 7px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-accent);
+    outline: none;
+    background: var(--bg-card);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+}
+#section-augments .slot-search:focus {
+    border-color: var(--cyan);
+}
+#section-augments .search-results {
+    max-height: 138px;
+}
+#augment-action-status {
+    font-size: 11px;
+    padding: 5px 8px;
+}
