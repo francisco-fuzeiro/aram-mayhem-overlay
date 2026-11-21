@@ -377,6 +377,30 @@
         }
 
 
+        if (msg.type === "offer_recovered") {
+            // Only an explicit ledger recovery can open unidentified cards.
+            // Ignore out-of-match and outdated recovery packets.
+            if (!lastResult || stale) return;
+            if (typeof msg.match_id === "string" && activeMatchId &&
+                msg.match_id !== activeMatchId) return;
+            if (!Number.isSafeInteger(msg.offer_id) ||
+                !Number.isSafeInteger(msg.epoch) ||
+                (offerEpoch !== null && msg.epoch < offerEpoch) ||
+                !Array.isArray(msg.offers)) return;
+            const offer = msg.offers.find(o => o && o.offer_id === msg.offer_id &&
+                o.epoch === msg.epoch && o.state === "visible" && o.slots);
+            if (!offer) return;
+            offerEpoch = msg.epoch;
+            currentOffers = msg.offers;
+            recoveredOffer = {offer_id: offer.offer_id, epoch: offer.epoch};
+            setOfferNotice("Manual recovery — identify the visible cards");
+            renderRecommendations({...lastResult, offer_epoch: offerEpoch,
+                offers: currentOffers});
+            autoExpandSections({...lastResult, offer_epoch: offerEpoch,
+                offers: currentOffers});
+            return;
+        }
+
         if (msg.type === "ocr_result") {
             // An older game/offer cannot modify current on-screen identities.
             if (!lastResult) return;
