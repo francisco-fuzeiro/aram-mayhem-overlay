@@ -166,7 +166,7 @@ test("WebSocket onclose changes connection indicator and schedules reconnect", (
     const h = harness();
     h.api.connectWebSocket();
     assert.equal(h.sockets.length, 1);
-    assert.ok(h.sockets[0].url.endsWith("/ws/game"));
+    assert.match(h.sockets[0].url, /\/ws\/game$/);
     h.sockets[0].onopen();
     assert.equal(h.element("connection-dot").className, "dot connected");
     h.sockets[0].onclose();
@@ -944,7 +944,7 @@ test("N1 browser startup completes and installs native controls without stale pr
     assert.ok(h.bootPromise, "actual browser startup promise was captured");
     await h.bootPromise;
     assert.equal(h.sockets.length, 1, "live WebSocket is connected during startup");
-    assert.match(h.sockets[0].url, /\\/ws\\/game$/);
+    assert.ok(h.sockets[0].url.endsWith("/ws/game"));
     assert.equal(typeof h.window.handlers.message, "function");
     assert.equal(typeof h.window.handlers["aram-interaction-changed"], "function");
     assert.equal(typeof h.document.handlers.keydown, "function");
