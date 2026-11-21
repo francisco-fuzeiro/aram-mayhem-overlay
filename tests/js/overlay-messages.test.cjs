@@ -89,11 +89,14 @@ function harness({browserBoot = false} = {}) {
         location, handlers: windowHandlers,
         addEventListener(kind, handler) { this.handlers[kind] = handler; },
     };
-    const bootstrapTail = "        init();\\n    }\\n})();";
+    const bootstrapTail = `        init();
+    }
+})();`;
     if (browserBoot) assert.ok(source.includes(bootstrapTail), "real browser init is present");
     const evaluatedSource = browserBoot
-        ? source.replace(bootstrapTail,
-            "        globalThis.__n1BootPromise = init();\\n    }\\n})();")
+        ? source.replace(bootstrapTail, `        globalThis.__n1BootPromise = init();
+    }
+})();`)
         : source;
     const globals = {
         document, WebSocket: Socket,
@@ -163,7 +166,7 @@ test("WebSocket onclose changes connection indicator and schedules reconnect", (
     const h = harness();
     h.api.connectWebSocket();
     assert.equal(h.sockets.length, 1);
-    assert.match(h.sockets[0].url, /\/ws\/game$/);
+    assert.ok(h.sockets[0].url.endsWith("/ws/game"));
     h.sockets[0].onopen();
     assert.equal(h.element("connection-dot").className, "dot connected");
     h.sockets[0].onclose();
