@@ -1,6 +1,6 @@
 # N1 v3 — Native Windows ARAM Mayhem acceptance
 
-**Status:** PREPARED / NATIVE TESTS NOT TESTED (2026-11-21). This is an evidence ledger and one-session playbook, not a claim of live success.
+**Status:** DEVICE PREFLIGHT PARTIAL / N1 CODE CRASH REGRESSION GREEN / NATIVE RETEST AND GAMEPLAY OPEN (2026-11-21). No post-fix native PASS is claimed.
 
 ## Authority and scope
 
@@ -11,6 +11,22 @@
 - No N1 gameplay/Windows capture run has been performed; no numeric false PASS.
 - C1 `offer_cue` is shadow-only; no independently approved negative cue; visual disappearance alone never closes or confirms a pick. S1/C3 and click hints are OFF and not N1 prerequisites. Four-card Maestro remains unsupported and must fail closed, not be treated as three cards.
 - Repository visibility is reported **public** by the connected GitHub repository metadata on 2026-11-21, although described as private in the user request. No visibility change is authorized. Do **not** commit unredacted screenshots, logs, game identities, user paths or secrets.
+
+## 2026-11-21 native preflight findings and targeted N1 correction
+
+Evidence is from the user's local Windows PowerShell/browser screenshots, not from Windows Actions or a real League gameplay validation. Tesseract executable exists with English `eng`; Python `windows-capture==2.0.1` was installed. A separately started local API eventually returned `/health` HTTP 200 with `data_loaded=true`, 172 champions, 328 augments and 863 items; `/settings` and `/api/ocr/status` returned HTTP 200. These are **preflight-only PASS**, not OCR/gameplay or purchasable Mayhem item proof.
+
+| ID | Preflight check | Evidence-based status | Action / limitation |
+|---|---|---|---|
+| N1-PF-01 | Python, WGC package, Tesseract `eng`, local API health + Settings HTTP | PASS (user device) | No live OCR/gameplay inference |
+| N1-PF-02 | Managed desktop can remain running | **FAIL observed on D2**, new code retest **NOT TESTED** | Settings opened then closed spontaneously. Native traceback `TypeError: '>=' not supported between instances of 'JavaScriptConsoleMessageLevel'` from `backend/overlay/window.py:102` |
+| N1-PF-03 | Cold managed desktop starts from no API within its readiness gate | **FAIL observed on D2**, root-cause attribution **BLOCKED** | `ManagedApi.start(timeout=15.0)` timed out. Separately started API eventually completed startup; synchronous `StaticData.load()` may involve network calls. No measured cold-start duration or proof of precise delay yet; threshold unchanged |
+| N1-PF-04 | In-game native Qt + League/OP.GG, HUD, focus, OCR | NOT TESTED | Do not run while desktop preflight is unresolved |
+| N1-PF-05 | No unconsented debug screenshots | PASS (user config log) | Second startup reports `ocr_debug_screenshots = False`; do not commit private captures |
+
+**Crash correction authorized by user:** branch `fix/n1-qt-console-crash`, stacked draft PR #70 directly on #69. Tests-only `d3417ebc6c8e693c57e014810317e80218df82cf` [Windows RED #44953828531](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44953828531): exactly one `test_n1_qt_console_levels_do_not_raise_and_only_log_errors` FAIL with the same enum `>=` TypeError, 1,944 other Python tests PASS. Production `34e60d789a7e0985dad5f845a0a1b4ce6f8cc324` [Windows code GREEN #44953995394](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44953995394): **1,945 Python PASS, 72 JavaScript PASS, three JS syntax checks PASS**, 51 Python warnings. Only the Qt callback comparison changes from enum ordering to `level.value >= ...ErrorMessageLevel.value`; no user actions, new gameplay, OCR, fallback, HUD geometry or build code changed. This proves the **offline regression fix only**. Exact final documentation-HEAD Windows success must be verified separately.
+
+**Next native preflight:** use the final PR #70 SHA, first with a compatible API already running to isolate Qt; observe whether the Settings window/tray persists and verify console errors no longer close the app. Then, in a separate run without an existing API, measure the cold-start duration and actual API readiness stage. A code fix for the 15s timeout is **not yet authorized or justified by an exact causal measurement**. Preserve fail-closed behavior, no repeated League session.
 
 ## Status vocabulary
 
