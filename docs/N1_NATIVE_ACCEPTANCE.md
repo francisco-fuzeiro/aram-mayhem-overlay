@@ -1,6 +1,6 @@
 # N1 v3 — Native Windows ARAM Mayhem acceptance
 
-**Status:** DEVICE PREFLIGHT PARTIAL / QT WARM START OBSERVED / JS BOOT CODE GREEN / POST-FIX LIVE RETEST OPEN (2026-11-21). No League gameplay PASS is claimed.
+**Status:** WARM QT/API PREFLIGHT PASS ON #71 / COLD DESKTOP FAIL OBSERVED / ITEM CACHE-FIRST CODE GREEN #73 / NATIVE RE-TEST OPEN (2026-11-21). No League gameplay PASS is claimed.
 
 ## Authority and scope
 
@@ -43,6 +43,25 @@ Evidence is from the user's local Windows PowerShell/browser screenshots, not fr
 **Authorized correction and audit:** [draft PR #71](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/71) is stacked directly on #70 → #69 → #68. Tests-only `2c631fa5d8c1eb0d21de84af17c8d7c70854454f` [Windows RED #44955660838](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44955660838): 1,945 Python PASS, 72 older JS PASS, **exactly one JS FAIL** `ReferenceError: loadBuildPreference is not defined` from executing the real browser initialization branch. Production `f7801669580b6557f5104c2fcdd0335e3f316b11` [Windows code GREEN #44955851710](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44955851710): **1,945 Python PASS (51 warnings), 73 JavaScript PASS (zero failures, zero skips), three syntax checks PASS**. Source change is solely removal of `await loadBuildPreference();` in `frontend/app.js`; test harness only elsewhere. Earlier test-only attempts #44955076665 (test syntax error) and #44955293039 (unrelated intermittent Python async timeout) **were not accepted as valid RED evidence**; the valid RED is #44955660838. Check exact final documentation SHA in Windows Actions before declaring documentation gate passed. No game, OCR thresholds, WGC, stale/epoch rules, selection, HUD, recommendation, Riot or future V1 change.
 
 **Next user PC actions after final CI:** checkout exact final PR #71 SHA; launch with compatible API already ready; confirm Settings/tray, Alt+H, Qt hide/quit controls and no ReferenceError in terminal. Then measure cold-start without API separately, before any minimal timeout proposal. No need for League until preflight is stable.
+
+## 2026-11-21 — Cold desktop startup preflight, cache-first patch and safety limits
+
+**Native device evidence:** User's Windows PowerShell ran exact #71 commit `7624b27c1d025c4183c2a78aa11609dda45ecf71` with a prestarted compatible API: Settings opened promptly, remained running and Alt+H showed overlay with **no previous Qt enum or JavaScript `loadBuildPreference` crash observed**. This is a narrow native warm-start PASS; other focus, tray menu, live gameplay and OCR remain untested.
+
+After closing the desktop and stopping the manual API, port 8765 was free. A standalone managed desktop attempt started around 22:36:18 and failed around 22:36:41 after its unchanged 15s readiness deadline plus shutdown handling. Separate diagnostic `backend.main --no-browser` did not return fully probe-ready within **90.87s** on that run (`API_READY=False`); later log text includes application startup completion but lacks a trustworthy precise elapsed completion timestamp.
+
+The user captured live repeated `faulthandler` traceback during blocked ASGI startup: `backend/api/server.py:349` → `StaticData.load()` → `backend/static_data/loader.py:230` → `_load_items():972` → `requests.get()` → `urllib3.connection.create_connection()`. The offending source request is the patch-specific CommunityDragon item catalog; prior DD version/item/CommunityDragon metadata lookups are also possible. Later stacks in `asyncio._poll` indicate a normally idling loop, **not** continuing proof of a network stall.
+
+| Case | Evidence-based status | Required next verification |
+|---|---|---|
+| N1-PF-02b, #71 warm Qt | PASS narrow | Verify tray, hide/quit actions and other focus scenarios separately |
+| N1-PF-06c, #71 JS startup | PASS narrow | No `ReferenceError` seen in exact Windows run; no game inference |
+| N1-PF-03, #71 autonomous cold startup | **FAIL on user device** | 15s desktop startup exceeded; versioned item-source network stack captured |
+| N1-PF-03a, #73 verified item-cache fast path | **PASS offline Windows CI, NOT TESTED native** | With exact same patch, policy, two-source metadata and overrides, return cache before network; `4e076624593631e72fd5588f2ce48bb253d3670b` [RED #44959410686](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44959410686) = one expected FAIL / 1,946 Python PASS; `cc9ac27fbcfaa0232422d79eb4c20bf06e0ca732` [code GREEN #44959582650](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44959582650) = 1,947 Python PASS / 73 JS PASS / three JS syntax PASS, 51 Python warnings |
+| N1-PF-03b, no verified matching cache or patch change | **OPEN — potential remaining timeout** | Falls through to existing network, source conflict protections and recognition-only fail-closed catalog; first-install/offline guarantees are **not** established |
+| Native ARAM Mayhem game | NOT TESTED | Only after autonomous desktop preflight is safe |
+
+**Scope:** [draft #73](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/73) is a direct child of #71, with a single localized early cache lookup in `_load_items()` and two deterministic tests. Cache is only trusted after existing `_verified_cached_items` same-version / policy / overrides / two-source provenance checks; corrupt SHA proof or unavailable sources leave shop recommendation IDs empty. Explicit `/api/refresh` / forced refresh still deletes caches before fetching. A matching cache may avoid the observed CD item network wait; no claim of a universal first-install fix, no elapsed native measurement yet. Backend startup deadline remains 15s. No OCR/V1, WGC, HUD, recommendation algorithm, Riot policy or `main` changes. Check final documentation SHA CI independently.
 
 ## Status vocabulary
 
