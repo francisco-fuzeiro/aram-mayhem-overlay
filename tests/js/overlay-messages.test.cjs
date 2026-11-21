@@ -9,12 +9,13 @@ const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../../frontend/app.js"), "utf8");
 
-function harness() {
+function harness({browserBoot = false} = {}) {
     const elements = new Map();
     const requests = [];
     let responseHook = null;
     const sockets = [];
     const pendingTimers = [];
+    const windowHandlers = {};
 
     function node(tag = "div") {
         const classes = new Set();
@@ -70,6 +71,9 @@ function harness() {
             return elements.get(id);
         },
         createElement: node,
+        handlers: {},
+        addEventListener(kind, handler) { this.handlers[kind] = handler; },
+        querySelectorAll() { return []; },
     };
     class Socket {
         static OPEN = 1;
@@ -79,8 +83,20 @@ function harness() {
     }
 
     const module = {exports: {}};
-    vm.runInNewContext(source, {
-        module, document, WebSocket: Socket,
+    const location = {protocol: "http:", host: "127.0.0.1:8765",
+        search: "?mode=overlay", hash: ""};
+    const window = {
+        location, handlers: windowHandlers,
+        addEventListener(kind, handler) { this.handlers[kind] = handler; },
+    };
+    const bootstrapTail = "        init();\\n    }\\n})();";
+    if (browserBoot) assert.ok(source.includes(bootstrapTail), "real browser init is present");
+    const evaluatedSource = browserBoot
+        ? source.replace(bootstrapTail,
+            "        globalThis.__n1BootPromise = init();\\n    }\\n})();")
+        : source;
+    const globals = {
+        document, WebSocket: Socket,
         fetch: async (url, options = {}) => {
             requests.push({url, options});
             if (responseHook) return responseHook(url, options);
@@ -90,13 +106,17 @@ function harness() {
             }
             return {ok: true, status: 200, json: async () => ({offers: []})};
         },
-        location: {protocol: "http:", host: "127.0.0.1:8765"},
+        location,
         setTimeout(handler) { pendingTimers.push(handler); return pendingTimers.length; },
         clearTimeout() {}, console,
-    }, {filename: "frontend/app.js"});
+    };
+    if (browserBoot) Object.assign(globals, {window, URLSearchParams});
+    else globals.module = module;
+    vm.runInNewContext(evaluatedSource, globals, {filename: "frontend/app.js"});
     const api = module.exports;
     return {api, element: document.getElementById, sockets, pendingTimers,
-        document, requests, respond(fn) { responseHook = fn; }};
+        document, window, location, requests, bootPromise: globals.__n1BootPromise,
+        respond(fn) { responseHook = fn; }};
 }
 
 function gameUpdate(champion = "Neeko") {
@@ -913,4 +933,26 @@ test("D2: newer due offer suppresses an older awaiting-confirm panel", () => {
     assert.equal(h.element("section-augments").classList.contains("collapsed"), true);
     assert.equal(h.element("augment-list").children.length, 0);
     assert.match(h.element("augment-due-hint").textContent, /Augment 2 available/);
+});
+
+
+test("N1 browser startup completes and installs native controls without stale preferences", async () => {
+    const h = harness({browserBoot: true});
+    assert.ok(h.bootPromise, "actual browser startup promise was captured");
+    await h.bootPromise;
+    assert.equal(h.sockets.length, 1, "live WebSocket is connected during startup");
+    assert.match(h.sockets[0].url, /\\/ws\\/game$/);
+    assert.equal(typeof h.window.handlers.message, "function");
+    assert.equal(typeof h.window.handlers["aram-interaction-changed"], "function");
+    assert.equal(typeof h.document.handlers.keydown, "function");
+    assert.equal(h.document.body.classList.contains("overlay-mode"), true);
+    h.document.documentElement.classList.add("qt-native-overlay");
+    assert.equal(typeof h.element("btn-hide-overlay").handlers.click, "function");
+    assert.equal(typeof h.element("btn-quit-overlay").handlers.click, "function");
+    h.element("btn-hide-overlay").handlers.click();
+    assert.equal(h.location.hash, "qt-hide");
+    h.element("btn-quit-overlay").handlers.click();
+    assert.equal(h.location.hash, "qt-quit");
+    assert.equal(h.requests.some((r) => r.url === "/api/preferences"), false,
+        "build style remains managed by Settings and the backend");
 });
