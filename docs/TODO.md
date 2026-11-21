@@ -1,5 +1,15 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-21 — N1-PF-03 cold desktop loader correction, draft #73
+
+- [x] **Reproduce exact cold failure:** Windows #71 warm start Settings/Alt+H PASS, autonomous desktop (no existing API, port free) FAIL after 15s readiness + stop; standalone API `API_READY=False` at 90.87s. Faulthandler during ASGI lifespan proves `backend/static_data/loader.py:972` patch-specific CDragon item request blocked in urllib3 network connect.
+- [x] **N1-PF-03a — verified cache-first RED:** tests-only `4e076624593631e72fd5588f2ce48bb253d3670b` [Windows #44959410686](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44959410686): one expected FAIL because `_load_items` still tried remote `item.json` with an exact verified cache; 1,946 others passed.
+- [x] **N1-PF-03a — code GREEN:** `cc9ac27fbcfaa0232422d79eb4c20bf06e0ca732` [Windows #44959582650](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44959582650): 1,947 Python / 73 JS / 3 syntax PASS (51 warnings), cache validated via existing schema/version/overrides/policy/two-source proof before any network item call. Corrupted proof remains non-recommendable; explicit force-refresh preserved. [Draft #73](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/73) directly on #71. Exact docs HEAD CI gate pending.
+- [ ] **N1-PF-03a — user native re-test on final #73 SHA:** no other API running, start `backend.desktop`, verify local Settings opens and persists, `/health` data flags, port ownership, no extended CD request, Alt+H, tray controls.
+- [ ] **N1-PF-03b — cache-absent/patch-changed boot path:** still may block during mandatory external version/source requests. Measure and propose separate safe solution if reproduced, without weakening item recommendations or increasing startup timeout as camouflage.
+- [ ] **N1 Mayhem gameplay acceptance:** remains NOT TESTED. Separate V1/OCR implementation must not collide with this branch; no main merge or public release.
+
+
 ## 2026-11-21 — N1 JavaScript browser bootstrap (PR #71)
 
 - [x] **N1-PF-06a RED:** a user Windows terminal caught `ReferenceError: loadBuildPreference is not defined` at `frontend/app.js:70`; old style handler was removed after Settings separation, but the boot call survived. Browser-branch test on `2c631fa5d8c1eb0d21de84af17c8d7c70854454f` [Windows #44955660838](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44955660838) reproduced exactly one expected JS failure; 72 existing JS and 1,945 Python passed.
