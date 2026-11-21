@@ -261,7 +261,7 @@
             $("ocr-phase").textContent = safePhases.has(status.phase)
                 ? status.phase : "Unknown";
             $("ocr-foreground").textContent =
-                ["league", "other", "unknown"].includes(status.foreground)
+                ["league", "self", "other", "unknown"].includes(status.foreground)
                     ? status.foreground : "Unknown";
             $("ocr-capture-backend").textContent =
                 ["wgc", "mss_zorder"].includes(status.capture_backend)
