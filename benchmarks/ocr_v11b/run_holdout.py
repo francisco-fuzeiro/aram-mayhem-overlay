@@ -66,6 +66,11 @@ def main():
         p=(root/item["file"]).resolve()
         with Image.open(p) as image:
             img=image.convert("RGB")
+        human_match=(strict_match_title(item["expected"],catalog)
+                     if item["expected"] else None)
+        expected_id=human_match[0] if human_match else None
+        if item["category"]=="title" and expected_id is None:
+            raise ValueError("human ground truth lacks unique canonical ID")
         for name,engine in engines.items():
             start=time.perf_counter()
             if engine is None:
@@ -76,9 +81,12 @@ def main():
                     engine,img,strict_match_title,catalog)
             elapsed=1000*(time.perf_counter()-start)
             actual=match[1] if match else None
-            evidence=classify_evidence(item["expected"],actual,
+            actual_id=match[0] if match else None
+            evidence=classify_evidence(expected_id,actual_id,
                                        item["category"],item["slot"])
-            evidence.update({"sample_index":idx,"two_line":bool(item.get("two_line")),
+            evidence.update({"sample_index":idx,"expected_title":item["expected"],
+                             "actual_title":actual,
+                             "two_line":bool(item.get("two_line")),
                              "rare_group":item.get("rarity"),
                              "raw_exact":bool(item["expected"] and
                                               canon(raw)==canon(item["expected"])),
