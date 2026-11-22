@@ -117,8 +117,10 @@ $V4 = Join-Path $Models "ppocrv4.onnx"
 $V5 = Join-Path $Models "ppocrv5_en.onnx"
 $v4ok = Confirm-Model $V4 $V4Sha
 $v5ok = Confirm-Model $V5 $V5Sha
-if (-not $v4ok -or -not $v5ok -or
-    -not (Test-Path -LiteralPath (Join-Path $Models "ppocr_keys_v1.txt"))) {
+# The pinned v4 ONNX embeds the character dictionary in model metadata.
+# The wheel text dictionary is optional; DirectONNX validates metadata and
+# CTC output dimensions before accepting any decoded title.
+if (-not $v4ok -or -not $v5ok) {
     if ($Offline) { throw "Pinned models/charset not cached. Run setup once without -Offline." }
     & $VenvPython (Join-Path $Repo "benchmarks\ocr_v11\fetch_models.py") $Models
     Assert-Exit "Fetch pinned model files"
