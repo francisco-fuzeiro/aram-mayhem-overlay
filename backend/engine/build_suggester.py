@@ -209,7 +209,7 @@ def _fill_slots(
         )
         if not available:
             reason = (
-                "already_owned" if item.id in seen
+                "already_in_build" if item.id in seen
                 else "item_name_duplicate" if _item_name_key(item) in named
                 else "boots_conflict" if is_tier_two(item) and boots_taken
                 else "exclusive_group_conflict"
@@ -228,7 +228,7 @@ def _fill_slots(
         named.add(_item_name_key(item))
         occupied.update(memberships.get(item.id, set()))
         boots_taken |= is_tier_two(item)
-        trace_candidate(item, "accepted", "verified_candidate")
+        trace_candidate(item, "accepted", "slot_candidate_selected")
 
     # Reserve a final slot for an upgrade when basic Boots is equipped.
     for item in ranked:
