@@ -10,7 +10,11 @@ from benchmarks.ocr_v11d.label_core import save_confirmed_frame, title_suggestio
 
 
 def specimen():
-    return Image.new("RGB", (120, 60), (180, 10, 70))
+    image = Image.new("RGB", (120, 60), (180, 10, 70))
+    for x in range(120):
+        for y in range(60):
+            image.putpixel((x, y), ((x * 3) % 256, (y * 4) % 256, (x + y) % 256))
+    return image
 
 
 def choose(slot="left", rect=(0, 0, 35, 25), expected="Donation", category="title"):
