@@ -1,5 +1,14 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — OCR V1.2 experimental direct PP-OCRv4 implementation (draft #83)
+
+- User authorized starting implementation following independent V1.1c research; explicit confirmation that GitHub repository visibility **PUBLIC** is intended. Updated `AGENTS.md`; still forbid private screenshots, player data, source logs and secrets.
+- Created `feat/ocr-v12-ppocrv4-optin-20261122` from the then-current F1 #80 head `5cd9e0389a653598d0ecd4ef0eff1099e32667f4`. Opened [draft #83](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/83). Main, F1 #80 and separate OCR research #72/#74/#75/#77/#79/#81 not edited or merged.
+- Added tests-first `tests/test_ocr_v12_ppocrv4.py` RED contract code, then `backend/collectors/ppocr_v4.py` direct fixed 48×448 ONNX CPU/CTC engine, default-off `slot_title_ocr` routing, verified local model installer, optional `onnxruntime` dependency, 26 original real-model product-entrypoint tests and a separate Windows Actions job.
+- Exact model SHA256 `48fc40f24f6d2a207a2b1091d3437eb3cc3eb6b676dc3ef9c37384005483683b`; fixed RGB/PIL and line splitting from V1.1. Strict 90/8, capture WGC, physical slot geometry, temporal and epoch safety preserved. Tesseract still default, v4 opt-in, absent/unavailable model falls back.
+- At documentation checkpoint, no complete exact-final-head Windows CI evidence has been verified; no claims of RED test execution, real user Windows/game performance or independent holdout. Research V1.1c historical 19/19 title + 7/7 negative success is separate evidence. Next: inspect Windows Actions, fix measured failures, native custom validation.
+
+
 ## 2026-11-22 — F1.3 native controlled test prepared (draft #80, no gameplay run)
 
 - Reverified #80 OPEN/DRAFT/UNMERGED at prior `50138b091ec897c62b84d82cabbffe2878626379` directly on #78 `45f2c9e28eeed7e137c0f52237acda63398e409f`; #78 directly on #76; independent OCR drafts #72/#74/#75 open. No merges or main changes.
