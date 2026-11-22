@@ -34,6 +34,14 @@ jobs:
         run: |
           python -m compileall -q benchmarks/ocr_v11b benchmarks/ocr_v11c
           python -m benchmarks.ocr_v11b.profile_windows --help
+      - name: Parse PowerShell launcher without running system setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'benchmarks/ocr_v11c/Run-OCRBenchmark.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) { $parseErrors | Out-String | Write-Error; exit 1 }
 
   real-model-linux:
     needs: safety-tests
