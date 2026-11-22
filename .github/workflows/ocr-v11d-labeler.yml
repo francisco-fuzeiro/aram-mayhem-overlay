@@ -38,7 +38,13 @@ jobs:
         shell: pwsh
         run: |
           $temporaryRoot = Join-Path $env:RUNNER_TEMP 'v11d-ps51-no-cache-test'
-          $command = "& './benchmarks/ocr_v11d/Start-OCRLab.ps1' -BenchOnly -Offline -OutputRoot '$temporaryRoot'"
+          $paramsCheck = "(Get-Command './benchmarks/ocr_v11d/Start-OCRLab.ps1').Parameters.Keys -join ','"
+          $parameters = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $paramsCheck 2>&1 | Out-String)
+          Write-Host "PS51_PARAMS=$parameters"
+          if ($parameters -notmatch 'Offline' -or $parameters -notmatch 'OutputRoot') {
+            throw 'PowerShell 5.1 failed to parse the launcher named parameters'
+          }
+          $command = "& './benchmarks/ocr_v11d/Start-OCRLab.ps1' -Offline -OutputRoot '$temporaryRoot'"
           $text = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $command 2>&1 | Out-String)
           Write-Host $text
           if ($LASTEXITCODE -eq 0) { throw 'Empty offline cache must fail closed' }
