@@ -12,13 +12,47 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: '1'
+      OMP_NUM_THREADS: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out isolated research branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out exact N1 snapshot read-only for production matcher and approved fixtures
+        uses: actions/checkout@v4
+        with:
+          ref: '7624b27c1d025c4183c2a78aa11609dda45ecf71'
+          path: 'reference'
+          persist-credentials: false
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install test tools
-        run: python -m pip install 'pytest==8.3.5'
-      - name: Run benchmark integrity unit tests (RED-first)
+      - name: Install pinned isolated benchmark dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+          python -m pip install 'pytest==8.3.5' 'onnxruntime==1.20.1' 'rapidocr-onnxruntime==1.4.4' 'numpy==1.26.4' 'Pillow==11.1.0' 'rapidfuzz==3.12.2' 'pytesseract==0.3.13' 'psutil==6.1.1' 'opencv-python-headless==4.10.0.84' 'mss==10.0.0'
+      - name: Check integrity gate unit tests
         run: python -m pytest -q benchmarks/ocr_v11/test_runner.py
+      - name: Pin reference + toolchain
+        run: |
+          git -C reference rev-parse HEAD
+          python -c 'import onnxruntime, rapidocr_onnxruntime; print("ONNX Runtime",onnxruntime.__version__,"RapidOCR module",rapidocr_onnxruntime.__file__)'
+          tesseract --version
+          lscpu
+      - name: Download and verify both exact ONNX models
+        run: python benchmarks/ocr_v11/fetch_models.py .benchmark_assets
+      - name: Run 26-case real inference, transformations, metrics and per-case comparison
+        run: python -m benchmarks.ocr_v11.runner --reference reference --models .benchmark_assets --out .benchmark_results
+      - name: Upload sanitized results (no images or models)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11-ocr-sanitized-results
+          path: .benchmark_results/*.json
+          if-no-files-found: ignore
+          retention-days: 7
