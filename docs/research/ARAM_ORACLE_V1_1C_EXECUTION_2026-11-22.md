@@ -185,3 +185,29 @@ N1 native acceptance, and a Riot policy review. At least one accepted
 wrong ID requires investigation, not promotion. No finite small set
 proves a zero true error rate; use separate safety/abstention gates.
 Never change strict matcher 90/8 or WGC/epochs in this research phase.
+
+## 7. Final V1.1c implementation refinements and validation status
+
+- Added a fifth individually profiled candidate, ppocrv4_adaptive_split,
+  via the same pinned direct v4 ONNX model with BGR/OpenCV/ceil/adaptive
+  width preprocessing. The private holdout evaluator now compares all
+  five required engines. The four-engine resource table above remains
+  archival V1.1b evidence: do NOT infer adaptive CPU/RSS/timings from
+  the fixed-width v4 row.
+- Added explicit holdout seal verification and --unlock-holdout to
+  benchmarks/ocr_v11c/evaluate_local.py. Non-empty development data
+  is the default, and no unseen holdout runs implicitly; all private
+  data and outputs must remain outside the Git checkout.
+- Windows instructions now use a separate detached Git worktree,
+  rather than switching the active product working tree.
+- Windows Actions now checks both fresh PowerShell setup and a second
+  -Offline cached benchmark on a disposable VM, marked CI_RUNNER.
+  These tests cannot substitute for native user-device/League evidence.
+- Additional RED-first unit contracts cover adaptive profiling,
+  frame-accurate rerolls, holdout-seal tampering and privacy boundaries.
+
+Final-head CI gate: inspect the exact latest #79 head Linux and Windows
+safety, real pinned models, full profiler and Windows launcher results.
+A queued or older successful CI is not final-head validation.
+Independent unseen holdout, personal Windows and League/OP.GG remain
+NOT TESTED/BLOCKED pending new user-operated evidence.
