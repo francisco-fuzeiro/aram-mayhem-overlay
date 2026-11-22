@@ -37,7 +37,7 @@ function Confirm-Model([string]$path, [string]$expected) {
     return $true
 }
 
-Write-Host "ARAM Oracle V1.1c — isolated offline OCR bench (no game integration)"
+Write-Host "ARAM Oracle V1.1c - isolated offline OCR bench (no game integration)"
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "Git missing. Install Git for Windows; no global settings will be changed."
 }
@@ -83,13 +83,19 @@ $Pins = @(
     "pytesseract==0.3.13", "psutil==6.1.1",
     "opencv-python-headless==4.10.0.84", "mss==10.0.0"
 )
+# Validate the cached venv BEFORE installing anything. A retry after a
+# transient benchmark failure must reuse already-correct packages.
+$PinVerifier = Join-Path $Repo "benchmarks\ocr_v11c\verify_pins.py"
 if (-not $Offline) {
-    & $VenvPython -m pip install --disable-pip-version-check @Pins
-    Assert-Exit "Install isolated pinned dependencies"
+    & $VenvPython $PinVerifier @Pins
+    if ($LASTEXITCODE -ne 0) {
+        & $VenvPython -m pip install --disable-pip-version-check @Pins
+        Assert-Exit "Install isolated pinned dependencies"
+    }
 }
-# Fail closed when an existing/offline venv drifts from exact package pins.
-$CheckPackages = 'import importlib.metadata as m; import sys; pins=dict(x.split("==") for x in sys.argv[1:]); mismatches=[f"{k}={m.version(k)} (expected {v})" for k,v in pins.items() if m.version(k)!=v]; print("PINNED_DEPS_OK" if not mismatches else "PIN_MISMATCH "+", ".join(mismatches)); sys.exit(bool(mismatches))'
-& $VenvPython -c $CheckPackages @Pins
+# Fail closed for any missing or drifting version, including offline mode.
+# Use a Python file: Windows PowerShell 5.1 can mangle quotes in -c source.
+& $VenvPython $PinVerifier @Pins
 Assert-Exit "Verify pinned dependency versions"
 
 if (-not $TesseractExe) {
@@ -158,6 +164,6 @@ try {
     Pop-Location
 }
 Write-Host ""
-Write-Host "PASS — isolated Windows OCR benchmark completed outside League."
+Write-Host "PASS - isolated Windows OCR benchmark completed outside League."
 Write-Host "LOCAL-ONLY REPORT: $(Join-Path $Results 'REPORT.md')"
 Write-Host "No images or local reports were uploaded. Actual game/OP.GG/holdout remain BLOCKED."

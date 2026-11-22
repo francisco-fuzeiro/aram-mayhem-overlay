@@ -5,6 +5,78 @@ description: Continue the ARAM Oracle independent OCR V1 research safely across 
 
 # ARAM Oracle OCR Research — Continuity and Next-Phase Rule
 
+## 2026-11-22 — V1.1d Windows PowerShell 5.1 launcher hotfix
+
+User tested the new V1.1d launcher on their Windows PowerShell 5.1 in the
+existing D: repository checkout, and it failed before OCR inference.
+The isolated benchmark had two non-ASCII display em dashes incompatible with
+some BOM-less Windows PowerShell 5.1 decoders; replaced with ASCII.
+More decisively, V1.1d nested PowerShell parameters used array splatting
+instead of a named hashtable. Windows PowerShell 5.1 Actions reproduced
+`A positional parameter cannot be found that accepts argument '-Offline'`
+when the outer script invoked V1.1c. Fixed with named hashtable splatting.
+A dedicated Windows PowerShell 5.1 no-download, empty-cache nested-script
+smoke was added to CI; recheck exact final HEAD before a PASS claim.
+This user-reported failure produced **no user-PC OCR timings/results**.
+Do not clone again: update the existing Git checkout in place only when
+safe/clean, preserve the user's D: layout. No production, main, N1,
+engine, threshold or policy change.
+
+## 2026-11-22 — V1.1d active, private native Windows lab (research only)
+
+**Current child:** `research/v1-1d-ocr-native-labeler-20261122`,
+[draft #81](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/81),
+stacked directly onto #79 exact
+`eb96f7bb34f3f8bdac146440d21f927098b79925`.
+**NO MERGE. NO V1.2.** Production Tesseract, match thresholds 90/8,
+WGC/temporal/epochs, game UI, OfferLedger, dependencies and N1/main untouched.
+
+**Start next session here:** first read
+`docs/research/ARAM_ORACLE_V1_1D_EXECUTION_2026-11-22.md`,
+`benchmarks/ocr_v11d/README.md`, the V1.1c ledger/README, V1.1b/V1.1
+benchmark, then current exact-head #81 and #79 GitHub Actions.
+`AGENTS.md` and the general skill/N1 state are read-only from #71.
+Do not repeat model benchmarks without an explicit technical reason.
+
+**Verified parent closure:** V1.1c #79 exact final HEAD
+`eb96f7bb34f3f8bdac146440d21f927098b79925`,
+[Actions #44982899154](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982899154):
+all four Linux/Windows pinned real-model and safety jobs SUCCESS, including
+Windows fresh/offline PowerShell preflight. Disposable CI **never** equals the
+user's machine.
+
+**V1.1d utilities:** opt-in `Start-OCRLab.ps1` wraps the existing unchanged
+V1.1c one-command benchmark; lightweight native Tk still-image manual
+import/preview/title-rectangle labels and candidate name selector,
+session/offer/frame ID, rarities, 3 slots, rerolls, two lines,
+transition/dialog/no-offer, focus/Alt+Tab, resolution/DPI/OP.GG metadata,
+explicit human privacy/title approval, private CSV and safe duplicate/split
+gates, original decoded-pixel checks and source-screenshot fingerprints
+so distinct frames cannot be combined. Reuses sealed V1.1c manifests
+and explicit development-only evaluator.
+A private context report groups existing five-engine case outcomes; the
+holdout cannot be unlocked by this GUI. No image upload or game APIs.
+
+**Test evidence:** tests-first missing-module RED on both OSes at
+`6bec37184b65c44e7a8b6b8fdb75d80c67779714`,
+[Actions #44991963627](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44991963627);
+first isolated-core GREEN at
+`0e2cb63cc106ad475dba01fa85e27e6fc150086c`,
+[Actions #44992087157](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44992087157).
+**Recheck full exact final V1.1d SHA Actions after docs and test additions.**
+No native user-PC test, new approved screenshot or holdout has occurred:
+**independent holdout BLOCKED, Windows PC/League/OP.GG NOT TESTED**.
+Never claim CI provides UI/capture/game acceptance.
+
+**Next action:** user separately checks out detached V1.1d worktree and runs
+the single local PowerShell command from README. Only after explicit human
+confirmation of unseen captures should development and sealed holdout be
+analyzed. Keep all captures/CSV/raw OCR, paths and resource metrics
+outside the PUBLIC repo and off uploads. Fixed PP-OCRv4 remains leading
+*offline* candidate with LOW unseen confidence. V1.2 NO-GO until independent
+safety, real user PC League/OP.GG + N1 acceptance, Riot gate and a new
+specific authorization.
+
 ## 2026-11-22 — V1.1c active child, independent native readiness (research only)
 
 **Current continuation:** research/v1-1c-ocr-native-readiness-20261122,
