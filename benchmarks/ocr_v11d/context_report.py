@@ -66,8 +66,10 @@ def summarize_context(csv_path: Path, manifest_path: Path, report_path: Path) ->
             key: {value: dict(counts) for value, counts in sorted(dim.items())}
             for key, dim in groups.items()
         }
-    if len(result["engines"]) != 5:
-        raise ValueError("expected five independently evaluated engine configurations")
+    if set(result["engines"]) != {"tesseract", "ppocrv4_split",
+                                  "ppocrv4_adaptive_split", "rapidocr_v4_split",
+                                  "ppocrv5_en_split"}:
+        raise ValueError("expected the five pinned engine configurations")
     return result
 
 
