@@ -1,5 +1,18 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-22 — F1 Champion Select direct child draft #80
+
+**Branch/stack:** `fix/f1-champion-select-identity-20261122` in [draft #80](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/80) directly on [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) at `45f2c9e28eeed7e137c0f52237acda63398e409f` ([Windows #44981004892](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981004892) SUCCESS). Its parent #76 is also draft/unmerged; OCR #72/#74/#75 separate. `main` unchanged.
+
+| Small gate | Actual scope | Evidence / open condition |
+| --- | --- | --- |
+| F1.1 source correctness | F0 classifier applied to production local `cellId`, unique self, numeric-to-alias and static lookup; ambiguous/unknown identity abstains; bench independent | [RED Windows #44981614324](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981614324) (4 intended new FAIL, 1,963 previous PASS); final GREEN confirmation required |
+| F1.2 transport/UI | Monotonic LCU-read revision, source-confirmed alias, strictly single `(current)` badge and no old swap resurrection; old behavior for 0–10 score untouched | [RED Windows #44981718994](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981718994) (2 intended JS FAIL, 75 prior PASS); Python poll → WS JSON → actual JS DOM harness; final GREEN confirmation required |
+| F1.3 classification | [Fixed synthetic matrix and native protocol](audits/F1_CHAMPION_SELECT_2026-11-22.md); own, bench, higher ranked bench, swap, missing/duplicated/malformed cell, missing alias/catalog, stale/out-of-order messages and temporary LCU loss | Offline regression gate pending exact final SHA CI; user Windows controlled custom-game check **NOT TESTED**; original observed N1 cause **BLOCKED** |
+| Final gate | Full Python / Node JS / 3 syntax / exact documentation SHA Windows Actions SUCCESS, no merge | **PENDING independent final-head verification** at this checkpoint; do not move to F2 while an applicable gate is open |
+
+No OCR engine, strict 90/8 matching, WGC, augment epochs, item/build algorithm, HUD, game input, history policy, install/package or Riot score-policy modifications. F1 is an offline bounded recovery, not proof of the originally reported native root cause.
+
 ## 2026-11-22 — F0 draft #78 implementation and gates
 
 **F0 branch:** `audit/f0-functional-lineage-20261122`, [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) directly on docs [draft #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76) at `d806a9791b18fab07e52a70a78b56f52144f5b8d`. **F0.1** source→UI map in [lineage](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md); **F0.2** optional allowlisted local tracing with public game-catalog IDs (never player IDs), physical L/C/R crop geometry, strict OCR matching rejection categories, bounded build slot inclusion/exclusion + deterministic no-League replay and negative tests; **F0.3** incident triage and small future RED-case PR queue in [diagnosis](audits/F0_DIAGNOSIS_2026-11-22.md).
