@@ -173,13 +173,15 @@ class DirectONNX:
         shape=self.session.get_inputs()[0].shape
         self.height=48
         self.width=448 if version=="v4" else (shape[3] if isinstance(shape[3],int) else 320)
-        if version=="v4":
+        metadata=self.session.get_modelmeta().custom_metadata_map
+        if version=="v4" and Path(dict_path).is_file():
             self.dictionary=Path(dict_path).read_text(encoding="utf8").splitlines()
+            self.charset_source="pinned_wheel_dictionary"
         else:
-            metadata=self.session.get_modelmeta().custom_metadata_map
             if "character" not in metadata:
-                raise ValueError("decoder_incompatible: missing v5 embedded character dictionary")
+                raise ValueError("decoder_incompatible: missing embedded character dictionary")
             self.dictionary=metadata["character"].splitlines()
+            self.charset_source="embedded_ONNX_metadata"
         # The logits count will also be checked at runtime; no guessing of charset indices.
         self.chars=[""]+self.dictionary+([" "] if version=="v4" else [])
         self.input_name=self.session.get_inputs()[0].name
@@ -219,7 +221,7 @@ class RapidV4:
         import rapidocr_onnxruntime
         t=time.perf_counter()
         cfg=read_yaml(str(Path(rapidocr_onnxruntime.__file__).parent/"config.yaml"))
-        cfg.update({"rec_model_path":str(model),"rec_keys_path":str(keys),
+        cfg.update({"rec_model_path":str(model),"rec_keys_path":str(keys) if Path(keys).exists() else None,
                     "rec_use_cuda":False,"rec_batch_num":1,"rec_img_shape":[3,48,448],
                     "intra_op_num_threads":1,"inter_op_num_threads":1})
         self.engine=TextRecognizer(cfg)  # recognizer ONLY; detector and classifier never created
@@ -439,7 +441,8 @@ def main():
               "onnx_threads":1,"python":sys.version.split()[0],
               "tesseract":str(pytesseract.get_tesseract_version()),"dependencies":deps,
               "model_sha256":{"v4":V4_SHA,"v5_en":V5_SHA},"model_sizes":sizes,
-              "model_load_ms":loads,"three_crops_ms":batch,"resources":resources,
+              "model_load_ms":loads,"charset_sources":{"v4":v4.charset_source,"v5":v5.charset_source},
+              "three_crops_ms":batch,"resources":resources,
               "cases":validate_cases(cases),"catalog":len(catalog),
               "original_images":26,"per_engine_variants":208,"warmups_per_engine":2,
               "single_core_cpu_percent_note":"process CPU time / wall time, not system utilisation during League"}
