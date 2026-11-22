@@ -1157,3 +1157,24 @@ test("F1 integration: synthetic LCU → actual Python poll WS packets → real J
         /No champion data yet/i);
     assert.match(h.element("champ-select-note").textContent, /unresolved/i);
 });
+
+test("F3/#84 unknown model vs missing rating evidence display distinct safe causes", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate("Jinx"), ...d2VerifiedFields({
+        left: "without-model", centre: "model-error", right: "missing-recommendation",
+    }), recommendations: [
+        {augment_id: "without-model", augment_name: "Without Model",
+            score: null, modelled: false, explanation: ""},
+        {augment_id: "model-error", augment_name: "Model Error",
+            score: null, modelled: true, explanation: ""},
+    ], suggest_reroll: true,
+        reroll_reason: "Do not trust this when any card is unrated",
+    });
+    const cards = h.element("augment-list").children;
+    assert.equal(cards.length, 3);
+    assert.match(cards[0].innerHTML, /No model/);
+    assert.match(cards[1].innerHTML, /Rating unavailable/);
+    assert.match(cards[2].innerHTML, /No rating data/);
+    assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
+    assert.doesNotMatch(cards.map(card => card.innerHTML).join(" "), /NaN|0\.0\/10|null\/10/);
+});
