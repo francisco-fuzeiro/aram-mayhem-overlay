@@ -43,3 +43,9 @@
 ## Remaining gates
 
 The original user's real-match champion root cause remains **BLOCKED**; actual custom-game identity and LCU communication/dropout timing are **NOT TESTED** on the user's Windows system. F2 must not begin unless F1's required gate is satisfied. Existing draft #78/#76 dependencies, OCR research #72/#74/#75 and `main` must remain untouched.
+
+## F1.3 protocol preparation and final baseline verification — 2026-11-22
+
+- Exact previous full code+docs F1 SHA `50138b091ec897c62b84d82cabbffe2878626379`: [Windows #44982404803](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982404803) **SUCCESS** (1,969 Python, 78 JS, 3 syntax). Follow-up ambiguous-cell ally-role regression tests-only [RED #44982274846](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982274846) FAILURE as expected; corresponding code [GREEN #44982379970](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982379970) SUCCESS. These are code-contract, not native results.
+- [Controlled native custom Mayhem checklist](../plans/F1_3_CONTROLLED_NATIVE_VALIDATION_2026-11-22.md) prepared for seven F1-N00–F1-N06 cases. Riot patch 25.22 officially added custom Mayhem. Current Windows client mode, all self/bench/swap/outage observations **NOT TESTED**. Unsupported required checks become BLOCKED when verified, never automatic native PASS. No original root-cause attribution or new RED/GREEN fix claimed.
+- This is documentation preparation and generates a new HEAD; check its own Windows Actions before any final code/docs claim. Keep original user-observed native FAIL/root cause BLOCKED, N1 not accepted, F1.3 unchecked, F2 NOT STARTED; main and OCR unchanged.

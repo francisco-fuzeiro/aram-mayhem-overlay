@@ -1,5 +1,10 @@
 # N1 v3 — Native Windows ARAM Mayhem acceptance
 
+## 2026-11-22 — F1.3 custom Windows acceptance protocol prepared
+
+The [F1-N00–F1-N06 native matrix](docs/plans/F1_3_CONTROLLED_NATIVE_VALIDATION_2026-11-22.md) has been documented but **not executed on the user's Windows client**. Custom Mayhem was added by Riot in patch 25.22; the current lobby UI, starting conditions, self/bench availability and manual swaps are **NOT TESTED**. The exact earlier F1.1/F1.2 code+docs SHA `50138b091ec897c62b84d82cabbffe2878626379` passed [Windows #44982404803](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982404803) (1,969 Python, 78 JS, three syntax). Any new documentation HEAD requires its own gate. No personal screenshots/IDs/logs requested. The original real-game champion FAIL remains, root cause BLOCKED, N1 overall NOT ACCEPTED, F1.3 open and F2 NOT STARTED.
+
+
 ## 2026-11-22 — F1 Champion Select recovery, pending real-game validation
 
 F1 in open direct-child [draft #80](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/80) on audited F0 #78; see [synthetic matrix and evidence](audits/F1_CHAMPION_SELECT_2026-11-22.md). Its source-to-UI fixes address demonstrable ambiguous-local-cell and late-WS-packet boundaries, but cannot retroactively prove the cause of the user's unrecorded ARAM wrong-current symptom.

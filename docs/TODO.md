@@ -23,7 +23,7 @@
 
 - [x] **FR-F1.1 — Correct validated local-cell / numeric-ID mapping** under swaps, bench availability, unknown local cell and unmapped champion, with no bench item relabelled `current`.
 - [x] **FR-F1.2 — Correct live change propagation and current badge**, no stale old champion on swap/transition; abstain on unresolved local identity.
-- [ ] **FR-F1.3 — User-operated custom champion-select validation**, fixed test matrix correctly distinguishes self, bench and allies. No automatic picks.
+- [ ] **FR-F1.3 — User-operated custom champion-select validation**, fixed test matrix correctly distinguishes self, bench and allies. No automatic picks. [Controlled custom-game protocol](docs/plans/F1_3_CONTROLLED_NATIVE_VALIDATION_2026-11-22.md) PREPARED; seven native F1-N00–F1-N06 **NOT TESTED**. Prior F1 code SHA 50138b0 Windows #44982404803 SUCCESS; final docs-head CI separate. Leave unchecked.
 
 ### F2 — Augments: truthful offer, title, slot, reroll and selection
 
