@@ -60,6 +60,8 @@ jobs:
           python -m pip install 'pytest==8.3.5' 'onnxruntime==1.20.1' 'rapidocr-onnxruntime==1.4.4' 'numpy==1.26.4' 'Pillow==11.1.0' 'rapidfuzz==3.12.2' 'pytesseract==0.3.13' 'psutil==6.1.1' 'opencv-python-headless==4.10.0.84' 'mss==10.0.0'
       - name: Download and verify exact historical ONNX weights
         run: python benchmarks/ocr_v11/fetch_models.py .benchmark_assets
+      - name: Stress-test fixed 90/8 matcher with synthetic text (not image evidence)
+        run: python -m benchmarks.ocr_v11b.stress_matcher --reference reference --out v11b_evidence/synthetic_stress.json
       - name: Run original-only controlled v4 / RapidOCR / English v5 ablations
         run: python -m benchmarks.ocr_v11b.run_inference --reference reference --models .benchmark_assets --out v11b_evidence
       - name: Run isolated-process resource, cold-start and three-crop benchmark
@@ -106,6 +108,8 @@ jobs:
         run: python -m pip install 'pytest==8.3.5' 'onnxruntime==1.20.1' 'rapidocr-onnxruntime==1.4.4' 'numpy==1.26.4' 'Pillow==11.1.0' 'rapidfuzz==3.12.2' 'pytesseract==0.3.13' 'psutil==6.1.1' 'opencv-python-headless==4.10.0.84' 'mss==10.0.0'
       - name: Download and verify pinned real ONNX models
         run: python benchmarks/ocr_v11/fetch_models.py .benchmark_assets
+      - name: Synthetic OCR-text stress with unchanged title matcher
+        run: python -m benchmarks.ocr_v11b.stress_matcher --reference reference --out v11b_evidence_windows/synthetic_stress.json
       - name: Run original-only pinned real-model inference
         run: python -m benchmarks.ocr_v11b.run_inference --reference reference --models .benchmark_assets --out v11b_evidence_windows
       - name: Measure disposable Windows Actions isolated-process CPU RSS and cold start
