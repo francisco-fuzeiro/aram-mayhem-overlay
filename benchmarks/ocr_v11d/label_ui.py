@@ -371,8 +371,22 @@ class Labeler:
                     message = "FAIL/BLOCKED: " + run.stderr[-700:]
                     self.root.after(0, lambda: self.status.set(message))
                 else:
-                    self.root.after(0, lambda: self.status.set(
-                        "PASS — local development OCR report saved under private-captures/results."))
+                    context_cmd = [
+                        sys.executable, "-m", "benchmarks.ocr_v11d.context_report",
+                        "--labels", str(self.private_root / "human_labels.csv"),
+                        "--manifest", str(manifest),
+                        "--result", str(result),
+                        "--out", str(result.with_name("development-context-summary.json")),
+                    ]
+                    breakdown = subprocess.run(context_cmd, cwd=self.repository,
+                                               text=True, capture_output=True, check=False)
+                    if breakdown.returncode:
+                        message = ("OCR PASS, contextual breakdown BLOCKED: " +
+                                   breakdown.stderr[-500:])
+                    else:
+                        message = ("PASS — development OCR and scenario breakdown "
+                                   "saved locally in private-captures/results.")
+                    self.root.after(0, lambda: self.status.set(message))
             except Exception as exc:
                 message = "FAIL/BLOCKED: " + str(exc)
                 self.root.after(0, lambda: self.status.set(message))
