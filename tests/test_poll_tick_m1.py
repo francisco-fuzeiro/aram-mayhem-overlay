@@ -198,6 +198,12 @@ async def test_v12_due_offer_rejects_previous_verified_triple_replayed_after_res
     assert state.augment_choices == []
     assert state.offer_ledger.offers[-1].state == "due"
 
+    # A distinct triple is not enough while the earlier offer is unresolved.
+    # Once the player explicitly confirms the older offer, the new one may
+    # be recognized without converting a reroll into a new selection.
+    state.offer_ledger.confirm(first_ledger.offer_id, first_ledger.epoch, "old-left")
+    assert state.offer_ledger.active_augment_ids() == ["old-left"]
+
     await poll_tick(state, deps, 104.0)
     assert state.offer_state == "present"
     assert state.ocr_slot_choices == {
