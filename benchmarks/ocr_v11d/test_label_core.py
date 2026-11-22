@@ -123,3 +123,36 @@ def test_suggestions_only_return_catalog_values_and_are_bounded():
     assert title_suggestions("blunt", titles) == ["Blunt Force"]
     assert title_suggestions("", titles, limit=2) == ["Blunt Force", "Donation"]
     assert title_suggestions("not-in-catalog", titles) == []
+
+
+def test_context_summary_requires_matching_sealed_manifest_and_five_engines(tmp_path):
+    """Synthetic test records, never interpreted as measured OCR evidence."""
+    import json
+    from benchmarks.ocr_v11d.context_report import summarize_context
+    store(tmp_path, context={"scene": "reroll", "reroll": "left",
+                             "focus": "alt_tab", "opgg": "yes", "dpi": "125"})
+    labels = tmp_path / "private" / "human_labels.csv"
+    row = read_rows(tmp_path)[0]
+    manifest = tmp_path / "development.manifest.json"
+    entry = {"file": row["file"], "expected": "Donation", "two_line": False,
+             "source_session": row["source_session"],
+             "source_frame": row["source_frame"],
+             "offer_id": row["offer_id"], "slot": "left",
+             "category": "title", "rarity": "Silver"}
+    manifest.write_text(json.dumps({"samples": [entry]}), encoding="utf-8")
+    report = tmp_path / "local_result.json"
+    engines = {name: {"case_audit_LOCAL_ONLY": [
+        {"sample_index": 0, "status": "correct"}]}
+        for name in ("tesseract", "ppocrv4_split", "ppocrv4_adaptive_split",
+                     "rapidocr_v4_split", "ppocrv5_en_split")}
+    report.write_text(json.dumps({"independent_samples": 1,
+                                  "summary": engines}), encoding="utf-8")
+    summary = summarize_context(labels, manifest, report)
+    assert summary["engines"]["ppocrv4_split"]["scene"]["reroll"]["correct"] == 1
+    assert summary["engines"]["ppocrv4_split"]["focus"]["alt_tab"]["correct"] == 1
+    assert summary["engines"]["ppocrv4_split"]["rarity"]["Silver"]["correct"] == 1
+    assert "Donation" not in json.dumps(summary)
+    entry["expected"] = "Erosion"
+    manifest.write_text(json.dumps({"samples": [entry]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="changed"):
+        summarize_context(labels, manifest, report)
