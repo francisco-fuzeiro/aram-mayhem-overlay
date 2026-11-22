@@ -1,5 +1,12 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — F1.3 native controlled test prepared (draft #80, no gameplay run)
+
+- Reverified #80 OPEN/DRAFT/UNMERGED at prior `50138b091ec897c62b84d82cabbffe2878626379` directly on #78 `45f2c9e28eeed7e137c0f52237acda63398e409f`; #78 directly on #76; independent OCR drafts #72/#74/#75 open. No merges or main changes.
+- Confirmed Windows RED #44981614324 / #44981718994 / #44982274846 at their exact failing SHAs, code GREEN #44982379970, and [full prior code+docs #44982404803](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982404803) SUCCESS (1,969 Python, 78 JS, three syntax) at `50138b091ec897c62b84d82cabbffe2878626379`.
+- Prepared [F1.3 user-controlled native protocol](plans/F1_3_CONTROLLED_NATIVE_VALIDATION_2026-11-22.md) from existing F1 matrix plus Riot's patch 25.22 custom Mayhem announcement. Privacy-safe F1-N00–F1-N06 fields require no screenshots, usernames or Riot IDs. Actual client custom lobby and all native observations NOT TESTED, original N1 wrong current user-observed FAIL/root cause BLOCKED. Code unchanged; docs-only HEAD requires a new exact-SHA Windows gate. No F2 work or new bug-fix RED/GREEN claimed.
+
+
 ## 2026-11-22 — F1 Champion Select local identity + frontend revision fencing (draft #80)
 
 - Verified F0 direct parent [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) still OPEN/DRAFT/UNMERGED at `45f2c9e28eeed7e137c0f52237acda63398e409f`, [Windows #44981004892](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981004892) SUCCESS (1,963 Python / 75 JS / 3 syntax). Draft #76 is open upstream. Created `fix/f1-champion-select-identity-20261122` and direct stacked [draft #80](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/80). No `main` change or merge.

@@ -1,5 +1,12 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-22 — F1.3 controlled native test preparation (not a native PASS)
+
+- The previous F1.1/F1.2 code+docs SHA `50138b091ec897c62b84d82cabbffe2878626379` has [exact Windows #44982404803](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982404803) SUCCESS: 1,969 Python, 78 JavaScript and three syntax checks. RED #44981614324, #44981718994, #44982274846; follow-up GREEN #44982379970.
+- [F1.3 custom Windows checklist](plans/F1_3_CONTROLLED_NATIVE_VALIDATION_2026-11-22.md) prepared, covering custom feasibility, current self, bench/allies, higher-ranked bench, manual swap, old-badge stability and natural LCU ambiguity. The user Windows client and all native F1-N00–F1-N06 cases remain **NOT TESTED**; absent supported custom mode must be BLOCKED, not PASS. Riot added the capability in patch 25.22; the current client must still be checked.
+- This checkpoint documents validation only and has no new reproducible production defect. New documentation HEAD must have exact-head Windows Actions SUCCESS. **FR-F1.3 remains OPEN, F2 NOT STARTED**, N1 remains user-observed FAIL / root cause BLOCKED. No source/scoring/OCR/HUD changes, merges or main edits.
+
+
 ## 2026-11-22 — F1 Champion Select direct child draft #80
 
 **Branch/stack:** `fix/f1-champion-select-identity-20261122` in [draft #80](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/80) directly on [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) at `45f2c9e28eeed7e137c0f52237acda63398e409f` ([Windows #44981004892](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981004892) SUCCESS). Its parent #76 is also draft/unmerged; OCR #72/#74/#75 separate. `main` unchanged.
