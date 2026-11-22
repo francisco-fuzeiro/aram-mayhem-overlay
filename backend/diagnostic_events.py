@@ -125,6 +125,8 @@ SCHEMA: dict[str, dict[str, object]] = {
         "epoch": "int",
         "count": "int",
         "item_id": "item_id",
+        "champion_id": "public_champion_id",
+        "augment_id": "public_augment_id",
         "similarity": "confidence100",  # fuzzy title ratio, NOT OCR probability
     },
     "f0_geometry": {
@@ -169,6 +171,13 @@ def _clean(event: str, fields: dict) -> dict | None:
                 safe[key] = value
         elif constraint == "int":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000:
+                safe[key] = value
+        elif constraint == "public_champion_id":
+            if type(value) is int and 1 <= value <= 4096:
+                safe[key] = value
+        elif constraint == "public_augment_id":
+            if (isinstance(value, str) and value.isascii() and
+                    value.isdecimal() and 3 <= len(value) <= 8):
                 safe[key] = value
         elif constraint == "pixel_dimension":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 8192:
