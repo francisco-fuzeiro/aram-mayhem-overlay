@@ -47,12 +47,14 @@ jobs:
       - name: Download and verify both exact ONNX models
         run: python benchmarks/ocr_v11/fetch_models.py .benchmark_assets
       - name: Run 26-case real inference, transformations, metrics and per-case comparison
-        run: python -m benchmarks.ocr_v11.runner --reference reference --models .benchmark_assets --out .benchmark_results
+        run: python -m benchmarks.ocr_v11.runner --reference reference --models .benchmark_assets --out benchmark_results
       - name: Upload sanitized results (no images or models)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: v11-ocr-sanitized-results
-          path: .benchmark_results/*.json
-          if-no-files-found: ignore
+          path: |
+            benchmark_results/*.json
+            benchmark_results/*.md
+          if-no-files-found: error
           retention-days: 7
