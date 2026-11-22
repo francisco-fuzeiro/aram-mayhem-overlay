@@ -110,10 +110,100 @@ relabel them as 1,456 independent observations.
   This run predates the newer ceil/adaptive-width experiments and is
   **not** final exact-head verification.
 
-**Final exact-head CI, final ceil/adaptive preprocessing parity,
-synthetic text stress and isolated CPU/RSS numerical annex:** record after
-the corresponding latest run completes and is reviewed. Do not infer PASS
-from a queued or incomplete job.
+### Successful full Linux and disposable-Windows experiment
+
+The integrated real inference and isolated process profiling ran to completion
+at SHA `33db55dd4236919f01794b6f0b863a12ddf0a49c`,
+[Actions #44980242112](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44980242112)
+**SUCCESS**: safety unit contracts on Linux and Windows, both pinned real ONNX
+model downloads, 26-crop preprocessing ablations, synthetic-text-only matching
+stress and isolated multi-process CPU/RSS/cold-start profiles on both OSes.
+[Linux metrics artifact](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44980242112/artifacts/14738050133)
+and [Windows Actions metrics artifact](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44980242112/artifacts/14737443342)
+contain full sanitized cases and descriptive distributions. The numerical
+results below describe **this SHA and these runner machines only**, not the
+user's Windows PC or final later documentation commits.
+
+**Controlled model accuracy on the same 26 original crops, both OSes:**
+
+| Controlled condition | Correct titles /19 | Raw exact /19 | Negatives rejected /7 | Wrong accepted | Safe title rejections |
+|---|---:|---:|---:|---:|---:|
+| v4 direct, RGB/PIL fixed width (original) | 19 | 17 | 7 | 0 | 0 |
+| v4 direct, other fixed RGB/BGR × PIL/OpenCV ± ceil | 19 | 17 | 7 | 0 | 0 |
+| v4 direct, BGR/OpenCV/ceil/adaptive width | 19 | 19 | 7 | 0 | 0 |
+| RapidOCR 1.4.4 v4 recognizer (same model) | 19 | 19 | 7 | 0 | 0 |
+| English v5 direct, all five tested preprocessing variants | 8 | 8 | 7 | 0 | 11 each |
+
+The original direct v4 and RapidOCR disparity in raw text is explained on
+these observations by the **input-width policy**. The exact RapidOCR 1.4.4
+input preprocessing was compared to our independent BGR/OpenCV/ceil/adaptive
+tensor implementation: **36/36 bit-identical inputs, maximum absolute
+difference 0.0**; **19/36** historical title-line chunks required a width
+greater than the old fixed 448 tensor. Direct adaptive v4 attained
+**19/19 raw exact**, like RapidOCR, at the cost of more inference work.
+The v4 direct fixed-width pipeline already reaches **19/19 correct canonical
+titles** via unchanged normalization and matching, and is faster. On the
+same original 26 crops, simple v5 channel/interpolation/ceil variations
+**did not** recover its 11 rejected titles. Its pinned CTC dictionary
+(class count 438) remains fixed; no unsupported decoder substitution was
+made. The result cannot exclude better v5 cropping/resizing or another
+properly documented decoder configuration, and cannot justify cherry-picked
+performance claims.
+
+**Synthetic text-only stress:** all **328/328** exact catalog titles were
+accepted by the pinned 90/8 matcher. Deterministic single-character and
+separator corruptions produced **zero wrong accepted IDs**, **124 safe
+rejections**, and **two distinct title-pairs** above the configured near-match
+audit floor. These are *text transformations*, not new OCR images or a
+statistical estimate of live safety. The matcher also accepts an exact
+title in a hypothetical no-offer dialog; separate presence/capture fences
+remain necessary.
+
+**Isolated per-engine resource and latency profile**, one Python process
+per engine, each running 26 previously approved originals and eight
+artificial consecutive three-crop repetitions. These are *different
+experiments* from the input-ablation tables, so exact timings should not
+be mixed as if simultaneously sampled:
+
+| OS/engine | Crop mean / p50 / p95 / max (ms) | Three crops mean / p95 / max (ms) | Cold ready (ms) | Model session load (ms) | Sampled peak process-tree RSS (MiB) |
+|---|---|---|---:|---:|---:|
+| Linux Tesseract | 117.0 / 81.9 / 223.4 / 258.8 | 241.0 / 252.9 / 252.9 | 201.6 | N/A | 89.0 |
+| Linux v4 direct split | 40.4 / 57.8 / 58.5 / 87.3 | 176.4 / 178.7 / 178.7 | 230.0 | 56.9 | 109.2 |
+| Linux RapidOCR v4 split | 57.1 / 70.5 / 138.1 / 160.8 | 220.0 / 221.1 / 221.1 | 250.8 | 62.4 | 169.0 |
+| Linux English v5 split | 21.8 / 31.1 / 31.9 / 46.3 | 96.6 / 97.6 / 97.6 | 211.2 | 42.3 | 105.0 |
+| Windows Actions Tesseract | 150.1 / 100.7 / 276.5 / 490.8 | 289.6 / 291.3 / 291.3 | 240.1 | N/A | 65.3 |
+| Windows Actions v4 direct split | 49.8 / 71.2 / 72.5 / 107.7 | 217.1 / 218.8 / 218.8 | 388.4 | 112.4 | 85.3 |
+| Windows Actions RapidOCR v4 split | 95.3 / 87.5 / 273.4 / 321.7 | 258.7 / 259.6 / 259.6 | 431.9 | 119.8 | 93.5 |
+| Windows Actions English v5 split | 32.5 / 46.4 / 47.8 / 69.0 | 140.6 / 142.0 / 142.0 | 364.3 | 101.2 | 75.2 |
+
+**Resource measurement method:** 10 ms process-tree sampling, including
+observed short-lived Tesseract children (63 Linux / 65 Windows PIDs).
+Sampled aggregate CPU time of one busy subprocess benchmark corresponded
+roughly to 99–101% of a single CPU core on these VMs; this is **not a
+steady League CPU delta**. Sampled Linux CPU seconds: Tesseract 5.41,
+v4 direct 2.85, RapidOCR v4 3.71, v5 1.66. Windows Actions CPU seconds:
+6.64, 3.72, 5.53, 2.59 respectively. Very short child processes can
+evade polling, and summed RSS can count shared libraries twice.
+Cold-ready includes a fresh Python process, module imports, pinned
+fixture verification and model setup, before warmup. Session-load measures
+the ONNX session/recognizer initialization stage separately; neither is
+a measured packaged-app boot. All measurements exclude League load.
+
+**Footprint:** pinned v4 recognizer ONNX **10,857,958 bytes** (10.36 MiB);
+English v5 recognizer ONNX **7,872,351 bytes** (7.51 MiB). These model files
+do not include execution providers, Python, Tesseract, dependencies or
+installer packaging. V1.1's installed Linux distribution inventory reported
+ONNX Runtime 39.88 MiB, RapidOCR ONNX wheel 15.65 MiB,
+NumPy 74.40 MiB, Pillow 13.43 MiB, RapidFuzz 11.73 MiB and
+psutil 2.25 MiB; many packages may be shared or already installed.
+No Windows executable/installer incremental byte size was measured.
+
+**Pending latest exact-head check:** V1.1b now also explicitly compares
+actual returned canonical catalog **IDs** (not just title equality) and
+records the source human-label limitation. This strict ID check was added
+after the successful measurement SHA above. Do not label the final
+research branch exact-head GREEN until its latest Windows/Linux Action
+jobs have actually completed at the latest SHA.
 
 ## 4. Statistical limitations and safety
 
