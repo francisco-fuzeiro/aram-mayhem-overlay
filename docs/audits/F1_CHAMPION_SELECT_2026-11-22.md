@@ -20,6 +20,7 @@
 | Current champion below best-scored bench entry | Score sorting must never transfer identity | **PROVEN source contract**, JS DOM regression | NOT TESTED |
 | Local self swaps to another available champion | Confirmed alias and current badge migrate, previous self becomes bench if present | **PROVEN source contract**, LCU→backend→poll→WebSocket→real JS harness | NOT TESTED |
 | Duplicate local `cellId` | `unresolved`, no falsely confirmed current, bench preserved | **PROVEN code discrepancy before fix**, regression added | NOT TESTED |
+| Duplicated local-cell rows misclassified as team roles during abstention | Neither uncertain self row can count as a confirmed ally for the bench team-fit context | **PROVEN source-state regression**, dedicated RED fixture and bounded conditional fix; exact CI still required | NOT TESTED |
 | Missing/non-numeric/invalid/ambiguous local cell | `unresolved`; no badge; bench remains independent | **PROVEN deterministic contract** after passing gate | NOT TESTED |
 | Local `championId=0`, unmapped numeric ID | `unresolved`, no guessed alias/current | **PROVEN deterministic contract** after passing gate | NOT TESTED |
 | Missing alias catalog or missing static champion lookup | No unverified current; known bench may still appear | **PROVEN deterministic contract** after passing gate | NOT TESTED |
@@ -28,7 +29,7 @@
 | User's original in-game incorrect champion | Root cause cannot be reconstructed without independent live evidence | **BLOCKED**; these source-proven defects are not attribution to that incident | FAIL (user-observed), root cause BLOCKED |
 | Real custom ARAM Mayhem swap and transport freshness | Validate visible self versus bench and optional intentional swap | NOT TESTED | **NOT TESTED**, user-controlled only |
 
-**RED evidence:** F1.1 tests-only `7e769a4b3f74d4d8f1db8553f2588aae117b1ff6` [Windows #44981614324](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981614324) failed four new current-source-contract assertions; 1,963 older Python tests passed. F1.2 tests-only `bd6b0baf2801f9e92a1262800a8fc25c757c0dc4` [Windows #44981718994](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981718994) failed two new JS tests; 75 older JS tests passed. These are intended RED gates, not the final GREEN.
+**Follow-up F1.1 regression:** tests-only `49e31b1100a5a41ffd7083e41bc29e32bec93c14` asserts that duplicate self-cell rows never enter ally team-fit scores; the code correction `7a5b18c140d8a7fa05dbee09d6b269d85686b08b` skips those rows without changing any score weight or sorting. Windows RED/GREEN must be independently checked and cannot be inferred from an earlier F1 code pass.\n\n**RED evidence:** F1.1 tests-only `7e769a4b3f74d4d8f1db8553f2588aae117b1ff6` [Windows #44981614324](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981614324) failed four new current-source-contract assertions; 1,963 older Python tests passed. F1.2 tests-only `bd6b0baf2801f9e92a1262800a8fc25c757c0dc4` [Windows #44981718994](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981718994) failed two new JS tests; 75 older JS tests passed. These are intended RED gates, not the final GREEN.
 
 ## Replay and acceptance procedure
 
