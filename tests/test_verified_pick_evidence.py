@@ -118,3 +118,70 @@ def test_out_of_order_older_offer_can_be_resolved_without_closing_newer_offer():
     assert confirmed is first and applied
     assert (second.state, second.epoch, second.picked_id) == before
     assert ledger.active_augment_ids() == ["101"]
+
+
+@pytest.mark.asyncio
+async def test_synthetic_verified_event_flows_to_next_build_pipeline_tick(monkeypatch):
+    """The normal polling pipeline consumes only actually confirmed IDs."""
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from backend.api import server
+    from tests.test_poll_tick_m1 import make_harness, make_snapshot
+
+    state, deps, broadcasts = make_harness(
+        [{"tick": 1}], [make_snapshot(level=3)], ocr=False,
+    )
+    state.match_id = "fallback:1"
+    offer = state.offer_ledger.on_level(3)
+    state.offer_epoch = offer.epoch
+    state.scan_window_open = True
+    state.offer_lifecycle.open()
+    state.offer_lifecycle.observe("detected", identified=3)
+    state.augment_choices[:] = ["101", "102", "103"]
+    seen_build_inputs = []
+    state.pipeline = SimpleNamespace(
+        run=lambda snapshot: (
+            seen_build_inputs.append(list(snapshot.chosen_augments)) or object()
+        ),
+    )
+    monkeypatch.setattr(server, "screen_watcher", SimpleNamespace(reset=Mock()))
+
+    # A synthetic approved provider bypasses missing OCR titles, not proof.
+    trusted = evidence(offer.epoch, match_id="fallback:1")
+    assert server._apply_approved_pick_evidence(
+        state, trusted, catalog=CATALOG,
+        approved_sources=APPROVED, now=100.5,
+    )
+    assert state.chosen_augments == ["101"]
+    assert state.scan_window_open is False
+    assert state.offer_state == "inactive"
+    assert state.augment_choices == []
+    accepted_epoch = state.offer_epoch
+    assert not server._apply_approved_pick_evidence(
+        state, trusted, catalog=CATALOG,
+        approved_sources=APPROVED, now=100.5,
+    )
+    assert state.offer_epoch == accepted_epoch
+    await server.poll_tick(state, deps, 101.0)
+    assert seen_build_inputs == [["101"]]
+    assert any(
+        row.get("type") == "update"
+        and row.get("offers", [{}])[0].get("pick_source") == "verified_external"
+        for row in broadcasts
+    )
+
+
+def test_provider_disabled_by_default_even_for_marked_verified_events():
+    from backend.api import server
+
+    state = server.GameState()
+    state.match_id = MATCH
+    offer = state.offer_ledger.on_level(3)
+    event = evidence(offer.epoch)
+    expect_error("unapproved_source", lambda: server._apply_approved_pick_evidence(
+        state, event, catalog=CATALOG, now=100.5,
+    ))
+    assert state.offer_ledger.active_augment_ids() == []
+    assert state.chosen_augments == []
+    assert state.augment_choices == []
+
