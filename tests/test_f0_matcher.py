@@ -15,7 +15,7 @@ def test_title_matcher_reports_per_slot_acceptance_and_uncertainty(monkeypatch):
     )[0] == "10001"
     assert events[-1] == (
         ("augment", "matching", "accepted", "title_matched"),
-        {"source": "ocr", "slot": "left", "similarity": 100},
+        {"source": "ocr", "slot": "left", "similarity": 100, "augment_id": "10001"},
     )
     assert matcher.strict_match_title("??", catalog, trace_slot="centre") is None
     assert events[-1][0] == ("augment", "matching", "unknown", "title_short")
