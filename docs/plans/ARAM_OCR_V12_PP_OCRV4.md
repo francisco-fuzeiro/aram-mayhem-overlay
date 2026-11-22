@@ -48,6 +48,10 @@ The experimental selection is not yet exposed in Settings. A future UI toggle mu
 
 **Native and deployment gates still OPEN:** independent unseen per-session holdout (three simultaneous cards, individual rerolls, two-line/Silver, dialogs/no-offer); source-frame and temporal verification; League/WGC/OP.GG/DPI/focus/Alt+Tab; CPU/RSS/FPS/first-six-second latency; N1 F1.3 and Riot policy review. Any accepted wrong ID requires investigation. No promotion to default, distribution, installer claim or merge before a separate explicit gate decision.
 
+## Native controlled validation protocol (prepared; not executed)
+
+The [dedicated V1.2c Windows/League matrix](ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md) defines V12-N00–N10, local privacy requirements, explicit engine restart/rollback, three simultaneously visible physical cards, per-slot rerolls, two-line/Silver, negative and stale states, OP.GG, holdout, and CPU/RSS/FPS/first-six-seconds measurements. **Every native case remains NOT TESTED**; protocol writing has no RED/GREEN code-test claim. The pre-protocol original docs SHA `aa4dfcf555a10ced305346134d77d858e6289b4b` passed [Windows #45022549306](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022549306) on job rerun; the original intermittent F1 timeout is unproven. A new documentation SHA must have its own exact-head Actions gate.
+
 ## Next work
 
 1. Verify exact final SHA against Windows Python+JS suite AND pinned real-model integration job. Fix measured failures without weakening 90/8 or safety.

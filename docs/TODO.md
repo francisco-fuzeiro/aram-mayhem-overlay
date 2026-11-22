@@ -1,5 +1,8 @@
 # ARAM Oracle — Product and UX TODO
 
+**2026-11-22 — V1.2c native protocol PREPARED:** [controlled Windows / League protocol](plans/ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md) added on #83. Earlier docs HEAD `aa4dfcf555a10ced305346134d77d858e6289b4b` [Windows #45022549306](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022549306) SUCCESS (1,977 Python, 78 JS, 35 v4); first-attempt intermittent F1 timeout unproven. **New documentation SHA CI still pending.** No live game run; all V12-N00..N10 NOT TESTED; V12.5 and default promotion NOT accepted. Repo remains PUBLIC.
+
+
 **2026-11-22 — OCR-V12 code-head evidence:** [Windows #45022363459](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022363459) SUCCESS on exact `b9639d9b817587d0f5945693c642206a6df17db6`: 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; separate pinned-model V1.2 **35 PASS** through product OCR slot entrypoint across all 26 retrospective originals. **The final documentation HEAD must still receive its own CI**; OCR-V12.4 remains unchecked until then. OCR-V12.5 independent/native remains NOT TESTED. PUBLIC repository intentionally retained.
 
 ## 2026-11-22 — PP-OCRv4 V1.2 (user-approved; isolated integration draft #83)
@@ -9,7 +12,10 @@
 - [x] **OCR-V12.2 — Preserve physical slot and decision safety**: existing 90/8 match, L/C/R, duplicates, capture/focus, two-read, epochs/stale, OfferLedger unchanged. No automatic gameplay actions.
 - [x] **OCR-V12.3 — Explicit offline-cache provisioning and unit/integration test code**: package extra, pinned wheel/model setup, 26 original real-model contract job and safety tests created. **These checkmarks mean code committed, not tests proven green.**
 - [ ] **OCR-V12.4 — Exact final PR HEAD full Windows suite + real pinned-model CI success**. Record actual run IDs, counts and failures. No PASS until observed.
-- [ ] **OCR-V12.5 — User-controlled native Windows/League/OP.GG, independent unseen holdout and latency/CPU/FPS tests.** Old 19 title/7 negative set is not independent.
+- [x] **OCR-V12.5a — Prepare safety-gated native protocol** with preflight, case matrix, sanitized report and rollback ([V1.2c protocol](plans/ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md)). Documentation only, not native PASS.
+- [ ] **OCR-V12.5b — User-operated Windows/League three-card L/C/R + individual reroll + temporal/negative/Alt+Tab acceptance.** V12-N00..N06 NOT TESTED; zero wrong accepted IDs required.
+- [ ] **OCR-V12.5c — Independent unseen sessions and OP.GG/resource baseline.** V12-N07..N09 NOT TESTED; measure CPU/RSS/FPS/first-six-seconds, holdout distinct from 26 originals.
+- [ ] **OCR-V12.5d — Native rollback and v4 default-promotion decision gate.** V12-N10 NOT TESTED; Tesseract default, no automatic promotion.
 - [ ] **OCR-V12.6 — Pre-game Settings selector and validated release/default-engine promotion.** Tesseract remains default; distribution, Riot-policy and N1 acceptance gates remain open.
 
 

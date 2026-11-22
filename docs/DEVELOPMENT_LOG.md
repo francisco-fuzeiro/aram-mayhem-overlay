@@ -1,5 +1,14 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — OCR V1.2c controlled native Windows protocol prepared, not executed
+
+- Reverified GitHub branch `feat/ocr-v12-ppocrv4-optin-20261122`, #83 OPEN/DRAFT directly on #80 OPEN/DRAFT; exact pre-change HEAD `aa4dfcf555a10ced305346134d77d858e6289b4b`. [Windows #45022549306](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022549306) two jobs SUCCESS on this SHA after a rerun: 1,977 Python / 78 JS / three syntax; 35 pinned-v4 real-model tests. Initial F1 async timeout cause remains unproven and a rerun does not establish stability.
+- Read AGENTS, state, TODO, log, V1.2 plan, continuation skill, source OCR entrypoint, model provisioner and prior F1.3 protocol. No additional code change justified without native evidence.
+- Added [V1.2c controlled Windows protocol](plans/ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md), explicit no-collection preflight and V12-N00–N10 native matrix for three physical titles, individual rerolls, two-line/Silver, negative scenes, epochs/Alt+Tab, OP.GG coexistence, CPU/RSS/FPS, six-second target, independent holdout and safe rollback. Settings pregame selector and installer described only as post-native work, no implementation.
+- **Native user Windows/League/OP.GG = NOT TESTED**; no new performance or recognition rates, no new tests/RED→GREEN because this is a documentation-only preparation. Original user N1 functional FAIL and F1.3 acceptance still open. Tesseract default/ppocrv4 opt-in and strict 90/8 unchanged; main, draft PR dependency branches and research untouched.
+- This documentation-only commit creates a new SHA requiring independent exact-head Windows CI verification; do not reuse previous run for a new commit.
+
+
 ## 2026-11-22 — V1.2 real pinned-model CI RED → GREEN, code-head verified
 
 - Initial actual v4 Windows job [#45022162667](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022162667) failed 19/19 original positive-card checks safely (None, not wrong IDs); pinned model file/install verification passed. The code emitted a bounded `ValueError` availability status: startup shape validation was too strict for model symbolic input axes. This was *not* an intrinsic 19/19 recognition-quality failure.
