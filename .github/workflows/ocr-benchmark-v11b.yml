@@ -1,19 +1,23 @@
 name: V1.1b isolated OCR research
 on:
   push:
-    branches:
-      - research/v1-1b-ocr-safety-windows-20261122
-  workflow_dispatch:
+    branches: [research/v1-1b-ocr-safety-windows-20261122]
   pull_request:
     paths:
       - 'benchmarks/ocr_v11b/**'
       - '.github/workflows/ocr-benchmark-v11b.yml'
+  workflow_dispatch:
 permissions:
   contents: read
+
 jobs:
   safety-tests:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,6 +25,98 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install 'pytest==8.3.5'
-      - name: Run safety integrity tests (test-first)
-        run: python -m pytest -q benchmarks/ocr_v11b/test_validation.py
+      - name: Install isolated pure-test dependencies
+        run: python -m pip install 'pytest==8.3.5' 'numpy==1.26.4' 'Pillow==11.1.0'
+      - name: Run independent holdout safety and preprocessing contracts
+        run: python -m pytest -q benchmarks/ocr_v11b/test_validation.py benchmarks/ocr_v11b/test_controlled.py
+      - name: Syntax and Windows command contract
+        run: |
+          python -m compileall -q benchmarks/ocr_v11b
+          python -m benchmarks.ocr_v11b.profile_windows --help
+
+  real-model-linux:
+    needs: safety-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: '1'
+      OMP_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: '7624b27c1d025c4183c2a78aa11609dda45ecf71'
+          path: reference
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned isolated OCR lab dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-eng
+          python -m pip install 'pytest==8.3.5' 'onnxruntime==1.20.1' 'rapidocr-onnxruntime==1.4.4' 'numpy==1.26.4' 'Pillow==11.1.0' 'rapidfuzz==3.12.2' 'pytesseract==0.3.13' 'psutil==6.1.1' 'opencv-python-headless==4.10.0.84' 'mss==10.0.0'
+      - name: Download and verify exact historical ONNX weights
+        run: python benchmarks/ocr_v11/fetch_models.py .benchmark_assets
+      - name: Run original-only controlled v4 / RapidOCR / English v5 ablations
+        run: python -m benchmarks.ocr_v11b.run_inference --reference reference --models .benchmark_assets --out v11b_evidence
+      - name: Run isolated-process resource, cold-start and three-crop benchmark
+        run: python -m benchmarks.ocr_v11b.profile_windows --reference reference --models .benchmark_assets --out v11b_evidence/linux_process_profile.json
+      - name: Store sanitized evidence (never images or binaries)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11b-linux-research-metrics
+          path: |
+            v11b_evidence/*.json
+            v11b_evidence/*.md
+          if-no-files-found: warn
+          retention-days: 14
+
+  real-model-windows-actions:
+    needs: safety-tests
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: '1'
+      OMP_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: '7624b27c1d025c4183c2a78aa11609dda45ecf71'
+          path: reference
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Tesseract English on disposable Windows Actions VM
+        shell: pwsh
+        run: |
+          choco install tesseract -y --no-progress
+          $exe = "C:\Program Files\Tesseract-OCR\tesseract.exe"
+          if (-not (Test-Path $exe)) { throw "Tesseract executable not installed" }
+          "TESSERACT_PATH=$exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          & $exe --version
+      - name: Install pinned isolated OCR lab dependencies
+        run: python -m pip install 'pytest==8.3.5' 'onnxruntime==1.20.1' 'rapidocr-onnxruntime==1.4.4' 'numpy==1.26.4' 'Pillow==11.1.0' 'rapidfuzz==3.12.2' 'pytesseract==0.3.13' 'psutil==6.1.1' 'opencv-python-headless==4.10.0.84' 'mss==10.0.0'
+      - name: Download and verify pinned real ONNX models
+        run: python benchmarks/ocr_v11/fetch_models.py .benchmark_assets
+      - name: Run original-only pinned real-model inference
+        run: python -m benchmarks.ocr_v11b.run_inference --reference reference --models .benchmark_assets --out v11b_evidence_windows
+      - name: Measure disposable Windows Actions isolated-process CPU RSS and cold start
+        run: python -m benchmarks.ocr_v11b.profile_windows --reference reference --models .benchmark_assets --out v11b_evidence_windows/windows_actions_profile.json
+      - name: Upload disposable VM metrics only (not user's machine)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11b-windows-actions-metrics-not-user-pc
+          path: |
+            v11b_evidence_windows/*.json
+            v11b_evidence_windows/*.md
+          if-no-files-found: warn
+          retention-days: 14
