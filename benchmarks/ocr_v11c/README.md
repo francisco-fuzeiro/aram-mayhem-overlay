@@ -104,10 +104,24 @@ evaluator **only on development first**:
 & $python -m benchmarks.ocr_v11b.run_holdout --reference $reference --models "$env:LOCALAPPDATA\ARAMOracle\OCR-V11c\models" --manifest "D:\OCR-Private\labels\development.manifest.json" --holdout-root "D:\OCR-Private\crops" --out "D:\OCR-Private\results\development-ocr.json"
 ~~~
 
-Only after fixing the candidate configuration and verifying the sealed
-holdout contents, explicitly run the same evaluator separately with the
-holdout manifest and a different output path. Never publish the local
-reports: they can contain human title labels and raw OCR text.
+Prefer the seal-checked V1.1c wrapper for both evaluation splits:
+
+~~~powershell
+& $python -m benchmarks.ocr_v11c.evaluate_local --labels-dir "D:\OCR-Private\labels" --reference $reference --models "$env:LOCALAPPDATA\ARAMOracle\OCR-V11c\models" --holdout-root "D:\OCR-Private\crops" --out "D:\OCR-Private\results\development-ocr.json"
+~~~
+
+After freezing candidate/configuration and reviewing all human labels, an
+**explicit release action** is required for the sealed unseen holdout:
+
+~~~powershell
+& $python -m benchmarks.ocr_v11c.evaluate_local --labels-dir "D:\OCR-Private\labels" --reference $reference --models "$env:LOCALAPPDATA\ARAMOracle\OCR-V11c\models" --holdout-root "D:\OCR-Private\crops" --split holdout --unlock-holdout --out "D:\OCR-Private\results\holdout-ocr.json"
+~~~
+
+The wrapper verifies the holdout SHA-256 seal and rejects any private input
+or output inside the Git checkout. Never publish the local reports: they
+may contain human title labels and raw OCR text. Empty holdout = BLOCKED,
+not an inferred zero-error success. The seal detects manifest edits, but
+cannot detect mislabeled game frames or prove statistical independence.
 
 ## Interpretation and gate
 
