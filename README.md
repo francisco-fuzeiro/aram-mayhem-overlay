@@ -144,7 +144,35 @@ behavior still require on-device acceptance. Browser `/settings` remains
 available as a fallback when the local API is running. Tesseract availability
 does not validate recognition of three Mayhem augments or rerolls.
 
-### In-game augment options or build items are missing?
+### In-game augment options or build items are missing?### Experimental PP-OCRv4 (V1.2, opt-in)
+
+The original Tesseract recognizer remains the default. An experimental
+**PP-OCRv4 ONNX CPU** engine is now available for controlled tests. It
+uses the same physical three-card crops and strict 90/8 matching; it
+does not automatically download models while playing.
+
+From the repository root, before starting the desktop application:
+
+```powershell
+python -m pip install -e ".[overlay,ocr-v4]"
+python -m scripts.setup_ppocr_v4
+python -m scripts.setup_ppocr_v4 --check
+$env:ARAM_ORACLE_OCR_ENGINE = "ppocrv4"
+python -m backend.desktop
+```
+
+Set the environment variable before launching the single-instance app;
+quit the previous instance first. For a safe rollback, remove
+`ARAM_ORACLE_OCR_ENGINE` and restart the app. If v4 cannot start, the
+existing Tesseract path is used; uncertain v4 text is not silently
+overridden by a separate recognition guess.
+
+See [the OCR V1.2 plan](docs/plans/ARAM_OCR_V12_PP_OCRV4.md) for the
+model SHA, public-repository privacy rule, comparative **retrospective**
+benchmark evidence and outstanding native League acceptance gates.
+No actual user Windows/League recognition success is claimed yet.
+
+
 
 If the overlay badge reads **NO OCR**, the local Tesseract executable could
 not be launched. Install Tesseract OCR (separately from the Python packages)
