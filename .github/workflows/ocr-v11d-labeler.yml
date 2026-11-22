@@ -30,6 +30,9 @@ jobs:
         run: python -m pytest -q benchmarks/ocr_v11d/test_label_core.py
       - name: Compile GUI and core without launching a window
         run: python -m compileall -q benchmarks/ocr_v11d
+      - name: Import native Tk labeler without starting GUI or game
+        if: runner.os == 'Windows'
+        run: python -c "import tkinter; import PIL.ImageTk; from benchmarks.ocr_v11d.label_ui import Labeler; print('HEADLESS_GUI_IMPORT_OK')"
       - name: Parse PowerShell launcher
         if: runner.os == 'Windows'
         shell: pwsh
