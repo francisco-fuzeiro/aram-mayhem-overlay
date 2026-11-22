@@ -437,10 +437,23 @@ def main():
     sizes={"v4_bytes":(mod/"ppocrv4.onnx").stat().st_size,"v5_en_bytes":(mod/"ppocrv5_en.onnx").stat().st_size}
     deps={name:importlib.metadata.version(name) for name in ("onnxruntime","rapidocr-onnxruntime",
                                                               "numpy","pillow","rapidfuzz","pytesseract","psutil")}
+    package_disk_bytes={}
+    for dist_name in deps:
+        dist=importlib.metadata.distribution(dist_name)
+        total=0
+        for entry in dist.files or []:
+            try:
+                candidate=Path(dist.locate_file(entry))
+                if candidate.is_file():
+                    total+=candidate.stat().st_size
+            except (OSError,ValueError):
+                pass
+        package_disk_bytes[dist_name]=total
     metadata={"reference_sha":head,"platform":platform.platform(),"cpu":platform.processor(),
               "cpu_logical_count":os.cpu_count(),"onnx_provider":ort.get_available_providers(),
               "onnx_threads":1,"python":sys.version.split()[0],
               "tesseract":str(pytesseract.get_tesseract_version()),"dependencies":deps,
+              "installed_distribution_bytes":package_disk_bytes,
               "model_sha256":{"v4":V4_SHA,"v5_en":V5_SHA},"model_sizes":sizes,
               "model_load_ms":loads,"charset_sources":{"v4":v4.charset_source,"v5":v5.charset_source},
               "three_crops_ms":batch,"resources":resources,
