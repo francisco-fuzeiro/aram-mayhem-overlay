@@ -106,6 +106,8 @@ def emit_f0_trace(feature: str, stage: str, status: str, reason: str,
                   *, source: str = "none", slot: str | None = None,
                   epoch: int | None = None, count: int | None = None,
                   item_id: str | None = None,
+                  champion_id: int | None = None,
+                  augment_id: str | None = None,
                   similarity: float | None = None,
                   writer: Callable[..., bool] | None = None) -> bool:
     """Opt-in and whitelist *before* touching the existing local-only writer.
@@ -126,6 +128,10 @@ def emit_f0_trace(feature: str, stage: str, status: str, reason: str,
         fields["count"] = count
     if item_id is not None:
         fields["item_id"] = item_id
+    if champion_id is not None:
+        fields["champion_id"] = champion_id
+    if augment_id is not None:
+        fields["augment_id"] = augment_id
     if similarity is not None:
         fields["similarity"] = similarity
     safe = _clean("f0_trace", fields)
