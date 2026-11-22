@@ -751,6 +751,17 @@
 
     function offerCanOpen(offer, data = lastResult || {}) {
         if (!offer) return false;
+        // A verified OCR reroll may reach the UI before the same-tick
+        // OfferLedger/update payload. Never render older slot names as
+        // current while the authoritative physical OCR and ledger disagree.
+        // Manual recovery remains available when there is no verified OCR.
+        if (ocrPhase === "detected" && currentOcrSlots &&
+            OFFER_SLOTS.some(slot => {
+                const identity = offer.slots?.[slot];
+                const ledgerId = typeof identity?.augment_id === "string"
+                    ? identity.augment_id : null;
+                return ledgerId !== currentOcrSlots[slot];
+            })) return false;
         if (offer.state === "awaiting_confirm") return true;
         if (offer.state !== "visible") return false;
         if (recoveredOffer && recoveredOffer.offer_id === offer.offer_id &&
