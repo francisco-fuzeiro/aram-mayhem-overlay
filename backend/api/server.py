@@ -25,7 +25,7 @@ from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
 from backend.collectors.offer_lifecycle import OfferLifecycle
-from backend.workflow.offer_ledger import LedgerError, OfferLedger
+from backend.workflow.offer_ledger import LedgerError, OfferLedger, SLOTS
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
 from backend import preferences
@@ -138,6 +138,8 @@ class GameState:
         self.ocr_enabled: bool = True
         self.ocr_last_detected: list[str] = []
         self.ocr_slot_choices: dict[str, str | None] | None = None
+        # Complete prior offer identity, never proof that a NEW offer is visible.
+        self._prior_due_triple: tuple[str, str, str] | None = None
         self.ocr_stale: bool = False
         self.ocr_stale_since_epoch: int | None = None
         self.ocr_phase: str = "no_offer"
@@ -215,6 +217,7 @@ class GameState:
             event_log.emit("ocr_window", state="closed", reason="reset", level=self.scan_window_level)
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
+        self._prior_due_triple = None
         self.ocr_stale = False
         self.ocr_stale_since_epoch = None
         self.ocr_phase = "disabled" if not self.ocr_enabled else "no_offer"
@@ -270,6 +273,25 @@ class GameState:
                 self.ocr_stale_since_epoch = self.offer_epoch
             self.ocr_stale = True
 
+    def accept_new_due_slot_identity(self, slots: dict[str, str | None]) -> bool:
+        """Abstain if a new level re-reads the preceding physical cards.
+
+        A level threshold and a fresh C3 reading do not prove the previous
+        offer has visually ended. This bounded fence rejects replays of its
+        three identities (including permutations) and incomplete transitions.
+        Distinct titles still need native offer-boundary validation.
+        """
+        previous = self._prior_due_triple
+        if previous is None:
+            return True
+        current = tuple(slots.get(slot) for slot in SLOTS)
+        if any(not isinstance(item, str) or not item for item in current):
+            return False
+        if set(current) == set(previous):
+            return False
+        self._prior_due_triple = None
+        return True
+
     def accept_manual_ocr(
         self, ids: list[str], detected: list[dict], *,
         match_id: str | None, offer_epoch: int,
@@ -288,7 +310,7 @@ class GameState:
         if slots is None:
             return False
         current_ids = [value for value in slots.values() if value is not None]
-        if ids != current_ids:
+        if ids != current_ids or not self.accept_new_due_slot_identity(slots):
             return False
         if self.offer_ledger.offers and current_ids and (not self.ocr_stale or reverified):
             try:
@@ -1635,6 +1657,21 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     # A later offer must not inherit OCR candidates from its
                     # predecessor. Do not change first-offer recovery semantics.
                     if prior_count:
+                        # Retain only the previous *complete* identity. It
+                        # can be re-read after a temporal reset while the old
+                        # offer is still physically visible.
+                        previous = state.ocr_slot_choices
+                        if not previous or not all(isinstance(previous.get(slot), str)
+                                                   and previous[slot] for slot in SLOTS):
+                            old_offer = state.offer_ledger.offers[prior_count - 1]
+                            previous = {slot: old_offer.slots[slot].augment_id
+                                        for slot in SLOTS}
+                        state._prior_due_triple = (
+                            tuple(previous[slot] for slot in SLOTS)
+                            if previous and all(isinstance(previous.get(slot), str)
+                                                and previous[slot] for slot in SLOTS)
+                            else None
+                        )
                         # A newly due offer must never inherit title identities
                         # or scoring candidates from the preceding offer, even if
                         # its scan window is still open awaiting manual confirmation.
@@ -1772,6 +1809,13 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             emit_f0_trace("augment", "epoch", "stale",
                                           "epoch_superseded", source="ledger",
                                           epoch=state.offer_epoch)
+                        if action == "detected" and detected:
+                            candidate_slots = _slots_from_detected(detected)
+                            if (candidate_slots is None or
+                                    not state.accept_new_due_slot_identity(candidate_slots)):
+                                # An old C3-verified triple can be seen again
+                                # after reset. Suppress its entire publication.
+                                action, ids, detected = "transition", [], None
                         previous_phase = state.ocr_phase
                         previous_stale = state.ocr_stale
                         if action != "superseded":
