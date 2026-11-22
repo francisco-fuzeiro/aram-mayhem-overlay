@@ -1,5 +1,8 @@
 # ARAM Oracle — Product and UX TODO
 
+**2026-11-22 — V1.2c CI checkpoint:** The previous final protocol SHA `a8ab76876f2e16d5aa08d714a9032905aaa79d78` has [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 JS syntax PASS; independent pinned v4 35 PASS). **PROVEN = offline CI only.** V12-N00..N10 and F1.3 native NOT TESTED; old N1 user-observed FAIL/root cause BLOCKED. Native feasibility must be checked in a supported custom Mayhem lobby, no ordinary competitive substitute. This documentation checkpoint requires its own final SHA Actions; no code change, merge, engine promotion, installer or Settings selector.
+
+
 **2026-11-22 — V1.2c native protocol PREPARED:** [controlled Windows / League protocol](plans/ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md) added on #83. Earlier docs HEAD `aa4dfcf555a10ced305346134d77d858e6289b4b` [Windows #45022549306](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022549306) SUCCESS (1,977 Python, 78 JS, 35 v4); first-attempt intermittent F1 timeout unproven. **New documentation SHA CI still pending.** No live game run; all V12-N00..N10 NOT TESTED; V12.5 and default promotion NOT accepted. Repo remains PUBLIC.
 
 
@@ -11,7 +14,7 @@
 - [x] **OCR-V12.1 — Pinned direct ONNX recognizer** behind `ARAM_ORACLE_OCR_ENGINE=ppocrv4`, with verified full SHA-256, CPU single-thread, exact CTC shape/dictionary, title-only splitting and safe Tesseract availability fallback.
 - [x] **OCR-V12.2 — Preserve physical slot and decision safety**: existing 90/8 match, L/C/R, duplicates, capture/focus, two-read, epochs/stale, OfferLedger unchanged. No automatic gameplay actions.
 - [x] **OCR-V12.3 — Explicit offline-cache provisioning and unit/integration test code**: package extra, pinned wheel/model setup, 26 original real-model contract job and safety tests created. **These checkmarks mean code committed, not tests proven green.**
-- [ ] **OCR-V12.4 — Exact final PR HEAD full Windows suite + real pinned-model CI success**. Record actual run IDs, counts and failures. No PASS until observed.
+- [x] **OCR-V12.4 — Verified protocol code+docs HEAD Windows suite + real pinned-model integration**: exact `a8ab76876f2e16d5aa08d714a9032905aaa79d78`, [Actions #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 syntax; 35 pinned-v4 PASS). **Current checkpoint documentation SHA must be checked separately**; this checkbox is CI-only, not V1.2c native acceptance.
 - [x] **OCR-V12.5a — Prepare safety-gated native protocol** with preflight, case matrix, sanitized report and rollback ([V1.2c protocol](plans/ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md)). Documentation only, not native PASS.
 - [ ] **OCR-V12.5b — User-operated Windows/League three-card L/C/R + individual reroll + temporal/negative/Alt+Tab acceptance.** V12-N00..N06 NOT TESTED; zero wrong accepted IDs required.
 - [ ] **OCR-V12.5c — Independent unseen sessions and OP.GG/resource baseline.** V12-N07..N09 NOT TESTED; measure CPU/RSS/FPS/first-six-seconds, holdout distinct from 26 originals.

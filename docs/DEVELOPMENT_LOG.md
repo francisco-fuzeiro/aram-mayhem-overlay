@@ -1,5 +1,12 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — V1.2c exact-head CI evidence verified, native gate unchanged
+
+- [Draft #83](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/83) still OPEN/DRAFT, direct base #80 (on #78→#76); repo intentionally PUBLIC; `main` and research branches unchanged. Exact before-checkpoint HEAD `a8ab76876f2e16d5aa08d714a9032905aaa79d78` independently checked against [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086): standard test job 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; v4 pinned-model product job 35 PASS. Job logs reviewed, both SUCCESS. No code changed or new RED/GREEN cycle required; the historical F1 concurrency timeout cause remains unknown.
+- Native user-controlled Windows/League tests V12-N00..N10, custom mode feasibility, OP.GG/CPU/RSS/FPS/latency, independent holdout and F1.3 remain **NOT TESTED**. Original N1 user-reported functional FAIL remains, root-cause BLOCKED. Validated protocol is prepared, not executed; if custom Mayhem unsupported, mark BLOCKED, do not replace with a competitive match.
+- This update is documentation-only. Recheck the new final commit Windows Actions before closing its CI gate. All protection/fallback/default and draft/no-merge rules remain intact; public issue/PR must never receive private screenshots, logs, player identifiers or paths.
+
+
 ## 2026-11-22 — OCR V1.2c controlled native Windows protocol prepared, not executed
 
 - Reverified GitHub branch `feat/ocr-v12-ppocrv4-optin-20261122`, #83 OPEN/DRAFT directly on #80 OPEN/DRAFT; exact pre-change HEAD `aa4dfcf555a10ced305346134d77d858e6289b4b`. [Windows #45022549306](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022549306) two jobs SUCCESS on this SHA after a rerun: 1,977 Python / 78 JS / three syntax; 35 pinned-v4 real-model tests. Initial F1 async timeout cause remains unproven and a rerun does not establish stability.
