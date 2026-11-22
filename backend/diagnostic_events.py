@@ -124,6 +124,7 @@ SCHEMA: dict[str, dict[str, object]] = {
         "epoch": "int",
         "count": "int",
         "item_id": "item_id",
+        "similarity": "confidence100",  # fuzzy title ratio, NOT OCR probability
     },
     "match_transition": {
         "from_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
