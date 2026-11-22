@@ -25,6 +25,13 @@ relabel them as 1,456 independent observations.
 | RapidOCR v4 recognizer-only, **same v4 weights** | 19/19 | 7/7 | 0 | 19/19 |
 | English v5 ONNX, direct reference preprocessing | 8/19 | 7/7 | 0 | 8/19 |
 
+- The archived human ground truths specify **augment titles, not independently
+  verified numeric IDs**. V1.1b explicitly derives each expected canonical
+  ID by applying the fixed production title matcher to that verified title and
+  compares the actual returned **ID**, not just the displayed name. This
+  protects against silently counting a different accepted catalog ID as
+  correct, but cannot replace external verification of game-specific ID
+  aliases.
 - Repeated original and transformed V1.1 conditions: zero wrong accepted IDs
   and zero negative false positives; those are dataset-specific observations.
 - Notable derived-only safe false rejections: 40% JPEG60 v4/Rapid v4 each
