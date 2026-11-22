@@ -136,3 +136,48 @@ def emit_f0_trace(feature: str, stage: str, status: str, reason: str,
     if writer is not None:
         return bool(writer(**safe))
     return events.transition("f0_trace", **safe)
+
+
+def emit_f0_geometry(
+    client_size: tuple[int, int],
+    bands: dict[str, tuple[int, int, int, int]],
+    *, writer: Callable[..., bool] | None = None,
+) -> bool:
+    """Opt-in read-only measured L/C/R rectangles relative to the game client.
+
+    Never persist a desktop coordinate, HWND, pixels, player name, raw OCR,
+    screenshot, credential, or private path. Validate the complete geometry
+    atomically before emitting any of the three bounded records.
+    """
+    if os.environ.get("ARAM_ORACLE_F0_TRACE") != "1":
+        return False
+    if (not isinstance(client_size, tuple) or len(client_size) != 2
+            or any(type(v) is not int or not 1 <= v <= 8192
+                   for v in client_size)):
+        return False
+    width, height = client_size
+    slots = ("left", "centre", "right")
+    if not isinstance(bands, dict) or list(bands) != list(slots):
+        return False
+    records = []
+    for slot in slots:
+        rect = bands[slot]
+        if (not isinstance(rect, tuple) or len(rect) != 4
+                or any(type(v) is not int for v in rect)):
+            return False
+        x, y, w, h = rect
+        if not (0 <= x < width and 0 <= y < height and
+                0 < w <= width - x and 0 < h <= height - y):
+            return False
+        clean = _clean("f0_geometry", {
+            "slot": slot, "source": "wgc_geometry",
+            "client_width": width, "client_height": height,
+            "x": x, "y": y, "w": w, "h": h,
+        })
+        if clean is None or len(clean) != 8:
+            return False
+        records.append(clean)
+    sink = writer if writer is not None else lambda **fields: events.emit(
+        "f0_geometry", **fields
+    )
+    return all(bool(sink(**record)) for record in records)
