@@ -91,14 +91,14 @@ def strict_match_title(
     second = scored[1][0] if len(scored) >= 2 else 0
     if best < MATCH_THRESHOLD:
         emit_f0_trace("augment", "matching", "rejected", "below_threshold",
-                      source="ocr", slot=trace_slot, count=int(best))
+                      source="ocr", slot=trace_slot, similarity=int(best))
         return None
     if best - second < MIN_MARGIN:
         emit_f0_trace("augment", "matching", "rejected", "insufficient_margin",
-                      source="ocr", slot=trace_slot, count=int(best))
+                      source="ocr", slot=trace_slot, similarity=int(best))
         return None
     emit_f0_trace("augment", "matching", "accepted", "title_matched",
-                  source="ocr", slot=trace_slot, count=int(best))
+                  source="ocr", slot=trace_slot, similarity=int(best))
     return aid, name, int(best)
 
 
