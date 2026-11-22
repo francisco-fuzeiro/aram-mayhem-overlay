@@ -7,6 +7,7 @@ than claiming an optimal pick.
 from collections import Counter
 from backend.models import ChampionMeta
 from backend.engine.composite_score import WinEvidence, composite_rating
+from backend.workflow.f0_trace import classify_champion_identity
 
 
 def _fit_score(champion: ChampionMeta, teammate_roles: list[str]) -> tuple[float, list[str]]:
@@ -56,8 +57,14 @@ def summarize_champion_select(
     Missing champion mappings are skipped, never silently mis-scored.
     """
     if not isinstance(draft, dict):
-        return {"type": "champ_select", "candidates": [], "error": "invalid_draft"}
+        return {"type": "champ_select", "candidates": [], "error": "invalid_draft",
+                "current_status": "unresolved", "current_champion_id": None}
 
+    if not isinstance(id_to_alias, dict):
+        id_to_alias = {}
+    # F0 already classifies source certainty. Apply the same fail-closed
+    # decision to production; logging a rejection alone is not enough.
+    identity_status, _ = classify_champion_identity(draft, id_to_alias)
     local_cell = draft.get("localPlayerCellId")
     team = draft.get("myTeam") or []
     bench = draft.get("benchChampions") or []
@@ -73,8 +80,10 @@ def summarize_champion_select(
             continue
         raw_id = player.get("championId", 0)
         champ_id = str(raw_id)
-        if local_cell is not None and player.get("cellId") == local_cell:
-            local_id = champ_id if champ_id != "0" else None
+        if (identity_status == "accepted"
+                and type(player.get("cellId")) is int
+                and player["cellId"] == local_cell):
+            local_id = champ_id
         else:
             alias = id_to_alias.get(champ_id)
             champion = get_champion(alias) if alias else None
@@ -133,8 +142,11 @@ def summarize_champion_select(
         })
 
     candidates.sort(key=lambda c: (-c["score"], c["name"]))
+    confirmed = next((c for c in candidates if c["current"]), None)
     return {
         "type": "champ_select",
+        "current_status": "confirmed" if confirmed else "unresolved",
+        "current_champion_id": confirmed["id"] if confirmed else None,
         "candidates": candidates,
         "skipped_ids": skipped_ids,
         "method": "composite_v1",
