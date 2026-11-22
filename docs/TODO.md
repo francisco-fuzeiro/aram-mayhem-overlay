@@ -1,5 +1,7 @@
 # ARAM Oracle — Product and UX TODO
 
+**2026-11-22 — OCR-V12 code-head evidence:** [Windows #45022363459](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022363459) SUCCESS on exact `b9639d9b817587d0f5945693c642206a6df17db6`: 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; separate pinned-model V1.2 **35 PASS** through product OCR slot entrypoint across all 26 retrospective originals. **The final documentation HEAD must still receive its own CI**; OCR-V12.4 remains unchecked until then. OCR-V12.5 independent/native remains NOT TESTED. PUBLIC repository intentionally retained.
+
 ## 2026-11-22 — PP-OCRv4 V1.2 (user-approved; isolated integration draft #83)
 
 - [x] **OCR-V12.0 — Explicit user approval + intentional PUBLIC GitHub policy** recorded in `AGENTS.md` and issue #82; local private assets excluded from repo.
