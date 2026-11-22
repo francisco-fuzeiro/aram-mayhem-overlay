@@ -261,7 +261,7 @@ test("M2/E3 null scores render honest insufficient-data labels with reroll hidde
     const cards = h.element("augment-list").children;
     assert.equal(cards.length, 3);
     for (const card of cards) {
-        assert.match(card.innerHTML, /Not rated/);
+        assert.match(card.innerHTML, /Rating unavailable/);
         for (const bad of ["NaN", "0.0/10", "2.1/10", "null/10"]) assert.equal(card.innerHTML.includes(bad), false);
     }
     assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
