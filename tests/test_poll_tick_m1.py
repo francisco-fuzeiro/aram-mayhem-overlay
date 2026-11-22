@@ -138,6 +138,67 @@ async def test_v12_new_due_offer_invalidates_previous_ocr_while_scan_remains_ope
 
 
 @pytest.mark.asyncio
+async def test_v12_due_offer_rejects_previous_verified_triple_replayed_after_reset():
+    """Fresh OCR of *old physical cards* is not evidence of the next offer.
+
+    A new level may become due before the previous cards visually disappear.
+    Resetting hashes alone allows the same old three identities to be read
+    twice and wrongly published in a later epoch. Reopen only on an
+    independently checked, changed three-slot observation.
+    """
+    old = [
+        {"slot": "left", "id": "old-left", "name": "Synthetic Old Left", "confidence": 98},
+        {"slot": "centre", "id": "old-centre", "name": "Synthetic Old Centre", "confidence": 99},
+        {"slot": "right", "id": "old-right", "name": "Synthetic Old Right", "confidence": 97},
+    ]
+    new = [
+        {"slot": "left", "id": "new-left", "name": "Synthetic New Left", "confidence": 98},
+        {"slot": "centre", "id": "new-centre", "name": "Synthetic New Centre", "confidence": 99},
+        {"slot": "right", "id": "new-right", "name": "Synthetic New Right", "confidence": 97},
+    ]
+    state, deps, events = make_harness(
+        [{"tick": 1}, {"tick": 2}, {"tick": 3}],
+        [make_snapshot(level=3), make_snapshot(level=7), make_snapshot(level=7)],
+        ocr=True,
+    )
+    deps.run_watcher_check = Mock(side_effect=[
+        ("detected", [row["id"] for row in old], old),
+        ("detected", [row["id"] for row in old], old),
+        ("detected", [row["id"] for row in new], new),
+    ])
+    await poll_tick(state, deps, 100.0)
+    assert state.offer_state == "present"
+    assert state.ocr_slot_choices["left"] == "old-left"
+    first_epoch = state.offer_epoch
+    first_ledger = state.offer_ledger.offers[0]
+
+    before_new_tick = len(events)
+    await poll_tick(state, deps, 102.0)
+    assert len(state.offer_ledger.offers) == 2
+    assert state.offer_epoch > first_epoch
+    assert state.offer_state != "present"
+    assert state.ocr_phase != "detected"
+    assert state.augment_choices == []
+    assert state.ocr_slot_choices is None
+    assert state.offer_ledger.offers[-1].state == "due"
+    assert all(identity.augment_id is None
+               for identity in state.offer_ledger.offers[-1].slots.values())
+    assert not any(event.get("type") == "ocr_result"
+                   and event.get("status") == "detected"
+                   for event in events[before_new_tick:])
+    assert first_ledger.slots["left"].augment_id == "old-left"
+    assert state.chosen_augments == []
+
+    await poll_tick(state, deps, 104.0)
+    assert state.offer_state == "present"
+    assert state.ocr_slot_choices == {
+        "left": "new-left", "centre": "new-centre", "right": "new-right",
+    }
+    assert state.offer_ledger.offers[-1].slots["left"].augment_id == "new-left"
+    assert state.chosen_augments == []
+
+
+@pytest.mark.asyncio
 async def test_poll_tick_inactive_without_match_sends_no_game():
     state, deps, events = make_harness([None], [])
     await poll_tick(state, deps, 8.0)
