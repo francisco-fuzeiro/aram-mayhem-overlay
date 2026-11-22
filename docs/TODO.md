@@ -1,5 +1,16 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-22 — PP-OCRv4 V1.2 (user-approved; isolated integration draft #83)
+
+- [x] **OCR-V12.0 — Explicit user approval + intentional PUBLIC GitHub policy** recorded in `AGENTS.md` and issue #82; local private assets excluded from repo.
+- [x] **OCR-V12.1 — Pinned direct ONNX recognizer** behind `ARAM_ORACLE_OCR_ENGINE=ppocrv4`, with verified full SHA-256, CPU single-thread, exact CTC shape/dictionary, title-only splitting and safe Tesseract availability fallback.
+- [x] **OCR-V12.2 — Preserve physical slot and decision safety**: existing 90/8 match, L/C/R, duplicates, capture/focus, two-read, epochs/stale, OfferLedger unchanged. No automatic gameplay actions.
+- [x] **OCR-V12.3 — Explicit offline-cache provisioning and unit/integration test code**: package extra, pinned wheel/model setup, 26 original real-model contract job and safety tests created. **These checkmarks mean code committed, not tests proven green.**
+- [ ] **OCR-V12.4 — Exact final PR HEAD full Windows suite + real pinned-model CI success**. Record actual run IDs, counts and failures. No PASS until observed.
+- [ ] **OCR-V12.5 — User-controlled native Windows/League/OP.GG, independent unseen holdout and latency/CPU/FPS tests.** Old 19 title/7 negative set is not independent.
+- [ ] **OCR-V12.6 — Pre-game Settings selector and validated release/default-engine promotion.** Tesseract remains default; distribution, Riot-policy and N1 acceptance gates remain open.
+
+
 ## 2026-11-22 — Functional recovery roadmap F0 → F4 (F0 completed offline; F1 in draft #80; F2–F4 NOT implemented)
 
 **Reason:** user-operated real ARAM match on #73 reported wrong *current* champion while bench champions were identified, intermittent/apparently incorrect augment identities, and an arbitrary/unhelpful build suggestion. These are **user-observed functional FAIL**, no in-match screenshots or measurable rates; root causes are **UNPROVEN**. Native #73 autonomous desktop launch had a narrow observed PASS. **N1 product acceptance = FAIL / BLOCKED** even though Python/JS CI passed. [Recovery plan](plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md); planning [draft PR #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76), directly on #73. No fixes are claimed by this plan.
