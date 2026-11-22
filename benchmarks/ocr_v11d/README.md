@@ -71,7 +71,11 @@ change or elevation is required by the script.
    producer. This verifies SHA, provenance, consent and duplicates and seals
    the holdout. Preparing manifests does **not** execute OCR. Then press
    **Run OCR on DEVELOPMENT ONLY** for an explicitly confirmed local comparison.
-   The UI deliberately has **no release-holdout button**.
+   The UI deliberately has **no release-holdout button**. After an
+   approved development run, a read-only, local-only scenario breakdown
+   checks CSV vs manifest provenance and separates wrong IDs, negative false
+   positives, safe rejections and correct results by category, rarity,
+   physical slot, two-line, scene, reroll, focus, OP.GG and DPI.
 
 All private files remain in
 `%LOCALAPPDATA%\ARAMOracle\OCR-V11c\private-captures\` (unless
