@@ -60,7 +60,11 @@ class AblationRecognizer:
         from benchmarks.ocr_v11.runner import validate_output_dimensions
         t=time.perf_counter()
         import math
-        width=(max(self.engine.width,math.ceil(img.width*self.engine.height/img.height))
+        # Exact RapidOCR 1.4.4 rule: ratio cap is expanded per image,
+        # then the padded tensor width is truncated via int(), while the
+        # rendered glyph width uses ceil() and is clamped to that tensor.
+        width=(int(self.engine.height*max(
+                  self.engine.width/self.engine.height,img.width/img.height))
                if self.dynamic_width else self.engine.width)
         model_width=self.engine.session.get_inputs()[0].shape[3]
         if isinstance(model_width,int) and width!=model_width:
