@@ -33,6 +33,17 @@ jobs:
       - name: Import native Tk labeler without starting GUI or game
         if: runner.os == 'Windows'
         run: python -c "import tkinter; import PIL.ImageTk; from benchmarks.ocr_v11d.label_ui import Labeler; print('HEADLESS_GUI_IMPORT_OK')"
+      - name: Validate Windows PowerShell 5.1 nested offline preflight without downloads
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $temporaryRoot = Join-Path $env:RUNNER_TEMP 'v11d-ps51-no-cache-test'
+          $text = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\benchmarks\ocr_v11d\Start-OCRLab.ps1 -BenchOnly -Offline -OutputRoot $temporaryRoot 2>&1 | Out-String)
+          Write-Host $text
+          if ($LASTEXITCODE -eq 0) { throw 'Empty offline cache must fail closed' }
+          if ($text -notmatch 'Reference not cached') {
+            throw 'Windows PowerShell 5.1 failed before reaching the expected safe no-cache preflight'
+          }
       - name: Parse PowerShell launcher
         if: runner.os == 'Windows'
         shell: pwsh
