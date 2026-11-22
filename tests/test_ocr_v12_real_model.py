@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from backend.collectors.ppocr_v4 import default_model_path, verify_model
+from backend.collectors.ppocr_v4 import default_model_path, verify_model, PPOCRv4Recognizer
 from backend.collectors.slot_title_ocr import recognize_title_slot, strict_match_title
 
 
@@ -50,6 +50,14 @@ def enabled_v4():
             os.environ.pop("ARAM_ORACLE_OCR_ENGINE", None)
         else:
             os.environ["ARAM_ORACLE_OCR_ENGINE"] = previous
+
+
+def test_pinned_v4_model_session_initializes(enabled_v4):
+    # Report a precise decoder/model compatibility failure instead of
+    # silently attributing every missed card to the recognition quality.
+    recognizer = PPOCRv4Recognizer(default_model_path())
+    assert recognizer.dictionary
+    assert recognizer.input_name
 
 
 @pytest.mark.parametrize("file,expected,slot", CASES,
