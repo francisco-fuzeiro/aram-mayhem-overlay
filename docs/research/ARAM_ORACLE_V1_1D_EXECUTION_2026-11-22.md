@@ -76,7 +76,9 @@ background-CPU impact estimates. Numeric scores from the user's Windows:
 - `label_core.py`: private crops and CSV, input geometry/category/catalog
   verification, strict session-based development/holdout separation,
   duplicate bytes/pixels and duplicate slot/frame checks, frozen original
-  hashes, atomic CSV append, fail-closed on non-confirmation. Paths stay
+  hashes and decoded pixels, **full screenshot pixel fingerprints** to
+  prevent stitching different image frames into a fictitious triple,
+  atomic CSV append, fail-closed on non-confirmation. Paths stay
   under private Windows LOCALAPPDATA, not the Git checkout. No capture
   automation, game process access, network, OCR at import/preview/confirm.
 - `context_report.py`: only after **explicitly** running the existing
