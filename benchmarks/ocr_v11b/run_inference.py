@@ -94,19 +94,26 @@ def main():
     for c in cases:
         with Image.open(base/c["file"]) as original:
             img=original.convert("RGB")
+        expected_match=(strict_match_title(c["expected"],catalog)
+                        if c["expected"] else None)
+        expected_id=expected_match[0] if expected_match else None
+        if c["expected"] and expected_id is None:
+            raise AssertionError("Frozen ground truth has no canonical catalog ID")
         for name,engine in engines.items():
             start=time.perf_counter()
             raw,match,pre,infer,match_ms=run_ocr(engine,img,strict_match_title,catalog)
             total_ms=1000*(time.perf_counter()-start)
             actual=match[1] if match else None
-            d=classify_evidence(c["expected"],actual,c["category"],c["slot"] or "centre")
+            actual_id=match[0] if match else None
+            d=classify_evidence(expected_id,actual_id,c["category"],c["slot"] or "centre")
             norm=_normalize(raw)
             diag=diagnostics(raw,strict_match_title,catalog,_normalize)
             row={
                 "file":c["file"],"kind":"original","sha256":c["sha256"],
                 "engine":name,"slot":c["slot"],"two_line":c["two_line"],
                 "rarity":c["rarity"],"category":c["category"],
-                "expected":c["expected"],"raw":raw,"normalized":norm,
+                "expected":c["expected"],"expected_id":expected_id,
+                "actual_id":actual_id,"raw":raw,"normalized":norm,
                 "normalized_exact":bool(c["expected"] and norm==_normalize(c["expected"])),
                 "raw_exact":bool(c["expected"] and canon(raw)==canon(c["expected"])),
                 "best_score":diag["best_score"],"margin":diag["margin"],
@@ -196,7 +203,7 @@ def main():
     if not errs:
         lines.append("None in original retrospective crops.")
     for r in errs:
-        lines.append(f"- `{r['engine']}` `{r['file']}`: {r['status']} expected={r['expected']!r}; raw={r['raw']!r}; normalized={r['normalized']!r}; actual={r['actual']!r}; score={r['best_score']}; margin={r['margin']}")
+        lines.append(f"- `{r['engine']}` `{r['file']}`: {r['status']} expected={r['expected']!r}; raw={r['raw']!r}; normalized={r['normalized']!r}; actual={r['actual']!r} ID={r['actual_id']!r}; score={r['best_score']}; margin={r['margin']}")
     lines.extend(["","## Interpretation","",
                   "- RGB/BGR, PIL/OpenCV, round/ceil and adaptive width are deliberate controlled ablations, not new model architectures.",
                   f"- Pinned RapidOCR v1.4.4 preprocessor tensor parity versus direct BGR/cv2/ceil/adaptive: {rapid_input_parity['exact']}/{rapid_input_parity['checked']} bit-identical, max absolute delta {rapid_input_parity['max_abs_difference']:.8f}; {rapid_input_parity['wider_than_fixed_448']} required width >448.",
