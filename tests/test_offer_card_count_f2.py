@@ -44,8 +44,10 @@ def test_no_reviewed_visual_source_means_unknown_not_three():
 def test_only_two_independent_three_card_frames_can_enable_three_slot_ocr():
     gate = OfferCardCountGate(approved_calibration="reviewed-v1")
     assert observe(gate, evidence()) == "unknown"
+    # Replaying the first capture clears the count streak; it must not
+    # count toward the two distinct post-replay observations.
     assert observe(gate, evidence(10.0, frame_id="frame-a")) == "unknown"
-    assert observe(gate, evidence(10.5, frame_id="frame-b")) == "three_verified"
+    assert observe(gate, evidence(10.5, frame_id="frame-b")) == "unknown"
     assert observe(gate, evidence(10.6, frame_id="frame-c")) == "three_verified"
 
 
