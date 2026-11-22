@@ -942,7 +942,14 @@
                 (rated && rec.score === best ? " top-pick" : "");
             const origin = identity.source === "user_identify" ? " (manual)"
                 : identity.source === "ocr" ? " (OCR)" : "";
-            const score = rated ? rec.score.toFixed(1) + "/10" : "Not rated";
+            // A visible but unrated card is not necessarily a missing model:
+            // distinguish the verified identity, recommendation and score states.
+            // Stale/unverified offers remain hidden by offerCanOpen above.
+            const score = rated ? rec.score.toFixed(1) + "/10"
+                : !id ? "Title unverified"
+                : !rec ? "No rating data"
+                : rec.modelled === false ? "No model"
+                : "Rating unavailable";
             row.innerHTML = '<div class="aug-row"><span class="aug-rank">' +
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
                 esc(name + origin) + '</span><span class="aug-score">' +
