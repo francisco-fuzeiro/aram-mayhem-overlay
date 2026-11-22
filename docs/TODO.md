@@ -1,5 +1,50 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-22 — Functional recovery roadmap F0 → F4 (approved plan, NOT implemented)
+
+**Reason:** user-operated real ARAM match on #73 reported wrong *current* champion while bench champions were identified, intermittent/apparently incorrect augment identities, and an arbitrary/unhelpful build suggestion. These are **user-observed functional FAIL**, no in-match screenshots or measurable rates; root causes are **UNPROVEN**. Native #73 autonomous desktop launch had a narrow observed PASS. **N1 product acceptance = FAIL / BLOCKED** even though Python/JS CI passed. [Recovery plan](plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md); planning [draft PR #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76), directly on #73. No fixes are claimed by this plan.
+
+### F0 — Audit the entire source-to-decision chain (FIRST; next independent implementation PR)
+
+- [x] **FR-PLAN-01 — Record functional incident and agree ordered F0–F4 recovery plan.** User report only; do not invent root causes or numeric accuracy.
+- [x] **FR-PLAN-02 — Review separate OCR research.** [#72](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/72), [#74](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/74), [#75](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/75) inspected. Original 26 PNGs = 19 titles + 7 negatives; Tesseract and v4 split both 26/26 retrospective. v4 is quicker in Linux but has **no validated Windows/live superiority**. V1.1b research next, V1.2 NO-GO.
+- [ ] **FR-F0.1 — Trace champion-select LCU local ID / bench / numeric alias → API payload → visible current badge.** Produce source/function map and unresolved cause list, not a guessed patch.
+- [ ] **FR-F0.2 — Trace capture/focus → offers → physical L/C/R crops → raw OCR → 90/8 match → two-read/epoch/reroll → visible UI.** Preserve existing thresholds, WGC fallback, and fail-closed gates.
+- [ ] **FR-F0.3 — Trace champion + confirmed augments + inventory/gold/slots + patch-verified item pool + enemy/allies → build scoring and UI.** Identify where recommendations lose source or justification.
+- [ ] **FR-F0.4 — Define and test opt-in, bounded, local-only privacy-safe diagnostic envelopes**, with status/reason/source/freshness/correlation; forbid names, PUUIDs, tokens, private images, unredacted raw OCR/screenshots.
+- [ ] **FR-F0.5 — Build deterministic sanitized replay/negative fixtures** for own champion vs bench, swaps, no champion, no offer/dialog, three card slots, reroll, stale/duplicate epoch, item eligibility, and unsupported assumptions. Separate synthetic test results from the user's unlogged real match.
+- [ ] **FR-F0.6 — Deliver evidence-based triage table and F1–F3 correction PR queue**, each failure classified PROVEN / SUSPECTED / BLOCKED / NOT TESTED, with required RED and native check. Run complete Python/JS/syntax and exact-final Windows Actions. **F0 completion is not N1 acceptance.**
+
+### F1 — Champion select: local-player identity, then UI
+
+- [ ] **FR-F1.1 — Correct validated local-cell / numeric-ID mapping** under swaps, bench availability, unknown local cell and unmapped champion, with no bench item relabelled `current`.
+- [ ] **FR-F1.2 — Correct live change propagation and current badge**, no stale old champion on swap/transition; abstain on unresolved local identity.
+- [ ] **FR-F1.3 — User-operated custom champion-select validation**, fixed test matrix correctly distinguishes self, bench and allies. No automatic picks.
+
+### F2 — Augments: truthful offer, title, slot, reroll and selection
+
+- [ ] **FR-F2.1 — Confirm visible offer and focus/capture state**, distinguish dialog/occlusion/no-offer, do not infer offers solely from level or death.
+- [ ] **FR-F2.2 — Verify image coordinate transforms and physical left / centre / right crops** across controlled resolutions/DPI; unknown or four-card Maestro fail closed.
+- [ ] **FR-F2.3 — Audit raw OCR, multiline splitting, normalization, strict catalog matching 90/8 and negative rejection.** Reconcile separate V1.1b OCR *research* read-only; **do not switch engines** without explicit V1.2 authorization.
+- [ ] **FR-F2.4 — Verify two-read/epoch/stale/reroll fencing and explicit chosen-augment confirmation**, with no stale card or inferred pick.
+- [ ] **FR-F2.5 — Offline replay then Windows custom L/C/R + single-card reroll test.** Zero wrong accepted IDs within declared corpus; safe abstention; measure existing six-second target without invented PASS.
+
+### F3 — Builds: feasible, explainable next item
+
+- [ ] **FR-F3.1 — Audit provenance of champion, confirmed augment history, purchased inventory, gold/slots/boots, enemy and ally context, style and verified patch/item pool.**
+- [ ] **FR-F3.2 — Add bounded safe decision-reason/factor evidence without score overhaul**, with reproducible scenario tests and human check; no win-rate proxy.
+- [ ] **FR-F3.3 — Enforce unknown-context abstention and eligibility** (no quest/augment reward, conditional, unavailable or otherwise unpurchasable shop suggestion); validate boot-swap only against verified move-speed stats.
+- [ ] **FR-F3.4 — Controlled shop/build scenario matrix and user Windows custom evidence**, zero invalid purchasable candidates in declared fixtures; every displayed recommendation has a verifiable reason.
+
+### F4 — Contextual presentation (only after F1–F3 gates)
+
+- [ ] **FR-F4.1 — One verified AUGMENTS panel at actual choice time, no stale data outside offer.**
+- [ ] **FR-F4.2 — One justified shop next-item suggestion only on verified shop context; minimal combat UI**, safe expand-for-details.
+- [ ] **FR-F4.3 — User custom game HUD/focus/Alt+H/Alt+O/tray acceptance**, no HUD obstruction or accidental input; real-match usefulness observation only after prior gates.
+
+**Verification ladder:** unit/contract → offline replay with approved fixtures → local end-to-end API/JS → user-operated custom Windows/OP.GG session → optional real match. Every gate reports PASS/FAIL/BLOCKED/NOT TESTED separately. Do not request another normal match for debugging. Use small stacked draft PRs, tests-first RED→GREEN and exact-final Windows Actions, without merge or `main` edits. Keep V1.1b / OCR PR #75 separate and production Tesseract unchanged.
+
+
 ## 2026-11-21 — N1-PF-03 cold desktop loader correction, draft #73
 
 - [x] **Reproduce exact cold failure:** Windows #71 warm start Settings/Alt+H PASS, autonomous desktop (no existing API, port free) FAIL after 15s readiness + stop; standalone API `API_READY=False` at 90.87s. Faulthandler during ASGI lifespan proves `backend/static_data/loader.py:972` patch-specific CDragon item request blocked in urllib3 network connect.
