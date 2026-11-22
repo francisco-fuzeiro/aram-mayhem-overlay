@@ -125,7 +125,8 @@ class Pipeline:
             or self.data.get_item(ident).item_class == "unknown"
             for ident in inventory.other
         )
-        confirmed_ids_resolved = len(existing) == len(snapshot.chosen_augments)
+        # Zero confirmed selections is not proof that all shown picks were recorded.
+        confirmed_ids_resolved = bool(existing) and len(existing) == len(snapshot.chosen_augments)
         evidence_status, evidence_reason = classify_build_evidence(
             champion_known=True, pool_verified=pool_verified,
             inventory_known=inventory_known,
