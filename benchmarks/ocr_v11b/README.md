@@ -39,8 +39,12 @@ slots/title vs dialog/no-offer ground truth and separate privacy approval.
 | RapidOCR recognizer wrapper | rapidocr-onnxruntime 1.4.4 using **the same v4 weights** |
 | Python | 3.11; NumPy 1.26.4; Pillow 11.1.0; OpenCV headless 4.10.0.84; RapidFuzz 3.12.2; pytesseract 0.3.13; psutil 6.1.1; mss 10.0.0 |
 
-`controlled.py` varies **only** RGB/BGR channel order and PIL bilinear /
-OpenCV linear resampling, at the model's pinned recognition width. Every
+`controlled.py` varies **only** RGB/BGR channel order, PIL bilinear /
+OpenCV linear resampling, round/ceil scaled width and (for one v4
+comparison) adaptive recognition width. This separates the original
+direct PIL/RGB policy from the historical RapidOCR v1.4.4 BGR/OpenCV/ceil/
+adaptive-width policy. The runner also checks numerical input-tensor
+parity against the actual pinned RapidOCR recognizer. Every
 v4/v5 direct candidate uses the same zero padded normalized tensor and CTC
 dictionary / decoder per ONNX model. These ablations can narrow hypotheses
 about wrapper differences; they cannot prove that RapidOCR uses identical
@@ -132,3 +136,18 @@ League/OP.GG Windows performance/first-six-second evidence, full
 left/centre/right and unilateral rerolls, N1 native validation, policy review,
 and a separate explicit user authorization. The *best offline challenger*
 does not automatically become the best integrated engine.
+
+
+## Separate synthetic matcher stress (text only, not images)
+
+For a deterministic audit of the unchanged 90/8 fuzzy matcher with
+single-character corruptions, execute locally using the same pinned reference:
+
+```powershell
+python -m benchmarks.ocr_v11b.stress_matcher --reference ..\\aram-oracle-ocr-reference --out ..\\aram-oracle-v11b-local\\synthetic_stress.json
+```
+
+Wrong accepted IDs here describe **synthetic title-text corruption**, not
+observed wrong image OCR associations or measured live false-positive rates.
+The complete error classes are written to a local JSON. This experiment
+must never be added to the independent holdout denominator.
