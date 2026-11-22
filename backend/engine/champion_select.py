@@ -80,15 +80,19 @@ def summarize_champion_select(
             continue
         raw_id = player.get("championId", 0)
         champ_id = str(raw_id)
-        if (identity_status == "accepted"
-                and type(player.get("cellId")) is int
-                and player["cellId"] == local_cell):
-            local_id = champ_id
-        else:
-            alias = id_to_alias.get(champ_id)
-            champion = get_champion(alias) if alias else None
-            if champion:
-                teammates.append(champion.role.lower())
+        is_local_cell = (type(local_cell) is int
+                         and type(player.get("cellId")) is int
+                         and player["cellId"] == local_cell)
+        if is_local_cell:
+            # Even when duplicate rows make our champion unresolved,
+            # they are not independently verified allies.
+            if identity_status == "accepted":
+                local_id = champ_id
+            continue
+        alias = id_to_alias.get(champ_id)
+        champion = get_champion(alias) if alias else None
+        if champion:
+            teammates.append(champion.role.lower())
 
     available_ids: list[str] = []
     if local_id:
