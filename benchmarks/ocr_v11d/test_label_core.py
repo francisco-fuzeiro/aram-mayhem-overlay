@@ -156,3 +156,18 @@ def test_context_summary_requires_matching_sealed_manifest_and_five_engines(tmp_
     manifest.write_text(json.dumps({"samples": [entry]}), encoding="utf-8")
     with pytest.raises(ValueError, match="changed"):
         summarize_context(labels, manifest, report)
+
+
+def test_rejects_reencoded_pixel_copy_of_frozen_reference(tmp_path):
+    from benchmarks.ocr_v11d.label_core import _pixel_digest
+    screenshot = specimen()
+    original_pixels = _pixel_digest(screenshot.crop((0, 0, 35, 25)))
+    with pytest.raises(ValueError, match="frozen original decoded pixels"):
+        save_confirmed_frame(
+            screenshot, [choose()], tmp_path / "private",
+            repository=tmp_path / "checkout", catalog={"Donation"},
+            frozen_hashes=set(), frozen_pixel_hashes={original_pixels},
+            session="session001", frame="frame001", offer="offer001",
+            split="development", confirmed=True,
+        )
+    assert not (tmp_path / "private" / "human_labels.csv").exists()
