@@ -6,13 +6,20 @@ review. Tesseract remains the installed product recognizer. V1.2 NO-GO.
 
 ## One-command Windows benchmark
 
-From an existing repository checkout, use PowerShell:
+From the existing Git repository checkout, create a **separate
+detached research worktree** (do not switch your active product checkout)
+and run PowerShell there:
 
 ~~~powershell
-git fetch origin
-git switch research/v1-1c-ocr-native-readiness-20261122
+git fetch origin research/v1-1c-ocr-native-readiness-20261122
+git -c core.autocrlf=false worktree add --detach ..\aram-oracle-v11c origin/research/v1-1c-ocr-native-readiness-20261122
+cd ..\aram-oracle-v11c
 powershell -NoProfile -ExecutionPolicy Bypass -File .\benchmarks\ocr_v11c\Run-OCRBenchmark.ps1
 ~~~
+
+This is an additional read-only-style research checkout, not a change to
+your active product branch. Do not run Git cleanup or worktree-removal
+commands against your installed overlay.
 
 Prerequisites: Git for Windows, Python 3.11, and Tesseract OCR including its
 English language data. These system programs are **detected, not
