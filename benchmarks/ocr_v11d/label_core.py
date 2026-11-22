@@ -68,6 +68,7 @@ def save_confirmed_frame(
     repository: Path, catalog: set[str], frozen_hashes: set[str],
     session: str, frame: str, offer: str, split: str,
     confirmed: bool, context: dict | None = None,
+    frozen_pixel_hashes: set[str] | None = None,
 ) -> int:
     """Atomically append only human-approved crop labels and private PNGs.
 
@@ -152,6 +153,8 @@ def save_confirmed_frame(
             if sha in frozen_hashes:
                 raise ValueError("frozen original reuse is not independent")
             raise ValueError("duplicate encoded crop")
+        if pixels in (frozen_pixel_hashes or set()):
+            raise ValueError("frozen original decoded pixels are not independent")
         if pixels in seen_pixels:
             raise ValueError("duplicate decoded crop pixels")
         seen_sha.add(sha)
