@@ -1623,6 +1623,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
+                    emit_f0_trace("augment", "offer", "unknown",
+                                  "scan_level_due", source="lcda",
+                                  epoch=state.offer_epoch)
                     if len(state.offer_ledger.offers) == prior_count:
                         state.offer_epoch += 1
                         if state.offer_ledger.offers:
@@ -1736,6 +1739,18 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             )
                         if action == "detected" and detected:
                             verified_slots = _slots_from_detected(detected)
+                            # Physical identity changes can be rerolls, but
+                            # F0 never asserts the user's actual reroll action.
+                            # Previous IDs are not persisted in diagnostics.
+                            previous_slots = state.ocr_slot_choices
+                            if previous_slots is not None and verified_slots is not None:
+                                for slot in ("left", "centre", "right"):
+                                    if previous_slots.get(slot) != verified_slots.get(slot):
+                                        emit_f0_trace(
+                                            "augment", "matching", "unknown",
+                                            "slot_identity_changed", source="ocr",
+                                            slot=slot, epoch=state.offer_epoch,
+                                        )
                             if ((not state.ocr_stale or reverified)
                                     and verified_slots is not None
                                     and state.offer_ledger.offers
