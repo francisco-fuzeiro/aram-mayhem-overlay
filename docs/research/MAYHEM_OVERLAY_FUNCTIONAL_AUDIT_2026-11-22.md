@@ -1,7 +1,7 @@
 # Mayhem Overlay functional audit — independent design research (2026-11-22)
 
 > **Research only. No imported source, no translated algorithms, no copied assets, no new runtime behaviour.**
-> This is a source-inspection map, **not** proof that the upstream works correctly in real League matches. Use alongside [the cross-project reference inventory](../OPEN_SOURCE_FEATURE_MAP_2026-11-20.md) if/when that separate research PR is integrated, the [functional recovery plan](../plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md), and [TODO](../TODO.md).
+> This is a source-inspection map, **not** proof that the upstream works correctly in real League matches. Use alongside [the separate cross-project reference inventory](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/blob/docs/open-source-feature-map-2026-11-20/docs/OPEN_SOURCE_FEATURE_MAP_2026-11-20.md) if/when that separate research PR is integrated, the [functional recovery plan](../plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md), and [TODO](../TODO.md).
 
 ## Scope, rights, evidence
 
@@ -20,18 +20,18 @@
 | [package.json](https://github.com/zp96-cmd/mayhem-overlay/blob/main/package.json) | Electron packaging, declared MIT metadata, dependencies | `e13ea6cd2435be0e1f45fac7008d35410baf25a0` |
 | [src/main/main.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/main.js) | Phase orchestration, transparent windows, offer watcher, tray and update flow | `92dedb4d642941aaab39a445ca668c3862023318` |
 | [src/main/ocr.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/ocr.js) | Local screen capture and OCR pipeline | `500c09b84699997166582a4f684c524268cb3e50` |
-| [src/main/ocr-match.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/ocr-match.js) | Closed-vocabulary fuzzy name matching | File inspected; blob not recorded |
+| [src/main/ocr-match.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/ocr-match.js) | Closed-vocabulary fuzzy name matching | `c80e51dcfb9831a89e31e6098bb9c39da19b8ea6` |
 | [src/main/liveclient.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/liveclient.js) | In-game LCDA polling and player snapshot | `70344652d6fb61894ac8f48fe15414fb35fa4590` |
 | [src/main/lcu.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/lcu.js) | Local LCU phases, champion select and match history | `bbf91749d08c61202f9862632d32529d96ef6140` |
 | [src/main/history.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/history.js) | Match import and saved-build enrichment | `d51cc26dcc013481af3f42b1e16c7a20f07bafb8` |
 | [src/main/aramgg.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/aramgg.js) | Community build variants, cached provider parsing | `a53f1a9aa68db67971e1ab347b09009893164a09` |
-| [src/main/aramkit.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/aramkit.js) | Versioned external champion/augment statistics | File inspected; blob not recorded |
+| [src/main/aramkit.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/aramkit.js) | Versioned external champion/augment statistics | `ff1215728e9268f9be67a976111611f9d67ce3ec` |
 | [src/main/fetch-data-core.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/fetch-data-core.js) | Patch data acquisition and normalization | `eaf41d127f1b4ce40795b076627ac0b545cbf46f` |
 | [src/main/champselect.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/champselect.js) | Champion bench/team indicator placement | `96eb5245cd344262aa9bca554f6b4d02d1ea28ba` |
 | [src/main/layout.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/layout.js) | Position presets and bounds validation | `e36cbbb8607eadb396e3b430e774e1184ee2432a` |
 | [src/main/store.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/main/store.js) | Local state persistence, backup/recovery | `3000196972617aa13f8acc3a5ea3a7e3ba98434b` |
 | [src/renderer/app.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/renderer/app.js) | Augment display, scoring signals, reroll/priority, item paths, interaction | `f331fe254cb8f7e6e849d5b1a213c43113f3ad13` |
-| [src/renderer/prep.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/renderer/prep.js) | Champion comparison and pre-game companion | File inspected; blob not recorded |
+| [src/renderer/prep.js](https://github.com/zp96-cmd/mayhem-overlay/blob/main/src/renderer/prep.js) | Champion comparison and pre-game companion | `0bcc163ef8dedcda74a87962b3b959a377fab2c9` |
 
 ## Feature-by-feature behavioural and mechanism audit
 
