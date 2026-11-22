@@ -33,8 +33,8 @@ Tesseract installed outside the default location can be passed with
 policy applies only to that process.
 
 The script runs existing safety tests, the separate synthetic matcher stress,
-controlled original-crop comparisons, and four separate isolated worker
-processes. It measures 26 old original images and eight three-crop batches:
+controlled original-crop comparisons, and five separate isolated worker
+processes (including direct PP-OCRv4 fixed and adaptive separately). It measures 26 old original images and eight three-crop batches:
 cold-ready time, ONNX session load, per-crop and three-crop
 mean/p50/p95/max, sampled CPU seconds, peak sampled process-tree RSS,
 observed subprocesses, pinned model bytes and installed dependency bytes.
