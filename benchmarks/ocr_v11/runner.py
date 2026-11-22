@@ -221,10 +221,11 @@ class RapidV4:
         import rapidocr_onnxruntime
         t=time.perf_counter()
         cfg=read_yaml(str(Path(rapidocr_onnxruntime.__file__).parent/"config.yaml"))
-        cfg.update({"rec_model_path":str(model),"rec_keys_path":str(keys) if Path(keys).exists() else None,
-                    "rec_use_cuda":False,"rec_batch_num":1,"rec_img_shape":[3,48,448],
-                    "intra_op_num_threads":1,"inter_op_num_threads":1})
-        self.engine=TextRecognizer(cfg)  # recognizer ONLY; detector and classifier never created
+        rec_cfg=cfg["Rec"]
+        rec_cfg.update({"model_path":str(model),"rec_keys_path":str(keys) if Path(keys).exists() else None,
+                        "use_cuda":False,"rec_batch_num":1,"rec_img_shape":[3,48,448],
+                        "intra_op_num_threads":1,"inter_op_num_threads":1})
+        self.engine=TextRecognizer(rec_cfg)  # recognizer ONLY; detector and classifier never created
         self.load_ms=(time.perf_counter()-t)*1000
     def rec(self,img):
         import numpy as np
@@ -233,7 +234,7 @@ class RapidV4:
         bgr=np.asarray(img.convert("RGB"))[:,:,::-1].copy()
         pre=(time.perf_counter()-t)*1000
         t=time.perf_counter()
-        result,_=self.engine(bgr)
+        result,_=self.engine([bgr])
         infer=(time.perf_counter()-t)*1000
         if len(result)!=1 or len(result[0])<2:
             raise ValueError("RapidOCR recognizer-only output contract changed")
