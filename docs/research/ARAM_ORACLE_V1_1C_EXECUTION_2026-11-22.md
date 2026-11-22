@@ -211,3 +211,29 @@ safety, real pinned models, full profiler and Windows launcher results.
 A queued or older successful CI is not final-head validation.
 Independent unseen holdout, personal Windows and League/OP.GG remain
 NOT TESTED/BLOCKED pending new user-operated evidence.
+
+## 8. Real Windows Actions RED on cached offline setup (fixed in benchmark only)
+
+On Windows Actions at earlier SHA 25762e1d, the first opt-in V1.1c
+PowerShell invocation completed all isolated profiling successfully.
+Its second invocation with -Offline failed at a reproducible
+**setup gate only**, not OCR inference or a hash mismatch:
+"pinned models/charset not cached" (job
+https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981947172).
+
+Root cause: the historical rapidocr-onnxruntime v1.4.4 wheel may not
+contain a separate ppocr_keys_v1.txt file. This is explicitly optional
+in the pinned model fetcher, and the direct recognizer supports the
+ONNX-embedded character dictionary with verified CTC output dimensions.
+The PowerShell cache gate incorrectly required the optional text file
+even when both ONNX model checksums passed.
+
+Isolated fix at 4e547ad98dc1e73158306da6655681be93815373:
+require both SHA-256-verified ONNX weights for -Offline, but not the
+optional text dictionary. The original DirectONNX decoder's metadata
+and class-count checks remain unchanged. The Windows workflow tests
+the full first-run and cached-offline paths as a regression gate.
+**Verify green at the exact final V1.1c SHA before claiming closure.**
+
+No model binaries, private screenshots, production dependencies,
+matching threshold, WGC, game data or League actions were changed.
