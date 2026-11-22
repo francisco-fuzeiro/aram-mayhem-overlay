@@ -105,6 +105,7 @@ SCHEMA: dict[str, dict[str, object]] = {
             "slot_identity_duplicate", "title_input_invalid", "title_short",
             "catalog_empty", "below_threshold", "insufficient_margin",
             "title_matched", "slot_identity_changed",
+            "already_in_build", "slot_candidate_selected",
             "item_name_duplicate", "boots_conflict",
             "exclusive_group_conflict", "candidate_excluded",
             "stale_epoch", "stale_offer",
