@@ -5,6 +5,19 @@ description: Continue the ARAM Oracle independent OCR V1 research safely across 
 
 # ARAM Oracle OCR Research — Continuity and Next-Phase Rule
 
+## 2026-11-22 — Active V1.1b implementation handoff (research-only)
+
+**Current V1.1b child:** `research/v1-1b-ocr-safety-windows-20261122`, [draft PR #77](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/77), directly stacked on rules draft #75. **DO NOT MERGE.** All changed paths are `benchmarks/ocr_v11b/`, `.github/workflows/ocr-benchmark-v11b.yml`, this research skill and its execution ledger. No product runtime, N1, #71, main, matching policy, WGC, stale/epochs, or OfferLedger was changed. Tesseract remains authoritative.
+
+**First mandatory read for next session:** `docs/research/ARAM_ORACLE_V1_1B_EXECUTION_2026-11-22.md` and `benchmarks/ocr_v11b/README.md` from PR #77, followed by current exact branch HEAD and its GitHub Actions jobs/artifacts. Then recheck this skill's original mandatory startup list below. The ledger is explicit about archival V1.1 evidence versus measured V1.1b experiments.
+
+**Test-first record:** tests-only missing-module RED `5bd3fa1365bf387590cb10d01775e0e728d07a43` [Actions #44979601783](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44979601783); first integrity GREEN `33e2647d265f1721aa4ae80c172c135682d17933` [Actions #44979628353](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44979628353). Extended safety unit tests have passed on Linux and disposable Windows Actions VMs. The initial Windows real-model run exposed CRLF conversion of pinned JSON fixtures; its safe hash gate failed before inference, and the workflow was corrected with `core.autocrlf=false` before reference checkout. Recheck the **newest** CI, not only past GREEN.
+
+**New research lab:** strict original SHA/consent/duplicate validation and local-only holdout runner; model-specific RGB/BGR + PIL/OpenCV + round/ceil and dynamic v4 width ablation; direct tensor parity against pinned RapidOCR 1.4.4; synthetic-text-only title matcher safety stress; isolated child-process CPU/RSS/cold-ready profiling and sanitized Windows/Linux CI metrics. Real models pinned to the V1.1 SHA values below. CI VM results never represent the user's personal Windows device.
+
+**Remaining blockers:** no user-approved genuinely independent holdout has been supplied (**BLOCKED**); no real user's League/WGC/OP.GG/Alt+Tab/reroll/DPI/first-six-seconds and N1 native acceptance; Riot/policy gate unresolved. V1.2 **NO-GO** even if automated jobs succeed. Only user can separately authorize a future promotion. No new capture/log may enter the public repository without explicit privacy review.
+
+
 ## Mandatory rule (2026-11-22)
 
 **The next eligible research phase is V1.1b — independent holdout, safety validation and Windows-readiness measurements. It is NOT V1.2 integration.** The V1.1 benchmark result is an offline reproduction, not permission to change the production OCR engine. The production recognizer remains **Tesseract**. Changing it, including shadow/compare runtime integration, requires a separate explicitly approved V1.2 task after all applicable gates are verified.
