@@ -1073,3 +1073,38 @@ test("F1.2 RED: only one independently confirmed current badge is allowed", () =
     assert.ok(h.element("champ-select-list").children.every(
         c => !c.children[0].textContent.includes("(current)")));
 });
+
+
+test("F1 integration: synthetic LCU → actual Python poll WS packets → real JS DOM", () => {
+    const {spawnSync} = require("node:child_process");
+    const child = spawnSync("python", ["-m", "backend.workflow.f1_replay"],
+        {encoding: "utf8", cwd: path.join(__dirname, "../.."), timeout: 20000});
+    assert.equal(child.status, 0, child.stderr || child.error?.message);
+    const result = JSON.parse(child.stdout);
+    assert.equal(result.kind, "synthetic_f1_lcu_backend_ws");
+    assert.equal(result.packets.length, 4);
+    const [first, swapped, ambiguous, unavailable] = result.packets;
+    const h = harness();
+    h.api.connectWebSocket();
+    const ws = h.sockets[0];
+    const send = (packet) => ws.onmessage({data: JSON.stringify(packet)});
+
+    send(first);
+    assert.deepEqual(h.element("champ-select-list").children.map(
+        c => c.children[0].textContent).sort(),
+        ["Synthetic Bench", "Synthetic Self (current)"].sort());
+    send(swapped);
+    assert.deepEqual(h.element("champ-select-list").children.map(
+        c => c.children[0].textContent).sort(),
+        ["Synthetic Bench (current)", "Synthetic Self"].sort());
+    send(first); // late LCU message: old self must stay bench
+    assert.equal(h.element("champ-select-list").children.some(
+        c => c.children[0].textContent === "Synthetic Bench (current)"), true);
+    send(ambiguous);
+    assert.ok(h.element("champ-select-list").children.every(
+        c => !c.children[0].textContent.includes("(current)")));
+    assert.match(h.element("champ-select-note").textContent, /unresolved/i);
+    send(unavailable);
+    assert.equal(h.element("champ-select-list").children.length, 0);
+    assert.match(h.element("champ-select-note").textContent, /unresolved/i);
+});
