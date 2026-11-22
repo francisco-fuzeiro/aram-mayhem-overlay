@@ -182,3 +182,20 @@ def test_private_capture_or_result_paths_inside_checkout_are_rejected(tmp_path):
     assert_private_paths(repo, [private, private / "report.json"])
     with pytest.raises(ValueError, match="outside"):
         assert_private_paths(repo, [repo / "manifest.json"])
+
+
+def test_adaptive_v4_has_its_own_profile_and_holdout_comparison():
+    """Do not assign fixed-width v4 CPU/RSS to wider adaptive tensors."""
+    from benchmarks.ocr_v11b.profile_windows import ENGINES
+    assert "ppocrv4_split" in ENGINES
+    assert "ppocrv4_adaptive_split" in ENGINES
+    assert len(ENGINES) == 5
+    from benchmarks.ocr_v11c.configurations import adaptive_v4
+    class Session:
+        height = 48
+        width = 448
+    variant = adaptive_v4(Session())
+    assert variant.color == "bgr"
+    assert variant.resize == "cv2"
+    assert variant.rounding == "ceil"
+    assert variant.dynamic_width is True
