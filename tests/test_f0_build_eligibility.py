@@ -26,7 +26,7 @@ def test_existing_fill_slots_retains_ranking_and_logs_first_exclusions(monkeypat
                 for args, fields in rows if args[2] == "accepted"]
     rejected = [(args[3], fields["item_id"])
                 for args, fields in rows if args[2] == "rejected"]
-    assert ("already_owned", "3101") in rejected
+    assert ("already_in_build", "3101") in rejected
     assert ("item_name_duplicate", "3102") in rejected
-    assert ("verified_candidate", "3103") in accepted
+    assert ("slot_candidate_selected", "3103") in accepted
     assert all("name" not in fields and "score" not in fields for _, fields in rows)
