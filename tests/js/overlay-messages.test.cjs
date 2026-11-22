@@ -516,6 +516,52 @@ test("M5/C2: OCR reroll updates only changed physical card mapping", () => {
 });
 
 
+test("V12 RED: verified reroll must not render stale ledger identities before offer sync", () => {
+    const h = harness();
+    const rec = (augment_id, augment_name) => ({
+        augment_id, augment_name, score: 7.0, modelled: true,
+        label: ["Synthetic", "Test"], core_items_names: [], explanation: "",
+    });
+    const initial = gameUpdate();
+    initial.recommendations = [
+        rec("en", "En Passant"), rec("bind", "Ravenous Bind"),
+        rec("kill", "It's Killing Time"),
+    ];
+    initial.ocr_slots = {left: "en", centre: "bind", right: "kill"};
+    Object.assign(initial, d2VerifiedFields(initial.ocr_slots));
+    h.api.handleMessage(initial);
+    assert.match(h.element("augment-list").children[0].innerHTML, /En Passant/);
+
+    // Backend sends a verified OCR identity before the following full update
+    // carrying the refreshed OfferLedger/recommendations. The stale name must
+    // not masquerade as the new card while those snapshots disagree.
+    h.api.handleMessage({
+        type: "ocr_result", status: "detected", phase: "detected",
+        offer_epoch: 7, stale: false, detected: [
+            {slot: "left", id: "new", name: "Synthetic Replacement", confidence: 98},
+            {slot: "centre", id: "bind", name: "Ravenous Bind", confidence: 99},
+            {slot: "right", id: "kill", name: "It's Killing Time", confidence: 99},
+        ],
+    });
+    assert.equal(h.element("augment-list").children.length, 0,
+        "Never show an older card identity as current after changed verified OCR");
+
+    const refreshed = gameUpdate();
+    refreshed.recommendations = [
+        rec("new", "Synthetic Replacement"), rec("bind", "Ravenous Bind"),
+        rec("kill", "It's Killing Time"),
+    ];
+    refreshed.ocr_slots = {left: "new", centre: "bind", right: "kill"};
+    Object.assign(refreshed, d2VerifiedFields(refreshed.ocr_slots));
+    h.api.handleMessage(refreshed);
+    const rows = h.element("augment-list").children;
+    assert.equal(rows.length, 3);
+    assert.match(rows[0].innerHTML, /Synthetic Replacement/);
+    assert.match(rows[1].innerHTML, /Ravenous Bind/);
+    assert.match(rows[2].innerHTML, /Killing Time/);
+});
+
+
 test("M5/C3: only verified slot updates move in WS/recommendation DOM", () => {
     const h = harness();
     const rec = (augment_id, augment_name) => ({
