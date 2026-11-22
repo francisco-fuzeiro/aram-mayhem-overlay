@@ -30,10 +30,12 @@ $ReferenceSha = "7624b27c1d025c4183c2a78aa11609dda45ecf71"
 # Reuse V1.1c rather than duplicating setup, pin checks, baseline tests
 # and cold-start performance measurement.
 if (-not $LabelsOnly) {
-    $arguments = @("-OutputRoot", $PrivateRoot)
-    if ($Offline) { $arguments += "-Offline" }
-    if ($TesseractExe) { $arguments += @("-TesseractExe", $TesseractExe) }
-    & (Join-Path $Repository "benchmarks\ocr_v11c\Run-OCRBenchmark.ps1") @arguments
+    # PowerShell script commands require named hashtable splatting. An array
+    # of "-Parameter", "value" elements binds as positional arguments in 5.1.
+    $benchmarkParams = @{ OutputRoot = $PrivateRoot }
+    if ($Offline) { $benchmarkParams.Offline = $true }
+    if ($TesseractExe) { $benchmarkParams.TesseractExe = $TesseractExe }
+    & (Join-Path $Repository "benchmarks\ocr_v11c\Run-OCRBenchmark.ps1") @benchmarkParams
     if ($LASTEXITCODE -ne 0) {
         throw "V1.1c benchmark failed. Labeler not started."
     }
