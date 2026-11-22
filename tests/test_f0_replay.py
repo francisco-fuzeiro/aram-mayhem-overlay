@@ -1,4 +1,8 @@
 """F0: deterministic sanitized end-to-end fixtures, no running League client."""
+import json
+import subprocess
+import sys
+
 from backend.workflow.f0_replay import run_synthetic_replay
 
 
@@ -26,3 +30,14 @@ def test_replay_output_is_deterministic_sanitized_and_contains_no_private_data()
     assert "password" not in str(first).lower()
     assert "screenshot" not in str(first).lower()
     assert "puuid" not in str(first).lower()
+
+
+def test_cli_reports_exact_synthetic_rows_without_league_or_credentials():
+    result = subprocess.run(
+        [sys.executable, "-m", "backend.workflow.f0_replay"],
+        check=True, capture_output=True, text=True, timeout=15,
+    )
+    parsed = json.loads(result.stdout)
+    assert parsed["kind"] == "synthetic_f0_contract_replay"
+    assert parsed["rows"] == run_synthetic_replay()
+    assert result.stderr == ""
