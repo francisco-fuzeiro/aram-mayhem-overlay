@@ -258,3 +258,28 @@ Actions/PR status. Continue only unfulfilled V1.1b gates, never change
 production or infer success from mere CI initiation. Use
 `benchmarks/ocr_v11b/README.md` for opt-in local Windows commands and
 private holdout instructions. Keep PR #77 draft and do not merge.
+
+
+## 7. V1.1b exact-head closure confirmed during V1.1c recovery (2026-11-22)
+
+The latest exact reference SHA of draft #77 is
+`d95a29d443304d26bc14807d2033a50698cbd8ac`.
+[Actions #44980628428](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44980628428)
+has status **completed / SUCCESS** with all four jobs complete:
+Linux safety tests PASS, Windows 2022 safety tests PASS, Linux pinned
+real-model inference/profiling PASS, and Windows 2022 pinned real-model
+inference/profiling PASS. There were no failed inference/ID-check steps.
+The checked SHA includes the later explicit canonical numeric ID
+comparisons introduced after the previous performance measurement SHA.
+
+The expected canonical IDs were *derived from the human-confirmed titles
+through the pinned matcher and 328-entry catalog*. Returned numeric IDs
+were compared with those expected IDs, not merely display strings.
+**External independent official alias-ID ground truth remains unverified.**
+The final CI success certifies the tested contract, not live card identity
+safety or the user's Windows PC.
+
+Draft #77 remains open/unmerged and unchanged by V1.1c; this appended
+closure note exists only on the V1.1c stacked child branch. The
+original-26, derived, synthetic and independent evidence categories remain
+strictly separate. No new independent holdout was supplied: **BLOCKED**.

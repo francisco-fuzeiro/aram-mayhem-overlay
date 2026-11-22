@@ -1,10 +1,11 @@
 name: V1.1b isolated OCR research
 on:
   push:
-    branches: [research/v1-1b-ocr-safety-windows-20261122]
+    branches: [research/v1-1b-ocr-safety-windows-20261122, research/v1-1c-ocr-native-readiness-20261122]
   pull_request:
     paths:
       - 'benchmarks/ocr_v11b/**'
+      - 'benchmarks/ocr_v11c/**'
       - '.github/workflows/ocr-benchmark-v11b.yml'
   workflow_dispatch:
 permissions:
@@ -28,11 +29,19 @@ jobs:
       - name: Install isolated pure-test dependencies
         run: python -m pip install 'pytest==8.3.5' 'numpy==1.26.4' 'Pillow==11.1.0' 'opencv-python-headless==4.10.0.84'
       - name: Run independent holdout safety and preprocessing contracts
-        run: python -m pytest -q benchmarks/ocr_v11b/test_validation.py benchmarks/ocr_v11b/test_controlled.py
+        run: python -m pytest -q benchmarks/ocr_v11b/test_validation.py benchmarks/ocr_v11b/test_controlled.py benchmarks/ocr_v11c/test_v11c.py
       - name: Syntax and Windows command contract
         run: |
-          python -m compileall -q benchmarks/ocr_v11b
+          python -m compileall -q benchmarks/ocr_v11b benchmarks/ocr_v11c
           python -m benchmarks.ocr_v11b.profile_windows --help
+      - name: Parse PowerShell launcher without running system setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'benchmarks/ocr_v11c/Run-OCRBenchmark.ps1'), [ref]$tokens, [ref]$parseErrors) | Out-Null
+          if ($parseErrors.Count -gt 0) { $parseErrors | Out-String | Write-Error; exit 1 }
 
   real-model-linux:
     needs: safety-tests
@@ -121,6 +130,28 @@ jobs:
         run: python -m benchmarks.ocr_v11b.profile_windows --reference reference --models .benchmark_assets --out v11b_evidence_windows/windows_actions_profile.json
       - name: Print sanitized disposable Windows Actions research metrics
         run: python -m benchmarks.ocr_v11b.summarize --input v11b_evidence_windows
+      - name: Execute opt-in V1.1c Windows launcher on disposable CI VM (NOT user's PC)
+        shell: pwsh
+        run: |
+          $privateRoot = Join-Path $env:RUNNER_TEMP 'aram-oracle-v11c-smoke'
+          & ./benchmarks/ocr_v11c/Run-OCRBenchmark.ps1 -CIRunner -SkipControlled -OutputRoot $privateRoot -TesseractExe $env:TESSERACT_PATH
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./benchmarks/ocr_v11c/Run-OCRBenchmark.ps1 -CIRunner -Offline -SkipControlled -OutputRoot $privateRoot -TesseractExe $env:TESSERACT_PATH
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Export aggregate V1.1c five-engine Windows CI profile (not user's PC)
+        shell: pwsh
+        run: |
+          $privateRoot = Join-Path $env:RUNNER_TEMP 'aram-oracle-v11c-smoke'
+          $profiles = @(Get-ChildItem -Path (Join-Path $privateRoot 'results') -Filter 'windows_profile.json' -Recurse)
+          if ($profiles.Count -lt 2) { throw "Expected fresh and cached-offline profile runs" }
+          $latest = $profiles | Sort-Object LastWriteTime | Select-Object -Last 1
+          $payload = Get-Content $latest.FullName -Raw | ConvertFrom-Json
+          if (@($payload.runs.PSObject.Properties).Count -ne 5) { throw "Expected five separately profiled engines" }
+          foreach ($p in $payload.runs.PSObject.Properties) {
+            $r = $p.Value
+            Write-Host "V11C_WINDOWS_ACTIONS_ONLY engine=$($p.Name) crop_mean_ms=$($r.crop_total_ms.mean_ms) crop_p95_ms=$($r.crop_total_ms.p95_ms) triple_mean_ms=$($r.three_consecutive_crops_ms.mean_ms) cold_ready_ms=$($r.cold_ready_wall_ms) cpu_seconds=$($r.sampled_process_tree_cpu_seconds) peak_rss_bytes=$($r.sampled_peak_process_tree_rss_bytes)"
+          }
+          Copy-Item $latest.FullName 'v11b_evidence_windows/v11c_windows_actions_profile.json'
       - name: Upload disposable VM metrics only (not user's machine)
         if: always()
         uses: actions/upload-artifact@v4

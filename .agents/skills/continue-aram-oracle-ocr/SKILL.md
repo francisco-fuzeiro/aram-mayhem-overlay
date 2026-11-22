@@ -5,6 +5,59 @@ description: Continue the ARAM Oracle independent OCR V1 research safely across 
 
 # ARAM Oracle OCR Research — Continuity and Next-Phase Rule
 
+## 2026-11-22 — V1.1c active child, independent native readiness (research only)
+
+**Current continuation:** research/v1-1c-ocr-native-readiness-20261122,
+[draft #79](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/79),
+directly stacked on #77 at exact parent d95a29d443304d26bc14807d2033a50698cbd8ac.
+**NO MERGE. NO V1.2.** The #77 research branch itself, all N1 branches and
+main are untouched; installed Tesseract, production WGC, strict 90/8 matcher,
+epochs/stale, HUD, recommendations and product dependencies are unchanged.
+
+**First mandatory next-session reads:** this skill, the complete
+docs/research/ARAM_ORACLE_V1_1C_EXECUTION_2026-11-22.md, the V1.1b ledger
+and benchmark evidence, benchmarks/ocr_v11c/README.md, V1.1b README,
+then current PR #79 exact HEAD + all GitHub Actions jobs/artifacts. Also
+read the general skill and AGENTS on N1 #71 branch as read-only. Never infer
+new game or personal Windows measurements from V1.1b or V1.1c Actions.
+
+**V1.1b closure verified:** all four Linux/Windows safety and pinned real
+inference/profile jobs SUCCESS at exact #77 d95a29d4,
+[Actions #44980628428](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44980628428).
+Canonical **numeric** IDs matched derived catalog expected IDs, but
+external game alias-ID independence remains unproven. Original 26
+retrospective crops and synthetic 328-title text stress are not holdout.
+
+**V1.1c research additions:** one-command Windows PowerShell isolated
+benchmark with local venv/model SHA and offline follow-up; plaintext
+privacy-safe performance report; human-labeled local CSV generator that
+rejects reused originals, duplicated encoded/decoded images, duplicate
+frame/slot and session leakage; sealed dev/holdout split; local-only
+raw/normalized/canonical-ID audit. A bug in research holdout accounting
+was fixed: rerolled cards from different source_frame values cannot be
+combined as a complete offer. Legacy unframed samples never count as
+full three-slot evidence. Tests-first RED proof [#44981391025](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981391025).
+**Verify GREEN on final #79 SHA before claiming closure.**
+
+**Native status:** local Windows PC script has not been run by the user;
+no actual League/WGC/OP.GG triple-card/reroll/Alt+Tab/DPI or performance
+results; no approved unseen holdout — **BLOCKED**. All new captures,
+labels, raw OCR and resource JSON must stay outside repo and uploads.
+The GitHub repository currently reports **public** visibility. Do not
+commit any private material. Installed model/adapter promotion remains
+NO-GO, requiring separate explicit authorization after N1 acceptance,
+independent safety coverage, native Windows feasibility and Riot gate.
+
+**Next work instruction:** first classify exact-head CI; if failures are
+reproducible and confined to isolated benchmark/PowerShell/label scripts,
+apply RED→GREEN on this branch and rerun exact-head Linux/Windows CI.
+Then ask user only to run the opt-in local script and label real new
+crops using README instructions; do not pretend Actions is the user PC.
+Record independent and nonindependent datasets separately and keep #79
+draft until native evidence and another explicit authorization.
+
+
+
 ## 2026-11-22 — Active V1.1b implementation handoff (research-only)
 
 **Current V1.1b child:** `research/v1-1b-ocr-safety-windows-20261122`, [draft PR #77](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/77), directly stacked on rules draft #75. **DO NOT MERGE.** All changed paths are `benchmarks/ocr_v11b/`, `.github/workflows/ocr-benchmark-v11b.yml`, this research skill and its execution ledger. No product runtime, N1, #71, main, matching policy, WGC, stale/epochs, or OfferLedger was changed. Tesseract remains authoritative.
