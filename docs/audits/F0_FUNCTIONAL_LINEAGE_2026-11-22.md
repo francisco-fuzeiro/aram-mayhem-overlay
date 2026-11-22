@@ -74,3 +74,16 @@ The existing `StructuredEventLogger` starts with the FastAPI lifespan and stores
 ### Exit conditions before correction work
 
 F0.2: whitelist-only opt-in event contract, deterministic negative tests, no private data exfiltration and no screenshot creation. F0.3: offline replay artifacts and explicit source-vs-UI differentiation, triage backed by reproducible tests; every F1/F2/F3 correction has its own future RED and Windows/custom acceptance gate. No F1–F4 production changes in F0.
+
+## F0.2 instrumentation actually introduced on this branch (after this source review)
+
+The observational modules do **not** make existing decisions. They add, exclusively with `ARAM_ORACLE_F0_TRACE=1`:
+
+- `server._read_champ_select_payload`: `local_cell` and `alias` enum outcomes (missing/multiple/unmapped vs accepted), without local player identity.
+- `slot_title_ocr.strict_match_title`: per-slot **accepted, short/unavailable text, below 90, or runner-up margin below 8**; records only bounded fuzzy title `similarity` 0–100, which is **not a probability that the OCR is correct**. No raw text/title.
+- `server._run_watcher_check` and `_poll_tick_once`: A3/A4 scan stage, physical slot unknown/verified, level-due scan, observed slot-identity change, and outdated offer epoch. A slot-identity change is **not proof that a user pressed reroll**.
+- `pipeline.run`: champion and source-completeness status, two-source item-pool availability, chosen/confirmed augments known versus none recorded, next-item status and absence of numeric factor breakdown.
+- `build_suggester._fill_slots`: bounded (at most 12 per computation) final build **slot inclusion/exclusion** codes (`already_in_build`, duplicate name, boots/exclusive conflict, non-final class, selected slot). These are **not verified shop purchase receipts**: the prefiltered catalog and actual shop access remain separate checks for F3.
+- `backend/workflow/f0_replay.py`: safe deterministic no-League source/ledger/eligibility contract cases; the Node harness checks the actual `(current)` badge and build state reaching the DOM.
+
+The existing logger has a bounded queue and rotating local JSONL; only the new F0 events are off by default. Field filtering is an allowlist and hostile strings/images/tokens are rejected, not sanitized by storing them first. Native ground truth and exact failure causes are still unavailable.
