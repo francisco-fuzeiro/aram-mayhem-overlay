@@ -18,7 +18,8 @@ from PIL import Image
 
 from benchmarks.ocr_v11c.manifest import REQUIRED
 
-EXTRA = ("scene", "reroll", "focus", "opgg", "resolution", "dpi")
+EXTRA = ("scene", "reroll", "focus", "opgg", "resolution", "dpi",
+         "source_image_sha256")
 FIELDNAMES = tuple(REQUIRED) + EXTRA
 SLOTS = frozenset(("left", "centre", "right"))
 CATEGORIES = frozenset(("title", "dialog", "no_offer"))
@@ -100,9 +101,13 @@ def save_confirmed_frame(
         raise ValueError("unknown reroll position")
 
     old = _existing_rows(root)
+    screenshot_digest = _pixel_digest(image)
     for row in old:
         if row["source_session"] == session and row["split"] != split:
             raise ValueError("session leakage across development and holdout")
+        if (row["source_session"], row["source_frame"]) == (session, frame):
+            if row.get("source_image_sha256") != screenshot_digest:
+                raise ValueError("source screenshot mismatch: never combine separate frames")
     occupied = {(r["source_session"], r["source_frame"], r["slot"]) for r in old}
     seen_sha, seen_pixels = set(frozen_hashes), set()
     private_crops = root / "crops"
@@ -167,7 +172,7 @@ def save_confirmed_frame(
             rarity=rarity, two_line=str(two_line).lower(), split=split,
             privacy_approved="yes", scene=scene, reroll=reroll,
             focus=focus, opgg=opgg, resolution=f"{image.width}x{image.height}",
-            dpi=dpi,
+            dpi=dpi, source_image_sha256=screenshot_digest,
         )
         new_rows.append(row)
 
