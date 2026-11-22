@@ -1,6 +1,23 @@
 # N1 v3 — Native Windows ARAM Mayhem acceptance
 
-**Status:** WARM QT/API PREFLIGHT PASS ON #71 / COLD DESKTOP FAIL OBSERVED / ITEM CACHE-FIRST CODE GREEN #73 / NATIVE RE-TEST OPEN (2026-11-21). No League gameplay PASS is claimed.
+**Status (2026-11-22):** #73 AUTONOMOUS DESKTOP START NARROW PASS / FIRST REAL ARAM GAME FUNCTIONAL FAIL / N1 PRODUCT NOT ACCEPTED / F0–F4 RECOVERY PLANNED. No game feature PASS or numeric accuracy is claimed.
+
+## 2026-11-22 — First real ARAM match: user-reported functional FAIL
+
+The user verified that desktop Settings opened **autonomously** from exact #73 N1 on Windows; this is a **narrow cold-start PASS** with the local state/cache on that machine, not a proof about fresh installs or patch changes. They then played a genuine ARAM match, **not a controlled validation game**. They intentionally did not take screenshots/logs while playing. Their reported experience:
+
+| Area | Native status | Observation and unresolved source |
+| --- | --- | --- |
+| Desktop cold start on #73 | **PASS narrow** | Settings started without manually launching the API; cached-patch condition, longer stability, no-cache path and tray checks are independent |
+| Champion select | **FAIL, user-observed** | Bench champions recognized, own currently selected champion misidentified; LCU cell/id mapping, frontend current badge and update ordering unresolved |
+| Augments | **FAIL, user-observed** | Occasional apparent detections with unrelated names; capture/geometry, raw OCR, matching, offer state, stale/epoch and UI unproven |
+| Build | **FAIL, user-observed** | Item recommendation appeared arbitrary/unhelpful; champion/augments/inventory/enemy inputs, item eligibility and scoring source unresolved |
+| Actual recommendation usefulness | **FAIL, user-observed** | User did not identify a useful in-game recommendation; not an objectively scored outcome |
+| Full N1 native functional acceptance | **FAIL / NOT ACCEPTED** | No screenshots, precise cases, timings or rates; do not infer exact root causes or claim a controlled L/C/R success |
+
+**Correction path:** [functional recovery F0–F4](plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md) recorded on documentation-only [draft #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76), directly on #73. F0 safe data lineage + deterministic/sanitized replay first; then F1 local champion, F2 augments, F3 build correctness, F4 contextual HUD. Each bounded correction must have RED→GREEN, exact-head Windows CI, and its own native evidence. Do not ask user for more disruptive normal-match screenshots; test with an intentional **custom game** only after offline gate. OCR independent #72/#74/#75: no inference that same 26 historical offline samples prove live recognition, and **V1.2 engine change NO-GO**.
+
+**Historical sections below were written before this user's #73 game and are preserved as the event timeline; their older `NOT TESTED` statements are superseded by the specific 2026-11-22 user-reported FAIL above.** Earlier D2 custom tests are distinct from this N1 real-game observation.
 
 ## Authority and scope
 
@@ -8,7 +25,7 @@
 - Parent: D2 draft PR #68, branch `fix/d2-unified-augment-overlay`, SHA `14ed84be8045403bfea9ccb3cad89cf14bf4d494`; D1 draft #67. No merge, no change to `main`.
 - Verified exact-parent CI: [Windows #44841552493](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44841552493), 1,944 Python PASS (51 warnings), 72 JS PASS, three syntax-check steps PASS. This is **offline/runner evidence only**.
 - Old 2026-11-20 custom game on an earlier build failed to detect three visible augments, gave misleading focus state, proposed unavailable reward items and overlapped the HUD. This is historical FAIL, **not** an executed N1 failure.
-- No N1 gameplay/Windows capture run has been performed; no numeric false PASS.
+- At checklist preparation on 2026-11-21, no N1 gameplay/Windows capture run had yet been performed; this historical statement is superseded by the 2026-11-22 user-reported real ARAM functional FAIL recorded above. No numeric false PASS.
 - C1 `offer_cue` is shadow-only; no independently approved negative cue; visual disappearance alone never closes or confirms a pick. S1/C3 and click hints are OFF and not N1 prerequisites. Four-card Maestro remains unsupported and must fail closed, not be treated as three cards.
 - Repository visibility is reported **public** by the connected GitHub repository metadata on 2026-11-21, although described as private in the user request. No visibility change is authorized. Do **not** commit unredacted screenshots, logs, game identities, user paths or secrets.
 
