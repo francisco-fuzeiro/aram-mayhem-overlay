@@ -1105,6 +1105,9 @@ test("F1 integration: synthetic LCU → actual Python poll WS packets → real J
         c => !c.children[0].textContent.includes("(current)")));
     assert.match(h.element("champ-select-note").textContent, /unresolved/i);
     send(unavailable);
-    assert.equal(h.element("champ-select-list").children.length, 0);
+    // The existing empty-state placeholder is a DOM child, not a candidate.
+    assert.equal(h.element("champ-select-list").children.length, 1);
+    assert.match(h.element("champ-select-list").children[0].textContent,
+        /No champion data yet/i);
     assert.match(h.element("champ-select-note").textContent, /unresolved/i);
 });
