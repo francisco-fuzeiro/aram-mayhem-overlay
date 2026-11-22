@@ -226,6 +226,73 @@ def test_v12_due_triple_gate_abstains_on_incomplete_and_reordered_old_cards():
 
 
 @pytest.mark.asyncio
+async def test_v12_distinct_late_reroll_must_not_claim_second_offer_before_prior_resolution():
+    """A different verified triple does not prove the older offer ended.
+
+    The old selection can still be pending when the level-7 threshold is
+    observed; its late reroll may display three *different* card titles.
+    No fresh offer identities can be bound to level 7 until the preceding
+    choice has independently resolved. No automatic pick is inferred.
+    """
+    prior = [
+        {"slot": "left", "id": "first-a", "name": "Synthetic A", "confidence": 99},
+        {"slot": "centre", "id": "first-b", "name": "Synthetic B", "confidence": 99},
+        {"slot": "right", "id": "first-c", "name": "Synthetic C", "confidence": 99},
+    ]
+    reroll = [
+        {"slot": "left", "id": "other-a", "name": "Synthetic Other A", "confidence": 99},
+        {"slot": "centre", "id": "other-b", "name": "Synthetic Other B", "confidence": 99},
+        {"slot": "right", "id": "other-c", "name": "Synthetic Other C", "confidence": 99},
+    ]
+    state, deps, events = make_harness(
+        [{"tick": i} for i in range(1, 4)],
+        [make_snapshot(level=3), make_snapshot(level=7), make_snapshot(level=7)],
+        ocr=True,
+    )
+    deps.run_watcher_check = Mock(side_effect=[
+        ("detected", [row["id"] for row in prior], prior),
+        ("detected", [row["id"] for row in reroll], reroll),
+        ("detected", [row["id"] for row in reroll], reroll),
+    ])
+
+    await poll_tick(state, deps, 10.0)
+    first = state.offer_ledger.offers[0]
+    assert first.state == "visible"
+    assert first.slots["left"].augment_id == "first-a"
+    start = len(events)
+
+    await poll_tick(state, deps, 12.0)
+    assert len(state.offer_ledger.offers) == 2
+    assert first.state == "awaiting_confirm"
+    assert state.offer_state == "pending"
+    assert state.ocr_phase == "verifying"
+    assert state.ocr_slot_choices is None
+    assert state.augment_choices == []
+    second = state.offer_ledger.offers[-1]
+    assert second.state == "due"
+    assert not any(event.get("type") == "ocr_result"
+                   and event.get("status") == "detected"
+                   for event in events[start:])
+    assert not state.accept_manual_ocr(
+        [row["id"] for row in reroll], reroll,
+        match_id=state.match_id, offer_epoch=state.offer_epoch,
+        capture_proven=True,
+    )
+    assert not state.chosen_augments
+
+    # A late explicit confirmation of the older offer resolves its identity
+    # without assigning the second offer or closing the new scan window.
+    state.offer_ledger.confirm(first.offer_id, first.epoch, "first-a")
+    await poll_tick(state, deps, 14.0)
+    assert state.offer_state == "present"
+    assert state.ocr_slot_choices == {
+        "left": "other-a", "centre": "other-b", "right": "other-c",
+    }
+    assert second.slots["left"].augment_id == "other-a"
+    assert not state.chosen_augments
+
+
+@pytest.mark.asyncio
 async def test_poll_tick_inactive_without_match_sends_no_game():
     state, deps, events = make_harness([None], [])
     await poll_tick(state, deps, 8.0)
