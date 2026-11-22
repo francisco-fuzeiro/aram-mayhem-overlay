@@ -1,5 +1,12 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — V1.2 real pinned-model CI RED → GREEN, code-head verified
+
+- Initial actual v4 Windows job [#45022162667](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022162667) failed 19/19 original positive-card checks safely (None, not wrong IDs); pinned model file/install verification passed. The code emitted a bounded `ValueError` availability status: startup shape validation was too strict for model symbolic input axes. This was *not* an intrinsic 19/19 recognition-quality failure.
+- Updated adapter to validate concrete numeric ONNX axes while permitting model-provided symbolic axes, and added direct real-model bootstrap test to distinguish startup from OCR quality. **Exact code-head** `b9639d9b817587d0f5945693c642206a6df17db6` [Windows #45022363459](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022363459) SUCCESS: full 1,977 Python pass / 27 skip / 53 warnings, 78 JS pass / 0 failures / three syntax, separate real pinned-model job 35 tests pass / 2 warnings, original 19/19 title identities and 7/7 safe negatives. This does not prove independent accuracy or actual Windows League performance.
+- Documentation now records this verified code HEAD; final documentation HEAD CI will be checked separately. No merges, no game run, no screen capture; experimental opt-in only.
+
+
 ## 2026-11-22 — OCR V1.2 experimental direct PP-OCRv4 implementation (draft #83)
 
 - User authorized starting implementation following independent V1.1c research; explicit confirmation that GitHub repository visibility **PUBLIC** is intended. Updated `AGENTS.md`; still forbid private screenshots, player data, source logs and secrets.
