@@ -33,9 +33,9 @@ def test_asset_valid_size_and_sha(tmp_path):
         verify_asset(p, hashlib.sha256(b"trusted").hexdigest(), 8)
 
 def test_case_counts_are_exact():
-    cases = ([{"category": "title"}] * 19
-             + [{"category": "dialog"}] * 2
-             + [{"category": "no_offer"}] * 5)
+    cases = ([{"category": "title", "file": f"title{i}"} for i in range(19)]
+             + [{"category": "dialog", "file": f"dialog{i}"} for i in range(2)]
+             + [{"category": "no_offer", "file": f"no_offer{i}"} for i in range(5)])
     assert validate_cases(cases) == {"title":19, "dialog":2, "no_offer":5}
     with pytest.raises(ValueError, match="count"):
         validate_cases(cases[:-1])
