@@ -37,7 +37,7 @@ function Confirm-Model([string]$path, [string]$expected) {
     return $true
 }
 
-Write-Host "ARAM Oracle V1.1c — isolated offline OCR bench (no game integration)"
+Write-Host "ARAM Oracle V1.1c - isolated offline OCR bench (no game integration)"
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "Git missing. Install Git for Windows; no global settings will be changed."
 }
@@ -158,6 +158,6 @@ try {
     Pop-Location
 }
 Write-Host ""
-Write-Host "PASS — isolated Windows OCR benchmark completed outside League."
+Write-Host "PASS - isolated Windows OCR benchmark completed outside League."
 Write-Host "LOCAL-ONLY REPORT: $(Join-Path $Results 'REPORT.md')"
 Write-Host "No images or local reports were uploaded. Actual game/OP.GG/holdout remain BLOCKED."
