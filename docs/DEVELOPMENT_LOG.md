@@ -1,5 +1,15 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — Independent Mayhem Overlay functional study, documentation only
+
+- **Branch:** `docs/mayhem-overlay-functional-audit-20261122`, created from active draft #87 branch `feat/verified-picked-augment-contract-20261122`. Separate documentation work; `main` and #87 untouched.
+- **Files:** new `docs/research/MAYHEM_OVERLAY_FUNCTIONAL_AUDIT_2026-11-22.md`; reference/checklist in `docs/TODO.md` and status in `docs/PROJECT_STATE.md`; this append-only work record.
+- **Observed:** upstream README and selected LCU/LCDA, OCR/matcher, offer interaction, renderer, builds, history, layout, persistence and installer/updater code. Read-only inspection, no upstream runtime execution. Upstream package metadata says MIT but no root LICENSE retrievable; no new code/assets/algorithm/data reuse.
+- **Findings:** prefer verified physical slots and source-backed chosen IDs over cursor guesses; accept unknowns rather than uncertain scans/purchases; compact context-driven game UI, detailed desktop companion; independently review external statistics licenses and Riot constraints.
+- **Tests:** NOT RUN (documentation-only; no game/Windows tests). CI on this docs branch must not be represented as gameplay validation. Existing F1.3/F2/F3/F4 and native/policy gates stay OPEN.
+- **Next:** review research PR; only later, in their existing phases and separate approved PRs, implement original negative-test improvements and context-specific UX. No auto merge.
+
+
 ## 2026-11-22 — V1.2c exact-head CI evidence verified, native gate unchanged
 
 - [Draft #83](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/83) still OPEN/DRAFT, direct base #80 (on #78→#76); repo intentionally PUBLIC; `main` and research branches unchanged. Exact before-checkpoint HEAD `a8ab76876f2e16d5aa08d714a9032905aaa79d78` independently checked against [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086): standard test job 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; v4 pinned-model product job 35 PASS. Job logs reviewed, both SUCCESS. No code changed or new RED/GREEN cycle required; the historical F1 concurrency timeout cause remains unknown.

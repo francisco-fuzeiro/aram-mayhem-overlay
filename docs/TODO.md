@@ -1,5 +1,19 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-22 — Source-only Mayhem Overlay functional audit (independent design, NO product implementation)
+
+[Detailed feature/mechanism audit](research/MAYHEM_OVERLAY_FUNCTIONAL_AUDIT_2026-11-22.md) reviews the publicly inspectable `zp96-cmd/mayhem-overlay` README and selected implementation files; upstream was **not executed**, no code/assets/data imported, no native tests or Riot approvals claimed, and existing F0–F4 / D6–D11 evidence gates remain unchanged.
+
+- [x] **MO-REF-01 — Research-only source-to-feature map**, with provenance, license uncertainty and no copying.
+- [ ] **MO-REF-02 — Original F2 negative tests** for cursor-hover false pick, blank OCR, stale epochs and individual L/C/R rerolls; chosen-ID remains unconfirmed without authorized evidence.
+- [ ] **MO-REF-03 — Original F3 feasibility tests** for verified Mayhem item pool, component/slot legality, boots replacement and fail-closed unknown context.
+- [ ] **MO-REF-04 — D6–D8 contextual presentation verification**: offer-only ratings; verified-shop-only next purchase; hidden during combat.
+- [ ] **MO-REF-05 — D9–D11 Windows installer/update validation**, including safe no-game restart, rollback and privacy.
+- [ ] **MO-REF-06 — Riot and external provider rights review** before empirical live augment scores, third-party data ingestion or public distribution.
+
+**Status:** docs-only on `docs/mayhem-overlay-functional-audit-20261122`; all unchecked work remains for separate scoped PRs and native tests. **Tests: NOT RUN** (source research/documentation only). No `main` merge.
+
+
 **2026-11-22 — V1.2c CI checkpoint:** The previous final protocol SHA `a8ab76876f2e16d5aa08d714a9032905aaa79d78` has [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 JS syntax PASS; independent pinned v4 35 PASS). **PROVEN = offline CI only.** V12-N00..N10 and F1.3 native NOT TESTED; old N1 user-observed FAIL/root cause BLOCKED. Native feasibility must be checked in a supported custom Mayhem lobby, no ordinary competitive substitute. This documentation checkpoint requires its own final SHA Actions; no code change, merge, engine promotion, installer or Settings selector.
 
 
