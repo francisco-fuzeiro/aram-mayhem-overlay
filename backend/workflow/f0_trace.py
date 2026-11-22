@@ -170,7 +170,7 @@ def emit_f0_geometry(
                 0 < w <= width - x and 0 < h <= height - y):
             return False
         clean = _clean("f0_geometry", {
-            "slot": slot, "source": "wgc_geometry",
+            "slot": slot, "source": "client_geometry",
             "client_width": width, "client_height": height,
             "x": x, "y": y, "w": w, "h": h,
         })
@@ -180,4 +180,8 @@ def emit_f0_geometry(
     sink = writer if writer is not None else lambda **fields: events.emit(
         "f0_geometry", **fields
     )
-    return all(bool(sink(**record)) for record in records)
+    try:
+        return all(bool(sink(**record)) for record in records)
+    except Exception:
+        # Optional diagnostics must never interrupt the live OCR watcher.
+        return False
