@@ -133,7 +133,10 @@ jobs:
       - name: Execute opt-in V1.1c Windows launcher on disposable CI VM (NOT user's PC)
         shell: pwsh
         run: |
-          & ./benchmarks/ocr_v11c/Run-OCRBenchmark.ps1 -CIRunner -SkipControlled -OutputRoot (Join-Path $env:RUNNER_TEMP 'aram-oracle-v11c-smoke') -TesseractExe $env:TESSERACT_PATH
+          $privateRoot = Join-Path $env:RUNNER_TEMP 'aram-oracle-v11c-smoke'
+          & ./benchmarks/ocr_v11c/Run-OCRBenchmark.ps1 -CIRunner -SkipControlled -OutputRoot $privateRoot -TesseractExe $env:TESSERACT_PATH
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./benchmarks/ocr_v11c/Run-OCRBenchmark.ps1 -CIRunner -Offline -SkipControlled -OutputRoot $privateRoot -TesseractExe $env:TESSERACT_PATH
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload disposable VM metrics only (not user's machine)
         if: always()
