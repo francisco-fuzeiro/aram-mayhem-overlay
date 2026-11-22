@@ -518,3 +518,10 @@ Do not mark implementation or in-game validation as done solely because a draft 
 - [ ] **F3-MODEL-COVERAGE:** measure the actual loaded current Mayhem patch catalog by rarity, report honest denominators and rateable IDs using private local diagnostic only; determine actual user's previously observed Not Rated IDs without publishing personal screenshots or logs.
 - [ ] **F3-UI-CAUSES:** frontend must distinguish unmodelled augment from OCR in verification/stale state, missing champion identity and uncalibrated model; source-to-ledger-to-frontend regression tests; do not fabricate scores.
 - [ ] **F3-BENCHMARK / RIOT:** independent permitted current-patch evidence, confidence/role/champion bias, held-out calibration, policy review and native validation before promoting score quality claims. Keep #84 OPEN.
+
+## 2026-11-22 — F3/#84 unavailable-score UI causes (draft #94)
+
+- [x] **F3-UI-RED:** `tests/js/overlay-messages.test.cjs` requires honest distinct labels for model absent, score absent and recommendation absent, and no reroll/synthetic score. Test-only `27c2705d399bacdda390bf65de0725978088532c`, [Windows #45084452541](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45084452541) **1 new JS expected failure**; 79 previous JS passed, 2,024 Python passed/27 skipped, pinned real-v4 job PASS.
+- [x] **F3-UI-CODE:** `0677f25959f5f0a7514966565c2615f3c74f80fa` uses `No model` / `Rating unavailable` / `No rating data` / `Title unverified` only when supported by existing offer and rec fields, preserves finite numeric scores and all OCR stale/transition/reroll guards. Code committed, **code GREEN CI still to verify**.
+- [ ] **F3-UI-FINAL-HEAD:** exact code+docs SHA Windows Actions Python/JS/real-model SUCCESS required; record any LCDA flaky failure without declaring cause.
+- [ ] **F3-FOLLOWUP:** separate verified missing champion/identity status, locally audited provenance and per-rarity Mayhem coverage from current patch, performance confidence/calibration and Riot-policy validation; no invented scores. Keep #84 OPEN.
