@@ -1,5 +1,15 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — Mayhem Advisor independent reference audit, documentation only
+
+- **Branch and PR:** `docs/mayhem-advisor-functional-audit-20261122`, [draft #90](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/90), directly based on separate [draft #89](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/89). Existing gameplay draft #87 and `main` untouched. No merge.
+- **Files:** new `docs/research/MAYHEM_ADVISOR_FUNCTIONAL_AUDIT_2026-11-22.md`, TODO source-only `MA-REF-01..07`, project-state checkpoint, append-only log entry.
+- **Source evidence:** inspected upstream README, LICENSE (All Rights Reserved), PRIVACY, credits and selected module responsibilities in Core, Overlay and Electron; official Riot LoL game policy examined separately. **Did not copy or translate code/algorithms/UI/assets, import datasets or execute the app.**
+- **Takeaways:** use only independent ideas for contextual augment-to-build guidance, enemy-oriented next purchase and a post-game ledger comparing past advice with verified actions; preserve verified choice identity and shop legality. Treat numerical empirical augment scores as a distinct Riot gate. Protect noncommercial AramHex and unknown third-party data rights; require explicit opt-in before any new user telemetry.
+- **Tests:** NOT RUN — documentation-only (no Python/JS suite, Windows app launch, League match, OCR or data upload). No feature acceptance or release claim; F1.3/F2–F4, D6–D11, Riot and data rights remain OPEN.
+- **Next:** review docs draft #90, then scope any ORIGINAL implementation in separate existing product phases only after their source and native gates; do not promote research checkbox into a product PASS.
+
+
 ## 2026-11-22 — Independent Mayhem Overlay functional study, documentation only
 
 - **Branch:** `docs/mayhem-overlay-functional-audit-20261122`, created from active draft #87 branch `feat/verified-picked-augment-contract-20261122`. Separate documentation work; `main` and #87 untouched.
