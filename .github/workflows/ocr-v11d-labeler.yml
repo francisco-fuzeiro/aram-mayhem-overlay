@@ -56,6 +56,18 @@ jobs:
           if ($text -notmatch 'Reference not cached') {
             throw 'Windows PowerShell 5.1 failed before reaching the expected safe no-cache preflight'
           }
+      - name: Invoke file-based pin verifier through Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ok = & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& python ./benchmarks/ocr_v11c/verify_pins.py pytest==8.3.5 Pillow==11.1.0' 2>&1
+          if ($LASTEXITCODE -ne 0 -or ($ok | Out-String) -notmatch 'PINNED_DEPS_OK') {
+            throw "Actual PS5.1 verification failed: $ok"
+          }
+          $bad = & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '& python ./benchmarks/ocr_v11c/verify_pins.py pytest==0.0.0' 2>&1
+          if ($LASTEXITCODE -eq 0 -or ($bad | Out-String) -notmatch 'PIN_MISMATCH') {
+            throw "PS5.1 must reject a mismatched version: $bad"
+          }
       - name: Parse PowerShell launcher
         if: runner.os == 'Windows'
         shell: pwsh
