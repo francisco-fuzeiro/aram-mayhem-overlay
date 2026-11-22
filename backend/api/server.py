@@ -520,8 +520,26 @@ def _read_champ_select_payload() -> dict | None:
         return None
     draft, id_map = snapshot
     identity_status, identity_reason = classify_champion_identity(draft, id_map)
+    # Only the public LCU champion catalog number may enter diagnostics.
+    # Never store local cell ID, summonerId, Riot ID, player name or lockfile.
+    public_champion_id = None
+    if identity_status == "accepted" and isinstance(draft, dict):
+        team = draft.get("myTeam")
+        if isinstance(team, list):
+            local_cell = draft.get("localPlayerCellId")
+            matched = [
+                row for row in team
+                if isinstance(row, dict) and row.get("cellId") == local_cell
+            ]
+            if len(matched) == 1:
+                numeric = matched[0].get("championId")
+                if (type(numeric) is int and 1 <= numeric <= 4096
+                        and isinstance(id_map, dict)
+                        and str(numeric) in id_map):
+                    public_champion_id = numeric
     emit_f0_trace("champion", "local_cell", identity_status,
-                  identity_reason, source="lcu")
+                  identity_reason, source="lcu",
+                  champion_id=public_champion_id)
     result = summarize_champion_select(
         draft, id_map, static_data.get_champion,
         record_lookup=get_champion_record,
