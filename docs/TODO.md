@@ -1,19 +1,21 @@
 # ARAM Oracle — Product and UX TODO
 
-## 2026-11-22 — Functional recovery roadmap F0 → F4 (approved plan, NOT implemented)
+## 2026-11-22 — Functional recovery roadmap F0 → F4 (F0 audit + diagnostics in draft #78; F1–F4 NOT implemented)
 
 **Reason:** user-operated real ARAM match on #73 reported wrong *current* champion while bench champions were identified, intermittent/apparently incorrect augment identities, and an arbitrary/unhelpful build suggestion. These are **user-observed functional FAIL**, no in-match screenshots or measurable rates; root causes are **UNPROVEN**. Native #73 autonomous desktop launch had a narrow observed PASS. **N1 product acceptance = FAIL / BLOCKED** even though Python/JS CI passed. [Recovery plan](plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md); planning [draft PR #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76), directly on #73. No fixes are claimed by this plan.
 
-### F0 — Audit the entire source-to-decision chain (FIRST; next independent implementation PR)
+### F0 — Source-to-decision audit (draft #78 on #76; Windows exact-final CI gate pending)
 
 - [x] **FR-PLAN-01 — Record functional incident and agree ordered F0–F4 recovery plan.** User report only; do not invent root causes or numeric accuracy.
 - [x] **FR-PLAN-02 — Review separate OCR research.** [#72](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/72), [#74](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/74), [#75](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/75) inspected. Original 26 PNGs = 19 titles + 7 negatives; Tesseract and v4 split both 26/26 retrospective. v4 is quicker in Linux but has **no validated Windows/live superiority**. V1.1b research next, V1.2 NO-GO.
-- [ ] **FR-F0.1 — Trace champion-select LCU local ID / bench / numeric alias → API payload → visible current badge.** Produce source/function map and unresolved cause list, not a guessed patch.
-- [ ] **FR-F0.2 — Trace capture/focus → offers → physical L/C/R crops → raw OCR → 90/8 match → two-read/epoch/reroll → visible UI.** Preserve existing thresholds, WGC fallback, and fail-closed gates.
-- [ ] **FR-F0.3 — Trace champion + confirmed augments + inventory/gold/slots + patch-verified item pool + enemy/allies → build scoring and UI.** Identify where recommendations lose source or justification.
-- [ ] **FR-F0.4 — Define and test opt-in, bounded, local-only privacy-safe diagnostic envelopes**, with status/reason/source/freshness/correlation; forbid names, PUUIDs, tokens, private images, unredacted raw OCR/screenshots.
-- [ ] **FR-F0.5 — Build deterministic sanitized replay/negative fixtures** for own champion vs bench, swaps, no champion, no offer/dialog, three card slots, reroll, stale/duplicate epoch, item eligibility, and unsupported assumptions. Separate synthetic test results from the user's unlogged real match.
+- [x] **FR-F0.1 — Trace champion-select LCU local ID / bench / numeric alias → API payload → visible current badge.** Produce source/function map and unresolved cause list, not a guessed patch.
+- [x] **FR-F0.2 — Trace capture/focus → offers → physical L/C/R crops → raw OCR → 90/8 match → two-read/epoch/reroll → visible UI.** Preserve existing thresholds, WGC fallback, and fail-closed gates.
+- [x] **FR-F0.3 — Trace champion + confirmed augments + inventory/gold/slots + patch-verified item pool + enemy/allies → build scoring and UI.** Identify where recommendations lose source or justification.
+- [x] **FR-F0.4 — Define and test opt-in, bounded, local-only privacy-safe diagnostic envelopes**, with status/reason/source/freshness/correlation; forbid names, PUUIDs, tokens, private images, unredacted raw OCR/screenshots.
+- [x] **FR-F0.5 — Build deterministic sanitized replay/negative fixtures** for own champion vs bench, swaps, no champion, no offer/dialog, three card slots, reroll, stale/duplicate epoch, item eligibility, and unsupported assumptions. Separate synthetic test results from the user's unlogged real match.
 - [ ] **FR-F0.6 — Deliver evidence-based triage table and F1–F3 correction PR queue**, each failure classified PROVEN / SUSPECTED / BLOCKED / NOT TESTED, with required RED and native check. Run complete Python/JS/syntax and exact-final Windows Actions. **F0 completion is not N1 acceptance.**
+
+**F0 evidence:** [lineage](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md), [triage and correction queue](audits/F0_DIAGNOSIS_2026-11-22.md), `backend/workflow/f0_trace.py`, `backend/workflow/f0_replay.py`, synthetic Python and actual JS DOM tests. Original N1 real-match root causes remain BLOCKED. F0.4/F0.5 checkbox means instrumentation/fixtures *committed*, not native correctness or final-head validation; keep FR-F0.6 unchecked until exact final Windows Actions SUCCESS. F0 diagnostics explicitly require `ARAM_ORACLE_F0_TRACE=1` and reuse local-only bounded journal; screenshots, IDs and raw OCR are never saved by F0. No F1–F4 changes.
 
 ### F1 — Champion select: local-player identity, then UI
 
