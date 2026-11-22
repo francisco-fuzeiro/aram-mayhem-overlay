@@ -26,7 +26,7 @@ from backend.workflow.offer_ledger import SLOTS
 # Conservative synthetic proof budget, not a measured League animation SLA.
 MAX_CLICK_TO_DISAPPEAR_S = 8.0
 MAX_OPEN_TO_CLICK_S = 30.0
-_CLICK_ID_RE = re.compile(r"[A-Za-z0-9_.:-]{1,96}\\Z")
+_CLICK_ID_RE = re.compile(r"[A-Za-z0-9_.:-]{1,96}")
 
 
 @dataclass(frozen=True)
