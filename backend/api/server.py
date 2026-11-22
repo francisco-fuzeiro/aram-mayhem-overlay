@@ -1623,13 +1623,14 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
-                    emit_f0_trace("augment", "offer", "unknown",
-                                  "scan_level_due", source="lcda",
-                                  epoch=state.offer_epoch)
                     if len(state.offer_ledger.offers) == prior_count:
                         state.offer_epoch += 1
                         if state.offer_ledger.offers:
                             state.offer_ledger.set_current_epoch(state.offer_epoch)
+                    # Log the *final* epoch after any respawn-generation bump.
+                    emit_f0_trace("augment", "offer", "unknown",
+                                  "scan_level_due", source="lcda",
+                                  epoch=state.offer_epoch)
                     state.offer_lifecycle.open()
                     event_log.emit(
                         "ocr_window", state="opened", reason="level_due",
