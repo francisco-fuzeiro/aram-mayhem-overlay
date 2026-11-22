@@ -131,7 +131,9 @@ class PPOCRv4Recognizer:
         if len(inputs) != 1:
             raise ValueError("PP-OCRv4 incompatible input count")
         shape = inputs[0].shape
-        if (len(shape) != 4 or shape[1] != 3 or shape[2] != INPUT_HEIGHT
+        if (len(shape) != 4
+                or (isinstance(shape[1], int) and shape[1] != 3)
+                or (isinstance(shape[2], int) and shape[2] != INPUT_HEIGHT)
                 or (isinstance(shape[3], int) and shape[3] != INPUT_WIDTH)):
             raise ValueError("PP-OCRv4 incompatible input shape")
         metadata = session.get_modelmeta().custom_metadata_map or {}
