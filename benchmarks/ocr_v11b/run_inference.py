@@ -22,7 +22,7 @@ from benchmarks.ocr_v11.runner import (
     DirectONNX, RapidV4, REFERENCE_SHA, V4_SHA, V5_SHA, canon, diagnostics,
     read_cases, run_ocr, stats,
 )
-from benchmarks.ocr_v11b.controlled import AblationRecognizer, CONFIGS
+from benchmarks.ocr_v11b.controlled import AblationRecognizer, CONFIGS, prepare_input
 from benchmarks.ocr_v11b.validation import classify_evidence,decision_counts,validate_manifest
 
 
@@ -53,9 +53,10 @@ def main():
     v5=DirectONNX(a.models/"ppocrv5_en.onnx","v5")
     rapid=RapidV4(a.models/"ppocrv4.onnx",a.models/"ppocr_keys_v1.txt")
     engines={}
-    for name,(version,color,resize) in CONFIGS.items():
+    for name,(version,color,resize,rounding,dynamic_width) in CONFIGS.items():
         engines[name]=AblationRecognizer(v4 if version=="v4" else v5,
-                                         color=color,resize=resize)
+                                         color=color,resize=resize,
+                                         rounding=rounding,dynamic_width=dynamic_width)
     engines["rapidocr_v4"]=rapid
     from PIL import Image
     base=ref/"tests"/"fixtures"/"ocr_titles"
@@ -63,6 +64,31 @@ def main():
     for engine in engines.values():
         for _ in range(2):
             run_ocr(engine,warm,strict_match_title,catalog)
+    # Verify actual pinned RapidOCR 1.4.4 input tensors against a direct
+    # BGR / cv2 / ceil / dynamically widened reproduction, not assumptions.
+    import math
+    import numpy as np
+    from benchmarks.ocr_v11.runner import split_lines
+    rapid_input_parity={"checked":0,"exact":0,"max_abs_difference":0.0,
+                        "wider_than_fixed_448":0}
+    for case in cases:
+        with Image.open(base/case["file"]) as opened:
+            chunks=split_lines(opened.convert("RGB"))
+        for chunk in chunks:
+            bgr=np.asarray(chunk.convert("RGB"))[:,:,::-1].copy()
+            img_height=rapid.engine.rec_image_shape[1]
+            img_width=rapid.engine.rec_image_shape[2]
+            max_wh_ratio=max(img_width/img_height,chunk.width/chunk.height)
+            rapid_tensor=rapid.engine.resize_norm_img(bgr,max_wh_ratio)
+            expected_width=rapid_tensor.shape[2]
+            custom=prepare_input(chunk,height=img_height,width=expected_width,
+                                 color="bgr",resize="cv2",rounding="ceil")[0]
+            difference=float(np.max(np.abs(rapid_tensor-custom)))
+            rapid_input_parity["checked"]+=1
+            rapid_input_parity["exact"]+=int(np.array_equal(rapid_tensor,custom))
+            rapid_input_parity["max_abs_difference"]=max(
+                rapid_input_parity["max_abs_difference"],difference)
+            rapid_input_parity["wider_than_fixed_448"]+=int(expected_width>img_width)
     rows=[]
     group=defaultdict(list)
     for c in cases:
@@ -143,8 +169,10 @@ def main():
         "dataset":{"original":26,"derived":0,"synthetic_image":0,
                    "independent":0,"holdout":gate["holdout_status"]},
         "variants":{k:{"base_model":v[0],"channel":v[1],"interpolation":v[2],
-                       "input_width":(v4 if v[0]=="v4" else v5).width}
+                       "rounding":v[3],"dynamic_width":v[4],
+                       "base_input_width":(v4 if v[0]=="v4" else v5).width}
                     for k,v in CONFIGS.items()},
+        "rapidocr_v14_input_parity":rapid_input_parity,
         "model_load_ms":{"v4":v4.load_ms,"v5_en":v5.load_ms,"rapidocr":rapid.load_ms},
         "model_sizes_bytes":{"v4":(a.models/"ppocrv4.onnx").stat().st_size,
                              "v5_en":(a.models/"ppocrv5_en.onnx").stat().st_size},
@@ -170,7 +198,8 @@ def main():
     for r in errs:
         lines.append(f"- `{r['engine']}` `{r['file']}`: {r['status']} expected={r['expected']!r}; raw={r['raw']!r}; normalized={r['normalized']!r}; actual={r['actual']!r}; score={r['best_score']}; margin={r['margin']}")
     lines.extend(["","## Interpretation","",
-                  "- RGB/BGR and PIL/OpenCV are deliberate controlled ablations, not new model architectures.",
+                  "- RGB/BGR, PIL/OpenCV, round/ceil and adaptive width are deliberate controlled ablations, not new model architectures.",
+                  f"- Pinned RapidOCR v1.4.4 preprocessor tensor parity versus direct BGR/cv2/ceil/adaptive: {rapid_input_parity['exact']}/{rapid_input_parity['checked']} bit-identical, max absolute delta {rapid_input_parity['max_abs_difference']:.8f}; {rapid_input_parity['wider_than_fixed_448']} required width >448.",
                   "- RapidOCR uses the same v4 model but may have additional internal resize, normalization and decoding differences; equal weights do not imply equal preprocessing.",
                   "- The English v5 model and its CTC dictionary stay pinned; a better original-set preprocessing variant would be a tuning hypothesis only.",
                   "- The synthetic matching-only probe demonstrates that title recognition alone is not an offer-presence proof; original no-offer results must not be extrapolated to arbitrary dialogs containing augment names.",
