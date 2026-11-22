@@ -45,9 +45,14 @@ jobs:
             throw 'PowerShell 5.1 failed to parse the launcher named parameters'
           }
           $command = "& './benchmarks/ocr_v11d/Start-OCRLab.ps1' -Offline -OutputRoot '$temporaryRoot'"
-          $text = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $command 2>&1 | Out-String)
+          $stdout = Join-Path $env:RUNNER_TEMP 'v11d-ps51-stdout.txt'
+          $stderr = Join-Path $env:RUNNER_TEMP 'v11d-ps51-stderr.txt'
+          $process = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $command
+          ) -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $text = ((Get-Content -LiteralPath $stdout -Raw) + (Get-Content -LiteralPath $stderr -Raw))
           Write-Host $text
-          if ($LASTEXITCODE -eq 0) { throw 'Empty offline cache must fail closed' }
+          if ($process.ExitCode -eq 0) { throw 'Empty offline cache must fail closed' }
           if ($text -notmatch 'Reference not cached') {
             throw 'Windows PowerShell 5.1 failed before reaching the expected safe no-cache preflight'
           }
