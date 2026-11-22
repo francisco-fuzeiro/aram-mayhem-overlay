@@ -20,20 +20,30 @@ def classify_champion_identity(draft: dict | None,
     local_cell = draft.get("localPlayerCellId")
     if local_cell is None:
         return "unknown", "local_cell_missing"
+    # LCU cell IDs are numeric. Python bools compare equal to 0/1;
+    # never equate a malformed boolean with a real local player cell.
+    if type(local_cell) is not int or local_cell < 0:
+        return "rejected", "local_cell_not_found"
     team = draft.get("myTeam")
     if not isinstance(team, list):
         return "rejected", "local_cell_not_found"
     matched = [
         row for row in team
-        if isinstance(row, dict) and row.get("cellId") == local_cell
+        if (isinstance(row, dict) and type(row.get("cellId")) is int
+            and row["cellId"] == local_cell)
     ]
     if not matched:
         return "rejected", "local_cell_not_found"
     if len(matched) > 1:
         return "rejected", "local_cell_ambiguous"
-    numeric = str(matched[0].get("championId", 0))
-    if numeric == "0":
+    raw_id = matched[0].get("championId", 0)
+    if raw_id == 0 and type(raw_id) is int:
         return "unknown", "local_champion_unselected"
+    if not ((type(raw_id) is int and raw_id > 0)
+            or (type(raw_id) is str and raw_id.isdecimal()
+                and len(raw_id) <= 10 and int(raw_id) > 0)):
+        return "rejected", "champion_unmapped"
+    numeric = str(raw_id)
     if not isinstance(id_to_alias, dict) or not id_to_alias.get(numeric):
         return "rejected", "champion_unmapped"
     return "accepted", "local_champion_mapped"

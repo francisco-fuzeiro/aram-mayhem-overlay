@@ -10,6 +10,8 @@
     let staticNames = { items: {}, augments: {}, stat_anvils: {}, champions: {} };
     let lastResult = null;
     let activeMatchId = null;
+    // Per-backend monotonic LCU request generation; never reset on a render.
+    let lastChampSelectRevision = null;
     let stale = false;
     let ocrPhase = "no_offer";
     let ocrStale = false;
@@ -132,6 +134,8 @@
         ws = new WebSocket(`${proto}//${location.host}/ws/game`);
 
         ws.onopen = () => {
+            // Backend may have restarted with a fresh generation counter.
+            lastChampSelectRevision = null;
             reconnectDelay = 1000;
             setConnected(true);
             // The server owns the persisted pre-game preference. Do not overwrite
@@ -315,6 +319,11 @@
             return;
         }
         if (msg.type === "champ_select") {
+            const revision = Number.isSafeInteger(msg.revision) && msg.revision > 0
+                ? msg.revision : null;
+            if (lastChampSelectRevision !== null &&
+                (revision === null || revision <= lastChampSelectRevision)) return;
+            if (revision !== null) lastChampSelectRevision = revision;
             clearMatchDisplayState();
             activeMatchId = null;
             renderChampSelect(msg);
@@ -508,7 +517,7 @@
                     const draftResponse = await fetch("/api/champ-select/status");
                     if (draftResponse.ok) {
                         const draft = await draftResponse.json();
-                        if (draft.type === "champ_select") renderChampSelect(draft);
+                        if (draft.type === "champ_select") handleMessage(draft);
                     }
                 } else {
                     status.textContent = "Sync unavailable: " + result.status +
@@ -534,13 +543,22 @@
 
         champSelectList.replaceChildren();
         const candidates = Array.isArray(data.candidates) ? data.candidates : [];
+        const confirmedId = data.current_status === "confirmed" &&
+            typeof data.current_champion_id === "string"
+            ? data.current_champion_id : null;
+        // The backend's status, catalog ID and single candidate flag must agree.
+        const marked = candidates.filter(c => c && c.current === true &&
+            c.id === confirmedId);
+        const uniqueCurrent = marked.length === 1 ? confirmedId : null;
         for (const candidate of candidates) {
             const card = document.createElement("div");
             card.className = "augment-card";
 
             const name = document.createElement("div");
             name.className = "aug-name";
-            name.textContent = candidate.name + (candidate.current ? " (current)" : "");
+            name.textContent = candidate.name +
+                (uniqueCurrent && candidate.current === true && candidate.id === uniqueCurrent
+                    ? " (current)" : "");
 
             const summary = document.createElement("div");
             summary.className = "aug-details";
@@ -562,6 +580,8 @@
         }
         const skipped = (data.skipped_ids || []).length;
         champSelectNote.textContent = (data.notice || "Experimental team-fit score.") +
+            (uniqueCurrent ? " · Current champion confirmed." :
+                " · Current champion unresolved — bench options only.") +
             (skipped ? " · " + skipped + " champion ID(s) unavailable in local data." : "");
     }
 

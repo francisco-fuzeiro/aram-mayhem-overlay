@@ -961,11 +961,13 @@ test("N1 browser startup completes and installs native controls without stale pr
 test("F0 source-to-UI replay: self current badge is independent of bench rank", () => {
     const h = harness();
     const candidate = (name, current, score) => ({
+        id: name === "Synthetic Self" ? "fixture_self" : "fixture_bench",
         name, current, score, tier: "A", role: "marksman",
         reasons: [], sample_size: 0,
     });
     h.api.handleMessage({
         type: "champ_select",
+        current_status: "confirmed", current_champion_id: "fixture_self",
         candidates: [candidate("Synthetic Bench", false, 9.1),
                      candidate("Synthetic Self", true, 5.1)],
         notice: "Synthetic source identity",
@@ -1001,4 +1003,111 @@ test("F0 source-to-UI replay: next item is copied from build_state without shop 
         next_item_id: null, next_item_name: null, gold_to_next: 0,
         full_build: [], full_build_names: []}});
     assert.equal(h.element("build-next").textContent, "Next: unavailable");
+});
+
+
+test("F1.2 RED: WS swaps cannot be undone by an older Champion Select message", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    const ws = h.sockets[0];
+    const candidate = (id, name, current, score) => ({
+        id, name, current, score, tier: "A", role: "marksman",
+        reasons: [], sample_size: 0,
+    });
+    const lux = candidate("lux", "Lux", false, 9.5);
+    const jinx = candidate("jinx", "Jinx", true, 5.0);
+    const send = (data) => ws.onmessage({data: JSON.stringify(data)});
+    send({type: "champ_select", revision: 101,
+        current_status: "confirmed", current_champion_id: "jinx",
+        candidates: [lux, jinx]});
+    let cards = h.element("champ-select-list").children;
+    assert.equal(cards[0].children[0].textContent, "Lux");
+    assert.equal(cards[1].children[0].textContent, "Jinx (current)");
+
+    send({type: "champ_select", revision: 102,
+        current_status: "confirmed", current_champion_id: "lux",
+        candidates: [candidate("lux", "Lux", true, 9.5),
+                     candidate("jinx", "Jinx", false, 5.0)]});
+    cards = h.element("champ-select-list").children;
+    assert.equal(cards[0].children[0].textContent, "Lux (current)");
+    assert.equal(cards[1].children[0].textContent, "Jinx");
+
+    // A late packet, including legacy unversioned payloads, must not
+    // overwrite a newer authoritative selection.
+    send({type: "champ_select", revision: 101,
+        current_status: "confirmed", current_champion_id: "jinx",
+        candidates: [lux, jinx]});
+    send({type: "champ_select", candidates: [lux, jinx]});
+    assert.equal(h.element("champ-select-list").children[0].children[0].textContent,
+        "Lux (current)");
+    send({type: "champ_select", revision: 103,
+        current_status: "unresolved", current_champion_id: null,
+        candidates: [lux, jinx]});
+    assert.equal(h.element("champ-select-list").children[0].children[0].textContent,
+        "Lux");
+    assert.equal(h.element("champ-select-list").children[1].children[0].textContent,
+        "Jinx");
+    assert.match(h.element("champ-select-note").textContent, /unresolved/i);
+});
+
+
+test("F1.2 RED: only one independently confirmed current badge is allowed", () => {
+    const h = harness();
+    const candidate = (id, current) => ({
+        id, name: id, current, score: 7, tier: "A",
+        role: "mage", reasons: [], sample_size: 0,
+    });
+    h.api.handleMessage({type: "champ_select", revision: 11,
+        current_status: "unresolved", current_champion_id: null,
+        candidates: [candidate("lux", true), candidate("jinx", false)]});
+    assert.ok(h.element("champ-select-list").children.every(
+        c => !c.children[0].textContent.includes("(current)")));
+    h.api.handleMessage({type: "champ_select", revision: 12,
+        current_status: "confirmed", current_champion_id: "jinx",
+        candidates: [candidate("lux", true), candidate("jinx", false)]});
+    assert.ok(h.element("champ-select-list").children.every(
+        c => !c.children[0].textContent.includes("(current)")));
+    h.api.handleMessage({type: "champ_select", revision: 13,
+        current_status: "confirmed", current_champion_id: "lux",
+        candidates: [candidate("lux", true), candidate("lux", true)]});
+    assert.ok(h.element("champ-select-list").children.every(
+        c => !c.children[0].textContent.includes("(current)")));
+});
+
+
+test("F1 integration: synthetic LCU → actual Python poll WS packets → real JS DOM", () => {
+    const {spawnSync} = require("node:child_process");
+    const child = spawnSync("python", ["-m", "backend.workflow.f1_replay"],
+        {encoding: "utf8", cwd: path.join(__dirname, "../.."), timeout: 20000});
+    assert.equal(child.status, 0, child.stderr || child.error?.message);
+    const result = JSON.parse(child.stdout);
+    assert.equal(result.kind, "synthetic_f1_lcu_backend_ws");
+    assert.equal(result.packets.length, 4);
+    const [first, swapped, ambiguous, unavailable] = result.packets;
+    const h = harness();
+    h.api.connectWebSocket();
+    const ws = h.sockets[0];
+    const send = (packet) => ws.onmessage({data: JSON.stringify(packet)});
+
+    send(first);
+    assert.deepEqual(h.element("champ-select-list").children.map(
+        c => c.children[0].textContent).sort(),
+        ["Synthetic Bench", "Synthetic Self (current)"].sort());
+    send(swapped);
+    assert.deepEqual(h.element("champ-select-list").children.map(
+        c => c.children[0].textContent).sort(),
+        ["Synthetic Bench (current)", "Synthetic Self"].sort());
+    send(first); // late LCU message: old self must stay bench
+    assert.equal(h.element("champ-select-list").children.some(
+        c => c.children[0].textContent === "Synthetic Bench (current)"), true);
+    send(ambiguous);
+    assert.ok(h.element("champ-select-list").children.every(
+        c => !c.children[0].textContent.includes("(current)")));
+    assert.match(h.element("champ-select-note").textContent, /unresolved/i);
+    send(unavailable);
+    // The existing empty-state placeholder is a DOM child, not a candidate.
+    assert.equal(h.element("champ-select-list").children.length, 1);
+    assert.match(h.element("champ-select-list").children[0].textContent,
+        /No champion data yet/i);
+    assert.match(h.element("champ-select-note").textContent, /unresolved/i);
 });

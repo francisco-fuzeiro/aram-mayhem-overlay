@@ -1,6 +1,6 @@
 # ARAM Oracle — Product and UX TODO
 
-## 2026-11-22 — Functional recovery roadmap F0 → F4 (F0 audit + diagnostics in draft #78; F1–F4 NOT implemented)
+## 2026-11-22 — Functional recovery roadmap F0 → F4 (F0 completed offline; F1 in draft #80; F2–F4 NOT implemented)
 
 **Reason:** user-operated real ARAM match on #73 reported wrong *current* champion while bench champions were identified, intermittent/apparently incorrect augment identities, and an arbitrary/unhelpful build suggestion. These are **user-observed functional FAIL**, no in-match screenshots or measurable rates; root causes are **UNPROVEN**. Native #73 autonomous desktop launch had a narrow observed PASS. **N1 product acceptance = FAIL / BLOCKED** even though Python/JS CI passed. [Recovery plan](plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md); planning [draft PR #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76), directly on #73. No fixes are claimed by this plan.
 
@@ -19,9 +19,11 @@
 
 ### F1 — Champion select: local-player identity, then UI
 
-- [ ] **FR-F1.1 — Correct validated local-cell / numeric-ID mapping** under swaps, bench availability, unknown local cell and unmapped champion, with no bench item relabelled `current`.
-- [ ] **FR-F1.2 — Correct live change propagation and current badge**, no stale old champion on swap/transition; abstain on unresolved local identity.
-- [ ] **FR-F1.3 — User-operated custom champion-select validation**, fixed test matrix correctly distinguishes self, bench and allies. No automatic picks.
+**F1 implementation checkpoint, 2026-11-22:** [Draft #80](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/80), branch `fix/f1-champion-select-identity-20261122`, directly stacked on verified [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) `45f2c9e28eeed7e137c0f52237acda63398e409f` ([Windows #44981004892](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981004892) SUCCESS). F1.1 source-proven duplicate local cell overwrite and malformed IDs now fail closed in production; separate bench and 0–10 score preserved. F1.2 adds pre-LCU-read revision stamps and a browser current badge gated on a single uniquely confirmed alias. [F1 matrix](audits/F1_CHAMPION_SELECT_2026-11-22.md) covers synthetic source → real backend poll → WS → actual JS DOM; expected [Python RED #44981614324](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981614324) (4 new failures / 1,963 prior pass) and [JS RED #44981718994](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981718994) (2 new failures / 75 prior pass) recorded. **F1.1/F1.2 offline code gates GREEN**: SHA `3956ac45382bc594c0021b11a002b807a3a5882c`, [Windows #44981999569](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981999569) **SUCCESS**: 1,968 Python PASS (51 warnings), 78 JavaScript PASS, three JS syntax checks PASS. The final documentation-inclusive SHA still requires independent Actions SUCCESS. Native controlled custom-game self/bench/swaps remain NOT TESTED; original N1 real-game wrong champion remains FAIL (root cause BLOCKED), never claim restored native quality from synthetic tests. OCR/WGC/epochs/build/HUD untouched. Automatic next/same-phase continuation prompts now mandatory in [skill](../.agents/skills/continue-aram-oracle/SKILL.md).
+
+- [x] **FR-F1.1 — Correct validated local-cell / numeric-ID mapping** under swaps, bench availability, unknown local cell and unmapped champion, with no bench item relabelled `current`.
+- [x] **FR-F1.2 — Correct live change propagation and current badge**, no stale old champion on swap/transition; abstain on unresolved local identity.
+- [ ] **FR-F1.3 — User-operated custom champion-select validation**, fixed test matrix correctly distinguishes self, bench and allies. No automatic picks. [Controlled custom-game protocol](docs/plans/F1_3_CONTROLLED_NATIVE_VALIDATION_2026-11-22.md) PREPARED; seven native F1-N00–F1-N06 **NOT TESTED**. Prior F1 code SHA 50138b0 Windows #44982404803 SUCCESS; final docs-head CI separate. Leave unchecked.
 
 ### F2 — Augments: truthful offer, title, slot, reroll and selection
 

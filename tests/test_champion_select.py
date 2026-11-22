@@ -146,3 +146,93 @@ def test_champion_composite_depends_on_team_even_with_same_win_evidence():
     assert rating_a["candidates"][0]["score"] != rating_b["candidates"][0]["score"]
     assert rating_a["candidates"][0]["sample_size"] == 100
     assert rating_b["candidates"][0]["sample_size"] == 100
+
+
+# F1.1 RED: the F0 diagnostic correctly rejects these drafts, but the
+# production candidate builder must also abstain, not choose the last row.
+def test_f1_duplicate_local_cell_fails_closed_without_losing_bench():
+    draft = {
+        "localPlayerCellId": 4,
+        "myTeam": [
+            {"cellId": 4, "championId": 99},
+            {"cellId": 4, "championId": 222},
+        ],
+        "benchChampions": [{"championId": 12}],
+    }
+    result = summarize_champion_select(draft, IDS, get_champion)
+    assert result["current_status"] == "unresolved"
+    assert result["current_champion_id"] is None
+    assert not any(row["current"] for row in result["candidates"])
+    assert "Alistar" in {row["name"] for row in result["candidates"]}
+
+
+def test_f1_unknown_or_unmapped_local_champion_abstains_but_keeps_bench():
+    base = {"localPlayerCellId": 4,
+            "myTeam": [{"cellId": 4, "championId": 99}],
+            "benchChampions": [{"championId": 222}]}
+    for draft, aliases in [
+        ({**base, "localPlayerCellId": None}, IDS),
+        ({**base, "localPlayerCellId": 8}, IDS),
+        ({**base, "localPlayerCellId": True}, IDS),
+        ({**base, "localPlayerCellId": "4"}, IDS),
+        ({**base, "myTeam": [{"cellId": 4, "championId": 0}]}, IDS),
+        ({**base, "myTeam": [{"cellId": 4, "championId": 9876}]}, IDS),
+        (base, {}),
+    ]:
+        result = summarize_champion_select(draft, aliases, get_champion)
+        assert result["current_status"] == "unresolved"
+        assert result["current_champion_id"] is None
+        assert not any(row["current"] for row in result["candidates"])
+    assert "Jinx" in {r["name"] for r in summarize_champion_select(
+        {**base, "localPlayerCellId": None}, IDS, get_champion
+    )["candidates"]}
+
+
+def test_f1_swap_updates_local_identity_without_ranking_as_identity():
+    base = {"localPlayerCellId": 4,
+            "myTeam": [{"cellId": 4, "championId": 99}],
+            "benchChampions": [{"championId": 222}, {"championId": 12}]}
+    first = summarize_champion_select(base, IDS, get_champion)
+    swapped = summarize_champion_select(
+        {**base, "myTeam": [{"cellId": 4, "championId": 222}],
+         "benchChampions": [{"championId": 99}, {"championId": 12}]},
+        IDS, get_champion)
+    assert first["current_status"] == "confirmed"
+    assert first["current_champion_id"] == "lux"
+    assert swapped["current_status"] == "confirmed"
+    assert swapped["current_champion_id"] == "jinx"
+    assert [c["id"] for c in first["candidates"] if c["current"]] == ["lux"]
+    assert [c["id"] for c in swapped["candidates"] if c["current"]] == ["jinx"]
+
+
+def test_f1_catalog_lookup_failure_does_not_claim_current():
+    draft = {"localPlayerCellId": 4,
+             "myTeam": [{"cellId": 4, "championId": 99}],
+             "benchChampions": [{"championId": 222}]}
+    result = summarize_champion_select(
+        draft, IDS, lambda alias: None if alias == "lux" else get_champion(alias))
+    assert result["current_status"] == "unresolved"
+    assert result["current_champion_id"] is None
+    assert not any(row["current"] for row in result["candidates"])
+    assert [r["name"] for r in result["candidates"]] == ["Jinx"]
+
+
+def test_f1_ambiguous_self_rows_must_not_be_scored_as_confirmed_allies():
+    # Both entries have our local cell. They cannot simultaneously be
+    # confirmed teammates. Keeping the bench is independent of this fact.
+    draft = {
+        "localPlayerCellId": 4,
+        "myTeam": [
+            {"cellId": 4, "championId": 99},
+            {"cellId": 4, "championId": 222},
+        ],
+        "benchChampions": [{"championId": 99}, {"championId": 12}],
+    }
+    empty_team = {**draft, "myTeam": []}
+    actual = summarize_champion_select(draft, IDS, get_champion)
+    reference = summarize_champion_select(empty_team, IDS, get_champion)
+    assert actual["current_status"] == "unresolved"
+    assert not any(row["current"] for row in actual["candidates"])
+    assert {c["id"]: c["score"] for c in actual["candidates"]} == {
+        c["id"]: c["score"] for c in reference["candidates"]
+    }
