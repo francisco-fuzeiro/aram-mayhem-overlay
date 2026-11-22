@@ -215,3 +215,24 @@ def test_f1_catalog_lookup_failure_does_not_claim_current():
     assert result["current_champion_id"] is None
     assert not any(row["current"] for row in result["candidates"])
     assert [r["name"] for r in result["candidates"]] == ["Jinx"]
+
+
+def test_f1_ambiguous_self_rows_must_not_be_scored_as_confirmed_allies():
+    # Both entries have our local cell. They cannot simultaneously be
+    # confirmed teammates. Keeping the bench is independent of this fact.
+    draft = {
+        "localPlayerCellId": 4,
+        "myTeam": [
+            {"cellId": 4, "championId": 99},
+            {"cellId": 4, "championId": 222},
+        ],
+        "benchChampions": [{"championId": 99}, {"championId": 12}],
+    }
+    empty_team = {**draft, "myTeam": []}
+    actual = summarize_champion_select(draft, IDS, get_champion)
+    reference = summarize_champion_select(empty_team, IDS, get_champion)
+    assert actual["current_status"] == "unresolved"
+    assert not any(row["current"] for row in actual["candidates"])
+    assert {c["id"]: c["score"] for c in actual["candidates"]} == {
+        c["id"]: c["score"] for c in reference["candidates"]
+    }
