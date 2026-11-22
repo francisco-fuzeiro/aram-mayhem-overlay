@@ -24,6 +24,9 @@ def main():
             "wrong_ids":s["wrong_id"],"negative_false_positives":s["false_positive"],
             "safe_rejections":s["false_rejection"],"raw_exact":s["raw_exact"],
             "normalized_exact":s["normalized_exact"],
+            "two_line_correct":s["two_line_correct"],
+            "two_line_total":s["two_line_total"],
+            "physical_slot_counts":s["per_slot"],
             "mean_p50_p95_max_crop_ms":s["mean_crop_ms"],
             "preprocessing_ms":s["preprocess_ms"],
             "matching_ms":s["matching_ms"],
@@ -52,7 +55,7 @@ def main():
             "accepted_exact":z["exact_original_titles_accepted"],
             "wrong_accepted":z["accepted_wrong_total"],
             "safe_rejections":z["safe_rejection_total"],
-            "close_pairs":len(z["close_title_pairs_top25"]),
+            "close_pairs":z["close_title_pairs_top25"],
             "presence_gate_needed":z["presence_gate_adversarial_probe"]["matcher_accepts"],
         }),flush=True)
 
