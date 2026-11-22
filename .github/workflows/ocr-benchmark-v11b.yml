@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install isolated pure-test dependencies
-        run: python -m pip install 'pytest==8.3.5' 'numpy==1.26.4' 'Pillow==11.1.0'
+        run: python -m pip install 'pytest==8.3.5' 'numpy==1.26.4' 'Pillow==11.1.0' 'opencv-python-headless==4.10.0.84'
       - name: Run independent holdout safety and preprocessing contracts
         run: python -m pytest -q benchmarks/ocr_v11b/test_validation.py benchmarks/ocr_v11b/test_controlled.py
       - name: Syntax and Windows command contract
