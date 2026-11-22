@@ -22,11 +22,11 @@ def run(source: Path):
         "# ARAM Oracle V1.1 — Measured OCR comparison",
         "",
         "Generated from real frozen-asset inference. This is not a historical estimate.",
-        f"**Source snapshot:** \`{m['reference_sha']}\`",
+        f"**Source snapshot:** `{m['reference_sha']}`",
         f"**CPU/OS:** {m['cpu']}, {m['cpu_logical_count']} logical cores, {m['platform']}",
         f"**Python/Tesseract:** {m['python']} / {m['tesseract']}",
         f"**ONNX:** {m['dependencies']['onnxruntime']}; CPUExecutionProvider, one thread",
-        f"**Models:** v4 \`{m['model_sha256']['v4']}\`, v5 English \`{m['model_sha256']['v5_en']}\`",
+        f"**Models:** v4 `{m['model_sha256']['v4']}`, v5 English `{m['model_sha256']['v5_en']}`",
         f"**Verified original fixtures:** {m['cases']} from a fixed 26-image set; 328 catalog names",
         "",
         "## Original 100% PNGs — decision-level accuracy",
@@ -74,17 +74,17 @@ def run(source: Path):
         harmed=[r for r in pos if r["raw_exact"] and r["status"]!="correct"]
         out.append(f"- **{name}:** {len(rescued)} raw mismatches corrected by fuzzy matching; {len(harmed)} exact raw titles rejected or wrongly identified.")
         for r in rescued+harmed:
-            out.append(f"  - \`{r['file']}\`: expected={r['expected']!r}, raw={r['raw']!r}, chosen={r['actual']!r}, score={r['best_score']}, margin={r['margin']}")
+            out.append(f"  - `{r['file']}`: expected={r['expected']!r}, raw={r['raw']!r}, chosen={r['actual']!r}, score={r['best_score']}, margin={r['margin']}")
     out+=["","## Individual errors — all original images", ""]
     bad=[r for r in original if r["status"] not in ("correct","correct_rejection")]
     if not bad:out.append("No accepted wrong IDs, false positives or false rejections on the original 26 images.")
     for r in bad:
-        out.append(f"- {r['engine']} \`{r['file']}\`: {r['status']} expected={r['expected']!r} raw={r['raw']!r} actual={r['actual']!r} score={r['best_score']} margin={r['margin']}")
+        out.append(f"- {r['engine']} `{r['file']}`: {r['status']} expected={r['expected']!r} raw={r['raw']!r} actual={r['actual']!r} score={r['best_score']} margin={r['margin']}")
     out+=["","## Individual errors — derived transformations", ""]
     bad=[r for r in rows if r["derived"] and r["status"] not in ("correct","correct_rejection")]
     out.append(f"Total transformed-case errors over all engines/conditions: **{len(bad)}**. These are correlated transformations of the same source crops.")
     for r in bad:
-        out.append(f"- {r['engine']} \`{r['file']}\` scale={r['scale']} {r['format']}: {r['status']}; expected={r['expected']!r}; raw={r['raw']!r}; actual={r['actual']!r}; score={r['best_score']}; margin={r['margin']}")
+        out.append(f"- {r['engine']} `{r['file']}` scale={r['scale']} {r['format']}: {r['status']}; expected={r['expected']!r}; raw={r['raw']!r}; actual={r['actual']!r}; score={r['best_score']}; margin={r['margin']}")
     out+=["","## Paired divergences on original images", ""]
     keyed=defaultdict(dict)
     for r in original: keyed[r["file"]][r["engine"]]=r
@@ -93,7 +93,7 @@ def run(source: Path):
         accepted={e:r["actual"] for e,r in engines.items()}
         if len(set(accepted.values()))>1:
             count+=1
-            out.append(f"- \`{file}\` expected={next(iter(engines.values()))['expected']!r}: "+", ".join(f"{e}={v!r}" for e,v in sorted(accepted.items())))
+            out.append(f"- `{file}` expected={next(iter(engines.values()))['expected']!r}: "+", ".join(f"{e}={v!r}" for e,v in sorted(accepted.items())))
     if count==0:out.append("No divergence among accepted matched IDs on original images.")
     out+=["","## Scope limitations", "",
           "- 26 retrospective, non-independent images; original data contain repeated titles, two dialogs and five no-offer negatives; no Silver offer, full new triple, live reroll, or native Windows in-game evidence.",
