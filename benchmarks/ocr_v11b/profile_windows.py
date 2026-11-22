@@ -72,6 +72,13 @@ def worker(args):
         raise ValueError("invalid engine")
     setup_ms=1000*(time.perf_counter()-t_load_start)
     base=ref/"tests"/"fixtures"/"ocr_titles"
+    if args.startup_only:
+        print("V11B_STARTUP_JSON="+json.dumps({
+            "model_session_load_ms":round(load_ms,3),
+            "setup_after_import_ms":round(setup_ms,3),
+            "verified_original_images":len(cases),
+        }),flush=True)
+        return
 
     def run(img):
         t=time.perf_counter()
@@ -132,13 +139,27 @@ def profile(args):
          "platform":platform.platform(),"python":sys.version.split()[0],
          "dataset_class":"original", "independent_holdout":"BLOCKED",
          "warnings":[
-           "Full subprocess cold wall time includes import, fixture verification, warmup and 26+batch inferences; it is NOT just model initialization.",
+           "cold_ready_wall_ms measures a fresh Python process from launch through verified fixtures and model ready, before warmup; it is distinct from pure model load time.",
+           "Full workload subprocess wall time includes import, fixture verification, warmup and 26+batch inferences; it is NOT just model initialization.",
            "Per-engine model_session_load_ms excludes Python import/startup.",
            "Sampled process-tree CPU and RSS can miss very short-lived Tesseract subprocesses; CPU is a lower bound, not League overhead.",
            "Peak summed RSS may double count shared mappings; not an incremental installer or game process footprint.",
            "GitHub Actions Windows runner performance is NOT the user's PC."
          ],"runs":{}}
     for engine in ENGINES:
+        startup_cmd=[sys.executable,"-m","benchmarks.ocr_v11b.profile_windows",
+                     "--child","--startup-only","--engine",engine,
+                     "--reference",str(args.reference),"--models",str(args.models)]
+        cold_start=time.perf_counter()
+        startup=subprocess.run(startup_cmd,capture_output=True,text=True)
+        cold_ready_ms=1000*(time.perf_counter()-cold_start)
+        if startup.returncode:
+            raise RuntimeError(f"{engine} cold-start failed (local-only): {startup.stderr[-3500:]}")
+        starts=[line[len("V11B_STARTUP_JSON="):] for line in startup.stdout.splitlines()
+                if line.startswith("V11B_STARTUP_JSON=")]
+        if len(starts)!=1:
+            raise ValueError("missing cold-start milestone for "+engine)
+        cold_result=json.loads(starts[0])
         command=[sys.executable,"-m","benchmarks.ocr_v11b.profile_windows",
                  "--child","--engine",engine,"--reference",str(args.reference),
                  "--models",str(args.models)]
@@ -178,7 +199,9 @@ def profile(args):
             raise ValueError("missing child metric JSON for "+engine)
         result=json.loads(lines[0])
         result.update({
-            "total_cold_subprocess_wall_ms":round(wall,3),
+            "cold_ready_wall_ms":round(cold_ready_ms,3),
+            "cold_ready_metadata":cold_result,
+            "total_full_workload_process_wall_ms":round(wall,3),
             "sampled_process_tree_cpu_seconds":round(sum(observed.values()),3),
             "sampled_process_tree_cpu_one_core_percent":round(
                 100*sum(observed.values())/(wall/1000),3) if wall else None,
@@ -198,6 +221,7 @@ def main():
     ap.add_argument("--models",type=Path,required=True)
     ap.add_argument("--out",type=Path,default=Path("v11b_windows_profile.json"))
     ap.add_argument("--child",action="store_true",help=argparse.SUPPRESS)
+    ap.add_argument("--startup-only",action="store_true",help=argparse.SUPPRESS)
     ap.add_argument("--engine",choices=ENGINES,help=argparse.SUPPRESS)
     args=ap.parse_args()
     if args.child:
