@@ -38,7 +38,8 @@ jobs:
         shell: pwsh
         run: |
           $temporaryRoot = Join-Path $env:RUNNER_TEMP 'v11d-ps51-no-cache-test'
-          $text = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\benchmarks\ocr_v11d\Start-OCRLab.ps1 -BenchOnly -Offline -OutputRoot $temporaryRoot 2>&1 | Out-String)
+          $command = "& './benchmarks/ocr_v11d/Start-OCRLab.ps1' -BenchOnly -Offline -OutputRoot '$temporaryRoot'"
+          $text = (& powershell.exe -NoProfile -ExecutionPolicy Bypass -Command $command 2>&1 | Out-String)
           Write-Host $text
           if ($LASTEXITCODE -eq 0) { throw 'Empty offline cache must fail closed' }
           if ($text -notmatch 'Reference not cached') {
