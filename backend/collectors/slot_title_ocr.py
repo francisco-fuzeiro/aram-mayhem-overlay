@@ -7,6 +7,7 @@ closed. No capture, disk access, gameplay input, or diagnostics here.
 from __future__ import annotations
 
 import re
+import os
 from PIL import Image
 import pytesseract
 from rapidfuzz import fuzz
@@ -135,6 +136,16 @@ def recognize_title_slot(
     """Read one physical title with the same C2 strict matching contract."""
     if slot not in SLOTS:
         raise ValueError("invalid physical card slot")
+    # Experimental V1.2: change the recognizer only, not physical position,
+    # offer proof, strict matching, epochs or temporal double reads.
+    if os.environ.get("ARAM_ORACLE_OCR_ENGINE", "tesseract").strip().lower() == "ppocrv4":
+        from backend.collectors.ppocr_v4 import recognize_text
+        raw = recognize_text(crop)
+        if raw is not None:
+            # A working but uncertain v4 must abstain, not seek a more
+            # permissive answer from another recognizer.
+            return strict_match_title(raw, augment_names, trace_slot=slot)
+        # Invalid/missing v4 runtime: preserve the installed Tesseract path.
     from backend.collectors.screen_ocr import preprocess_for_ocr
 
     processed = preprocess_for_ocr(crop)
