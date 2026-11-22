@@ -59,6 +59,8 @@ These fixtures are synthetic **contract checks**, not real frame OCR comparisons
 5. Check panel visibility, Alt+Tab, FPS/focus stability and overlay hotkeys separately. Keep any screenshots private unless deliberately redacted and authorized. On an unsupported custom setup, report **BLOCKED** instead of inferring success.
 6. Mark each independently PASS/FAIL/BLOCKED/NOT TESTED in `docs/N1_NATIVE_ACCEPTANCE.md` **only after user-provided controlled evidence**.
 
+The optional `f0_geometry` envelope logs the actual *client-relative* L/C/R crop rectangles only after an A3-verified capture and valid geometry. These are crop coordinates, **not confirmation** that the titles line up on the user's unrecorded match. It never logs global desktop origin, HWND or pixels; strict numeric bounds and invalid ROI negative tests are included.
+
 ## Gate and outstanding decisions
 
 F0 delivers a map, minimal opt-in classification and sanitized replay, **not gameplay repair**. Specific real-match root causes remain **BLOCKED** until independent aligned ground truth. No F1–F4 modifications, no production OCR engine swap, no WGC/90/8/epoch/pick-rule changes. Public Riot policy review/distribution approval remains a separate BLOCKED decision, not inferred from competitor apps.
