@@ -72,7 +72,9 @@ def run(source: Path):
         pos=[r for r in original if r["engine"]==name and r["category"]=="title"]
         rescued=[r for r in pos if not r["raw_exact"] and r["status"]=="correct"]
         harmed=[r for r in pos if r["raw_exact"] and r["status"]!="correct"]
-        out.append(f"- **{name}:** {len(rescued)} raw mismatches corrected by fuzzy matching; {len(harmed)} exact raw titles rejected or wrongly identified.")
+        norm_fixed=[r for r in rescued if r["best_score"]==100]
+        fuzz_fixed=[r for r in rescued if r["best_score"]<100]
+        out.append(f"- **{name}:** {len(norm_fixed)} raw mismatches recovered by normalization; {len(fuzz_fixed)} by fuzzy matching below 100; {len(harmed)} exact raw titles rejected or wrongly identified.")
         for r in rescued+harmed:
             out.append(f"  - `{r['file']}`: expected={r['expected']!r}, raw={r['raw']!r}, chosen={r['actual']!r}, score={r['best_score']}, margin={r['margin']}")
     out+=["","## Individual errors — all original images", ""]
