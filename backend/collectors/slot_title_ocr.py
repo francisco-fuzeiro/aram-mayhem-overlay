@@ -12,6 +12,7 @@ import pytesseract
 from rapidfuzz import fuzz
 
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
+from backend.workflow.f0_trace import emit_f0_trace
 
 SLOTS = ("left", "centre", "right")
 MATCH_THRESHOLD = 90
@@ -33,13 +34,26 @@ def _normalize(text: str) -> str:
 
 
 def strict_match_title(
-    text: str, augment_names: dict[str, str],
+    text: str, augment_names: dict[str, str], *,
+    trace_slot: str | None = None,
 ) -> tuple[str, str, int] | None:
-    """Whole-title matching only; best >=90 and beats runner-up by >=8."""
+    """Whole-title matching only; best >=90 and beats runner-up by >=8.
+
+    Diagnostic trace_slot controls optional enum evidence only. The raw OCR
+    text is never written to disk, and the matching decision is unchanged.
+    """
     if not isinstance(text, str) or not isinstance(augment_names, dict):
+        emit_f0_trace("augment", "matching", "unknown", "title_input_invalid",
+                      source="ocr", slot=trace_slot)
         return None
     observed = _normalize(text)
-    if len(observed) < 4 or not augment_names:
+    if len(observed) < 4:
+        emit_f0_trace("augment", "matching", "unknown", "title_short",
+                      source="ocr", slot=trace_slot)
+        return None
+    if not augment_names:
+        emit_f0_trace("augment", "matching", "unknown", "catalog_empty",
+                      source="ocr", slot=trace_slot)
         return None
     # Duplicate IDs for the same normalized title are a single candidate:
     # they must never consume the best-vs-runner-up confidence margin.
@@ -65,6 +79,8 @@ def strict_match_title(
             by_title[normalized] = (aid, name)
 
     if not by_title:
+        emit_f0_trace("augment", "matching", "unknown", "catalog_empty",
+                      source="ocr", slot=trace_slot)
         return None
     scored = [
         (fuzz.ratio(observed, normalized), normalized, aid, name)
@@ -73,8 +89,16 @@ def strict_match_title(
     scored.sort(key=lambda row: (-row[0], row[1]))
     best, _, aid, name = scored[0]
     second = scored[1][0] if len(scored) >= 2 else 0
-    if best < MATCH_THRESHOLD or best - second < MIN_MARGIN:
+    if best < MATCH_THRESHOLD:
+        emit_f0_trace("augment", "matching", "rejected", "below_threshold",
+                      source="ocr", slot=trace_slot, count=int(best))
         return None
+    if best - second < MIN_MARGIN:
+        emit_f0_trace("augment", "matching", "rejected", "insufficient_margin",
+                      source="ocr", slot=trace_slot, count=int(best))
+        return None
+    emit_f0_trace("augment", "matching", "accepted", "title_matched",
+                  source="ocr", slot=trace_slot, count=int(best))
     return aid, name, int(best)
 
 
@@ -121,7 +145,7 @@ def recognize_title_slot(
             )
         except (OSError, RuntimeError):
             raw = ""
-        match = strict_match_title(raw, augment_names)
+        match = strict_match_title(raw, augment_names, trace_slot=slot)
         if match is not None:
             return match
     return None
