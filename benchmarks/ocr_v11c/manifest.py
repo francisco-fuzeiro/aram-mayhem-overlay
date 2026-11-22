@@ -161,6 +161,9 @@ def main():
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
+    from benchmarks.ocr_v11c.evaluate_local import assert_private_paths
+    assert_private_paths(Path(__file__).resolve().parents[2],
+                         [args.labels, args.root, args.out])
     from benchmarks.ocr_v11.runner import REFERENCE_SHA, read_cases
     reference = args.reference.resolve()
     actual_sha = subprocess.check_output(
