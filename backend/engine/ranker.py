@@ -7,7 +7,7 @@ from backend.models import (
 )
 from backend.engine.augment_rating import rate_augment
 from backend.engine.team_context import EnemyThreatProfile
-from backend.engine.scoring import score_item
+from backend.engine.scoring import score_item, augment_has_model
 from backend.engine.label import derive_label, derive_explanation
 
 logger = logging.getLogger("aram-oracle.engine.ranker")
@@ -58,7 +58,7 @@ def rank_augments(
             confidence=rating.confidence,
             sample_size=rating.sample_size,
             components=rating.as_dict()["components"],
-            modelled=aug.modelled,
+            modelled=augment_has_model(aug),
             provenance=aug.provenance,
         ))
 

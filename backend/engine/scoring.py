@@ -1,7 +1,8 @@
 import logging
+import math
 
 import numpy as np
-from backend.models import StatVector, ChampionMeta, AugmentData, ItemData, ScalingSpec
+from backend.models import StatVector, ChampionMeta, AugmentData, ItemData, ScalingSpec, ScalingType
 from backend.engine.role_weights import get_role_weights
 from backend.engine.scaling import compute_scaling_bonus, compute_scaling_breakdown
 
@@ -18,6 +19,32 @@ def set_scaling_specs(specs: dict[str, list[ScalingSpec]]) -> None:
 
 def get_scaling_specs(augment_id: str) -> list[ScalingSpec]:
     return _scaling_specs.get(augment_id, [])
+
+
+def augment_has_model(augment: AugmentData) -> bool:
+    """True for direct vector signal or a validated nonzero scaling model.
+
+    The cached AugmentData.modelled flag describes only its twelve stat-vector
+    dimensions. An existing licensed/curated scaling spec can independently
+    provide a model signal. This is not statistical performance evidence.
+    """
+    if augment.modelled:
+        return True
+    for spec in get_scaling_specs(augment.id):
+        if (not isinstance(spec, ScalingSpec)
+                or not isinstance(spec.type, ScalingType)
+                or not isinstance(spec.base, (float, int))
+                or isinstance(spec.base, bool)
+                or not math.isfinite(spec.base)
+                or spec.base <= 0.0
+                or spec.rate_stat not in StatVector.fields()
+                or not math.isfinite(spec.gate_value)
+                or not math.isfinite(spec.duration_factor)
+                or (spec.type == ScalingType.STACKING
+                    and spec.duration_factor <= 0.0)):
+            continue
+        return True
+    return False
 
 
 def stat_vec(s: StatVector) -> np.ndarray:
