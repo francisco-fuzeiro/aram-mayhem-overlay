@@ -165,3 +165,35 @@ def test_only_public_game_catalog_ids_may_appear_in_identity_trace():
     clean = _clean("f0_trace", malformed)
     assert "champion_id" not in clean
     assert "augment_id" not in clean
+
+
+def test_champion_lcu_trace_exposes_catalog_id_not_private_player_identity(monkeypatch):
+    from backend.api import server
+    from backend.models import ChampionMeta, StatVector
+
+    draft = {
+        "localPlayerCellId": 7,
+        "myTeam": [{
+            "cellId": 7, "championId": 222, "summonerId": 987654,
+            "riotId": "private-player#999",
+        }],
+        "benchChampions": [{"championId": 99}],
+    }
+    monkeypatch.setattr(server, "read_champ_select",
+                        lambda: (draft, {"222": "jinx", "99": "lux"}))
+    monkeypatch.setattr(server.static_data, "get_champion",
+                        lambda alias: ChampionMeta(
+                            alias, alias, StatVector(ad=0.8), role="marksman"
+                        ))
+    monkeypatch.setattr(server, "get_champion_record", lambda *a: None)
+    observed = []
+    monkeypatch.setattr(server, "emit_f0_trace",
+                        lambda *args, **kw: observed.append((args, kw)))
+    result = server._read_champ_select_payload()
+    assert result["candidates"]
+    assert observed[0][0] == (
+        "champion", "local_cell", "accepted", "local_champion_mapped"
+    )
+    assert observed[0][1] == {"source": "lcu", "champion_id": 222}
+    assert "987654" not in str(observed)
+    assert "private-player" not in str(observed)
