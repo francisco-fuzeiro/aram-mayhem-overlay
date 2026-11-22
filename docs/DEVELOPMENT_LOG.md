@@ -1,5 +1,16 @@
 # Overlay LoL — Development Log
 
+## 2026-11-22 — Multi-repository League overlay reference scan (documentation only)
+
+- **Branch / PR:** `docs/league-overlay-reference-scan-20261122`, [draft #91](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/91), stacked on earlier research draft #90 → #89; `main` and functional drafts untouched, no merges.
+- **Files:** new `docs/research/LEAGUE_OVERLAY_REFERENCE_SCAN_2026-11-22.md` and documented `ECOS-REF-01..08` checklist in TODO, this factual handoff and project-state note.
+- **Research evidence:** public README and explicit GitHub root LICENSE checks for a range of LoL/Mayhem overlays, with direct inspection of selected Counterbuild Rust module/test responsibilities, Hex Companion multilingual OCR/data-contract notes and OpenForestUI capture limitations. MIT confirmed only where LICENSE fetched; other repos rights unresolved. No binary or real game verification.
+- **Findings:** Cross-reference F1 champion self identity and actual client language, F2 augment/anvil visibility and uncertain scans, F3 feasible component buy-now and source-backed threat explanations. Later: small default-hidden overlays, original fake-state visual harness, independent performance measurements, optional item-set write protection and postgame recommendation quality. Sygnano README documents potentially destructive full-item-set replacement: **explicitly excluded**.
+- **Rights:** no code, scoring algorithm, UI layout/text, screenshots, statistics, OCI models or game icons reused; MIT for first-party code does not extend to external providers/assets. Riot and source licensing remain release blockers.
+- **Tests:** **NOT RUN** (documentation-only); no Python/JS suite, Windows release, native League mode, OCR recall, external service, performance or actual comparator app run. All existing F1.3/F2/F3/F4/D6–D11 gates **OPEN**.
+- **Next:** review #91, then follow existing small PR/test-first/native-safe recovery path before any new capability. No automatic merge or feature promotion.
+
+
 ## 2026-11-22 — Mayhem Advisor independent reference audit, documentation only
 
 - **Branch and PR:** `docs/mayhem-advisor-functional-audit-20261122`, [draft #90](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/90), directly based on separate [draft #89](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/89). Existing gameplay draft #87 and `main` untouched. No merge.
