@@ -1,5 +1,20 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-22 — Mayhem Advisor reference audit (All Rights Reserved; NO reuse)
+
+[Functional report](research/MAYHEM_ADVISOR_FUNCTIONAL_AUDIT_2026-11-22.md) and [draft PR #90](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/90) document the competitor's high-level augment ratings, style-adaptive builds, enemy threat explanations, shop item sets, post-game report, local history, optional anonymous contributions, desktop/installer and current legal/data boundaries. **Only research completed.** Upstream read-only review is not a product test or authorization.
+
+- [x] **MA-REF-01 — Document public features, rights, architecture boundaries, and original ARAM Oracle opportunities.** No source snippets, assets, formulas or data imported.
+- [ ] **MA-REF-02 — Riot/evidence gate:** independently verify permissibility of any live empirical augment score (including derived values), retain disabled unapproved signals.
+- [ ] **MA-REF-03 — F2/F3 original safety comparisons:** verify physical cards/chosen-ID proof and legal contextual next-item decisions with tested ally/enemy/augment context.
+- [ ] **MA-REF-04 — Post-game recommendation review design:** original local decision journal, provenance, confidence and what-to-improve criteria, without false causal claims.
+- [ ] **MA-REF-05 — Optional shop item-set integration study:** permitted API, explicit user action, rollback and preserving existing sets; no writes now.
+- [ ] **MA-REF-06 — Third-party data/licensing + privacy:** AramHex CC BY-NC 4.0, MayhemMeta/ARAMKit rights, permissioned assets, optional telemetry after separate opt-in/security review.
+- [ ] **MA-REF-07 — Desktop/UX/release acceptance:** integrate observations as original checks into F4, D6–D11 without copying visual design, installer or source.
+
+**Status:** documentation-only on independent draft #90 stacked on #89; no `main` change, no product code, no outside data ingestion, no user Windows/League evidence, tests **NOT RUN**. Pre-existing F1.3/F2–F4 and D6–D11 remain OPEN.
+
+
 ## 2026-11-22 — Source-only Mayhem Overlay functional audit (independent design, NO product implementation)
 
 [Detailed feature/mechanism audit](research/MAYHEM_OVERLAY_FUNCTIONAL_AUDIT_2026-11-22.md) reviews the publicly inspectable `zp96-cmd/mayhem-overlay` README and selected implementation files; upstream was **not executed**, no code/assets/data imported, no native tests or Riot approvals claimed, and existing F0–F4 / D6–D11 evidence gates remain unchanged.
