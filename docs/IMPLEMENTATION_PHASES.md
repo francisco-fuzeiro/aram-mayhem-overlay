@@ -2,7 +2,7 @@
 
 ## 2026-11-22 — F0 draft #78 implementation and gates
 
-**F0 branch:** `audit/f0-functional-lineage-20261122`, [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) directly on docs [draft #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76) at `d806a9791b18fab07e52a70a78b56f52144f5b8d`. **F0.1** source→UI map in [lineage](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md); **F0.2** optional allowlisted local tracing with physical L/C/R crop geometry, strict OCR matching rejection categories, bounded build slot inclusion/exclusion + deterministic no-League replay and negative tests; **F0.3** incident triage and small future RED-case PR queue in [diagnosis](audits/F0_DIAGNOSIS_2026-11-22.md).
+**F0 branch:** `audit/f0-functional-lineage-20261122`, [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) directly on docs [draft #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76) at `d806a9791b18fab07e52a70a78b56f52144f5b8d`. **F0.1** source→UI map in [lineage](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md); **F0.2** optional allowlisted local tracing with public game-catalog IDs (never player IDs), physical L/C/R crop geometry, strict OCR matching rejection categories, bounded build slot inclusion/exclusion + deterministic no-League replay and negative tests; **F0.3** incident triage and small future RED-case PR queue in [diagnosis](audits/F0_DIAGNOSIS_2026-11-22.md).
 
 | F0 checkpoint | Scope | Gate status |
 | --- | --- | --- |

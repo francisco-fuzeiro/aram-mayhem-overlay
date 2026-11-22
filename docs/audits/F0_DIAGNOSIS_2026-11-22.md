@@ -31,7 +31,7 @@
 4. `python -m backend.workflow.f0_replay` — emits a **synthetic-only**, deterministic JSON report with fixed scenario identifiers and enumerated outcomes. It never reads League, OCR or screen pixels.
 5. Optional extra local evidence: launch the existing application with `ARAM_ORACLE_F0_TRACE=1` explicitly set in its process environment. New F0 diagnostic events append only to the **existing local rotating diagnostics journal**; inspect and delete locally. Do not enable existing optional screenshot policy, transmit logs, or paste raw player/desktop data into GitHub. Without the env variable, no F0 event is emitted. The original M1 journal remains present as before.
 
-These fixtures are synthetic **contract checks**, not real frame OCR comparisons and not proof that a source is correct in the field. The result records deliberately have no champion/augment raw title, player name, Riot ID, PNG or credentials. Additional captures are not required to execute them.
+These fixtures are synthetic **contract checks**, not real frame OCR comparisons and not proof that a source is correct in the field. The result records deliberately have no champion/augment raw title, player name, Riot ID, PNG or credentials. When explicitly enabled, live F0 status records may include only validated numeric **public** champion/augment catalog IDs from source-proven mappings, never local cell/player IDs or arbitrary strings. Additional captures are not required to execute them.
 
 ## Follow-up queue — independent small draft PRs, NOT implemented here
 

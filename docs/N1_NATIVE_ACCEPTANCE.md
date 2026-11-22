@@ -2,7 +2,7 @@
 
 ## 2026-11-22 — F0 source-to-UI audit (not native acceptance)
 
-Draft [#78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) was stacked on verified #76 to map source-to-UI chains and introduce opt-in local evidence diagnostics and synthetic replay. See [F0 source map](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md) and [classified F0 report](audits/F0_DIAGNOSIS_2026-11-22.md). The N1 champion/augment/build observations above remain **FAIL (user-observed)**; specific causes still **BLOCKED** absent contemporaneous source and screen ground truth. Passing synthetic fixtures cannot reverse that FAIL.
+Draft [#78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) was stacked on verified #76 to map source-to-UI chains and introduce opt-in local evidence diagnostics and synthetic replay. See [F0 source map](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md) and [classified F0 report](audits/F0_DIAGNOSIS_2026-11-22.md). Public numeric champion/augment catalog IDs may now be emitted locally only after LCU mapping/strict OCR acceptance, never player identities; this does not prove the IDs match the unrecorded live game. The N1 champion/augment/build observations above remain **FAIL (user-observed)**; specific causes still **BLOCKED** absent contemporaneous source and screen ground truth. Passing synthetic fixtures cannot reverse that FAIL.
 
 | F0-specific check | Current status | Native acceptance boundary |
 | --- | --- | --- |
