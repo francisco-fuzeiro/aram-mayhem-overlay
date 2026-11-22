@@ -123,3 +123,33 @@ def test_report_has_no_native_pass_without_user_evidence():
     assert "0 wrong IDs" in text
     assert "BLOCKED" in text
     assert "85.0" in text
+
+
+def test_three_card_offers_require_same_session_frame_and_exact_slots():
+    from benchmarks.ocr_v11c.grouping import group_offers
+    def row(frame, slot, status="correct"):
+        return {"source_session": "sessionA", "source_frame": frame,
+                "offer_id": "offer1", "slot": slot, "status": status}
+    rows = [row("frame1", s) for s in ("left", "centre", "right")]
+    rows.append(row("frame2", "left", "false_rejection"))  # unilateral reroll
+    got = group_offers(rows)
+    assert got == {"complete": 1, "all_correct": 1, "incomplete": 1}
+    # Never combine left from one frame with centre/right from another.
+    got = group_offers([row("frame1", "left"), row("frame2", "centre"),
+                        row("frame2", "right")])
+    assert got == {"complete": 0, "all_correct": 0, "incomplete": 2}
+
+
+def test_three_card_duplicate_slot_is_not_silently_overwritten():
+    from benchmarks.ocr_v11c.grouping import group_offers
+    row = {"source_session": "A", "source_frame": "F", "offer_id": "O",
+           "slot": "left", "status": "correct"}
+    with pytest.raises(ValueError, match="duplicate"):
+        group_offers([row, row.copy()])
+
+
+def test_unframed_legacy_samples_cannot_claim_complete_three_card_offers():
+    from benchmarks.ocr_v11c.grouping import group_offers
+    rows = [{"source_session": "A", "offer_id": "O", "slot": s,
+             "status": "correct"} for s in ("left", "centre", "right")]
+    assert group_offers(rows)["complete"] == 0
