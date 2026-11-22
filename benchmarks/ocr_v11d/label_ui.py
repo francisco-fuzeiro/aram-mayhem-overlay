@@ -15,7 +15,7 @@ from uuid import uuid4
 from PIL import Image, ImageTk
 
 from benchmarks.ocr_v11.runner import REFERENCE_SHA, read_cases
-from benchmarks.ocr_v11d.label_core import save_confirmed_frame, title_suggestions
+from benchmarks.ocr_v11d.label_core import _pixel_digest, save_confirmed_frame, title_suggestions
 
 
 def fresh(prefix: str) -> str:
@@ -42,6 +42,11 @@ class Labeler:
         cases, catalog = read_cases(self.reference)
         self.titles = set(catalog.values())
         self.frozen_hashes = {c["sha256"] for c in cases}
+        frozen_source = self.reference / "tests" / "fixtures" / "ocr_titles"
+        self.frozen_pixel_hashes = set()
+        for case in cases:
+            with Image.open(frozen_source / case["file"]) as old:
+                self.frozen_pixel_hashes.add(_pixel_digest(old))
         self.image = None
         self.preview = None
         self.scale = 1.0
@@ -175,7 +180,10 @@ class Labeler:
         if not path:
             return
         try:
-            with Image.open(path) as original:
+            source = Path(path).resolve()
+            if source.is_relative_to(self.repository) or source.is_relative_to(self.reference):
+                raise ValueError("Independent screenshots must be outside Git and pinned reference.")
+            with Image.open(source) as original:
                 self.image = original.convert("RGB")
             self.selections.clear()
             self.box = None
@@ -294,6 +302,7 @@ class Labeler:
                 self.image, list(self.selections.values()), self.private_root,
                 repository=self.repository, catalog=self.titles,
                 frozen_hashes=self.frozen_hashes,
+                frozen_pixel_hashes=self.frozen_pixel_hashes,
                 session=self.session.get(), frame=self.frame.get(),
                 offer=self.offer.get(), split=self.split.get(),
                 confirmed=True, context=self._context(),
