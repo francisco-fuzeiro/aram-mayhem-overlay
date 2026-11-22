@@ -17,7 +17,7 @@ import subprocess
 import sys
 import time
 
-ENGINES=("tesseract","ppocrv4_split","rapidocr_v4_split","ppocrv5_en_split")
+ENGINES=("tesseract","ppocrv4_split","ppocrv4_adaptive_split","rapidocr_v4_split","ppocrv5_en_split")
 
 def installed_bytes(package):
     try:
@@ -42,6 +42,7 @@ def worker(args):
         tesseract_ocr, stats,
     )
     from benchmarks.ocr_v11b.validation import classify_evidence,decision_counts
+    from benchmarks.ocr_v11c.configurations import adaptive_v4
     t_load_start=time.perf_counter()
     ref=args.reference.resolve()
     if subprocess.check_output(["git","-C",str(ref),"rev-parse","HEAD"],
@@ -60,6 +61,11 @@ def worker(args):
         engine=DirectONNX(args.models/"ppocrv4.onnx","v4",args.models/"ppocr_keys_v1.txt")
         load_ms=engine.load_ms
         version="v4"
+    elif args.engine=="ppocrv4_adaptive_split":
+        base_engine=DirectONNX(args.models/"ppocrv4.onnx","v4",args.models/"ppocr_keys_v1.txt")
+        engine=adaptive_v4(base_engine)
+        load_ms=base_engine.load_ms
+        version="v4 direct BGR/OpenCV/ceil adaptive"
     elif args.engine=="rapidocr_v4_split":
         engine=RapidV4(args.models/"ppocrv4.onnx",args.models/"ppocr_keys_v1.txt")
         load_ms=engine.load_ms
