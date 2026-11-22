@@ -36,3 +36,28 @@ jobs:
         run: node --check frontend/overlay-preferences.js
       - name: Exercise Settings JavaScript interactions
         run: node --test tests/js/settings.test.cjs tests/js/overlay-messages.test.cjs
+
+  v4-real-model:
+    # Independent research fixture replay through the ACTUAL product slot
+    # entrypoint. This is not native League or an independent holdout.
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      ARAM_ORACLE_V12_REAL_MODEL_TEST: "1"
+      ARAM_ORACLE_OCR_ENGINE: "ppocrv4"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install verified optional ONNX runtime
+        run: python -m pip install -e '.[dev,ocr-v4]'
+      - name: Explicitly provision SHA-256 pinned v4 model
+        run: python -m scripts.setup_ppocr_v4
+      - name: Verify installed model without network
+        run: python -m scripts.setup_ppocr_v4 --check
+      - name: Exercise actual three-slot recognition and 26 frozen originals
+        run: python -m pytest -q tests/test_ocr_v12_ppocrv4.py tests/test_ocr_v12_real_model.py
