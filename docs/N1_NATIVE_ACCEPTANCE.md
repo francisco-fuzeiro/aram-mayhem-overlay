@@ -1,5 +1,23 @@
 # N1 v3 — Native Windows ARAM Mayhem acceptance
 
+## 2026-11-22 — F1 Champion Select recovery, pending real-game validation
+
+F1 in open direct-child [draft #80](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/80) on audited F0 #78; see [synthetic matrix and evidence](audits/F1_CHAMPION_SELECT_2026-11-22.md). Its source-to-UI fixes address demonstrable ambiguous-local-cell and late-WS-packet boundaries, but cannot retroactively prove the cause of the user's unrecorded ARAM wrong-current symptom.
+
+| Acceptance case | Classification | Current evidence or next native action |
+| --- | --- | --- |
+| F1-01 self from unique local LCU cell and alias | PROVEN as code contract after exact GREEN | Synthetic LCU → API → backend poll → WebSocket → real JS DOM tests, not native |
+| F1-02 bench ranked above current / distinct allies | PROVEN as code contract after exact GREEN | No rank-to-current inference; bench candidate remains independent |
+| F1-03 one champion swap / late old packet | PROVEN as code contract after exact GREEN | Monotonic read revision + DOM last-revision guard; native timing NOT TESTED |
+| F1-04 duplicate/missing/invalid cell, unmapped alias/catalog | PROVEN as code contract after exact GREEN | Identity unresolved, no false badge; bench may remain |
+| F1-05 temporary LCU outage | PROVEN as code contract after exact GREEN | Poll emits unresolved/empty candidate list; real outage NOT TESTED |
+| F1-06 custom-game visual self/bench/swap | NOT TESTED | User-controlled custom ARAM Mayhem lobby only if supported; no ordinary live-match request |
+| N1 original wrong champion | FAIL (user-observed); root cause BLOCKED | No contemporaneous client source / UI record from original match; an offline fix does not establish attribution |
+
+**Required controlled check:** On user Windows at the latest verified F1 SHA, open a permitted controlled custom ARAM Mayhem champion-select lobby. Independently note the real selected champion portrait/name and available bench; compare exactly one `(current)` marker. If swapping is available, change self once and verify the badge migrates while the old champion may appear in bench; if the LCU temporarily disconnects, no previous current may be presented as verified. Do not disrupt a normal competitive ARAM, request personal IDs/screenshots, or enable capture without consent. On unsupported custom mode, mark this native check BLOCKED, not PASS. `ARAM_ORACLE_F0_TRACE=1` is optional local-only enum logging and never transmits player identity.
+
+**CI at documentation checkpoint:** F1.1 [RED #44981614324](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981614324), F1.2 [RED #44981718994](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44981718994). Exact final documentation SHA Actions SUCCESS still to confirm; native N1 product overall remains FAIL/NOT ACCEPTED.
+
 ## 2026-11-22 — F0 source-to-UI audit (not native acceptance)
 
 Draft [#78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) was stacked on verified #76 to map source-to-UI chains and introduce opt-in local evidence diagnostics and synthetic replay. See [F0 source map](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md) and [classified F0 report](audits/F0_DIAGNOSIS_2026-11-22.md). Public numeric champion/augment catalog IDs may now be emitted locally only after LCU mapping/strict OCR acceptance, never player identities; this does not prove the IDs match the unrecorded live game. The N1 champion/augment/build observations above remain **FAIL (user-observed)**; specific causes still **BLOCKED** absent contemporaneous source and screen ground truth. Passing synthetic fixtures cannot reverse that FAIL.
