@@ -98,7 +98,7 @@ def strict_match_title(
                       source="ocr", slot=trace_slot, similarity=int(best))
         return None
     emit_f0_trace("augment", "matching", "accepted", "title_matched",
-                  source="ocr", slot=trace_slot, similarity=int(best))
+                  source="ocr", slot=trace_slot, similarity=int(best), augment_id=aid)
     return aid, name, int(best)
 
 
