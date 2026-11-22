@@ -85,6 +85,57 @@ SCHEMA: dict[str, dict[str, object]] = {
             "unknown",
         )),
     },
+    "f0_trace": {
+        # F0 is opt-in at its caller; this schema excludes all free-form text.
+        "feature": frozenset(("champion", "augment", "build")),
+        "stage": frozenset(("local_cell", "alias", "capture", "matching",
+                            "offer", "epoch", "build_inputs", "eligibility",
+                            "next_item", "ui")),
+        "status": frozenset(("accepted", "rejected", "unknown", "stale")),
+        "reason": frozenset((
+            "lcu_unavailable", "local_cell_missing", "local_cell_not_found",
+            "local_cell_ambiguous", "local_champion_unselected",
+            "champion_unmapped", "local_champion_mapped",
+            "titles_detected", "titles_unidentified", "titles_transition",
+            "titles_verifying", "geometry_unsupported", "game_not_focused",
+            "game_occluded", "capture_unavailable", "ocr_unavailable",
+            "verified_absence", "capture_unverified",
+            "slots_verified_partial", "slots_verified_complete",
+            "slot_order_invalid", "slot_identity_invalid",
+            "slot_identity_duplicate", "title_input_invalid", "title_short",
+            "catalog_empty", "below_threshold", "insufficient_margin",
+            "title_matched", "slot_identity_changed",
+            "already_in_build", "slot_candidate_selected",
+            "item_name_duplicate", "boots_conflict",
+            "exclusive_group_conflict", "candidate_excluded",
+            "stale_epoch", "stale_offer",
+            "new_offer_due", "scan_level_due", "epoch_superseded",
+            "offer_disappeared", "ledger_unverified",
+            "champion_unknown", "item_pool_unverified", "inventory_unknown",
+            "augments_unconfirmed", "inputs_present", "verified_candidate",
+            "item_class_excluded", "item_not_in_verified_pool",
+            "already_owned", "no_candidate", "ranked_next_item",
+            "item_recipe_unknown", "slot_blocked",
+            "score_breakdown_unavailable",
+        )),
+        "source": frozenset((
+            "none", "lcu", "lcda", "ocr", "ledger", "catalog", "pipeline",
+        )),
+        "slot": frozenset(("left", "centre", "right")),
+        "epoch": "int",
+        "count": "int",
+        "item_id": "item_id",
+        "champion_id": "public_champion_id",
+        "augment_id": "public_augment_id",
+        "similarity": "confidence100",  # fuzzy title ratio, NOT OCR probability
+    },
+    "f0_geometry": {
+        "slot": frozenset(("left", "centre", "right")),
+        "source": frozenset(("client_geometry",)),
+        "client_width": "pixel_dimension", "client_height": "pixel_dimension",
+        "x": "pixel_dimension", "y": "pixel_dimension",
+        "w": "pixel_dimension", "h": "pixel_dimension",
+    },
     "match_transition": {
         "from_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
         "to_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
@@ -120,6 +171,16 @@ def _clean(event: str, fields: dict) -> dict | None:
                 safe[key] = value
         elif constraint == "int":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000:
+                safe[key] = value
+        elif constraint == "public_champion_id":
+            if type(value) is int and 1 <= value <= 4096:
+                safe[key] = value
+        elif constraint == "public_augment_id":
+            if (isinstance(value, str) and value.isascii() and
+                    value.isdecimal() and 3 <= len(value) <= 8):
+                safe[key] = value
+        elif constraint == "pixel_dimension":
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 8192:
                 safe[key] = value
         elif constraint in ("confidence1", "confidence100"):
             if isinstance(value, (int, float)) and not isinstance(value, bool):

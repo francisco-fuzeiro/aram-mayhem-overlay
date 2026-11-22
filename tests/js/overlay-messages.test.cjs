@@ -956,3 +956,49 @@ test("N1 browser startup completes and installs native controls without stale pr
     assert.equal(h.requests.some((r) => r.url === "/api/preferences"), false,
         "build style remains managed by Settings and the backend");
 });
+
+
+test("F0 source-to-UI replay: self current badge is independent of bench rank", () => {
+    const h = harness();
+    const candidate = (name, current, score) => ({
+        name, current, score, tier: "A", role: "marksman",
+        reasons: [], sample_size: 0,
+    });
+    h.api.handleMessage({
+        type: "champ_select",
+        candidates: [candidate("Synthetic Bench", false, 9.1),
+                     candidate("Synthetic Self", true, 5.1)],
+        notice: "Synthetic source identity",
+    });
+    const cards = h.element("champ-select-list").children;
+    assert.equal(cards.length, 2);
+    assert.equal(cards[0].children[0].textContent, "Synthetic Bench");
+    assert.equal(cards[1].children[0].textContent, "Synthetic Self (current)");
+    h.api.handleMessage({
+        type: "champ_select",
+        candidates: [candidate("Synthetic Bench", false, 9.1)],
+    });
+    assert.equal(h.element("champ-select-list").children.length, 1);
+    assert.equal(h.element("champ-select-list").children[0].children[0].textContent,
+        "Synthetic Bench");
+});
+
+test("F0 source-to-UI replay: next item is copied from build_state without shop proof", () => {
+    const h = harness();
+    const update = gameUpdate("Synthetic");
+    update.build_state = {
+        champion_id: "synthetic", champion_name: "Synthetic",
+        next_item_id: "3046", next_item_name: "Synthetic Item",
+        gold_to_next: 520, full_build: ["3046"],
+        full_build_names: ["Synthetic Item"], purchased_items: [],
+        alternatives: {}, selected_style: "Balanced",
+    };
+    h.api.handleMessage(update);
+    assert.equal(h.element("build-next").textContent, "Next: Synthetic Item (520g)");
+    // This tests today's presentation contract; F4 shop-aware visibility is
+    // deliberately NOT implemented by the F0 evidence-only phase.
+    h.api.handleMessage({...update, build_state: {...update.build_state,
+        next_item_id: null, next_item_name: null, gold_to_next: 0,
+        full_build: [], full_build_names: []}});
+    assert.equal(h.element("build-next").textContent, "Next: unavailable");
+});

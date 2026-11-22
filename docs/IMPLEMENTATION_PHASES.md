@@ -1,5 +1,19 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-22 — F0 draft #78 implementation and gates
+
+**F0 branch:** `audit/f0-functional-lineage-20261122`, [draft #78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) directly on docs [draft #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76) at `d806a9791b18fab07e52a70a78b56f52144f5b8d`. **F0.1** source→UI map in [lineage](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md); **F0.2** optional allowlisted local tracing with public game-catalog IDs (never player IDs), physical L/C/R crop geometry, strict OCR matching rejection categories, bounded build slot inclusion/exclusion + deterministic no-League replay and negative tests; **F0.3** incident triage and small future RED-case PR queue in [diagnosis](audits/F0_DIAGNOSIS_2026-11-22.md).
+
+| F0 checkpoint | Scope | Gate status |
+| --- | --- | --- |
+| F0.1 | LCU self/bench/alias, OCR proof and L/C/R/temporal/epoch, item eligibility/context/JS pipeline | Source review recorded; user symptoms have unknown causes |
+| F0.2 | `f0_trace` enums, opt-in via `ARAM_ORACLE_F0_TRACE=1`, sanitized synthetic replay and true UI harness | **PASS Windows #44980777980** on `c665f1eb` (1,963 Python/75 JS/3 syntax); native accuracy NOT TESTED |
+| F0.3 | PROVEN/SUSPECTED/BLOCKED/NOT TESTED fault tree, F1–F3 small scoped future tests, controlled custom protocol | Report committed; offline code+docs gate PASS at `c665f1eb`; checklist-only SHA CI pending |
+| Next | F1→F2→F3→F4 (not in this PR) | Not authorized until F0 final Windows gate; native N1 remains FAIL |
+
+Do not treat Linux/Windows CI synthetic scores as native Mayhem accuracy, do not promote PP-OCR or change Tesseract/90/8, WGC, stale/epochs, confirm rules, item ranking or shop UX in F0. No main merge and no second normal game capture request.
+
+
 ## 2026-11-22 — Approved post-N1 functional recovery sequence (planning only)
 
 The user's **first real ARAM game on #73** showed a functioning startup but **failed product usefulness**: current champion misidentified even when bench champions were listed, augment titles sporadically/apparently misidentified, next item suggestion unrelated to needs, and no demonstrably useful recommendation. User was playing normally and made no screenshots; report is a **real user-observed functional FAIL**, not a measured false-positive rate or proof of where the software fails. Earlier successful CI and narrow desktop preflight are not acceptance of in-game features.

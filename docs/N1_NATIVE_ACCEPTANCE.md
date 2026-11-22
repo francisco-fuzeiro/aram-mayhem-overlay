@@ -1,5 +1,18 @@
 # N1 v3 — Native Windows ARAM Mayhem acceptance
 
+## 2026-11-22 — F0 source-to-UI audit (not native acceptance)
+
+Draft [#78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) was stacked on verified #76 to map source-to-UI chains and introduce opt-in local evidence diagnostics and synthetic replay. See [F0 source map](audits/F0_FUNCTIONAL_LINEAGE_2026-11-22.md) and [classified F0 report](audits/F0_DIAGNOSIS_2026-11-22.md). Public numeric champion/augment catalog IDs may now be emitted locally only after LCU mapping/strict OCR acceptance, never player identities; this does not prove the IDs match the unrecorded live game. The N1 champion/augment/build observations above remain **FAIL (user-observed)**; specific causes still **BLOCKED** absent contemporaneous source and screen ground truth. Passing synthetic fixtures cannot reverse that FAIL.
+
+| F0-specific check | Current status | Native acceptance boundary |
+| --- | --- | --- |
+| LCU self/bench/alias and actual JS badge replay | SOURCE REVIEW / offline tests committed | Live self champion/swaps on user Windows **NOT TESTED** |
+| Offer capture/physical L/C/R/strict match/epoch | SOURCE REVIEW / synthetic traces committed | Client-relative bounds are now available from opt-in F0 diagnostics, but ground-truth native cards, rerolls, WGC/Vanguard and four-card **NOT TESTED** |
+| Verified item-pool/inventory/confirmed augments/build UI | SOURCE REVIEW / synthetic traces committed | Item eligibility and decision usefulness in real shop **NOT TESTED** |
+| F0 privacy | Opt-in bounded local allowlist + adversarial test committed | F0 offline gate [Windows #44980777980](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44980777980) PASS at `c665f1eb` (1,963 Python, 75 JS, 3 syntax); final checklist-only SHA CI pending; no automatic screenshots |
+| N1 product state | **FAIL / NOT ACCEPTED** | Controlled custom game only after offline gate; no additional normal game requests |
+
+
 **Status (2026-11-22):** #73 AUTONOMOUS DESKTOP START NARROW PASS / FIRST REAL ARAM GAME FUNCTIONAL FAIL / N1 PRODUCT NOT ACCEPTED / F0–F4 RECOVERY PLANNED. No game feature PASS or numeric accuracy is claimed.
 
 ## 2026-11-22 — First real ARAM match: user-reported functional FAIL

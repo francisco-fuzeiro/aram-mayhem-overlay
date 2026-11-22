@@ -4,11 +4,13 @@ The original ARAM Oracle stat-vector scoring is retained as the foundation.
 Our contextual adjustments are small and interpretable, not measured win odds.
 """
 import logging
+import os
 from collections import Counter
 
 from backend.engine.inventory import Inventory, remaining_cost
 from backend.models import ChampionMeta, AugmentData, ItemData, BuildState, BootReplacement
 from backend.engine.scoring import score_item
+from backend.workflow.f0_trace import emit_f0_trace
 from backend.engine.team_context import EnemyThreatProfile, AllyTeamProfile
 
 logger = logging.getLogger("aram-oracle.engine.build")
@@ -184,14 +186,40 @@ def _fill_slots(
             item.boots and item.item_class not in {"component", "boots_tier1"}
         )
 
+    # F0 read-only, opt-in sampling: at most 12 bounded classification
+    # events per build computation. No names, free-form scores or item changes.
+    trace_enabled = os.environ.get("ARAM_ORACLE_F0_TRACE") == "1"
+    diagnostic_budget = 12
+
+    def trace_candidate(item: ItemData, status: str, reason: str) -> None:
+        nonlocal diagnostic_budget
+        if trace_enabled and diagnostic_budget > 0:
+            emit_f0_trace("build", "eligibility", status, reason,
+                          source="catalog", item_id=item.id)
+            diagnostic_budget -= 1
+
     def eligible(item: ItemData) -> bool:
-        return (
+        # Identical filters/order to the established build eligibility policy.
+        available = (
             item.id not in seen
             and _item_name_key(item) not in named
             and not (is_tier_two(item) and boots_taken)
             and not (memberships.get(item.id, set()) & occupied)
             and item.item_class not in {"component", "boots_tier1"}
         )
+        if not available:
+            reason = (
+                "already_in_build" if item.id in seen
+                else "item_name_duplicate" if _item_name_key(item) in named
+                else "boots_conflict" if is_tier_two(item) and boots_taken
+                else "exclusive_group_conflict"
+                if memberships.get(item.id, set()) & occupied
+                else "item_class_excluded"
+                if item.item_class in {"component", "boots_tier1"}
+                else "candidate_excluded"
+            )
+            trace_candidate(item, "rejected", reason)
+        return available
 
     def take(item: ItemData) -> None:
         nonlocal boots_taken
@@ -200,6 +228,7 @@ def _fill_slots(
         named.add(_item_name_key(item))
         occupied.update(memberships.get(item.id, set()))
         boots_taken |= is_tier_two(item)
+        trace_candidate(item, "accepted", "slot_candidate_selected")
 
     # Reserve a final slot for an upgrade when basic Boots is equipped.
     for item in ranked:

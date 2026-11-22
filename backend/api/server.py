@@ -32,6 +32,9 @@ from backend.config import config  # explicit opt-in for diagnostic screenshot p
 from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
+from backend.workflow.f0_trace import (
+    classify_champion_identity, classify_offer_slots, emit_f0_trace,
+)
 
 static_data = StaticData()
 
@@ -512,12 +515,40 @@ def _read_champ_select_payload() -> dict | None:
     """Synchronous, read-only LCU access; poller runs this in a worker thread."""
     snapshot = read_champ_select()
     if snapshot is None:
+        emit_f0_trace("champion", "local_cell", "unknown",
+                      "lcu_unavailable", source="lcu")
         return None
     draft, id_map = snapshot
-    return summarize_champion_select(
+    identity_status, identity_reason = classify_champion_identity(draft, id_map)
+    # Only the public LCU champion catalog number may enter diagnostics.
+    # Never store local cell ID, summonerId, Riot ID, player name or lockfile.
+    public_champion_id = None
+    if identity_status == "accepted" and isinstance(draft, dict):
+        team = draft.get("myTeam")
+        if isinstance(team, list):
+            local_cell = draft.get("localPlayerCellId")
+            matched = [
+                row for row in team
+                if isinstance(row, dict) and row.get("cellId") == local_cell
+            ]
+            if len(matched) == 1:
+                numeric = matched[0].get("championId")
+                if (type(numeric) is int and 1 <= numeric <= 4096
+                        and isinstance(id_map, dict)
+                        and str(numeric) in id_map):
+                    public_champion_id = numeric
+    emit_f0_trace("champion", "local_cell", identity_status,
+                  identity_reason, source="lcu",
+                  champion_id=public_champion_id)
+    result = summarize_champion_select(
         draft, id_map, static_data.get_champion,
         record_lookup=get_champion_record,
     )
+    if (identity_status == "accepted"
+            and not any(row.get("current") for row in result.get("candidates", []))):
+        emit_f0_trace("champion", "alias", "rejected",
+                      "champion_unmapped", source="lcu")
+    return result
 
 
 @app.post("/api/history/import")
@@ -1265,6 +1296,30 @@ def _run_watcher_check() -> tuple[str, list[str], list[dict] | None]:
             "ocr_recognition", outcome=action, count=len(matches or []),
             confidence=float(max((m[2] for m in matches or []), default=0)),
         )
+    # F0: classify evidence only, never alter the strict OCR decision.
+    if action == "detected" and hasattr(matches, "slots"):
+        slot_ids = {slot: value[0] if value else None
+                    for slot, value in matches.slots.items()}
+        status, reason = classify_offer_slots(
+            slot_ids, stage=metadata["stage"], stale=False, epoch_valid=True,
+        )
+        emit_f0_trace("augment", "matching", status, reason,
+                      source="ocr", count=len(matches))
+        for slot, value in matches.slots.items():
+            emit_f0_trace(
+                "augment", "matching", "accepted" if value else "unknown",
+                "slots_verified_complete" if value else "titles_unidentified",
+                source="ocr", slot=slot,
+            )
+    elif action not in ("unchanged",):
+        stage = metadata["stage"]
+        safe_reason = stage if stage in (
+            "titles_verifying", "titles_transition", "titles_unidentified",
+            "geometry_unsupported", "game_not_focused", "game_occluded",
+            "capture_unavailable", "ocr_unavailable", "verified_absence",
+        ) else "capture_unverified"
+        emit_f0_trace("augment", "capture", "unknown",
+                      safe_reason, source="ocr")
     if action == "detected" and (matches or hasattr(matches, "slots")):
         ids = [m[0] for m in matches]
         detected = _slot_detection_payload(matches)
@@ -1566,6 +1621,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         state.offer_ledger.offers[-1].epoch + 1,
                     )
                     state.offer_ledger.set_current_epoch(state.offer_epoch)
+                    emit_f0_trace("augment", "offer", "unknown",
+                                  "new_offer_due", source="lcda",
+                                  epoch=state.offer_epoch)
                     # Historical OCR names stay stale until A3/A4 reverify;
                     # the ledger keeps them separate from this new due offer.
                     # Existing scan opening owns the single watcher reset.
@@ -1587,6 +1645,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         state.offer_epoch += 1
                         if state.offer_ledger.offers:
                             state.offer_ledger.set_current_epoch(state.offer_epoch)
+                    # Log the *final* epoch after any respawn-generation bump.
+                    emit_f0_trace("augment", "offer", "unknown",
+                                  "scan_level_due", source="lcda",
+                                  epoch=state.offer_epoch)
                     state.offer_lifecycle.open()
                     event_log.emit(
                         "ocr_window", state="opened", reason="level_due",
@@ -1678,6 +1740,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             or state.awaiting_stat_delta
                         ):
                             action = "superseded"
+                            emit_f0_trace("augment", "epoch", "stale",
+                                          "epoch_superseded", source="ledger",
+                                          epoch=state.offer_epoch)
                         previous_phase = state.ocr_phase
                         previous_stale = state.ocr_stale
                         if action != "superseded":
@@ -1693,6 +1758,18 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             )
                         if action == "detected" and detected:
                             verified_slots = _slots_from_detected(detected)
+                            # Physical identity changes can be rerolls, but
+                            # F0 never asserts the user's actual reroll action.
+                            # Previous IDs are not persisted in diagnostics.
+                            previous_slots = state.ocr_slot_choices
+                            if previous_slots is not None and verified_slots is not None:
+                                for slot in ("left", "centre", "right"):
+                                    if previous_slots.get(slot) != verified_slots.get(slot):
+                                        emit_f0_trace(
+                                            "augment", "matching", "unknown",
+                                            "slot_identity_changed", source="ocr",
+                                            slot=slot, epoch=state.offer_epoch,
+                                        )
                             if ((not state.ocr_stale or reverified)
                                     and verified_slots is not None
                                     and state.offer_ledger.offers
@@ -1768,6 +1845,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             logger.info("Verified offer gone — confirmation pending")
                             state.scan_window_open = False
                             state.offer_epoch += 1
+                            emit_f0_trace("augment", "epoch", "unknown",
+                                          "offer_disappeared", source="ledger",
+                                          epoch=state.offer_epoch)
                             state.confirmation_pending = True
                             state.awaiting_stat_delta = True
                             state.delta_wait_ticks = 0

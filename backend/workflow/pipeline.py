@@ -6,6 +6,7 @@ from backend.engine.inventory import build_inventory
 from backend.engine.team_context import analyze_enemies, analyze_allies
 from backend.storage.db import get_all_personal_winrates
 from backend.config import config
+from backend.workflow.f0_trace import classify_build_evidence, emit_f0_trace
 
 
 class Pipeline:
@@ -15,6 +16,8 @@ class Pipeline:
     def run(self, snapshot: GameSnapshot) -> PipelineResult | None:
         champion = self.data.get_champion(snapshot.champion_id)
         if champion is None:
+            emit_f0_trace("build", "build_inputs", "rejected",
+                          "champion_unknown", source="lcda")
             return None
 
         choices = [
@@ -112,6 +115,44 @@ class Pipeline:
                 build_state.alternatives = {}
                 build_state.boot_replacement = None
                 build_state.build_unavailable_reason = "item_availability_unknown"
+
+        # Only observe existing decisions; no candidate is reranked or promoted.
+        pool_verified = bool(
+            meta is not None and meta.availability == "verified_two_source"
+        )
+        inventory_known = not any(
+            self.data.get_item(ident) is None
+            or self.data.get_item(ident).item_class == "unknown"
+            for ident in inventory.other
+        )
+        # Zero confirmed selections is not proof that all shown picks were recorded.
+        confirmed_ids_resolved = bool(existing) and len(existing) == len(snapshot.chosen_augments)
+        evidence_status, evidence_reason = classify_build_evidence(
+            champion_known=True, pool_verified=pool_verified,
+            inventory_known=inventory_known,
+            augments_confirmed=confirmed_ids_resolved,
+        )
+        emit_f0_trace("build", "build_inputs", evidence_status,
+                      evidence_reason, source="pipeline")
+        if build_state.next_item_id:
+            emit_f0_trace(
+                "build", "next_item", "accepted", "ranked_next_item",
+                source="pipeline", item_id=build_state.next_item_id,
+            )
+        else:
+            abstain_reason = build_state.build_unavailable_reason
+            if abstain_reason not in (
+                "item_pool_unverified", "item_availability_unknown",
+                "inventory_unknown", "item_recipe_unknown", "slot_blocked",
+            ):
+                abstain_reason = "no_candidate"
+            if abstain_reason == "item_availability_unknown":
+                abstain_reason = "item_pool_unverified"
+            emit_f0_trace("build", "next_item", "unknown",
+                          abstain_reason, source="pipeline")
+        # No per-item factor contribution is exposed in build_state yet.
+        emit_f0_trace("build", "eligibility", "unknown",
+                      "score_breakdown_unavailable", source="pipeline")
 
         return PipelineResult(
             phase=snapshot.phase,
