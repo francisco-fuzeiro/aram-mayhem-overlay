@@ -11,6 +11,7 @@
 param(
     [switch]$Offline,
     [switch]$SkipControlled,
+    [switch]$CIRunner,
     [string]$OutputRoot = (Join-Path $env:LOCALAPPDATA "ARAMOracle\OCR-V11c"),
     [string]$TesseractExe = ""
 )
@@ -140,9 +141,11 @@ try {
     & $VenvPython -m benchmarks.ocr_v11b.profile_windows --reference $Reference --models $Models --out (Join-Path $Results "windows_profile.json")
     Assert-Exit "Isolated cold-start, per-crop, triple-crop, CPU/RSS profiling"
 
+    $Origin = "LOCAL_USER_EXECUTION_UNATTESTED"
+    if ($CIRunner) { $Origin = "CI_RUNNER" }
     $ReportArgs = @("-m", "benchmarks.ocr_v11c.render_report",
                     "--profile", (Join-Path $Results "windows_profile.json"),
-                    "--origin", "LOCAL_USER_EXECUTION_UNATTESTED",
+                    "--origin", $Origin,
                     "--out", (Join-Path $Results "REPORT.md"))
     if (-not $SkipControlled) {
         $ReportArgs += @("--controlled", (Join-Path $Results "v11b_results.json"))
