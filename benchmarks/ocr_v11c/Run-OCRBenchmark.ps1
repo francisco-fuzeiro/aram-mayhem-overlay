@@ -83,13 +83,19 @@ $Pins = @(
     "pytesseract==0.3.13", "psutil==6.1.1",
     "opencv-python-headless==4.10.0.84", "mss==10.0.0"
 )
+# Validate the cached venv BEFORE installing anything. A retry after a
+# transient benchmark failure must reuse already-correct packages.
+$PinVerifier = Join-Path $Repo "benchmarks\ocr_v11c\verify_pins.py"
 if (-not $Offline) {
-    & $VenvPython -m pip install --disable-pip-version-check @Pins
-    Assert-Exit "Install isolated pinned dependencies"
+    & $VenvPython $PinVerifier @Pins
+    if ($LASTEXITCODE -ne 0) {
+        & $VenvPython -m pip install --disable-pip-version-check @Pins
+        Assert-Exit "Install isolated pinned dependencies"
+    }
 }
-# Fail closed if the cached environment drifts from exact Python package pins.
-# Call a Python *file*: Windows PowerShell 5.1 mangles quotes in -c source.
-& $VenvPython (Join-Path $Repo "benchmarks\ocr_v11c\verify_pins.py") @Pins
+# Fail closed for any missing or drifting version, including offline mode.
+# Use a Python file: Windows PowerShell 5.1 can mangle quotes in -c source.
+& $VenvPython $PinVerifier @Pins
 Assert-Exit "Verify pinned dependency versions"
 
 if (-not $TesseractExe) {
