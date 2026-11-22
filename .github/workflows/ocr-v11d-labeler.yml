@@ -27,7 +27,7 @@ jobs:
       - name: Install test-only Pillow and pytest
         run: python -m pip install 'pytest==8.3.5' 'Pillow==11.1.0'
       - name: Verify local-only manual labels and duplicate protection
-        run: python -m pytest -q benchmarks/ocr_v11d/test_label_core.py
+        run: python -m pytest -q benchmarks/ocr_v11d/test_label_core.py benchmarks/ocr_v11c/test_verify_pins.py
       - name: Compile GUI and core without launching a window
         run: python -m compileall -q benchmarks/ocr_v11d
       - name: Import native Tk labeler without starting GUI or game
