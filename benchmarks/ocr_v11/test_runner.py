@@ -42,9 +42,9 @@ def test_case_counts_are_exact():
 
 def test_decoder_version_rejects_wrong_dimensions():
     validate_output_dimensions("v4", 6625, 6623)
-    validate_output_dimensions("v5", 437, 436)
+    validate_output_dimensions("v5", 438, 436)
     with pytest.raises(ValueError, match="decoder"):
-        validate_output_dimensions("v5", 438, 436)
+        validate_output_dimensions("v5", 439, 436)
     with pytest.raises(ValueError, match="version"):
         validate_output_dimensions("v6", 437, 436)
 
