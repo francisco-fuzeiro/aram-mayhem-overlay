@@ -22,6 +22,7 @@ from benchmarks.ocr_v11b.validation import (
     classify_evidence,decision_counts,validate_manifest,
 )
 from benchmarks.ocr_v11c.grouping import group_offers
+from benchmarks.ocr_v11c.configurations import adaptive_v4
 
 def main():
     ap=argparse.ArgumentParser(description="Offline PRIVATE holdout: never upload outputs")
@@ -59,6 +60,7 @@ def main():
     v5=DirectONNX(a.models/"ppocrv5_en.onnx","v5")
     rapid=RapidV4(a.models/"ppocrv4.onnx",a.models/"ppocr_keys_v1.txt")
     engines={"tesseract":None,"ppocrv4_split":v4,
+             "ppocrv4_adaptive_split":adaptive_v4(v4),
              "rapidocr_v4_split":rapid,"ppocrv5_en_split":v5}
     from PIL import Image
     results=defaultdict(list)
