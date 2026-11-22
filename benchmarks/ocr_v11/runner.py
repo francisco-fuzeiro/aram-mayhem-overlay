@@ -81,7 +81,7 @@ def validate_cases(cases: list[dict]) -> dict[str,int]:
 def validate_output_dimensions(model_version: str, labels: int, dictionary: int) -> None:
     if model_version not in ("v4","v5"):
         raise ValueError("version_incompatible: " + model_version)
-    expected = dictionary + (2 if model_version=="v4" else 1)
+    expected = dictionary + 2  # The exact 2026-11-22 v5 ONNX emits blank + 436 keys + space (438 logits).
     if labels != expected:
         raise ValueError(f"decoder_incompatible: version {model_version}, logits={labels}, dictionary={dictionary}; expected {expected}")
 
@@ -183,7 +183,7 @@ class DirectONNX:
             self.dictionary=metadata["character"].splitlines()
             self.charset_source="embedded_ONNX_metadata"
         # The logits count will also be checked at runtime; no guessing of charset indices.
-        self.chars=[""]+self.dictionary+([" "] if version=="v4" else [])
+        self.chars=[""]+self.dictionary+[" "]  # Both pinned v4 and v5 CTC heads include a terminal space class.
         self.input_name=self.session.get_inputs()[0].name
         self.output_labels=None
 
