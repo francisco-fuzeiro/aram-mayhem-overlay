@@ -14,13 +14,13 @@ CATALOG = {"101", "102", "103", "201"}
 APPROVED = frozenset({"synthetic_fixture"})
 
 
-def evidence(epoch, **changes):
+def evidence(base_epoch, **changes):
     # Import deliberately deferred to preserve all existing tests in RED CI
     # while the new source-bound contract has not been implemented.
     from backend.workflow.picked_augment import PickedAugmentEvidence
 
     params = dict(
-        match_id=MATCH, offer_id=1, epoch=epoch, catalog_id="101",
+        match_id=MATCH, offer_id=1, epoch=base_epoch, catalog_id="101",
         source="synthetic_fixture", source_event_id="event-1",
         observed_at=100.0, verified=True,
     )
@@ -145,6 +145,7 @@ async def test_synthetic_verified_event_flows_to_next_build_pipeline_tick(monkey
         ),
     )
     monkeypatch.setattr(server, "screen_watcher", SimpleNamespace(reset=Mock()))
+    deps.serialize_result = lambda *_: {"type": "update"}
 
     # A synthetic approved provider bypasses missing OCR titles, not proof.
     trusted = evidence(offer.epoch, match_id="fallback:1")
