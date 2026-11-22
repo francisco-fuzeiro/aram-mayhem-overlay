@@ -189,6 +189,15 @@ async def test_v12_due_offer_rejects_previous_verified_triple_replayed_after_res
     assert first_ledger.slots["left"].augment_id == "old-left"
     assert state.chosen_augments == []
 
+    # Manual Scan is not an escape hatch for re-publishing the old triple.
+    assert not state.accept_manual_ocr(
+        [row["id"] for row in old], old,
+        match_id=state.match_id, offer_epoch=state.offer_epoch,
+        capture_proven=True,
+    )
+    assert state.augment_choices == []
+    assert state.offer_ledger.offers[-1].state == "due"
+
     await poll_tick(state, deps, 104.0)
     assert state.offer_state == "present"
     assert state.ocr_slot_choices == {
@@ -196,6 +205,24 @@ async def test_v12_due_offer_rejects_previous_verified_triple_replayed_after_res
     }
     assert state.offer_ledger.offers[-1].slots["left"].augment_id == "new-left"
     assert state.chosen_augments == []
+
+
+def test_v12_due_triple_gate_abstains_on_incomplete_and_reordered_old_cards():
+    state = GameState()
+    state._prior_due_triple = ("old-left", "old-centre", "old-right")
+    assert not state.accept_new_due_slot_identity({
+        "left": "old-right", "centre": "old-centre", "right": "old-left",
+    })
+    assert not state.accept_new_due_slot_identity({
+        "left": "new-left", "centre": None, "right": "old-right",
+    })
+    assert state._prior_due_triple == ("old-left", "old-centre", "old-right")
+    assert state.accept_new_due_slot_identity({
+        "left": "new-left", "centre": "new-centre", "right": "new-right",
+    })
+    assert state._prior_due_triple is None
+    state.reset()
+    assert state._prior_due_triple is None
 
 
 @pytest.mark.asyncio
