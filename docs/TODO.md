@@ -439,3 +439,14 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 5. **UX-101–106**, then **UX-201–208**: compact decision UI and broad validation/polish.
 
 Do not mark implementation or in-game validation as done solely because a draft PR exists, a historical CI run passed or a mocked UI test succeeds.
+
+## 2026-11-22 — OCR V1.2c reroll safety and Mayhem score calibration
+
+- [x] **V12-RED-SYNC** — Isolate a real out-of-order OCR/ledger UI source race, write a deterministic test-only RED; commit `a1d55486` failed exactly its new JS assertion in Windows Actions #45066399248 (1,977 Python PASS, 78 other JS PASS, real PP-OCRv4 job PASS). This is not proof of the native first-reroll cause.
+- [ ] **V12-GREEN-SYNC** — Verify frontend-only fail-closed consistency guard `0b32d229` and new regression with full Windows Actions at the exact final docs+code head; no merge or native pass claim from CI.
+- [ ] **V12-N02-NATIVE** — User-observed first reroll wrongly accepted a different augment name; repeat physical L/C/R only after offline tests. One bad accepted ID is STOP; keep PP-OCRv4 experimental opt-in.
+- [ ] **SCORE-01** — Obtain per-patch augment coverage/provenance (`StaticData.augment_coverage_report()`) and distinguish valid `Not Rated — no model` from OCR verifying/stale/unmatched. Do not invent numeric scores. [Issue #84](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/84).
+- [ ] **SCORE-02** — Tests-only RED for any proven scaling-only augment incorrectly marked unmodelled; separate small GREEN after verifying mode/ID semantics and real catalog availability.
+- [ ] **SCORE-03** — Re-evaluate champion score reliability using licensed, current-patch Mayhem evidence, with confidence and per-class holdouts, not role templates alone; F1.3 self/bench mapping separate. Do not disguise augment win rates or release without Riot policy review.
+- [ ] **SCORE-04** — Extend provenance and coverage of Mayhem augment special/conditional effects with validated data and tests, keeping unknown honest. [Detailed audit](audits/MAYHEM_SCORE_DATA_AUDIT_2026-11-22.md).
+- [ ] **BUILD-POSTPONED** — Native `Berserkers next -> Unavailable after purchase` deferred per user to [issue #49](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/49).
