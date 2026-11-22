@@ -153,3 +153,32 @@ def test_unframed_legacy_samples_cannot_claim_complete_three_card_offers():
     rows = [{"source_session": "A", "offer_id": "O", "slot": s,
              "status": "correct"} for s in ("left", "centre", "right")]
     assert group_offers(rows)["complete"] == 0
+
+
+def test_sealed_holdout_detects_tampering_and_requires_explicit_unlock(tmp_path):
+    from benchmarks.ocr_v11c.evaluate_local import validate_sealed_holdout
+    manifest = tmp_path / "holdout.manifest.json"
+    seal = tmp_path / "holdout.sha256"
+    data = {"samples": [{"id": "new-image"}]}
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+    expected = hashlib.sha256(
+        json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    seal.write_text(expected + "\n", encoding="ascii")
+    with pytest.raises(ValueError, match="explicit"):
+        validate_sealed_holdout(manifest, seal, unlock=False)
+    assert validate_sealed_holdout(manifest, seal, unlock=True) == 1
+    manifest.write_text(json.dumps({"samples": [{"id": "changed"}]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="seal"):
+        validate_sealed_holdout(manifest, seal, unlock=True)
+
+
+def test_private_capture_or_result_paths_inside_checkout_are_rejected(tmp_path):
+    from benchmarks.ocr_v11c.evaluate_local import assert_private_paths
+    repo = tmp_path / "public-checkout"
+    repo.mkdir()
+    private = tmp_path / "private"
+    private.mkdir()
+    assert_private_paths(repo, [private, private / "report.json"])
+    with pytest.raises(ValueError, match="outside"):
+        assert_private_paths(repo, [repo / "manifest.json"])
