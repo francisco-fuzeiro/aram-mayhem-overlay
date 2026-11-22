@@ -59,7 +59,7 @@ No product dependencies or user Settings will be changed.
 
 ```powershell
 git fetch origin
-git worktree add --detach ..\aram-oracle-ocr-reference 7624b27c1d025c4183c2a78aa11609dda45ecf71
+git -c core.autocrlf=false worktree add --detach ..\aram-oracle-ocr-reference 7624b27c1d025c4183c2a78aa11609dda45ecf71
 py -3.11 -m venv ..\aram-oracle-v11b-venv
 ..\aram-oracle-v11b-venv\Scripts\Activate.ps1
 
@@ -68,6 +68,11 @@ python -m pytest -q benchmarks/ocr_v11b/test_validation.py benchmarks/ocr_v11b/t
 python benchmarks/ocr_v11/fetch_models.py ..\aram-oracle-ocr-models
 python -m benchmarks.ocr_v11b.profile_windows --reference ..\aram-oracle-ocr-reference --models ..\aram-oracle-ocr-models --out ..\aram-oracle-v11b-local\windows_profile.json
 ```
+
+The `-c core.autocrlf=false` override is **per Git command**, not a
+change to your normal Git settings. It preserves the byte-for-byte frozen
+ground-truth JSON hashes on Windows (a default CRLF checkout would fail
+the integrity gate correctly).
 
 The model fetcher downloads exact weights **once** and verifies full SHA-256.
 The profiling step requires the local Tesseract executable with English
