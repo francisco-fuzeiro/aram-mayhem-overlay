@@ -33,6 +33,18 @@ stacked branch/PR only when beginning the next phase.
 - Prefer bounded 0.0–10.0 contextual scores with provenance/confidence, not disguised win-rate displays.
 - No automatic champion, augment, item or skill selection; use only available and permitted data.
 
+## Repository visibility (explicit user decision, 2026-11-22)
+
+- **This GitHub repository is intentionally PUBLIC.** Public visibility is the
+  user's desired configuration; do not suggest privatizing it or silently
+  change its visibility.
+- Public code and documentation are allowed. Do not commit real personal
+  game screenshots, private holdout crops, OCR transcripts, diagnostic logs,
+  Windows paths, Riot IDs, credentials, secret tokens, or unreviewed third-party
+  assets. Keep personal samples and model caches outside the Git checkout.
+- Public status does not make restricted third-party code or private gameplay
+  data reusable. Continue to respect licenses, privacy and Riot policies.
+
 ## License and policy guardrails
 
 - Mayhem Advisor (`ItzStorDz/mayhem-advisor`) has an all-rights-reserved license. Reference its publicly described **features**, but **do not copy or translate its source, assets, UI text, or algorithms** without written authorization.
