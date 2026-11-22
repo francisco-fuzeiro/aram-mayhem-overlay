@@ -87,9 +87,9 @@ if (-not $Offline) {
     & $VenvPython -m pip install --disable-pip-version-check @Pins
     Assert-Exit "Install isolated pinned dependencies"
 }
-# Fail closed when an existing/offline venv drifts from exact package pins.
-$CheckPackages = 'import importlib.metadata as m; import sys; pins=dict(x.split("==") for x in sys.argv[1:]); mismatches=[f"{k}={m.version(k)} (expected {v})" for k,v in pins.items() if m.version(k)!=v]; print("PINNED_DEPS_OK" if not mismatches else "PIN_MISMATCH "+", ".join(mismatches)); sys.exit(bool(mismatches))'
-& $VenvPython -c $CheckPackages @Pins
+# Fail closed if the cached environment drifts from exact Python package pins.
+# Call a Python *file*: Windows PowerShell 5.1 mangles quotes in -c source.
+& $VenvPython (Join-Path $Repo "benchmarks\ocr_v11c\verify_pins.py") @Pins
 Assert-Exit "Verify pinned dependency versions"
 
 if (-not $TesseractExe) {
