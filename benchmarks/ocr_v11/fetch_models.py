@@ -39,10 +39,14 @@ def fetch(out: Path) -> None:
     with zipfile.ZipFile(wheels[0]) as z:
         models = [n for n in z.namelist() if n.endswith("/models/ch_PP-OCRv4_rec_infer.onnx")]
         keys = [n for n in z.namelist() if n.endswith("/models/ppocr_keys_v1.txt")]
-        if len(models) != 1 or len(keys) != 1:
-            raise RuntimeError("Historical model or character dictionary missing from wheel")
+        if len(models) != 1:
+            raise RuntimeError("Historical model absent from pinned wheel")
         (out / "ppocrv4.onnx").write_bytes(z.read(models[0]))
-        (out / "ppocr_keys_v1.txt").write_bytes(z.read(keys[0]))
+        if len(keys) == 1:
+            (out / "ppocr_keys_v1.txt").write_bytes(z.read(keys[0]))
+            print("V4_CHARSET_SOURCE pinned_wheel_dictionary",flush=True)
+        else:
+            print("V4_CHARSET_SOURCE embedded_ONNX_metadata_must_be_verified_at_inference",flush=True)
     v4 = verify(out / "ppocrv4.onnx", V4_SHA, V4_BYTES)
     print("PINNED_V4_VERIFIED " + json.dumps(v4), flush=True)
 
