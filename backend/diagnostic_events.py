@@ -127,6 +127,13 @@ SCHEMA: dict[str, dict[str, object]] = {
         "item_id": "item_id",
         "similarity": "confidence100",  # fuzzy title ratio, NOT OCR probability
     },
+    "f0_geometry": {
+        "slot": frozenset(("left", "centre", "right")),
+        "source": frozenset(("client_geometry",)),
+        "client_width": "pixel_dimension", "client_height": "pixel_dimension",
+        "x": "pixel_dimension", "y": "pixel_dimension",
+        "w": "pixel_dimension", "h": "pixel_dimension",
+    },
     "match_transition": {
         "from_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
         "to_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
@@ -162,6 +169,9 @@ def _clean(event: str, fields: dict) -> dict | None:
                 safe[key] = value
         elif constraint == "int":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000:
+                safe[key] = value
+        elif constraint == "pixel_dimension":
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 8192:
                 safe[key] = value
         elif constraint in ("confidence1", "confidence100"):
             if isinstance(value, (int, float)) and not isinstance(value, bool):
