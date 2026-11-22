@@ -111,20 +111,9 @@ class Labeler:
                              ("Offer ID", self.offer), ("Frame ID (unique screenshot)", self.frame)):
             ttk.Label(header, text=caption).pack(anchor="w")
             ttk.Entry(header, textvariable=var).pack(fill="x")
-        self._choice(header, "Dataset split (keep per session)", self.split,
-                     ("development", "holdout"), 6)
-        ttk.Button(header, text="New session / choose split first", command=self.new_session).grid(
-            row=8, column=0, sticky="ew", padx=4, pady=5)
-        ttk.Button(header, text="New offer (same session)", command=self.new_offer).grid(
-            row=9, column=0, sticky="ew", padx=4)
-        # Pack and grid cannot share one container: previous entries use pack, so
-        # put the split controls in their own independent grid container.
-        for child in header.winfo_children():
-            if child.winfo_manager() == "grid":
-                child.grid_forget()
         split_line = ttk.Frame(header)
-        split_line.pack(fill="x")
-        ttk.Label(split_line, text="Split:").pack(side="left")
+        split_line.pack(fill="x", pady=(4, 0))
+        ttk.Label(split_line, text="Split (per session):").pack(side="left")
         ttk.Combobox(split_line, textvariable=self.split,
                      values=("development", "holdout"), state="readonly",
                      width=14).pack(side="left", padx=4)
