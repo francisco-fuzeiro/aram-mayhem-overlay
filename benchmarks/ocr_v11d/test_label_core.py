@@ -171,3 +171,14 @@ def test_rejects_reencoded_pixel_copy_of_frozen_reference(tmp_path):
             split="development", confirmed=True,
         )
     assert not (tmp_path / "private" / "human_labels.csv").exists()
+
+
+def test_same_frame_cannot_mix_different_source_screenshots(tmp_path):
+    store(tmp_path)
+    changed = specimen()
+    changed.putpixel((119, 59), (0, 0, 0))  # change only outside first crop
+    with pytest.raises(ValueError, match="source screenshot mismatch"):
+        store(tmp_path, image=changed,
+              choices=[choose("centre", (40, 0, 75, 25), "Blunt Force")])
+    assert len(read_rows(tmp_path)) == 1
+    assert len(read_rows(tmp_path)[0]["source_image_sha256"]) == 64
