@@ -147,3 +147,21 @@ def test_opt_in_is_disabled_by_default(monkeypatch):
         "feature": "champion", "stage": "local_cell", "status": "unknown",
         "reason": "local_cell_missing", "source": "none"
     }]
+
+
+def test_only_public_game_catalog_ids_may_appear_in_identity_trace():
+    expected = {
+        "feature": "champion", "stage": "local_cell", "status": "accepted",
+        "reason": "local_champion_mapped", "source": "lcu",
+        "champion_id": 222, "augment_id": "10001",
+    }
+    payload = {**expected,
+        "summonerId": 123456789, "puuid": "personal-account-id",
+        "riotId": "private#999", "screenshot": "private-frame",
+    }
+    assert _clean("f0_trace", payload) == expected
+    malformed = {**expected, "champion_id": "PLAYER-NAME",
+                 "augment_id": "private#account"}
+    clean = _clean("f0_trace", malformed)
+    assert "champion_id" not in clean
+    assert "augment_id" not in clean
