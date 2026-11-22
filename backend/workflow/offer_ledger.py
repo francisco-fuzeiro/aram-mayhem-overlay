@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Literal
+import math
+import re
+
+from backend.workflow.picked_augment import (
+    PickedAugmentEvidence, MAX_PICK_EVENT_AGE_S,
+)
 
 
 OfferState = Literal["due", "visible", "awaiting_confirm", "confirmed", "reconciled"]
 IdentitySource = Literal["ocr", "user_identify"]
-PickSource = Literal["user_confirm", "postgame"]
+PickSource = Literal["user_confirm", "postgame", "verified_external"]
 SLOTS = ("left", "centre", "right")
 CANDIDATE_QUIET_S = 6.0
 
@@ -54,6 +60,9 @@ class OfferLedger:
         self._levels = tuple(pick_levels)
         self._epoch = 0
         self.offers: list[Offer] = []
+        # Match-local, bounded by the number of actual confirmed offers.
+        # Never serialize opaque provider event IDs into overlay/diagnostics.
+        self._verified_external_events: dict[tuple[str, str], tuple[int, int, str]] = {}
 
     def _next_epoch(self) -> int:
         self._epoch += 1
@@ -189,6 +198,77 @@ class OfferLedger:
         offer.candidate_source = None
         offer.state = "confirmed"
         return offer
+
+    def confirm_verified_external(
+        self, evidence: PickedAugmentEvidence, *,
+        current_match_id: str | None,
+        catalog: set[str],
+        approved_sources: frozenset[str] = frozenset(),
+        now: float,
+    ) -> tuple[Offer, bool]:
+        """Confirm exactly once from a *separately authenticated* event.
+
+        An approved in-process adapter must validate the underlying provider
+        before calling this method. The caller passes explicit source approval,
+        normally EMPTY: there is no live pick provider in the standalone app.
+
+        The event may identify a picked augment without OCR titles, but it
+        cannot attach to another match or offer, resurrect an old generation,
+        or override manual/postgame confirmation. The caller owns the state
+        lock and performs downstream build refresh ONLY on a new acceptance.
+        """
+        if not isinstance(evidence, PickedAugmentEvidence):
+            raise LedgerError("bad_evidence")
+        if evidence.verified is not True:
+            raise LedgerError("unverified_source")
+        if not isinstance(evidence.source, str) or (
+            evidence.source not in approved_sources
+        ):
+            raise LedgerError("unapproved_source")
+        if (not isinstance(current_match_id, str) or not current_match_id
+                or not isinstance(evidence.match_id, str)
+                or not evidence.match_id
+                or evidence.match_id != current_match_id):
+            raise LedgerError("match_mismatch")
+        if type(evidence.offer_id) is not int or type(evidence.epoch) is not int:
+            raise LedgerError("bad_evidence")
+        offer = self._checked(evidence.offer_id, evidence.epoch)
+        if (not isinstance(evidence.catalog_id, str)
+                or evidence.catalog_id not in catalog):
+            raise LedgerError("not_in_catalog")
+        if (not isinstance(evidence.source_event_id, str)
+                or re.fullmatch(r"[A-Za-z0-9_.:-]{1,96}",
+                                evidence.source_event_id) is None):
+            raise LedgerError("bad_evidence")
+        if (type(evidence.observed_at) not in (int, float)
+                or type(now) not in (int, float)
+                or not math.isfinite(evidence.observed_at)
+                or not math.isfinite(now)
+                or not 0 <= now - evidence.observed_at <= MAX_PICK_EVENT_AGE_S):
+            raise LedgerError("stale_evidence")
+
+        key = (evidence.source, evidence.source_event_id)
+        known = self._verified_external_events.get(key)
+        if known is not None:
+            if (known == (offer.offer_id, offer.epoch, evidence.catalog_id)
+                    and offer.state == "confirmed"
+                    and offer.pick_source == "verified_external"
+                    and offer.picked_id == evidence.catalog_id):
+                return offer, False
+            raise LedgerError("duplicate_event")
+        if offer.state not in ("due", "visible", "awaiting_confirm"):
+            raise LedgerError("offer_closed")
+
+        # The provider, not guessed OCR slots, proves the chosen identity.
+        offer.picked_id = evidence.catalog_id
+        offer.pick_source = "verified_external"
+        offer.candidate_id = None
+        offer.candidate_source = None
+        offer.state = "confirmed"
+        self._verified_external_events[key] = (
+            offer.offer_id, offer.epoch, evidence.catalog_id,
+        )
+        return offer, True
 
     def confirm_slot(self, slot: str) -> Offer:
         self._slot(slot)

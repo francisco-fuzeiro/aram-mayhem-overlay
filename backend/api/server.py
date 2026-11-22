@@ -26,6 +26,7 @@ from backend.collectors.screen_ocr import (
 )
 from backend.collectors.offer_lifecycle import OfferLifecycle
 from backend.workflow.offer_ledger import LedgerError, OfferLedger, SLOTS
+from backend.workflow.picked_augment import PickedAugmentEvidence
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
 from backend import preferences
@@ -826,8 +827,10 @@ def _confirmed_anvil_ids(state: GameState) -> list[str]:
     ]
 
 
-def _sync_confirmed_augments(state: GameState, confirmed_offer) -> None:
-    """Update build inputs only after an explicit ledger confirmation.
+def _sync_confirmed_augments(
+    state: GameState, confirmed_offer, *, method: str = "manual",
+) -> None:
+    """Update build inputs only after a separately verified confirmation.
 
     Confirmation of a pending old offer must never close, clear, advance
     or otherwise modify the latest offer. State lock is held by caller.
@@ -843,8 +846,11 @@ def _sync_confirmed_augments(state: GameState, confirmed_offer) -> None:
     state.ocr_last_detected.clear()
     state.ocr_slot_choices = None
     if state.scan_window_open:
-        event_log.emit("ocr_window", state="closed", reason="manual_choice",
-                       level=state.scan_window_level)
+        event_log.emit(
+            "ocr_window", state="closed",
+            reason="confirmed" if method == "automatic" else "manual_choice",
+            level=state.scan_window_level,
+        )
     state.scan_window_open = False
     state.offer_lifecycle.close()
     state.offer_epoch += 1
@@ -857,7 +863,28 @@ def _sync_confirmed_augments(state: GameState, confirmed_offer) -> None:
     screen_watcher.reset()
     kind = ("anvil" if confirmed_offer.picked_id in state.chosen_stat_anvils
             else "augment")
-    event_log.emit("augment_confirmation", method="manual", kind=kind)
+    event_log.emit("augment_confirmation", method=method, kind=kind)
+
+
+def _apply_approved_pick_evidence(
+    state: GameState, evidence: PickedAugmentEvidence, *,
+    catalog: set[str], approved_sources: frozenset[str] = frozenset(),
+    now: float,
+) -> bool:
+    """Apply a separately authenticated pick under the existing state lock.
+
+    No production event adapter calls this yet. An app-approved in-process
+    provider must prove the actual source/match/offer before invoking it;
+    there is deliberately NO HTTP/WS endpoint accepting this event.
+    Existing poll ticks read confirmed IDs for dynamic build/synergy inputs.
+    """
+    confirmed, applied = state.offer_ledger.confirm_verified_external(
+        evidence, current_match_id=state.match_id,
+        catalog=catalog, approved_sources=approved_sources, now=now,
+    )
+    if applied:
+        _sync_confirmed_augments(state, confirmed, method="automatic")
+    return applied
 
 
 @app.post("/api/offers/identify")
