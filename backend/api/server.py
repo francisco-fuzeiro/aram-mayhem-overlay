@@ -281,6 +281,16 @@ class GameState:
         three identities (including permutations) and incomplete transitions.
         Distinct titles still need native offer-boundary validation.
         """
+        # A level threshold is eligibility, never proof that an earlier
+        # augment selection ended. A late reroll may change *all* three
+        # visible titles, so an identity difference alone cannot open the
+        # next offer. Until an approved boundary/auto-pick provider exists,
+        # only resolved earlier offers authorize this later generation.
+        if len(self.offer_ledger.offers) > 1 and any(
+            offer.state not in ("confirmed", "reconciled")
+            for offer in self.offer_ledger.offers[:-1]
+        ):
+            return False
         previous = self._prior_due_triple
         if previous is None:
             return True
