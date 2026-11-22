@@ -44,6 +44,12 @@ def run(source: Path):
     for rec in data["summaries"]:
         t=rec["timing_ms"]
         out.append(f"| {rec['engine']} | {rec['scale']:.2f} | {rec['format']} | {rec['correct_titles']} | {rec['wrong_nonnull']} | {rec['correct_negative_rejections']} | {rec['false_positives']} | {rec['false_rejections']} | {rec['raw_exact']} | {t['mean_ms']:.2f} | {t['p95_ms']:.2f} |")
+    out+=["","## Installed Python distribution sizes (isolated Linux executor)","",
+          "| Distribution | Installed files MiB | Pinned version |",
+          "|---|---:|---|"]
+    for pkg,byte_count in sorted(m.get("installed_distribution_bytes",{}).items()):
+        out.append(f"| {pkg} | {byte_count / 1048576:.2f} | {m['dependencies'][pkg]} |")
+    out+=["","These distribution sizes include vendor code/models and possible shared dependencies; they are **not** incremental packaged executable sizes or Windows installation measurements.",""]
     out+=["","## Position and two-line comparisons (original only)","",
           "| Engine | Slot | Titles correct / titles | Negatives rejected / negatives | Wrong IDs |",
           "|---|---|---:|---:|---:|"]
