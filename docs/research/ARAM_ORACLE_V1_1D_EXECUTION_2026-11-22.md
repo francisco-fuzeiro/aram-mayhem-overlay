@@ -152,3 +152,33 @@ difficult titles/negatives/rerolls with zero wrong non-null identities
 and zero negative false positives; actual user's Windows/League/OP.GG
 performance and UX evidence; N1 native acceptance; Riot policy review;
 and a separately authorized V1.2. Never merge automatically.
+
+## 5. Windows PowerShell 5.1 local-launch regression (reported 2026-11-22)
+
+A user directly invoked `Start-OCRLab.ps1` from the correct repository
+path on their own Windows PowerShell 5.1, with private data under D:. The
+launcher failed before any OCR benchmark or native resource measurement.
+No Windows-device timings or correctness results were produced.
+
+Two research-only portability issues were corrected on the V1.1d child:
+- The inherited `Run-OCRBenchmark.ps1` contained UTF-8 non-ASCII em dashes
+  in quoted host output. Windows PowerShell 5.1 may decode BOM-less UTF-8
+  as the legacy ANSI code page and confuse a decoded smart quote with a
+  string delimiter. Those two display strings were changed to ASCII.
+- The V1.1d launcher passed `"-OutputRoot", "<path>", "-Offline"`
+  as a splatted **array** to another PowerShell script. This is not a
+  correct substitute for named-parameter hashtable splatting. The Windows
+  PowerShell 5.1 CI probe verified the script declares its named parameters
+  but reproduced `A positional parameter cannot be found that accepts
+  argument '-Offline'` on the nested call. The launcher now passes a
+  **hashtable** with `OutputRoot`, and optional `Offline` and
+  `TesseractExe` keys.
+
+CI regression test: Windows PowerShell **5.1** must start the real nested
+benchmark in `-Offline` mode against a deliberately empty private cache,
+reach the expected `Reference not cached` fail-closed message, and exit
+nonzero without any network/model download. This is a narrow launcher
+smoke, **not** a user benchmark or a replacement for the pinned full-model
+Actions evidence. Verify final exact-head CI before claiming GREEN.
+The user must explicitly update the existing detached checkout via a Git
+fetch/switch; no new clone or worktree is needed for this compatibility fix.
