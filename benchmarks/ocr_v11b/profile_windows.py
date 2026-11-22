@@ -88,7 +88,7 @@ def worker(args):
             raw,match,pre,inf,m=run_ocr(engine,img,strict_match_title,catalog)
         elapsed=1000*(time.perf_counter()-t)
         # Never return raw OCR or user data in resource report.
-        return (match[1] if match else None,elapsed,pre,inf,m)
+        return (match[0] if match else None,elapsed,pre,inf,m)
 
     with Image.open(base/cases[0]["file"]) as im:
         first=im.convert("RGB")
@@ -98,7 +98,12 @@ def worker(args):
     for c in cases:
         with Image.open(base/c["file"]) as im:
             actual,ms,pre,inf,m=run(im.convert("RGB"))
-        status=classify_evidence(c["expected"],actual,c["category"],
+        expected_match=(strict_match_title(c["expected"],catalog)
+                        if c["expected"] else None)
+        expected_id=expected_match[0] if expected_match else None
+        if c["expected"] and expected_id is None:
+            raise ValueError("frozen catalog ground truth has no canonical ID")
+        status=classify_evidence(expected_id,actual,c["category"],
                                   c["slot"] or "centre")["status"]
         rows.append({"category":c["category"],"slot":c["slot"],"status":status})
         per_crop.append(ms)
