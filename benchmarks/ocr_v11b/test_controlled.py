@@ -5,10 +5,11 @@ from PIL import Image
 from benchmarks.ocr_v11b.controlled import CONFIGS,prepare_input
 
 def test_variants_are_only_pinned_v4_v5_and_color_resize_changes():
-    assert len(CONFIGS)==8
-    assert set(version for version,_,_ in CONFIGS.values())=={"v4","v5"}
-    assert all(c in ("rgb","bgr") and r in ("pil","cv2")
-               for _,c,r in CONFIGS.values())
+    assert len(CONFIGS)==11
+    assert set(v[0] for v in CONFIGS.values())=={"v4","v5"}
+    assert all(v[1] in ("rgb","bgr") and v[2] in ("pil","cv2")
+               and v[3] in ("round","ceil") and isinstance(v[4],bool)
+               for v in CONFIGS.values())
 
 def test_rgb_bgr_have_identical_geometry_but_different_channels():
     source=Image.fromarray(np.array([[[255,0,0],[0,255,0]]],dtype=np.uint8),"RGB")
@@ -34,3 +35,11 @@ def test_unapproved_preprocessing_configuration_rejected(color,resize):
     img=Image.new("RGB",(3,3))
     with pytest.raises(ValueError,match="variant"):
         prepare_input(img,height=48,width=320,color=color,resize=resize)
+
+def test_rapidocr_ceil_resize_differs_from_round_on_noninteger_aspect():
+    img=Image.new("RGB",(5,7),(245,80,20))
+    rounded=prepare_input(img,height=48,width=448,color="bgr",resize="cv2",rounding="round")
+    ceiling=prepare_input(img,height=48,width=448,color="bgr",resize="cv2",rounding="ceil")
+    assert rounded.shape==ceiling.shape
+    assert np.count_nonzero(rounded!=ceiling)>0
+    assert CONFIGS["v4_bgr_cv2_ceil_dynamic"][4] is True
