@@ -1,5 +1,6 @@
 import asyncio
 import json
+from itertools import count
 import sys
 import time
 from types import SimpleNamespace
@@ -37,6 +38,10 @@ from backend.workflow.f0_trace import (
 )
 
 static_data = StaticData()
+
+# Allocated before each LCU request, not after network return. A delayed old
+# response therefore cannot appear fresher than a newer request.
+_champ_select_revisions = count(1)
 
 
 # -- Thread-safe game state --
@@ -513,6 +518,7 @@ def get_static_names():
 
 def _read_champ_select_payload() -> dict | None:
     """Synchronous, read-only LCU access; poller runs this in a worker thread."""
+    revision = next(_champ_select_revisions)
     snapshot = read_champ_select()
     if snapshot is None:
         emit_f0_trace("champion", "local_cell", "unknown",
@@ -548,6 +554,7 @@ def _read_champ_select_payload() -> dict | None:
             and not any(row.get("current") for row in result.get("candidates", []))):
         emit_f0_trace("champion", "alias", "rejected",
                       "champion_unmapped", source="lcu")
+    result["revision"] = revision
     return result
 
 
@@ -570,7 +577,8 @@ async def import_personal_history():
 def champ_select_status():
     """Local debug endpoint; no account IDs or client secrets are exposed."""
     payload = _read_champ_select_payload()
-    return payload if payload else {"type": "champ_select_unavailable"}
+    return payload if payload else {"type": "champ_select_unavailable",
+                                    "revision": next(_champ_select_revisions)}
 
 
 @app.get("/api/ocr/status")
@@ -1956,6 +1964,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         await deps.broadcast(_status_message(state, "champ_select"))
                     await deps.broadcast(json.dumps(draft or {
                         "type": "champ_select", "candidates": [],
+                        "current_status": "unresolved",
+                        "current_champion_id": None,
+                        "revision": next(_champ_select_revisions),
                     }))
                     return
 
