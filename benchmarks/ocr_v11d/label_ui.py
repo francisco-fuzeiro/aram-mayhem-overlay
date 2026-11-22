@@ -49,6 +49,7 @@ class Labeler:
                 self.frozen_pixel_hashes.add(_pixel_digest(old))
         self.image = None
         self.preview = None
+        self.preview_size = None
         self.scale = 1.0
         self.start = None
         self.selection_rectangle = None
@@ -102,6 +103,7 @@ class Labeler:
         self.canvas = tk.Canvas(preview_area, bg="#1a1d24", highlightthickness=1,
                                 highlightbackground="#50545c", width=820, height=510)
         self.canvas.pack(fill="both", expand=True, pady=10)
+        self.canvas.bind("<Configure>", lambda _e: self.redraw())
         self.canvas.bind("<ButtonPress-1>", self.press)
         self.canvas.bind("<B1-Motion>", self.drag)
         self.canvas.bind("<ButtonRelease-1>", self.release)
@@ -187,6 +189,8 @@ class Labeler:
                 self.image = original.convert("RGB")
             self.selections.clear()
             self.box = None
+            self.preview = None
+            self.preview_size = None
             self.redraw()
             self.status.set(f"Imported {self.image.width}x{self.image.height}; "
                             "drag a title crop, select slot and exact name.")
@@ -196,11 +200,16 @@ class Labeler:
     def redraw(self):
         if self.image is None:
             return
-        scale = min(1.0, 900 / self.image.width, 530 / self.image.height)
+        usable_width = max(100, self.canvas.winfo_width() - 8)
+        usable_height = max(100, self.canvas.winfo_height() - 8)
+        scale = min(1.0, usable_width / self.image.width,
+                    usable_height / self.image.height)
         self.scale = scale
         width = max(1, round(self.image.width * scale))
         height = max(1, round(self.image.height * scale))
-        self.preview = ImageTk.PhotoImage(self.image.resize((width, height)))
+        if self.preview is None or self.preview_size != (width, height):
+            self.preview = ImageTk.PhotoImage(self.image.resize((width, height)))
+            self.preview_size = (width, height)
         self.canvas.delete("all")
         self.canvas.config(scrollregion=(0, 0, width, height))
         self.canvas.create_image(0, 0, image=self.preview, anchor="nw")
