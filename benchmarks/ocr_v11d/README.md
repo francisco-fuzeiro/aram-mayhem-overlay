@@ -65,8 +65,10 @@ change or elevation is required by the script.
    verified, no private player names/chat/account identifiers are present,
    and the entire pseudonymous session has been assigned *either*
    development *or* holdout **before viewing predictions**. Without this
-   confirmation nothing is saved. The UI checks existing duplicates, exact
-   reference-byte reuse, decoded pixels, slot/frame and session leakage.
+   confirmation nothing is saved. The UI checks existing duplicates, original reference bytes/pixels,
+   slot/frame and session leakage. Each frame carries its full source
+   screenshot pixel fingerprint: different screenshots cannot be joined
+   under one frame ID, even if a user accidentally reuses that ID.
 5. **Prepare private manifests** delegates to the existing V1.1c manifest
    producer. This verifies SHA, provenance, consent and duplicates and seals
    the holdout. Preparing manifests does **not** execute OCR. Then press
