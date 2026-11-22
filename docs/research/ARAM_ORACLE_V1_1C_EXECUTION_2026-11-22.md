@@ -237,3 +237,59 @@ the full first-run and cached-offline paths as a regression gate.
 
 No model binaries, private screenshots, production dependencies,
 matching threshold, WGC, game data or League actions were changed.
+
+## 9. Full V1.1c five-engine CI completion — code HEAD 8fcf46ef (2026-11-22)
+
+The pre-documentation code HEAD
+8fcf46efb115de7ddfe1c463df5154528ff351f7 was verified with
+**all four jobs SUCCESS on both the push and pull-request workflows**:
+- https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982432338
+- https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982437178
+
+Both Linux and Windows pure safety/label/holdout tests passed.
+The full Linux and Windows pinned real-model inference and isolated
+resource profiling passed. Windows additionally executed the new
+one-command opt-in PowerShell benchmark twice (fresh cached-asset
+setup, then -Offline), both PASS without opening League. The
+previous optional-charset failure is confirmed corrected. An extra
+Windows Actions gate verified **exactly five engine profiles** and
+stored aggregate only (not personal images) in:
+https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44982432338/artifacts/14737994678
+
+### NEW V1.1c disposable Windows 2022 Actions measurements
+
+The following are **measured in the second cached-offline V1.1c
+Windows Actions run**, not inferred from the V1.1b table. Each engine
+has its own Python subprocess; times in milliseconds, sampled process
+tree RSS in MiB and CPU time in seconds. The old 26 frozen original
+images and repeated three-crop batches are still NOT independent
+live game evidence.
+
+| Recognizer | Crop mean | Crop p95 | Three crops mean | Cold ready | Sampled CPU s | Peak sampled RSS MiB |
+|---|---:|---:|---:|---:|---:|---:|
+| Tesseract | 175.640 | 282.918 | 376.391 | 293.483 | 8.984 | 67.89 |
+| PP-OCRv4 direct fixed | 67.290 | 99.468 | 294.151 | 488.405 | 4.938 | 84.00 |
+| PP-OCRv4 direct adaptive | 84.195 | 175.058 | 339.175 | 484.691 | 5.875 | 106.87 |
+| RapidOCR v4 (same weights) | 122.525 | 340.151 | 350.034 | 559.863 | 7.125 | 96.08 |
+| English PP-OCRv5 tested | 42.039 | 61.651 | 185.029 | 458.186 | 3.375 | 78.53 |
+
+The full JSON artifact reports mean, p50, p95 and max for
+each crop/three-crop distribution, measured model session load,
+observed subprocesses and installed package/model sizes. Values vary
+between Actions VMs; compare candidates within the same profile,
+and do not mix this table with the earlier V1.1b host metrics.
+
+Relative to direct fixed v4 on this CI VM, adaptive v4 requires
+more isolated warm inference time and more sampled process-tree
+memory, while maintaining the prior 19/19 raw exact original-title
+result. The fixed v4 recognizer remains the **first offline
+candidate**, not a promoted product engine.
+
+**Live new independent holdout: BLOCKED. Personal native Windows,
+League/WGC/OP.GG/Alt+Tab/FPS tests: NOT TESTED. V1.2: NO-GO.**
+Only the full original frozen dataset (19 titles, 7 negatives) was
+benchmarked, and all new engine/dataset safety thresholds remain 90/8
+without application code modification. This report update is a
+subsequent documentation-only commit; verify its **own exact head CI**
+rather than treating the above code-head success as final-doc-head
+proof.
