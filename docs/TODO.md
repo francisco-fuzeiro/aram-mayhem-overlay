@@ -1,5 +1,21 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-22 — Additional League/Mayhem overlay ecosystem scan (research only)
+
+[Comparative source and license survey](research/LEAGUE_OVERLAY_REFERENCE_SCAN_2026-11-22.md) in [draft #91](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/91) studied Counterbuild, Hex Companion, ARAM Mayhem Tracker, HOWL, Paradox, maylo, OpenForestUI, Sylqon, Hexsight and other smaller references. Root MIT LICENSE confirmed only where fetched; unlicensed/unknown rights noted separately. No protected code, UI, data, images, models or algorithms copied; tests and in-game behavior **NOT RUN**.
+
+- [x] **ECOS-REF-01 — Repo/rights/feature discovery:** survey public sources and identify distinct original ideas, duplication and legal risks; research report only.
+- [ ] **ECOS-REF-02 — Offer types:** verify current Mayhem stat-anvil and special offer layouts from authorized patch/mode evidence; add original tests only in a separate approved F2 task.
+- [ ] **ECOS-REF-03 — F3 feasibility matrix:** enemy context, owned components, gold, valid mode/patch, shop-open evidence and boots/slot restrictions for one buy-now action.
+- [ ] **ECOS-REF-04 — F1/F2/F4 visual/full-session test harness plan:** wholly original synthetic states, locale/DPI/display, stale/unknown scenes and independent native acceptance.
+- [ ] **ECOS-REF-05 — User-safe item-set export study:** narrow opt-in write, backup, readback, rollback, never bulk overwrite existing League item sets.
+- [ ] **ECOS-REF-06 — Windows performance evidence:** independently measure p95 OCR/frame time, CPU/RAM/FPS rather than adopting upstream README benchmarks.
+- [ ] **ECOS-REF-07 — Riot and external dataset rights:** distinguish permissive *code* licenses from unlicensed stats/assets and disallow derived WR proxy by default.
+- [ ] **ECOS-REF-08 — Local postgame advice quality:** conceptually extend MA-REF-04 to compare recommendation, player action and outcome without causal overclaims.
+
+**Status:** documentation-only, no implementation, no native League evidence, no user/test acceptance; all F1.3/F2–F4, D6–D11 and policy/data gates unchanged. Stacked draft #91 on #90 on #89; preserve `main`, no merges.
+
+
 ## 2026-11-22 — Mayhem Advisor reference audit (All Rights Reserved; NO reuse)
 
 [Functional report](research/MAYHEM_ADVISOR_FUNCTIONAL_AUDIT_2026-11-22.md) and [draft PR #90](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/90) document the competitor's high-level augment ratings, style-adaptive builds, enemy threat explanations, shop item sets, post-game report, local history, optional anonymous contributions, desktop/installer and current legal/data boundaries. **Only research completed.** Upstream read-only review is not a product test or authorization.
