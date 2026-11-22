@@ -961,11 +961,13 @@ test("N1 browser startup completes and installs native controls without stale pr
 test("F0 source-to-UI replay: self current badge is independent of bench rank", () => {
     const h = harness();
     const candidate = (name, current, score) => ({
+        id: name === "Synthetic Self" ? "fixture_self" : "fixture_bench",
         name, current, score, tier: "A", role: "marksman",
         reasons: [], sample_size: 0,
     });
     h.api.handleMessage({
         type: "champ_select",
+        current_status: "confirmed", current_champion_id: "fixture_self",
         candidates: [candidate("Synthetic Bench", false, 9.1),
                      candidate("Synthetic Self", true, 5.1)],
         notice: "Synthetic source identity",
