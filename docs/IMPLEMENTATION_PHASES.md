@@ -7,8 +7,8 @@
 | F0 checkpoint | Scope | Gate status |
 | --- | --- | --- |
 | F0.1 | LCU self/bench/alias, OCR proof and L/C/R/temporal/epoch, item eligibility/context/JS pipeline | Source review recorded; user symptoms have unknown causes |
-| F0.2 | `f0_trace` enums, opt-in via `ARAM_ORACLE_F0_TRACE=1`, sanitized synthetic replay and true UI harness | Tests and code committed; verify Windows code green before acceptance |
-| F0.3 | PROVEN/SUSPECTED/BLOCKED/NOT TESTED fault tree, F1–F3 small scoped future tests, controlled custom protocol | Report committed; exact-final Windows gate pending |
+| F0.2 | `f0_trace` enums, opt-in via `ARAM_ORACLE_F0_TRACE=1`, sanitized synthetic replay and true UI harness | **PASS Windows #44980777980** on `c665f1eb` (1,963 Python/75 JS/3 syntax); native accuracy NOT TESTED |
+| F0.3 | PROVEN/SUSPECTED/BLOCKED/NOT TESTED fault tree, F1–F3 small scoped future tests, controlled custom protocol | Report committed; offline code+docs gate PASS at `c665f1eb`; checklist-only SHA CI pending |
 | Next | F1→F2→F3→F4 (not in this PR) | Not authorized until F0 final Windows gate; native N1 remains FAIL |
 
 Do not treat Linux/Windows CI synthetic scores as native Mayhem accuracy, do not promote PP-OCR or change Tesseract/90/8, WGC, stale/epochs, confirm rules, item ranking or shop UX in F0. No main merge and no second normal game capture request.

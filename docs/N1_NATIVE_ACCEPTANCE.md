@@ -9,7 +9,7 @@ Draft [#78](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/78) wa
 | LCU self/bench/alias and actual JS badge replay | SOURCE REVIEW / offline tests committed | Live self champion/swaps on user Windows **NOT TESTED** |
 | Offer capture/physical L/C/R/strict match/epoch | SOURCE REVIEW / synthetic traces committed | Client-relative bounds are now available from opt-in F0 diagnostics, but ground-truth native cards, rerolls, WGC/Vanguard and four-card **NOT TESTED** |
 | Verified item-pool/inventory/confirmed augments/build UI | SOURCE REVIEW / synthetic traces committed | Item eligibility and decision usefulness in real shop **NOT TESTED** |
-| F0 privacy | Opt-in bounded local allowlist + adversarial test committed | Exact final Windows CI must pass; no automatic screenshots |
+| F0 privacy | Opt-in bounded local allowlist + adversarial test committed | F0 offline gate [Windows #44980777980](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/44980777980) PASS at `c665f1eb` (1,963 Python, 75 JS, 3 syntax); final checklist-only SHA CI pending; no automatic screenshots |
 | N1 product state | **FAIL / NOT ACCEPTED** | Controlled custom game only after offline gate; no additional normal game requests |
 
 
