@@ -5,6 +5,23 @@ description: Continue the ARAM Oracle independent OCR V1 research safely across 
 
 # ARAM Oracle OCR Research — Continuity and Next-Phase Rule
 
+## 2026-11-22 — V1.1d Windows PowerShell 5.1 launcher hotfix
+
+User tested the new V1.1d launcher on their Windows PowerShell 5.1 in the
+existing D: repository checkout, and it failed before OCR inference.
+The isolated benchmark had two non-ASCII display em dashes incompatible with
+some BOM-less Windows PowerShell 5.1 decoders; replaced with ASCII.
+More decisively, V1.1d nested PowerShell parameters used array splatting
+instead of a named hashtable. Windows PowerShell 5.1 Actions reproduced
+`A positional parameter cannot be found that accepts argument '-Offline'`
+when the outer script invoked V1.1c. Fixed with named hashtable splatting.
+A dedicated Windows PowerShell 5.1 no-download, empty-cache nested-script
+smoke was added to CI; recheck exact final HEAD before a PASS claim.
+This user-reported failure produced **no user-PC OCR timings/results**.
+Do not clone again: update the existing Git checkout in place only when
+safe/clean, preserve the user's D: layout. No production, main, N1,
+engine, threshold or policy change.
+
 ## 2026-11-22 — V1.1d active, private native Windows lab (research only)
 
 **Current child:** `research/v1-1d-ocr-native-labeler-20261122`,
