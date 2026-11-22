@@ -92,6 +92,52 @@ async def test_poll_tick_opens_eligible_offer_and_injects_ocr_result():
 
 
 @pytest.mark.asyncio
+async def test_v12_new_due_offer_invalidates_previous_ocr_while_scan_remains_open():
+    """A new level's offer cannot inherit the prior offer's proven names.
+
+    Reproduces the source-level transition after a first offer remains open
+    (no authoritative automatic picked-augment event exists yet). Both scans
+    are synthetic; a missing new title is not evidence of a picked card.
+    """
+    old = [
+        {"slot": "left", "id": "first-left", "name": "Synthetic First Left", "confidence": 98},
+        {"slot": "centre", "id": "first-centre", "name": "Synthetic First Centre", "confidence": 98},
+        {"slot": "right", "id": "first-right", "name": "Synthetic First Right", "confidence": 98},
+    ]
+    state, deps, _events = make_harness(
+        [{"tick": 1}, {"tick": 2}],
+        [make_snapshot(level=3), make_snapshot(level=7)],
+        ocr=True,
+    )
+    deps.run_watcher_check = Mock(side_effect=[
+        ("detected", [row["id"] for row in old], old),
+        ("no_augments", [], None),
+    ])
+
+    await poll_tick(state, deps, 50.0)
+    assert state.scan_window_open
+    assert state.offer_state == "present"
+    assert state.ocr_slot_choices == {
+        "left": "first-left", "centre": "first-centre", "right": "first-right",
+    }
+    first_epoch = state.offer_epoch
+
+    await poll_tick(state, deps, 52.0)
+    assert len(state.offer_ledger.offers) == 2
+    assert state.offer_epoch > first_epoch
+    assert state.offer_ledger.offers[-1].state == "due"
+    # A next-offer due transition must invalidate all previously recognized
+    # candidates before the watcher can identify *new* cards.
+    assert state.augment_choices == []
+    assert state.ocr_slot_choices is None
+    assert state.ocr_last_detected == []
+    assert state.offer_state == "pending"
+    assert state.ocr_phase != "detected"
+    assert deps.screen_watcher.reset.call_count == 2
+    assert state.chosen_augments == []
+
+
+@pytest.mark.asyncio
 async def test_poll_tick_inactive_without_match_sends_no_game():
     state, deps, events = make_harness([None], [])
     await poll_tick(state, deps, 8.0)
