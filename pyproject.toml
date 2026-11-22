@@ -16,6 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ocr-v4 = [
+    "onnxruntime==1.20.1",
+]
 overlay = [
     "PyQt6>=6.5",
     "PyQt6-WebEngine>=6.5",

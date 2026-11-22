@@ -1,5 +1,27 @@
 # ARAM Oracle — Product and UX TODO
 
+**2026-11-22 — V1.2c CI checkpoint:** The previous final protocol SHA `a8ab76876f2e16d5aa08d714a9032905aaa79d78` has [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 JS syntax PASS; independent pinned v4 35 PASS). **PROVEN = offline CI only.** V12-N00..N10 and F1.3 native NOT TESTED; old N1 user-observed FAIL/root cause BLOCKED. Native feasibility must be checked in a supported custom Mayhem lobby, no ordinary competitive substitute. This documentation checkpoint requires its own final SHA Actions; no code change, merge, engine promotion, installer or Settings selector.
+
+
+**2026-11-22 — V1.2c native protocol PREPARED:** [controlled Windows / League protocol](plans/ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md) added on #83. Earlier docs HEAD `aa4dfcf555a10ced305346134d77d858e6289b4b` [Windows #45022549306](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022549306) SUCCESS (1,977 Python, 78 JS, 35 v4); first-attempt intermittent F1 timeout unproven. **New documentation SHA CI still pending.** No live game run; all V12-N00..N10 NOT TESTED; V12.5 and default promotion NOT accepted. Repo remains PUBLIC.
+
+
+**2026-11-22 — OCR-V12 code-head evidence:** [Windows #45022363459](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45022363459) SUCCESS on exact `b9639d9b817587d0f5945693c642206a6df17db6`: 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; separate pinned-model V1.2 **35 PASS** through product OCR slot entrypoint across all 26 retrospective originals. **The final documentation HEAD must still receive its own CI**; OCR-V12.4 remains unchecked until then. OCR-V12.5 independent/native remains NOT TESTED. PUBLIC repository intentionally retained.
+
+## 2026-11-22 — PP-OCRv4 V1.2 (user-approved; isolated integration draft #83)
+
+- [x] **OCR-V12.0 — Explicit user approval + intentional PUBLIC GitHub policy** recorded in `AGENTS.md` and issue #82; local private assets excluded from repo.
+- [x] **OCR-V12.1 — Pinned direct ONNX recognizer** behind `ARAM_ORACLE_OCR_ENGINE=ppocrv4`, with verified full SHA-256, CPU single-thread, exact CTC shape/dictionary, title-only splitting and safe Tesseract availability fallback.
+- [x] **OCR-V12.2 — Preserve physical slot and decision safety**: existing 90/8 match, L/C/R, duplicates, capture/focus, two-read, epochs/stale, OfferLedger unchanged. No automatic gameplay actions.
+- [x] **OCR-V12.3 — Explicit offline-cache provisioning and unit/integration test code**: package extra, pinned wheel/model setup, 26 original real-model contract job and safety tests created. **These checkmarks mean code committed, not tests proven green.**
+- [x] **OCR-V12.4 — Verified protocol code+docs HEAD Windows suite + real pinned-model integration**: exact `a8ab76876f2e16d5aa08d714a9032905aaa79d78`, [Actions #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 syntax; 35 pinned-v4 PASS). **Current checkpoint documentation SHA must be checked separately**; this checkbox is CI-only, not V1.2c native acceptance.
+- [x] **OCR-V12.5a — Prepare safety-gated native protocol** with preflight, case matrix, sanitized report and rollback ([V1.2c protocol](plans/ARAM_OCR_V12_NATIVE_WINDOWS_PROTOCOL.md)). Documentation only, not native PASS.
+- [ ] **OCR-V12.5b — User-operated Windows/League three-card L/C/R + individual reroll + temporal/negative/Alt+Tab acceptance.** V12-N00..N06 NOT TESTED; zero wrong accepted IDs required.
+- [ ] **OCR-V12.5c — Independent unseen sessions and OP.GG/resource baseline.** V12-N07..N09 NOT TESTED; measure CPU/RSS/FPS/first-six-seconds, holdout distinct from 26 originals.
+- [ ] **OCR-V12.5d — Native rollback and v4 default-promotion decision gate.** V12-N10 NOT TESTED; Tesseract default, no automatic promotion.
+- [ ] **OCR-V12.6 — Pre-game Settings selector and validated release/default-engine promotion.** Tesseract remains default; distribution, Riot-policy and N1 acceptance gates remain open.
+
+
 ## 2026-11-22 — Functional recovery roadmap F0 → F4 (F0 completed offline; F1 in draft #80; F2–F4 NOT implemented)
 
 **Reason:** user-operated real ARAM match on #73 reported wrong *current* champion while bench champions were identified, intermittent/apparently incorrect augment identities, and an arbitrary/unhelpful build suggestion. These are **user-observed functional FAIL**, no in-match screenshots or measurable rates; root causes are **UNPROVEN**. Native #73 autonomous desktop launch had a narrow observed PASS. **N1 product acceptance = FAIL / BLOCKED** even though Python/JS CI passed. [Recovery plan](plans/ARAM_FUNCTIONAL_RECOVERY_2026-11-22.md); planning [draft PR #76](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/76), directly on #73. No fixes are claimed by this plan.
@@ -417,3 +439,41 @@ If multiple contexts overlap, priority is **augment offer > shop > optional scor
 5. **UX-101–106**, then **UX-201–208**: compact decision UI and broad validation/polish.
 
 Do not mark implementation or in-game validation as done solely because a draft PR exists, a historical CI run passed or a mocked UI test succeeds.
+
+## 2026-11-22 — OCR V1.2c reroll safety and Mayhem score calibration
+
+- [x] **V12-RED-SYNC** — Isolate a real out-of-order OCR/ledger UI source race, write a deterministic test-only RED; commit `a1d55486` failed exactly its new JS assertion in Windows Actions #45066399248 (1,977 Python PASS, 78 other JS PASS, real PP-OCRv4 job PASS). This is not proof of the native first-reroll cause.
+- [ ] **V12-GREEN-SYNC** — Verify frontend-only fail-closed consistency guard `0b32d229` and new regression with full Windows Actions at the exact final docs+code head; no merge or native pass claim from CI.
+- [ ] **V12-N02-NATIVE** — User-observed first reroll wrongly accepted a different augment name; repeat physical L/C/R only after offline tests. One bad accepted ID is STOP; keep PP-OCRv4 experimental opt-in.
+- [ ] **SCORE-01** — Obtain per-patch augment coverage/provenance (`StaticData.augment_coverage_report()`) and distinguish valid `Not Rated — no model` from OCR verifying/stale/unmatched. Do not invent numeric scores. [Issue #84](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/84).
+- [ ] **SCORE-02** — Tests-only RED for any proven scaling-only augment incorrectly marked unmodelled; separate small GREEN after verifying mode/ID semantics and real catalog availability.
+- [ ] **SCORE-03** — Re-evaluate champion score reliability using licensed, current-patch Mayhem evidence, with confidence and per-class holdouts, not role templates alone; F1.3 self/bench mapping separate. Do not disguise augment win rates or release without Riot policy review.
+- [ ] **SCORE-04** — Extend provenance and coverage of Mayhem augment special/conditional effects with validated data and tests, keeping unknown honest. [Detailed audit](audits/MAYHEM_SCORE_DATA_AUDIT_2026-11-22.md).
+- [ ] **BUILD-POSTPONED** — Native `Berserkers next -> Unavailable after purchase` deferred per user to [issue #49](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/issues/49).
+
+## 2026-11-22 — V1.2c next-offer transient wrong identities (same draft #83)
+
+- [x] **V12-S1-NEXT-OFFER-RED:** Synthetic `poll_tick` first verified 3-card choice → new Gold-level due while prior scan remains open and no manual pick registered; assert no previous OCR candidates survive. Test-only `fbdb6b13`, [Windows RED #45069484008](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45069484008): one intentional new test FAIL, 1,977 old Python PASS, pinned real v4 PASS.
+- [ ] **V12-S1-NEXT-OFFER-GREEN:** Validate refined backend-only correction `bbd7d946` after an initial unbounded attempt `2f4bbaac` caused **2** existing regression failures; require full Python / JS / ONNX Windows Actions SUCCESS on exact *final code+docs* SHA before check-off. No OCR matcher, two-read, scores, gameplay input or overlay layout changes.
+- [ ] **V12-S1-PHYSICAL-HOLDOUT:** User-controlled custom Mayhem retest: distinct physical 3-card choices (including second Gold), zero transient wrong accepted names, no stale epoch from previous offer, reasonable response-time measurements and safe Unknown for uncertainty. This item stays OPEN even when CI is GREEN.
+- [ ] **V12-S1-REPEAT-OLD:** Separately investigate whether *fresh C3 read of still-visible previous physical titles* can be mistaken for the next due offer after watcher reset; require independent evidence or fail-closed ambiguity, tests-only RED if reproducible. Do not claim new due reset alone proves native identity validity.
+- [ ] **P0-AUTO-CHOSEN #86:** Identify picked augment automatically from an authorized, verified signal and recompute future augments/build; manual Alt+3 only recovery. Must never infer chosen ID from card disappearance alone.
+- [ ] **SCORE-COVERAGE #84 / BUILD #49 / FOUR-CARD #85:** Remain separate; no synthetic score inflation or default OCR promotion.
+
+## 2026-11-22 — V12-S1 next-offer old-triple replay safety
+
+- [x] **V12-S1-SAME-TRIPLE-RED:** Synthetic fresh C3 re-read of previous three cards after a second due level, despite previous temporal reset, wrongly accepted as the new offer. [Windows RED #45070758546](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45070758546): exactly 1 new expected FAIL; 1,978 old Python PASS/27 SKIP, pinned real v4 job PASS.
+- [x] **V12-S1-SAME-TRIPLE-GREEN (CODE):** Bounded guard `38b91d704cbe47045c8e576c314e6d311b548556` passed [exact code Windows #45071263478](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45071263478): **1,980 Python PASS / 27 SKIP, 79 JS PASS / 0 FAIL, 3 syntax PASS, pinned real PP-OCRv4 job PASS**. Covers normal first offers, replayed and reordered old triples, manual scan, partial unknown, distinct triple and match reset. Earlier unbounded candidate `0c0823cc` failed pre-existing tests and was corrected.
+- [ ] **V12-S1-EXACT-DOCS-CI:** Verify Windows Actions again at the **latest complete code+docs PR #83 SHA**; code-only GREEN is not sufficient for the documentation checkpoint. Native V12-S1 remains open.
+- [ ] **V12-S1-VISUAL-BOUNDARY:** An OCR-verified *different* triple might still be a late reroll of an old offer after level eligibility. Require independently verifiable offer-boundary evidence or explicit abstention to eliminate this residual, using privacy-safe local-only visual test fixtures and tests-first RED. Do not silently mark C3 identity difference as proof of a new League offer.
+- [ ] **V12-S1-NATIVE:** Controlled second Gold offer + fresh physical 3-card vs old triple/individual reroll, zero false accepted IDs and response within target. Historical native fail stays OPEN even if CI GREEN. Four-card abstention #85, auto chosen identity #86, scores #84 and boots build #49 remain separate.
+
+## 2026-11-22 — V12-S1 distinct late-reroll boundary safety
+
+- [x] **V12-S1-DISTINCT-RED:** Tests-only first unresolved offer + new due level + fully different C3 titles erroneously marked as new offer: `ad50e6c8`, [Windows #45073811287](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45073811287) exactly 1 new expected FAIL and 1,980 previous Python PASS / 27 SKIP.
+- [x] **V12-S1-DISTINCT-CODE-GREEN:** Fail-closed later-offer guard while any older offer unresolved, including manual scan, then resume once prior offer explicitly confirmed. `636fbbd7` + test `39cc1edd`, [Windows #45074067687](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45074067687) 1,981 Python PASS / 27 SKIP, 79 JS PASS, 3 syntax PASS, pinned PP-OCRv4 model PASS. Checkmark is **code-only**, not native or final documentation.
+- [ ] **V12-S1-DISTINCT-EXACT-FINAL-HEAD:** Verify final code+docs SHA and BOTH Windows jobs after all documentation edits; no extrapolation from previous SHA.
+- [ ] **V12-S1-VISUAL-BOUNDARY:** Validate independent present/gone/occluded offer marker using privacy-safe LOCAL-only genuine varied frames, with calibrated window key and three separate negative reads; shadow title-crop teal cue does not qualify. Synthetic tests-first RED and only permitted observer/wiring after calibration.
+- [ ] **P0-86-AUTOPICK-UNBLOCK:** Implement automatic actual chosen augment identity from permitted verified provider bound to match+offer+epoch, and update build/next recommendations with no Alt+3 normal flow. **Current fail-closed gate may block later choices until this works.** Evaluate compliant full Overwolf Electron vs standalone independent visual evidence. No unauthorized bridge / hidden state / automatic League actions.
+- [ ] **V12-S1-NATIVE:** Controlled first and second Gold/Prismatic choices and rerolls, no wrong accepted IDs, no indefinite incorrect `present`, honest pending status; current user native Gold FAIL stays OPEN.
+- [ ] **SEPARATE:** #84 `Not Rated` and Mayhem score quality, #49 boots next-item `Unavailable`, #85 four-card geometry remain separately tracked. Detailed [boundary protocol](plans/ARAM_OCR_V12_BOUNDARY_EVIDENCE.md).
