@@ -1632,27 +1632,30 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     emit_f0_trace("augment", "offer", "unknown",
                                   "new_offer_due", source="lcda",
                                   epoch=state.offer_epoch)
-                    # A newly due offer must never inherit title identities
-                    # or scoring candidates from the preceding offer, even if
-                    # its scan window is still open awaiting manual confirmation.
-                    # Keep the old unconfirmed OfferLedger entry intact.
-                    state.augment_choices.clear()
-                    state.ocr_last_detected.clear()
-                    state.ocr_slot_choices = None
-                    state.ocr_unreadable_ticks = 0
-                    state.ocr_stale = False
-                    state.ocr_stale_since_epoch = None
-                    state.set_ocr_phase(
-                        "verifying" if state.ocr_enabled else "disabled",
-                    )
-                    state.offer_lifecycle.open()
-                    if state.scan_window_open:
-                        # No new scan-open edge below: reset the old C3 hashes
-                        # now so the new epoch must gather fresh physical reads.
-                        state.scan_window_level = current_level
-                        deps.screen_watcher.reset()
-                    # When the scan was closed, the normal open edge below
-                    # performs the same reset exactly once.
+                    # A later offer must not inherit OCR candidates from its
+                    # predecessor. Do not change first-offer recovery semantics.
+                    if prior_count:
+                        # A newly due offer must never inherit title identities
+                        # or scoring candidates from the preceding offer, even if
+                        # its scan window is still open awaiting manual confirmation.
+                        # Keep the old unconfirmed OfferLedger entry intact.
+                        state.augment_choices.clear()
+                        state.ocr_last_detected.clear()
+                        state.ocr_slot_choices = None
+                        state.ocr_unreadable_ticks = 0
+                        state.ocr_stale = False
+                        state.ocr_stale_since_epoch = None
+                        state.set_ocr_phase(
+                            "verifying" if state.ocr_enabled else "disabled",
+                        )
+                        state.offer_lifecycle.open()
+                        if state.scan_window_open:
+                            # No new scan-open edge below: reset the old C3 hashes
+                            # now so the new epoch must gather fresh physical reads.
+                            state.scan_window_level = current_level
+                            deps.screen_watcher.reset()
+                        # When the scan was closed, the normal open edge below
+                        # performs the same reset exactly once.
                 # Open when a new pick level is reached OR on respawn.
                 expected = expected_augments_for_level(current_level)
                 have = len(_confirmed_augment_ids(state))
