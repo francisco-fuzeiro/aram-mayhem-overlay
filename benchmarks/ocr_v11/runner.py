@@ -270,6 +270,23 @@ def tesseract_ocr(img,matcher,catalog,reference_mod):
             return raw,match,p_ms,infer_ms,match_ms
     return raw,None,p_ms,infer_ms,match_ms
 
+def historical_match(text,catalog):
+    """Exact historical v3-script fuzzy policy (removes ALL separators)."""
+    import unicodedata
+    from rapidfuzz import fuzz
+    def n(s):
+        value=unicodedata.normalize("NFKD",s).encode("ascii","ignore").decode().lower()
+        return re.sub(r"[^a-z0-9]","",value)
+    scores=sorted(((fuzz.ratio(n(text),n(title)),aid) for aid,title in catalog.items()),reverse=True)
+    (best,aid),(second,_) = scores[:2]
+    if best>=90 and best-second>=8:
+        return aid,catalog[aid],int(best)
+    return None
+
+def historical_normalize(s):
+    import unicodedata
+    return re.sub(r"[^a-z0-9]","",unicodedata.normalize("NFKD",s).encode("ascii","ignore").decode().lower())
+
 def diagnostics(raw,matcher,catalog,normalizer):
     from rapidfuzz import fuzz
     normalized=normalizer(raw)
@@ -341,8 +358,10 @@ def main():
     v4=DirectONNX(mod/"ppocrv4.onnx","v4",mod/"ppocr_keys_v1.txt")
     v5=DirectONNX(mod/"ppocrv5_en.onnx","v5")
     rapid=RapidV4(mod/"ppocrv4.onnx",mod/"ppocr_keys_v1.txt")
-    engine_names=("tesseract","ppocrv4_split","ppocrv4_full","ppocrv5_en_split","rapidocr_v4_split")
+    engine_names=("tesseract","ppocrv4_split","ppocrv4_full","ppocrv4_historical_split",
+                  "ppocrv4_historical_full","ppocrv5_en_split","rapidocr_v4_split")
     engines={"ppocrv4_split":(v4,"split"),"ppocrv4_full":(v4,"full"),
+             "ppocrv4_historical_split":(v4,"split"),"ppocrv4_historical_full":(v4,"full"),
              "ppocrv5_en_split":(v5,"split"),"rapidocr_v4_split":(rapid,"split")}
     # Warm-up does not contribute to per-crop latency distribution.
     warm_image=Image.open(ref/"tests"/"fixtures"/"ocr_titles"/cases[0]["file"]).convert("RGB")
@@ -367,10 +386,11 @@ def main():
                             raise AssertionError("Tesseract path drift: "+c["file"])
                 else:
                     ocr,mode=engines[engine_name]
-                    raw,match,pre,infer,match_ms=run_ocr(ocr,transformed,strict_match_title,catalog,mode)
+                    comparator=historical_match if "historical" in engine_name else strict_match_title
+                    raw,match,pre,infer,match_ms=run_ocr(ocr,transformed,comparator,catalog,mode)
                 actual=match[1] if match else None
                 status=classify(c["expected"],actual,c["category"])
-                diag=diagnostics(raw,strict_match_title,catalog,_normalize)
+                diag=diagnostics(raw,strict_match_title,catalog,historical_normalize if "historical" in engine_name else _normalize)
                 row={"file":c["file"],"sha256":c["sha256"],"source_dimensions":c["dimensions"],
                      "engine":engine_name,"scale":scale,"format":fmt,"derived":not original,
                      "category":c["category"],"slot":c["slot"],"rarity":c["rarity"],
@@ -407,7 +427,8 @@ def main():
             for im in three:
                 if name=="tesseract":tesseract_ocr(im,strict_match_title,catalog,screen_ocr)
                 else:
-                    obj,mode=engines[name];run_ocr(obj,im,strict_match_title,catalog,mode)
+                    obj,mode=engines[name]
+                    run_ocr(obj,im,historical_match if "historical" in name else strict_match_title,catalog,mode)
             values.append(1000*(time.perf_counter()-t))
         batch[name]=stats(values)
     sizes={"v4_bytes":(mod/"ppocrv4.onnx").stat().st_size,"v5_en_bytes":(mod/"ppocrv5_en.onnx").stat().st_size}
