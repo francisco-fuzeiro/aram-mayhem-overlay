@@ -66,6 +66,8 @@ jobs:
         run: python -m benchmarks.ocr_v11b.run_inference --reference reference --models .benchmark_assets --out v11b_evidence
       - name: Run isolated-process resource, cold-start and three-crop benchmark
         run: python -m benchmarks.ocr_v11b.profile_windows --reference reference --models .benchmark_assets --out v11b_evidence/linux_process_profile.json
+      - name: Print sanitized Linux research metrics for reproducible review
+        run: python -m benchmarks.ocr_v11b.summarize --input v11b_evidence
       - name: Store sanitized evidence (never images or binaries)
         if: always()
         uses: actions/upload-artifact@v4
@@ -117,6 +119,8 @@ jobs:
         run: python -m benchmarks.ocr_v11b.run_inference --reference reference --models .benchmark_assets --out v11b_evidence_windows
       - name: Measure disposable Windows Actions isolated-process CPU RSS and cold start
         run: python -m benchmarks.ocr_v11b.profile_windows --reference reference --models .benchmark_assets --out v11b_evidence_windows/windows_actions_profile.json
+      - name: Print sanitized disposable Windows Actions research metrics
+        run: python -m benchmarks.ocr_v11b.summarize --input v11b_evidence_windows
       - name: Upload disposable VM metrics only (not user's machine)
         if: always()
         uses: actions/upload-artifact@v4
