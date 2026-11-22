@@ -21,6 +21,7 @@ from benchmarks.ocr_v11.runner import (
 from benchmarks.ocr_v11b.validation import (
     classify_evidence,decision_counts,validate_manifest,
 )
+from benchmarks.ocr_v11c.grouping import group_offers
 
 def main():
     ap=argparse.ArgumentParser(description="Offline PRIVATE holdout: never upload outputs")
@@ -61,7 +62,6 @@ def main():
              "rapidocr_v4_split":rapid,"ppocrv5_en_split":v5}
     from PIL import Image
     results=defaultdict(list)
-    by_offer=defaultdict(lambda:defaultdict(dict))
     for idx,item in enumerate(samples):
         p=(root/item["file"]).resolve()
         with Image.open(p) as image:
@@ -86,6 +86,12 @@ def main():
                                        item["category"],item["slot"])
             evidence.update({"sample_index":idx,"expected_title":item["expected"],
                              "actual_title":actual,
+                             "source_session":item["source_session"],
+                             "source_frame":item.get("source_frame"),
+                             "offer_id":item.get("offer_id"),
+                             "raw_ocr":raw,
+                             "normalized_ocr":_normalize(raw),
+                             "strict_match_score":match[2] if match else None,
                              "two_line":bool(item.get("two_line")),
                              "rare_group":item.get("rarity"),
                              "raw_exact":bool(item["expected"] and
@@ -97,14 +103,9 @@ def main():
                              "inference_ms":round(infer,3),
                              "matching_ms":round(matching,3)})
             results[name].append(evidence)
-            # A full offer is counted only for 3 distinct physically labeled slots.
-            if item.get("offer_id") and item.get("source_session"):
-                key=(item["source_session"],str(item["offer_id"]))
-                by_offer[name][key][item["slot"]]=evidence["status"]
     summary={}
     for name,rows in results.items():
-        complete=[states for states in by_offer[name].values()
-                  if set(states)=={"left","centre","right"}]
+        complete=group_offers(rows)
         summary[name]={
             "counts":decision_counts(rows),
             "raw_exact":sum(r["raw_exact"] for r in rows),
@@ -113,8 +114,21 @@ def main():
             "per_slot":{slot:decision_counts([r for r in rows if r["slot"]==slot])
                         for slot in ("left","centre","right")},
             "two_line":decision_counts([r for r in rows if r["two_line"]]),
-            "full_three_slot_offers":len(complete),
-            "all_three_correct":sum(all(s=="correct" for s in x.values()) for x in complete),
+            "full_three_slot_offers":complete["complete"],
+            "all_three_correct":complete["all_correct"],
+            "incomplete_offer_frames":complete["incomplete"],
+            "per_rarity":{rarity:decision_counts([r for r in rows if r["rare_group"]==rarity])
+                          for rarity in sorted({r["rare_group"] for r in rows
+                                                if r["rare_group"] is not None})},
+            "case_audit_LOCAL_ONLY":[{
+                "sample_index":r["sample_index"], "slot":r["slot"],
+                "category":r["category"], "rarity":r["rare_group"],
+                "expected_title":r["expected_title"], "expected_id":r["expected"],
+                "raw_ocr":r["raw_ocr"], "normalized_ocr":r["normalized_ocr"],
+                "predicted_title":r["actual_title"], "predicted_id":r["actual"],
+                "strict_match_score":r["strict_match_score"],
+                "status":r["status"], "total_ms":r["total_ms"],
+            } for r in rows],
             # Local-only sample indexes preserve auditability without file paths.
             "errors":[{"sample_index":r["sample_index"],"status":r["status"],
                        "slot":r["slot"],"expected":r["expected"],"actual":r["actual"]}
@@ -122,6 +136,7 @@ def main():
         }
     report={
       "visibility":"LOCAL_ONLY_DO_NOT_UPLOAD_WITHOUT_REVIEW",
+      "note":"This file contains user-labelled titles and raw OCR; never upload automatically.",
       "dataset":"user-approved SHA256-verified unseen independent holdout",
       "independent_samples":len(samples),"original_samples":0,"derived_samples":0,
       "synthetic_samples":0,
