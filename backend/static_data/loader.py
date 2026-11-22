@@ -339,17 +339,46 @@ class StaticData:
         return list(self._augments.values())
 
     def augment_coverage_report(self) -> dict:
-        """Observed catalog coverage only; no claims about Mayhem completeness."""
+        """Observed patch catalog coverage by rarity and model source.
+
+        This counts model availability, NOT Mayhem outcome calibration or score
+        accuracy. Scaling-only counts use the very same predicate as ranking.
+        """
+        from backend.engine.scoring import augment_has_model
+
         origins = ("override", "name_hint", "description_keywords", "none")
         by_provenance = {origin: 0 for origin in origins}
+        by_rarity = {
+            key: {"total": 0, "modelled": 0, "unmodelled": 0,
+                  "scaling_only": 0}
+            for key in ("silver", "gold", "prismatic")
+        }
+        tier_names = {
+            AugmentTier.SILVER: "silver",
+            AugmentTier.GOLD: "gold",
+            AugmentTier.PRISMATIC: "prismatic",
+        }
+        modelled = scaling_only = 0
         for augment in self._augments.values():
             by_provenance[augment.provenance] += 1
+            has_model = augment_has_model(augment)
+            is_scaling_only = has_model and not augment.modelled
+            if has_model:
+                modelled += 1
+            if is_scaling_only:
+                scaling_only += 1
+            rarity = tier_names.get(augment.tier)
+            if rarity is not None:
+                row = by_rarity[rarity]
+                row["total"] += 1
+                row["modelled" if has_model else "unmodelled"] += 1
+                if is_scaling_only:
+                    row["scaling_only"] += 1
         total = len(self._augments)
-        modelled = sum(augment.modelled for augment in self._augments.values())
         return {
             "total": total, "modelled": modelled,
-            "unmodelled": total - modelled,
-            "by_provenance": by_provenance,
+            "unmodelled": total - modelled, "scaling_only": scaling_only,
+            "by_provenance": by_provenance, "by_rarity": by_rarity,
         }
 
     def get_stat_anvil(self, anvil_id: str) -> AugmentData | None:

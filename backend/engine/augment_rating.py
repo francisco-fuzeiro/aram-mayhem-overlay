@@ -7,7 +7,7 @@ rating is NOT evidence of approval for real-time augment recommendations.
 import math
 
 from backend.engine.composite_score import CompositeRating, WinEvidence, composite_rating
-from backend.engine.scoring import score_augment
+from backend.engine.scoring import score_augment, augment_has_model
 from backend.models import AugmentData, ChampionMeta
 from backend.engine.team_context import EnemyThreatProfile, augment_threat_modifier
 
@@ -28,7 +28,7 @@ def rate_augment(
     to a 0–10 scale. It is not a statistical prediction or rate conversion.
     A 5.0 context is neutral when no enemy information is available.
     """
-    if not augment.modelled:
+    if not augment_has_model(augment):
         # No gameplay contribution data: absence of a model is not weak fit.
         return CompositeRating(
             score=None, confidence=0.0, sample_size=0, performance=None,
