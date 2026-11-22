@@ -1809,7 +1809,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             emit_f0_trace("augment", "epoch", "stale",
                                           "epoch_superseded", source="ledger",
                                           epoch=state.offer_epoch)
-                        if action == "detected" and detected:
+                        if (action == "detected" and detected
+                                and state._prior_due_triple is not None):
                             candidate_slots = _slots_from_detected(detected)
                             if (candidate_slots is None or
                                     not state.accept_new_due_slot_identity(candidate_slots)):
@@ -1819,7 +1820,14 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         previous_phase = state.ocr_phase
                         previous_stale = state.ocr_stale
                         if action != "superseded":
-                            new_phase = _phase_for_observation(state, observation)
+                            # A verified old triple was downgraded to a
+                            # transition. The original watcher observation
+                            # still says detected and must not reopen UI.
+                            new_phase = (
+                                "verifying" if action == "transition"
+                                and observation[0] == "detected"
+                                else _phase_for_observation(state, observation)
+                            )
                             state.set_ocr_phase(
                                 new_phase, reverified=bool(
                                     action == "detected" and detected and reverified
