@@ -34,7 +34,9 @@ import/preview/title-rectangle labels and candidate name selector,
 session/offer/frame ID, rarities, 3 slots, rerolls, two lines,
 transition/dialog/no-offer, focus/Alt+Tab, resolution/DPI/OP.GG metadata,
 explicit human privacy/title approval, private CSV and safe duplicate/split
-gates. Reuses sealed V1.1c manifests and explicit development-only evaluator.
+gates, original decoded-pixel checks and source-screenshot fingerprints
+so distinct frames cannot be combined. Reuses sealed V1.1c manifests
+and explicit development-only evaluator.
 A private context report groups existing five-engine case outcomes; the
 holdout cannot be unlocked by this GUI. No image upload or game APIs.
 
