@@ -130,6 +130,11 @@ jobs:
         run: python -m benchmarks.ocr_v11b.profile_windows --reference reference --models .benchmark_assets --out v11b_evidence_windows/windows_actions_profile.json
       - name: Print sanitized disposable Windows Actions research metrics
         run: python -m benchmarks.ocr_v11b.summarize --input v11b_evidence_windows
+      - name: Execute opt-in V1.1c Windows launcher on disposable CI VM (NOT user's PC)
+        shell: pwsh
+        run: |
+          & ./benchmarks/ocr_v11c/Run-OCRBenchmark.ps1 -CIRunner -SkipControlled -OutputRoot (Join-Path $env:RUNNER_TEMP 'aram-oracle-v11c-smoke') -TesseractExe $env:TESSERACT_PATH
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload disposable VM metrics only (not user's machine)
         if: always()
         uses: actions/upload-artifact@v4
