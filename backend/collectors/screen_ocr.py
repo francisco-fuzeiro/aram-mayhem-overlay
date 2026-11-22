@@ -175,6 +175,7 @@ class ScreenWatcher:
         self._last_foreground = "other"  # A5 diagnostic, never a capture gate.
         self._last_capture_backend: str | None = None  # Read-only D2 diagnostics.
         self._last_background_observation: tuple[str, str] | None = None
+        self._f0_geometry_size: tuple[int, int] | None = None  # trace only
 
     @property
     def last_scan_stage(self) -> str:
@@ -222,6 +223,7 @@ class ScreenWatcher:
             self._last_foreground = "other"
             self._last_capture_backend = None
             self._last_background_observation = None
+            self._f0_geometry_size = None
             reset_capture_state()  # End of offer/match closes the WGC HWND session.
 
     @staticmethod
@@ -324,6 +326,17 @@ class ScreenWatcher:
                 self._transition_open = False
                 self._set_scan_stage("geometry_unsupported")
                 return ("unavailable", None)
+
+            # Record *relative* physical title rectangles once per client
+            # dimension, and only after verified capture+valid ROI geometry.
+            # Never log the HWND, desktop origin, crop pixels or OCR text.
+            if (_os.environ.get("ARAM_ORACLE_F0_TRACE") == "1"
+                    and self._f0_geometry_size != (width, height)):
+                from backend.workflow.f0_trace import emit_f0_geometry
+                if emit_f0_geometry(
+                    (width, height), title_bands_from_client_rect(game.rect),
+                ):
+                    self._f0_geometry_size = (width, height)
 
             # A separate classifier may be plugged in ONLY after real native
             # absent/dialogue fixtures validate a code-reviewed calibration.
