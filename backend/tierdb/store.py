@@ -69,6 +69,14 @@ CREATE TABLE IF NOT EXISTS observation (
 CREATE INDEX IF NOT EXISTS ix_obs_lookup
     ON observation (metric, champion_id, augment_id);
 
+CREATE TABLE IF NOT EXISTS augment_info (
+    snapshot_id INTEGER NOT NULL REFERENCES snapshot(id) ON DELETE CASCADE,
+    augment_id  TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    rarity      TEXT NOT NULL CHECK (rarity IN ('silver', 'gold', 'prismatic')),
+    PRIMARY KEY (snapshot_id, augment_id)
+);
+
 CREATE TABLE IF NOT EXISTS quarantine (
     id          INTEGER PRIMARY KEY,
     snapshot_id INTEGER NOT NULL REFERENCES snapshot(id) ON DELETE CASCADE,
@@ -248,6 +256,7 @@ class TierStore:
         snapshot: SnapshotMeta,
         observations: list[Observation],
         quarantine: list[tuple[str, str]] | None = None,
+        augments: dict[str, tuple[str, str]] | None = None,
     ) -> int:
         """Store one snapshot atomically; return its id.
 
@@ -291,6 +300,11 @@ class TierStore:
                 ],
             )
             con.executemany(
+                "INSERT INTO augment_info (snapshot_id, augment_id, name, rarity) VALUES (?,?,?,?)",
+                [(snap_id, aid, name, rarity)
+                 for aid, (name, rarity) in sorted((augments or {}).items())],
+            )
+            con.executemany(
                 "INSERT INTO quarantine (snapshot_id, raw_name, reason) VALUES (?,?,?)",
                 [(snap_id, name, reason) for name, reason in (quarantine or [])],
             )
@@ -312,6 +326,20 @@ class TierStore:
             window_start=row[4], window_end=row[5],
             metric_definitions=json.loads(row[6]), fetched_at=row[7], row_count=row[8],
         )
+
+    def augment_rarities(self, patch: str) -> dict[str, str]:
+        """Augment id -> rarity for every augment described in the patch."""
+        rows = self.connection.execute(
+            """SELECT a.augment_id, a.rarity FROM augment_info a
+               JOIN snapshot s ON s.id = a.snapshot_id
+               WHERE s.patch = ? ORDER BY s.id""",
+            (patch,),
+        )
+        return {aid: rarity for aid, rarity in rows}
+
+    def snapshot_ids(self, patch: str) -> list[int]:
+        return [r[0] for r in self.connection.execute(
+            "SELECT id FROM snapshot WHERE patch=? ORDER BY id", (patch,))]
 
     def sources(self, commercial_only: bool = False) -> list[SourceMeta]:
         sql = "SELECT name, url, license, attribution, commercial_ok FROM source"

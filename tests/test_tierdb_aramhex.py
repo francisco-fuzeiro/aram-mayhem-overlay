@@ -56,7 +56,8 @@ def _write_dataset(directory, *, mode="normal", license_="CC BY-NC 4.0",
     files = {}
     for name, data in payloads.items():
         (directory / name).write_bytes(data)
-        files[name] = {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+        # Real meta.json format (verified 16.23/normal): name -> sha256 string.
+        files[name] = hashlib.sha256(data).hexdigest()
     if corrupt:
         (directory / corrupt).write_bytes(payloads[corrupt] + b" ")
     meta = {
@@ -115,6 +116,15 @@ def test_unmapped_champion_is_quarantined(tmp_path):
 def test_sha_mismatch_is_rejected(tmp_path):
     directory = _write_dataset(tmp_path / "d", corrupt="hero_augments.json")
     with pytest.raises(AramhexFormatError, match="SHA-256"):
+        load_aramhex_dataset(directory, ALIASES)
+
+
+def test_file_missing_from_manifest_is_rejected(tmp_path):
+    directory = _write_dataset(tmp_path / "d")
+    meta = json.loads((directory / "meta.json").read_text())
+    del meta["files"]["heroes.json"]
+    (directory / "meta.json").write_text(json.dumps(meta))
+    with pytest.raises(AramhexFormatError, match="heroes.json"):
         load_aramhex_dataset(directory, ALIASES)
 
 
