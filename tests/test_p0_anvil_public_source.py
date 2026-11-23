@@ -132,7 +132,8 @@ def test_patch_pinned_public_source_opt_in_only_and_no_local_writes(monkeypatch)
     def fetch(url, timeout):
         called.append((url, timeout))
         assert url.startswith("https://raw.communitydragon.org/16.23/")
-        if "map12.bin.json" in url:
+        if "map12.bin.json" in url or "statanvils.bin.json" in url:
+            # Historical 16.22 layout: named path absent, hashed path present.
             return Response(404)
         if "507cdd64276919f5.bin.json" in url:
             return Response(200, fixture)
@@ -150,7 +151,7 @@ def test_patch_pinned_public_source_opt_in_only_and_no_local_writes(monkeypatch)
     assert report["titles_missing"] == 2
     assert report["live_popup_verified"] is False
     assert report["rankings_verified"] is False
-    assert len(called) == 3
+    assert len(called) == 4
 
 
 def test_bad_patch_or_locale_never_reaches_network(monkeypatch):

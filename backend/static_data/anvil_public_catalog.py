@@ -54,7 +54,9 @@ def _read_shard(doc: Mapping[str, object], row: dict) -> tuple[PublicStatAnvil, 
     if (not isinstance(item_id, str) or not item_id.startswith("ARAM_")
             or len(item_id) > 128):
         raise AnvilCatalogError("invalid public shard id")
-    if item_id in _EXCLUDED:
+    if item_id in _EXCLUDED or row.get("Enabled") is False:
+        # Riot marks non-offerable rows (Random, Pristine) Enabled=false;
+        # honour that generically so a new disabled row is never offered.
         return ()
     codes = row.get("AnvilTypes")
     if not isinstance(codes, list) or not codes:

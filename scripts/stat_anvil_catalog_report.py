@@ -94,7 +94,9 @@ def format_report(reports: list[dict]) -> str:
 # Public, patch-pinned bin locations, documented and validated against the
 # MIT ARAM Mayhem Tracker's public source study. Riot moved the entries on 16.22.
 # Source reference: https://github.com/Sygnano/aram-mayhem-tracker
+# 16.23: CommunityDragon names the file (the 16.22 hash path now 404s).
 ANVIL_BIN_PATHS = (
+    "game/maps/modespecificdata/statanvils.bin.json",
     "game/data/maps/shipping/map12/map12.bin.json",
     "game/unknown/507cdd64276919f5.bin.json",
 )
