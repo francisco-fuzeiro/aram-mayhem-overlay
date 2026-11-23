@@ -55,8 +55,8 @@ Export para o overlay: tier, rank e nível por item e por campeão; a build de r
 **Otimização por cima (adaptação à partida)**
 - `A_i = S_ci + C_aug + C_ini + C_ali`. Cada termo de contexto tem um limite. `C_aug` vem do `score_item` com os augments confirmados (medido só para o 3081 via `hero_augment_items`). `C_ini` e `C_ali` vêm do `_enemy_reaction_bonus` e do `AllyTeamProfile` atuais.
 - Regras para o resultado ficar estável e explicável:
-  1. A adaptação troca **no máximo 2 dos 6 slots**.
-  2. Só troca se `A_novo − A_ref ≥ 1,0` (escala 0–10).
+  1. A adaptação troca **no máximo 3 dos 6 slots** (Decidido, Francisco, 23/11: "mais adaptação à partida").
+  2. Só troca se `A_novo − A_ref ≥ 0,5` (escala 0–10) (Decidido, 23/11).
   3. O slot 1 da referência nunca é trocado.
   4. Cada troca mostra o motivo (ex.: "inimigos com cura → anti-cura").
 - O overlay mostra "Referência" e "Adaptada a esta partida" lado a lado.
@@ -94,8 +94,8 @@ Export para o overlay: tier, rank e nível por item e por campeão; a build de r
 | I1 | Importador AramHex: itens, botas, núcleos, Weapon of Fate → observações | — |
 | I2 | Tier de itens por campeão, build de referência; interseção com o pool elegível | fix do GPT |
 | I3 | `AnvilStats`, `D_c` (rácios + builds), score das opções de Anvil | catálogo/gatilho de Anvil do GPT para mostrar no jogo |
-| I4 | Otimização por cima (máx. 2 trocas, motivos) no motor de build | I2 |
+| I4 | Otimização por cima (máx. 3 trocas, limiar 0,5, motivos) no motor de build | I2 |
 | I5 | Overlay: referência vs adaptada, tier dos itens, Anvils "estimativa"; diagnóstico `items.*`/`anvil.*` | I2–I4 |
 | I6 | Holdout 16.22→16.23: τ dos ranks dos itens; WR do núcleo previsto vs observado | I2 |
 
-Pedido de validação ao Francisco: pesos 50/30/20 dos itens, máximo de 2 trocas com limiar de 1,0, e o slot 1 fixo.
+**Decidido (Francisco, 23/11):** desenho aprovado com mais adaptação: máx. 3 trocas, limiar 0,5. Mantêm-se como Proposta aprovada com o desenho: pesos 50/30/20 dos itens e o slot 1 fixo.
