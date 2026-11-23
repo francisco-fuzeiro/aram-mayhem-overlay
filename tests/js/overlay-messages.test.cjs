@@ -1507,3 +1507,32 @@ test("P0 no synthetic Anvil ACK on a normal augment update", () => {
     h.api.handleMessage(update);
     assert.equal(h.sockets[0].sent, undefined);
 });
+
+test("TDB-I5: build panel shows Mayhem reference, adapted swaps and Anvil estimates", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    h.sockets[0].readyState = 1;
+    const sent = [];
+    h.sockets[0].send = (m) => sent.push(JSON.parse(m));
+    const ref = ["Malignance", "Shadowflame", "Rabadon", "Void", "Zhonya", "Banshee"]
+        .map((name, i) => ({id: String(3000 + i), name}));
+    const adapted = [...ref];
+    adapted[3] = {id: "6655", name: "Morello"};
+    h.api.handleMessage({...gameUpdate(), mayhem_build: {
+        reference: ref, adapted, boots: {id: "3020", name: "Sorcerer's Shoes"},
+        swaps: [{slot: 4, out: "3003", in: "6655", out_name: "Void", in_name: "Morello",
+            reason: "enemies heal a lot"}],
+        anvil_stats: [{stat: "ap", tier: "A", level: "estimate", reason: "x"},
+            {stat: "ah", tier: "B", level: "estimate", reason: "x"}]}});
+    const text = h.element("mayhem-build").children.map((c) => c.textContent).join(" | ");
+    assert.match(text, /Reference: Malignance › Shadowflame › Rabadon › Void › Zhonya › Banshee/);
+    assert.match(text, /Adapted: .*Morello/);
+    assert.match(text, /Void → Morello \(enemies heal a lot\)/);
+    assert.match(text, /Stat Anvils \(estimate\): Ability Power · Ability Haste/);
+    assert.doesNotMatch(text, /win rate|%/i);
+    const ack = sent.filter((m) => m.feature === "items.build_render").at(-1);
+    assert.deepEqual(ack, {type: "feature_ack", feature: "items.build_render", status: "ok",
+        reason: "rendered", count: 1});
+    h.api.handleMessage({...gameUpdate(), mayhem_build: null});
+    assert.equal(h.element("mayhem-build").children.length, 0);
+});
