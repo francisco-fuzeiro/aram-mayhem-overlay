@@ -334,6 +334,10 @@ def discover_patch_anvil_bins(
         report["warnings"].append(
             "No full three-tier real AnvilData source verified; keep recommendations disabled"
         )
+        report["warnings"].append(
+            "Only selected patch-index directories and plausible bin names were searched; "
+            "zero is not proof all game bins lack Stat Anvils"
+        )
     if incomplete:
         report["warnings"].append(
             "Discovery bounded/incomplete or public index unavailable; zero is not proof of absence"
@@ -386,6 +390,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="Opt-in public CDragon AnvilData bins, e.g. 16.23; makes network requests")
     parser.add_argument("--discover", action="store_true",
                         help="With --public-patch, inspect indexed .bin.json candidates in bounded public game directories")
+    parser.add_argument("--discovery-bins", type=int, default=80,
+                        help="Bounded search limit, default 80 public bins, maximum 200")
+    parser.add_argument("--discovery-dirs", type=int, default=48,
+                        help="Bounded public index directory limit, default 48, maximum 100")
     parser.add_argument("--locale", type=str,
                         help="Opt-in public game string table (~31 MB), e.g. en_us")
     parser.add_argument("--json", action="store_true")
@@ -398,8 +406,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--discover does not yet resolve titles; run a pinned source lookup separately")
     if args.public_patch:
         try:
-            result = (discover_patch_anvil_bins(args.public_patch)
-                      if args.discover else
+            result = (discover_patch_anvil_bins(
+                          args.public_patch, max_bins=args.discovery_bins,
+                          max_index_directories=args.discovery_dirs,
+                      ) if args.discover else
                       public_patch_report(args.public_patch, locale=args.locale))
         except (AnvilCatalogError, ValueError) as exc:
             print(f"PUBLIC ANVIL SOURCE UNVERIFIED: {exc}")
