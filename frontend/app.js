@@ -997,6 +997,12 @@
 
     function renderBuild(bs) {
         const nextName = bs && (bs.next_item_name || bs.next_item_id);
+        // IDs backed by the observed inventory, including canonicalized
+        // explicitly recognized upgrades, are the only evidence of ownership.
+        const purchased = new Set([
+            ...((bs && bs.purchased_items) || []),
+            ...((bs && bs.owned_build_ids) || []),
+        ]);
         if (bs && bs.slot_blocked) {
             // A planned item is not an actionable shop purchase when all
             // physical slots are occupied and no owned recipe can be consumed.
@@ -1005,6 +1011,13 @@
             const cost = Number(bs.gold_to_next);
             buildNext.textContent = "Next: " + nextName +
                 (Number.isFinite(cost) && cost >= 0 ? " (" + cost + "g)" : "");
+        } else if (bs && !bs.build_unavailable_reason &&
+                Array.isArray(bs.full_build) && bs.full_build.length === 6 &&
+                new Set(bs.full_build).size === 6 &&
+                bs.full_build.every(itemId => purchased.has(itemId))) {
+            // Six physically acquired build finals: no seventh purchase.
+            // Absent or ambiguous inventory evidence is never completion.
+            buildNext.textContent = "Build complete";
         } else {
             // Do not conflate missing shop catalog proof with an unknown
             // inventory or an unverified recipe. Only emit known backend
@@ -1028,11 +1041,6 @@
         }
 
         buildList.innerHTML = "";
-        // The live client reports physical item IDs; the build engine plans
-        // with canonical IDs for verified item-family upgrades/variants.
-        const purchased = new Set([
-            ...(bs.purchased_items || []), ...(bs.owned_build_ids || []),
-        ]);
 
         bs.full_build.forEach((itemId, i) => {
             const name = (purchased.has(itemId) &&

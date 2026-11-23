@@ -1268,3 +1268,51 @@ test("F3: next-item unavailability distinguishes verified backend reasons", () =
     h.api.renderBuild({...base});
     assert.equal(h.element("build-next").textContent, "Next: unavailable");
 });
+
+
+test("F3: six evidenced owned finals including boots say build complete, not unavailable", () => {
+    const h = harness();
+    const ids = ["3047", "3074", "3053", "3089", "3031", "3165"];
+    const base = {
+        full_build: ids, full_build_names: ids.map(id => "Item " + id),
+        purchased_items: ids, owned_build_ids: ids,
+        next_item_id: null, next_item_name: null, gold_to_next: 0,
+        slot_blocked: false, alternatives: {}, build_unavailable_reason: null,
+    };
+    h.api.renderBuild(base);
+    assert.equal(h.element("build-next").textContent, "Build complete");
+    assert.equal(h.element("build-list").children.length, 6);
+    assert.ok(h.element("build-list").children.every(row => /Owned/.test(row.innerHTML)));
+    assert.equal(h.element("build-footer").textContent, "");
+
+    // Completion is solely supported by actual IDs, including canonical
+    // owned IDs for explicitly recognized upgrades.
+    h.api.renderBuild({...base,
+        full_build: ["3003", ...ids.slice(1)],
+        purchased_items: ["3040", ...ids.slice(1)],
+        owned_build_ids: ["3003", ...ids.slice(1)],
+    });
+    assert.equal(h.element("build-next").textContent, "Build complete");
+});
+
+test("F3: do not call a partially owned, blocked, or unverified path complete", () => {
+    const h = harness();
+    const ids = ["3047", "3074", "3053", "3089", "3031", "3165"];
+    const base = {
+        full_build: ids, full_build_names: ids,
+        purchased_items: ids.slice(0, 5), owned_build_ids: ids.slice(0, 5),
+        next_item_id: null, next_item_name: null, gold_to_next: 0,
+        slot_blocked: false, alternatives: {}, build_unavailable_reason: null,
+    };
+    h.api.renderBuild(base);
+    assert.equal(h.element("build-next").textContent, "Next: unavailable");
+    h.api.renderBuild({...base, purchased_items: ids, owned_build_ids: ids,
+        build_unavailable_reason: "inventory_unknown"});
+    assert.equal(h.element("build-next").textContent, "Inventory item unrecognized");
+    h.api.renderBuild({...base, purchased_items: ids, owned_build_ids: ids,
+        slot_blocked: true});
+    assert.match(h.element("build-next").textContent, /Inventory full/);
+    h.api.renderBuild({...base, full_build: ids.slice(0, 5),
+        purchased_items: ids.slice(0, 5), owned_build_ids: ids.slice(0, 5)});
+    assert.equal(h.element("build-next").textContent, "Next: unavailable");
+});
