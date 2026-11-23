@@ -1,5 +1,12 @@
 # Repository agent instructions
 
+## Active P0 Stat Anvil source lead (owner real data, 2026-11-23)
+
+- Owner tested real public patch 16.23 on P0 HEAD `47fa24b`: `candidate_bin_files=471`, `bin_files_inspected=80`, `index_directories_scanned=21`, `index_failures=0`, `scan_complete=false`, `source_paths=[]`, `total=0` and silver/gold/prismatic all 0. This is **not a complete scan or validated source**, and does not prove Mayhem Anvils are absent.
+- The only public keyword hits were `game/gameplay.bin.json` and `game/maps/modespecificdata/cherry.bin.json`. Neither is an authoritative AnvilData catalogue merely because the word "Anvil" appears.
+- Targeted RED→GREEN source-only probe `tests/test_p0_stat_anvil_keyword_probe.py` and `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` inspect only those patch-pinned public files, reporting exact JSON Anvil references and top-level/nested `AnvilData` counts. Always `catalogue_verified=false`, with no local writes/League/player data. Follow real public references if present before asking for another broad scan.
+- Require **real** patch-16.23 parsed `AnvilData`/RootSpell, `total>0` and each Silver/Gold/Prismatic >0 with exact source path, then real popup OCR/title+value, own contextual score and one final supported Mayhem match. Stay in same P0, draft PR #107 on #103; no merge/main/TierDB/handoff prompt while incomplete.
+
 ## P0 source-acceptance override — Stat Anvils patch 16.23 (2026-11-23)
 
 - Owner Windows PC confirmed `--public-patch 16.23` on P0 HEAD `9d3b29f`: only `map12.bin.json` yielded, **total=0, silver=0, gold=0, prismatic=0**. This invalidates the previous hard-coded source assumption; a fixture/keyword hit is NOT current-patch proof. Keep recommendations disabled.

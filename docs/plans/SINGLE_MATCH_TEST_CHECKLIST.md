@@ -1,5 +1,12 @@
 # Single Mayhem Match Test Checklist — P0 baseline
 
+## 2026-11-23 — Source-only target check after real 80/471 scan
+
+- [x] Owner real 16.23 public scan: 471 bins indexed, 80 inspected (21 dirs), `scan_complete=false`, `source_paths=[]`, `total=0` and silver/gold/prismatic all 0. Two keyword-only files `game/gameplay.bin.json`, `game/maps/modespecificdata/cherry.bin.json`. No source validated.
+- [x] `tests/test_p0_stat_anvil_keyword_probe.py` and focused `--public-patch 16.23 --probe-keyword-paths` produce bounded source-only JSON reference paths and AnvilData counts, never native or catalogue success; tested on [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982).
+- [ ] Owner targeted public probe; follow references then confirm real `total>0`, Silver/Gold/Prismatic all>0 and exact current bin paths. No ranking from a keyword or synthetic fixture.
+- [ ] Later actual popup OCR/title+stat value/3-or-4 cards and own 0–10 render, live shop and augments in ONE final owner-controlled Mayhem match; P0 OPEN.
+
 ## 2026-11-23 — Source-gate correction: zero Stat Anvils on old 16.23 paths
 
 - [x] Actual owner report `--public-patch 16.23` was **total=0, silver=0, gold=0, prismatic=0**, only `map12.bin.json` reported. Older test fixture results do NOT prove live/current source.

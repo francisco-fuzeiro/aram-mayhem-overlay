@@ -1,5 +1,12 @@
 # ARAM Oracle — Product and UX TODO
 
+## CURRENT 2026-11-23 — Real 16.23 Stat Anvil source still BLOCKED; public clues
+
+- [x] **ANVIL-SRC-real-scan:** owner on `47fa24b` ran patch 16.23 source discovery: **80 of 471** public bins inspected, 21 dirs, zero errors, `scan_complete=false`, 0 real AnvilData, all rarity counts 0, source_paths empty. Exact keyword-only paths `game/gameplay.bin.json` and `game/maps/modespecificdata/cherry.bin.json`. Do not infer an eligible shard from keywords/old-patch fixtures.
+- [x] **ANVIL-SRC-probe-code:** test-first `tests/test_p0_stat_anvil_keyword_probe.py`; `scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` makes two specific read-only public HTTP reads and prints bounded JSON Anvil reference locations and class counts. New code HEAD `96a8f0b` [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982) SUCCESS. Docs HEAD requires its own Actions.
+- [ ] **ANVIL-SRC-owner-next:** safely pull #107, execute targeted probe on owner Windows and share public report only. Investigate any verified public references to other bins; if still no lead, bounded 200/471 scan and source relocation research. No guessing.
+- [ ] **ANVIL-SRC-acceptance:** actual patch-16.23 `AnvilData`+RootSpell source with `total>0` and Silver/Gold/Prismatic >0, precise source file(s), focused tests; then independent popup/3/4 cards, title+value OCR and own score. Shop #49 native, one controlled final Mayhem test and P0 closure remain OPEN.
+
 ## 2026-11-23 — CURRENT: owner 16.23 source zero; indexed bin search gate
 
 - [x] **ANVIL-SRC-03a real negative result**: owner P0 checkout HEAD `9d3b29f` fetched public patch 16.23, `bins=['map12.bin.json'] total=0`, Silver=0 Gold=0 Prismatic=0. Historical hashed 16.22 bin not returned. This is *not* proof the game lacks Anvils, only that old locations do not provide current source.

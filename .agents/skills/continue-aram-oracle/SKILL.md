@@ -1,5 +1,11 @@
 ---
 
+## CURRENT — Owner 16.23 public scan and next probe
+
+Actual owner `--public-patch 16.23 --discover --json` on P0 HEAD `47fa24b`: 471 candidate bins, only 80 inspected, 21 directories, 2,039,856 bytes, zero index/source errors, `scan_complete=false`, `source_paths=[]`, `total=0`, all three tiers zero. Only keyword hits: `game/gameplay.bin.json`, `game/maps/modespecificdata/cherry.bin.json`. Not a valid Anvil catalogue, not proof of absence. Do NOT request the same 80-bin scan again.
+
+New targeted source probe `scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` reads only those two public bins, reports exact JSON path references, top-level/nested `AnvilData`, no writes/game contact and never claims a valid catalogue. Tests `tests/test_p0_stat_anvil_keyword_probe.py` passed on exact code HEAD `96a8f0b` [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982). Ask owner to safely pull latest P0 #107 and execute probe, then follow actual public reference paths, only broaden scan if necessary. Real source gate requires total>0 and Silver/Gold/Prismatic all>0 on 16.23 with precise source_paths. Remaining native shop, popup, OCR/scoring, one final Mayhem match OPEN; preserve untracked `funcionalidades.md`, no main/TierDB/merge or auto next-chat prompt.
+
 ## CURRENT 2026-11-23 — P0 indexed bin search, owner-real source still zero
 
 Owner checked 16.23 on Windows: only `map12.bin.json` from the two historical target bins, **total=0 across Silver/Gold/Prismatic**. Do not claim those sources are valid, that Anvils are absent from Mayhem, or that synthetic 16.19/16.22 tests prove 16.23. MIT ARAM Mayhem Tracker `service/src/upstream/documents.ts` tries `game/data/maps/shipping/map12/map12.bin.json` and `game/unknown/507cdd64276919f5.bin.json`; its examples are older patches.
