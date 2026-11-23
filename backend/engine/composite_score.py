@@ -37,6 +37,8 @@ class CompositeRating:
     context: float | None
     evidence_source: str
     method: str = "composite_v1"
+    # Internal unrounded ordinal fit; intentionally not in public payload.
+    ranking_value: float | None = None
 
     def as_dict(self) -> dict:
         # Deliberately omit raw win rates and win counts from overlay payloads.
@@ -91,6 +93,7 @@ def composite_rating(
         score = (0.35 * synergy + 0.25 * context) / 0.60
         return CompositeRating(
             score=round(score, 1), confidence=0.0, sample_size=0,
+            ranking_value=score,
             performance=None, synergy=synergy, context=context,
             evidence_source="none",
         )
@@ -113,6 +116,7 @@ def composite_rating(
     score = (1.0 - empirical_weight) * heuristic + empirical_weight * performance
     return CompositeRating(
         score=round(_clamp10(score), 1), confidence=round(confidence, 2),
+        ranking_value=_clamp10(score),
         sample_size=evidence.games, performance=round(performance, 2),
         synergy=synergy, context=context, evidence_source=evidence.source,
     )

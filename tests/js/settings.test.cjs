@@ -9,17 +9,20 @@ const vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../../frontend/settings.js"), "utf8");
 const overlayModel = require("../../frontend/overlay-preferences.js");
 const html = fs.readFileSync(path.join(__dirname, "../../frontend/settings.html"), "utf8");
-const ids = ["general", "overlay", "preferences", "ocr", "diagnostics", "feedback", "about"];
+const ids = ["general", "overlay", "preferences", "tier-list", "ocr", "diagnostics", "feedback", "about"];
 
 function harness(respond) {
     const elements = new Map();
+    let transientId = 0;
     function element(id) {
         if (!elements.has(id)) {
             const classes = new Set();
             elements.set(id, {
                 id, value: "", textContent: "", className: "", disabled: false,
                 hidden: false, tabIndex: -1, focused: false,
-                dataset: {}, attributes: {}, handlers: {}, style: {},
+                dataset: {}, attributes: {}, handlers: {}, style: {}, children: [],
+                appendChild(node) { this.children.push(node); return node; },
+                replaceChildren(...nodes) { this.children = [...nodes]; },
                 classList: {
                     toggle(name, enabled) {
                         if (enabled) classes.add(name);
@@ -60,6 +63,11 @@ function harness(respond) {
     }
     const document = {
         getElementById: element,
+        createElement(tag) {
+            const node = element("created-" + (++transientId));
+            node.tagName = tag.toUpperCase();
+            return node;
+        },
         querySelectorAll(selector) {
             if (selector === ".tab") return tabs;
             if (selector === ".tab-panel") return panels;
@@ -89,7 +97,7 @@ function successful(url, options) {
     throw new Error("Unexpected URL: " + url);
 }
 
-test("seven Settings tabs have matching ARIA panels and truthful unavailable sections", () => {
+test("eight Settings tabs have matching ARIA panels and truthful unavailable sections", () => {
     for (const id of ids) {
         assert.match(html, new RegExp('id="tab-' + id + '"[^>]*role="tab"'));
         assert.match(html, new RegExp('id="panel-' + id + '"[^>]*role="tabpanel"'));
@@ -119,7 +127,7 @@ test("loads preference and saves changed style through the existing local API", 
     assert.equal(h.element("save-status").attributes["aria-busy"], "false");
 });
 
-test("mouse and keyboard navigate seven panels with roving tabIndex and focus", async () => {
+test("mouse and keyboard navigate eight panels with roving tabIndex and focus", async () => {
     const h = harness(successful);
     await ready();
     assert.equal(h.element("tab-general").attributes["aria-selected"], "true");
@@ -481,4 +489,62 @@ test("D2 Settings OCR toggle uses existing WS action and awaits acknowledgement"
     await ready();
     assert.equal(h.element("ocr-auto").disabled, false);
     assert.match(h.element("ocr-action-status").textContent, /applied/);
+});
+
+
+test("SCORE-84: Settings browse offline champion baseline ranks without a match", async () => {
+    const h = harness((url, options) => {
+        if (url === "/api/static-names") return {body: {
+            champions: {lux: "Lux", jinx: "Jinx"},
+        }};
+        if (url === "/api/augment-tier-list?champion_id=jinx&rarity=2")
+            return {body: {
+                context: "baseline", grade_calibrated: false,
+                catalog_count: 3, assessed_count: 2, unrated_count: 1,
+                rows: [
+                    {augment_id: "a", augment_name: "Blazing", score: 8.7,
+                     rank: 1, assessed_count: 2, catalog_count: 3, grade: null},
+                    {augment_id: "b", augment_name: "Burning", score: 8.7,
+                     rank: 2, assessed_count: 2, catalog_count: 3, grade: null},
+                ], unrated: [{augment_id: "c", augment_name: "Unknown Choice"}],
+            }};
+        return successful(url, options);
+    });
+    await ready();
+    assert.match(html, /id="panel-tier-list"/);
+    assert.match(html, /id="tier-champion"/);
+    assert.match(html, /id="tier-rarity"/);
+    assert.match(html, /id="tier-search"/);
+    assert.equal(h.calls.some(c => c.url.includes("/api/augment-tier-list")), false);
+    h.element("tab-tier-list").handlers.click();
+    await ready();
+    await ready();
+    assert.equal(h.element("tier-champion").value, "jinx");
+    assert.equal(h.element("tier-rows").children.length, 3);
+    assert.match(h.element("tier-rows").children[0].textContent, /#1\/2.*Blazing.*8\.7\/10/);
+    assert.match(h.element("tier-rows").children[1].textContent, /#2\/2.*Burning.*8\.7\/10/);
+    assert.match(h.element("tier-rows").children[2].textContent, /Not rated.*Unknown Choice/);
+    assert.match(h.element("tier-status").textContent, /2 of 3/);
+    assert.match(h.element("tier-status").textContent, /not calibrated/i);
+    h.element("tier-search").value = "Burn";
+    h.element("tier-search").handlers.input();
+    assert.equal(h.element("tier-rows").children.length, 1);
+    assert.match(h.element("tier-rows").children[0].textContent, /Burning/);
+    assert.equal(h.calls.filter(c => c.url.includes("/api/augment-tier-list")).length, 1);
+});
+
+test("SCORE-84: Settings fail closed when baseline data is missing", async () => {
+    const h = harness((url, options) => {
+        if (url === "/api/static-names") return {body: {champions: {lux: "Lux"}}};
+        if (url.includes("/api/augment-tier-list")) return {ok: false, body: {
+            detail: "No local augment catalog available",
+        }};
+        return successful(url, options);
+    });
+    await ready();
+    h.element("tab-tier-list").handlers.click();
+    await ready();
+    await ready();
+    assert.match(h.element("tier-status").textContent, /No local augment catalog available/);
+    assert.equal(h.element("tier-rows").children.length, 0);
 });

@@ -549,6 +549,53 @@ def get_static_names():
     return {"items": items, "augments": augments, "stat_anvils": stat_anvils, "champions": champions}
 
 
+@app.get("/api/augment-tier-list")
+def get_augment_tier_list(
+    champion_id: str = Query(..., min_length=1, max_length=64),
+    rarity: int = Query(default=2, ge=1, le=3),
+):
+    """Pre-game, read-only tier-list baseline from the local public catalog.
+
+    No match, player history, OCR, LCU call, or hidden opponent data required.
+    Grades OP–E are deliberately null until a separate calibration/policy gate.
+    """
+    from backend.engine.global_ranker import rank_augment_roster
+    from backend.models import AugmentTier
+
+    champion = static_data.get_champion(champion_id)
+    if champion is None:
+        raise HTTPException(status_code=404, detail="Champion not in local catalog")
+    tier = AugmentTier(rarity)
+    available = [
+        aug for aug in static_data.all_augments()
+        if aug.tier == tier
+    ]
+    if not available:
+        raise HTTPException(
+            status_code=503, detail="No local augment catalog available",
+        )
+    placed = rank_augment_roster(champion, available, [])
+    ranked_ids = {entry.augment_id for entry in placed}
+    unranked = sorted(
+        ({"augment_id": aug.id, "augment_name": aug.name}
+         for aug in available if aug.id not in ranked_ids),
+        key=lambda row: (row["augment_name"], row["augment_id"]),
+    )
+    return {
+        "context": "baseline",
+        "method": "experimental_contextual_heuristic",
+        "champion_id": champion.id,
+        "champion_name": champion.name,
+        "rarity": rarity,
+        "catalog_count": len(available),
+        "assessed_count": len(placed),
+        "unrated_count": len(unranked),
+        "grade_calibrated": False,
+        "rows": [entry.as_public_dict() for entry in placed],
+        "unrated": unranked,
+    }
+
+
 def _read_champ_select_payload() -> dict | None:
     """Synchronous, read-only LCU access; poller runs this in a worker thread."""
     revision = next(_champ_select_revisions)
