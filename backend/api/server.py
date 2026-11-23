@@ -2372,6 +2372,7 @@ def _serialize_result(
         "reroll_reason": result.reroll_reason,
         "enemy_analysis": result.enemy_analysis,
         "ally_analysis": result.ally_analysis,
+        "anvil_recommendations": result.anvil_recommendations,
         "recommendations": [
             {
                 "augment_id": r.augment_id,
@@ -2397,6 +2398,7 @@ def _serialize_result(
             "purchased_items": result.build_state.purchased_items,
             "owned_build_ids": result.build_state.owned_build_ids,
             "owned_build_names": result.build_state.owned_build_names,
+            "anvil_stat_priorities": result.build_state.anvil_stat_priorities,
             "purchased_items_names": [
                 _resolve_item_name(i, sd) for i in result.build_state.purchased_items
             ],

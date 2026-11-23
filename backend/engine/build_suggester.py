@@ -7,6 +7,7 @@ import logging
 import os
 from collections import Counter
 
+from backend.engine.anvil_priorities import rank_anvil_stats
 from backend.engine.inventory import Inventory, remaining_cost
 from backend.models import ChampionMeta, AugmentData, ItemData, BuildState, BootReplacement
 from backend.engine.scoring import score_item
@@ -462,6 +463,24 @@ def suggest_build(
         inventory=inventory,
     )
 
+    # Six *observed* final items, not six planned items or occupied components,
+    # authorize post-build advice. A boot swap remains a separate higher-priority
+    # optional item action; it is never a seventh direct purchase.
+    anvil_stat_priorities = []
+    if (catalog_verified and inventory is not None and item_data is not None
+            and item_data.get_champion(champion.id) is not None
+            and inventory.used_slots == build_size
+            and len(inventory.finals) == build_size
+            and len(set(inventory.finals)) == build_size
+            and len(full_build) == build_size
+            and set(inventory.finals) == set(full_build)
+            and build_unavailable_reason is None):
+        observed_items = [item_data.get_item(ident) for ident in inventory.finals]
+        if all(item is not None and item.final for item in observed_items):
+            anvil_stat_priorities = rank_anvil_stats(
+                champion, active_augments, observed_items, enemy_profile,
+            )
+
     reasons = ["Adjusted for your current champion and chosen augments"]
     if enemy_profile and enemy_profile.enemies_analyzed:
         reasons.extend(enemy_profile.notes())
@@ -486,4 +505,5 @@ def suggest_build(
         build_unavailable_reason=build_unavailable_reason,
         owned_build_ids=list(owned_finals),
         owned_build_names=owned_build_names,
+        anvil_stat_priorities=anvil_stat_priorities,
     )
