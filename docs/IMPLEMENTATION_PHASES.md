@@ -298,3 +298,9 @@ D6–D8 are **product core work**, not prerequisites for prototyping the Setting
 5. Mark only genuinely implemented/verified checkbox items in `docs/TODO.md`; leave on-device validation unchecked until observed.
 6. Update `docs/PROJECT_STATE.md`, append `docs/DEVELOPMENT_LOG.md` with branch/PR, CI link and explicit missing Windows evidence.
 7. Provide a concise user-facing PT-PT summary and minimal next Windows verification commands only if needed.
+
+## 2026-11-23 — Execution checkpoint: code-GREEN is not native-ready
+
+- **Completed as separately gated offline draft PR subphases** (not merged): #92 independent 3/4-count contract, #93 scaling-only model coverage, #94 honest unrated UI labels, #95 optional count-to-watcher gate, #96 fail-closed item prerequisite and policy v3, #97 blocked-inventory buy-next UI, #98 canonical observed owned inventory display, and #99 F1 async CI-test barrier. Preserve exact dependency stack; consult the latest `PROJECT_STATE.md` and `TODO.md` for every code+docs SHA and Windows Actions result. Earlier PRs remain draft and `main` untouched.
+- **Next implementable phases depend on evidence, not more synthetic guessed implementations:** #49 must prove patch/mode/quest-conditioned shop eligibility and real boot purchase behavior; #85 must identify independent calibrated visual offer count/4-card geometry; #86 must observe authoritative/independently corroborated newly acquired augment ID before auto-adding; #82 must satisfy independent Windows-native OCR/latency holdout; #84 needs current-patch, permitted/licensed Mayhem performance and Riot-policy review. If a provider is absent, keep hard STOP and do not mark native tests done.
+- Installer and public-release D9–D11 must not bypass verified native, UI, game safety and privacy acceptance; keep PP-OCRv4 opt-in. No private user screenshots, logs or personal player IDs in PUBLIC GitHub.

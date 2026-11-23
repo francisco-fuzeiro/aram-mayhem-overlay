@@ -547,13 +547,13 @@ Do not mark implementation or in-game validation as done solely because a draft 
 ### 2026-11-23 F3/I1 code-head verification
 
 - [x] **F3-I1-CODE-GREEN** — `add0cdab0820ca2a9571bc5840277bb544aec483`, [Windows #45114368288](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45114368288) SUCCESS: 2,046 Python pass/27 skip, 80 JS pass/0 fail, three syntax checks, 35 pinned real-v4 pass. Includes policy v3 cache invalidation and both updated synthetic B5 fixtures. No false in-game access proof claimed.
-- [ ] **F3-I1-DOCS-HEAD-CI** — check current documentation-inclusive SHA independently on Windows; do not reuse prior code SHA. Remaining per-patch Mayhem entitlement source and native acceptances still unchecked.
+- [x] **F3-I1-DOCS-HEAD-CI** — exact docs-head `500ec4c0bd4a0066f1865e4002f86aeac72c8e35`, [Windows #45114592304](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45114592304) SUCCESS: 2,046 Python PASS/27 SKIP, 80 JS PASS, 35 real-v4 PASS. Native Mayhem entitlement remains OPEN.
 
 ## 2026-11-23 — F3/I2a honest blocked-inventory UI (draft #97)
 
 - [x] **F3-I2A-RED** — `6838a6c9eb1accd1dd80c3237b53cfe1bcb7a2af`, [Windows #45116128768](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45116128768): new DOM real-renderer test FAIL expected; 80 old JS PASS, 2,046 Python PASS / 27 SKIP, 35 pinned real-v4 PASS.
 - [x] **F3-I2A-CODE-GREEN** — `5bd3af9fe2a8bab27d5f079b713ffaf649378f53`, [Windows #45116384034](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45116384034) SUCCESS: 2,046 Python PASS / 27 SKIP, 81 JS PASS / 0 FAIL, 35 real pinned-v4 PASS. `slot_blocked` is now clearly signaled at header, planned item and footer; only the actual actionable buy state displays `BUY NEXT`.
-- [ ] **F3-I2A-FINAL-HEAD** — check both Windows jobs at exact documentation-inclusive SHA after this commit; status cannot inherit code-head result.
+- [x] **F3-I2A-FINAL-HEAD** — exact docs-head `e511e1fd21b504dccc6481f7ed578e43e671b065`, [Windows #45116666217](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45116666217) SUCCESS: 2,046 Python PASS/27 SKIP, 81 JS PASS, 35 real-v4 PASS. Native shop remains OPEN.
 - [ ] **F3-I2B-RAW-OWNED-ALIASES** — verify whether raw in-game owned item IDs differ from canonical build catalog IDs; without true equivalence proof the UI must not incorrectly claim owned or future purchases. Add synthetic end-to-end tests and a narrow safe fix.
 - [ ] **F3-I2-NATIVE** — user-private current-patch custom-game proof of full inventory/boots purchase, `Unavailable` root cause, shop-specific entitlements. No evidence yet. #49 stays OPEN.
 
@@ -561,6 +561,19 @@ Do not mark implementation or in-game validation as done solely because a draft 
 
 - [x] **F3-I2B-RED** — archived CDragon `3040`→`3003` specialRecipe + real `Inventory`, `BuildState`, `_serialize_result` Python regression and real frontend DOM test. Tests-only `72590122eda5d6710626dc51979187d5e15490d2`, [Windows #45116987946](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45116987946): expected 1 new Python FAIL (missing canonical-owned source field), 2,046 previous Python PASS/27 SKIP; JS regression not reached; pinned v4 PASS.
 - [x] **F3-I2B-CODE-GREEN** — `f708582b8d969604dd4a59d1eff454a8890b1256`, [Windows #45117176569](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45117176569) SUCCESS: 2,047 Python PASS/27 SKIP, 82 JS PASS, 35 pinned real-v4 PASS. Explicit `owned_build_ids` and `owned_build_names` backed by actual observed inventory and existing canonicalization; preserves raw purchased IDs and old UI payload compatibility.
-- [ ] **F3-I2B-FINAL-DOCS-CI** — exact final code+docs SHA on both Windows jobs; no false success inherited from code SHA.
+- [x] **F3-I2B-FINAL-DOCS-CI** — exact docs-head `dcd7e9124c8656b721b379864456bead5194cfd0`, [Windows #45117471084](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45117471084) SUCCESS: 2,047 Python PASS/27 SKIP, 82 JS PASS, 35 pinned real-v4 PASS. Native item IDs remain OPEN.
 - [ ] **F3-I2C-NATIVE-ID-PROVENANCE** — test actual current-patch Mayhem item transformations and raw canonical pairs locally; same-name-only fallback is not independently proven item equivalence. Never present an unproven item as bought or valid in shop. #49 still OPEN.
 - [ ] **F3-I2D-SHOP / BOOTS ACCEPTANCE** — verify correct one next legal item, basic/tier-two boots, full inventory, known inventory items and actual shop buyability; native Windows user evidence required.
+
+## 2026-11-23 — F1/CI-01 deterministic asynchronous test, draft #99
+
+- [x] **F1-CI-01-TIMING** — replace short 100ms Windows runner race with `threading.Event` barriers to prove LCDA fetch runs in worker thread, concurrent async heartbeat completes while fetch still pending, and thread releases deterministically even on failures. Historical RED intermittent `TimeoutError` observed on actual Windows [#45105136869](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45105136869) and [#45084699766](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45084699766); no fabricated tests-only guaranteed RED. Code `2fc26faa2278a57dfad51e1895f2b2ee50077563`.
+- [x] **F1-CI-01-CODE-GREEN** — [Windows #45117811383](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45117811383) SUCCESS first attempt: 2,047 Python PASS/27 SKIP, 82 JavaScript PASS/0 FAIL, pinned real-v4 35 PASS. Test-only; does not prove native LCDA performance or scheduling cause.
+- [ ] **F1-CI-01-DOCS-FINAL** — independently confirm final code+docs SHA in both Windows jobs before marking complete.
+- [ ] **F1-CI-01-NATIVE-LATENCY** — League Windows device CPU/RSS/FPS/LCDA responsiveness and controlled custom game proof, separate from CI concurrency test; not run.
+- [ ] **BLOCKER-49** — verified patch+mode Mayhem shop entitlement and exact prior Berserker boots `Unavailable` reproduction; one feasible dynamic next purchase after real bought items, real enemy context, full inventory.
+- [ ] **BLOCKER-85** — independent calibrated client-visible 3/4-card count source and epoch wiring in production; current optional injected path has no native producer and legacy path may mis-map real four-card offers. No real four-card OCR accepted.
+- [ ] **BLOCKER-86** — native permitted independently verified acquired augment ID, not OCR/disappearance-only; zero normal Alt+3 is not yet implemented.
+- [ ] **BLOCKER-82** — controlled native held-out OCR wrong-ID and latency test at current patch, preserve PP-OCRv4 experimental opt-in until explicit user policy decision.
+- [ ] **BLOCKER-84** — current-patch legal/licensed Mayhem performance and score calibration by champion/rarity/confidence; heuristic score does not constitute validated strength.
+- [ ] **BLOCKER-D9-D11** — Windows bundling/installer/distribution only after above gameplay/Riot/security/privacy gates; don't infer ready from Python/JS CI.

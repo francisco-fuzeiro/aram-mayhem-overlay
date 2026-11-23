@@ -1,7 +1,7 @@
 """M3/F1: classified LCDA transport and non-blocking polling regressions."""
 import asyncio
 import json
-import time
+import threading
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -56,14 +56,27 @@ def test_bad_json_is_distinct_from_network_failure(monkeypatch, json_result):
 
 @pytest.mark.asyncio
 async def test_lcda_slow_request_does_not_block_other_async_tasks(monkeypatch):
+    # A 100-ms wall-clock race is not a concurrency contract on loaded Windows
+    # runners. Explicitly hold the LCDA worker until the event loop handles a
+    # separate coroutine. Use generous timeouts only to bound a deadlock.
+    worker_started = threading.Event()
+    release_worker = threading.Event()
+    loop_thread = threading.get_ident()
+
     def slow_fetch():
-        time.sleep(0.15)
+        assert threading.get_ident() != loop_thread, "LCDA must leave the event loop"
+        worker_started.set()
+        if not release_worker.wait(timeout=10):
+            raise AssertionError("LCDA test worker was not released")
         return lcda.LCDAResult("http_404", None)
+
     state = GameState()
     state.ws_clients.add(object())
     outputs = []
+
     async def send(message):
         outputs.append(json.loads(message))
+
     deps = SimpleNamespace(
         get_raw_game_data=slow_fetch,
         to_thread=asyncio.to_thread,
@@ -71,15 +84,25 @@ async def test_lcda_slow_request_does_not_block_other_async_tasks(monkeypatch):
         broadcast=send,
     )
     tick = asyncio.create_task(poll_tick(state, deps, 1.0))
-    heartbeat = asyncio.Event()
-    async def other_websocket_task():
-        await asyncio.sleep(0.02)
-        heartbeat.set()
-    other = asyncio.create_task(other_websocket_task())
-    await asyncio.wait_for(heartbeat.wait(), timeout=0.10)
-    assert not tick.done(), "LCDA must be in a thread, not block the event loop"
-    await other
-    await tick
+    try:
+        started = await asyncio.wait_for(
+            asyncio.to_thread(worker_started.wait, 5.0), timeout=6.0,
+        )
+        assert started, "LCDA worker never started"
+
+        heartbeat = asyncio.Event()
+
+        async def other_websocket_task():
+            await asyncio.sleep(0)
+            heartbeat.set()
+
+        other = asyncio.create_task(other_websocket_task())
+        await asyncio.wait_for(heartbeat.wait(), timeout=5.0)
+        assert not tick.done(), "LCDA worker must not block independent tasks"
+        await other
+    finally:
+        release_worker.set()
+        await asyncio.wait_for(tick, timeout=6.0)
     assert any(x.get("type") == "no_game" for x in outputs)
 
 
