@@ -37,6 +37,8 @@ class ChampionTierConfig:
         "win": 50, "combat": 19, "leverage": 23, "consistency": 8})
     # Offer frequency per rarity; None = equal (assumption until measured).
     rarity_frequency: dict | None = None
+    # "Uses augments well" label: relative gain strictly above this percentile.
+    friendly_percentile: float = 80.0
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,7 @@ class ChampionTierRow:
     confidence: str
     n: int
     components: tuple  # ((name, value in [0, 1] or None), ...)
+    augment_friendly: bool = False
 
 
 def expected_max_of_three(values) -> float | None:
@@ -86,10 +89,18 @@ def build_champion_tiers(
     pair_deltas: dict[str, dict[str, list[float]]],
     config: ChampionTierConfig = ChampionTierConfig(),
     extra_components: dict[str, dict[str, float | None]] | None = None,
+    relative_gain: dict[str, float | None] | None = None,
 ) -> tuple[list[ChampionTierRow], dict[str, float]]:
     """``champions``: id -> (wins, games); ``pair_deltas``: id -> rarity ->
     shrunk ΔWR of each augment with champion-level data. ``extra_components``
-    may supply already-normalised ``combat``/``consistency`` in [0, 1]."""
+    may supply already-normalised ``combat``/``consistency`` in [0, 1].
+
+    ``relative_gain`` (owner decision 2026-11-23: ARAM is for fun) is how far
+    the best augment offers lift a champion above its *own* baseline. It does
+    not move a champion between tie groups or tiers; it orders champions
+    inside a statistical tie group and labels the top ones as
+    ``augment_friendly``. As a score component it would reward weak
+    champions and hurt prediction (F7 holdout)."""
     rng = np.random.default_rng(config.seed)
     ids = sorted(c for c, (_, g) in champions.items() if g > 0)
     total_w = sum(champions[c][0] for c in ids)
@@ -130,27 +141,45 @@ def build_champion_tiers(
     thresholds = {t: float(np.percentile(list(med.values()), p))
                   for t, p in config.percentiles.items()}
 
-    rows = []
+    gain = {c: (relative_gain or {}).get(c) for c in ids}
+    known_gain = [g for g in gain.values() if g is not None]
+    friendly_cut = (float(np.percentile(known_gain, config.friendly_percentile))
+                    if known_gain else None)
+
+    # Statistical tie groups on the score order.
     order = sorted(ids, key=lambda c: (-med[c], c))
-    group, prev = 0, None
-    for rank, c in enumerate(order, start=1):
+    groups: list[list[str]] = []
+    prev = None
+    for c in order:
         if prev is None or float(np.mean(prev > scores[c])) >= config.tie_probability:
-            group = rank
+            groups.append([])
+        groups[-1].append(c)
         prev = scores[c]
-        p20, p80 = (float(x) for x in np.percentile(scores[c], [20, 80]))
-        n = champions[c][1]
-        tier = "E"
-        for name in TIER_ORDER[:-1]:
-            if med[c] >= thresholds[name] and (
-                name != "OP" or (p20 >= thresholds[name] and n >= config.op_min_games)
-            ):
-                tier = name
-                break
-        if tier == "OP" and n < config.op_min_games:
-            tier = "S"
-        rows.append(ChampionTierRow(
-            champion_id=c, score=round(med[c], 4), score_p20=round(p20, 4),
-            score_p80=round(p80, 4), rank=rank, tie_group=group, tier=tier,
-            confidence=_confidence(n), n=n, components=comps[c],
-        ))
+
+    rows = []
+    rank = 0
+    for members in groups:
+        group_id = rank + 1
+        # Inside a tie group the relative augment gain decides the order.
+        members = sorted(members, key=lambda c: (
+            -(gain[c] if gain[c] is not None else float("-inf")), -med[c], c))
+        for c in members:
+            rank += 1
+            p20, p80 = (float(x) for x in np.percentile(scores[c], [20, 80]))
+            n = champions[c][1]
+            tier = "E"
+            for name in TIER_ORDER[:-1]:
+                if med[c] >= thresholds[name] and (
+                    name != "OP" or (p20 >= thresholds[name] and n >= config.op_min_games)
+                ):
+                    tier = name
+                    break
+            rows.append(ChampionTierRow(
+                champion_id=c, score=round(med[c], 4), score_p20=round(p20, 4),
+                score_p80=round(p80, 4), rank=rank, tie_group=group_id, tier=tier,
+                confidence=_confidence(n), n=n, components=comps[c],
+                augment_friendly=bool(
+                    friendly_cut is not None and gain[c] is not None
+                    and gain[c] > friendly_cut),
+            ))
     return rows, thresholds
