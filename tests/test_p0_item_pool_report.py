@@ -37,7 +37,7 @@ def test_read_only_report_exposes_empty_final_pool_and_old_policy(tmp_path):
 
 def test_report_current_policy_counts_final_without_claiming_mayhem_shop(tmp_path):
     cache = tmp_path / "items_v5_16.23.1.json"
-    _write_cache(cache, "item_pool_v3",
+    _write_cache(cache, "item_pool_v4",
                  {"3074": "final", "3006": "boots_tier2",
                   "1036": "component", "220009": "augment_reward"})
     report = inspect_cache(cache)

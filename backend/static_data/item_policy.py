@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-ITEM_POLICY_VERSION = "item_pool_v3"
+ITEM_POLICY_VERSION = "item_pool_v4"
 ARAM_MAP_ID = "12"
 _SHOP_ID_PATTERN = re.compile(r"(?:\d{4}|12\d{4})")
 _REWARD_ID_PATTERN = re.compile(r"22\d{4}")
@@ -168,7 +168,11 @@ def sources_agree(dd: dict, cd: dict) -> bool:
     if type(cd.get("priceTotal")) is not int or cd["priceTotal"] != gold["total"]:
         return False
     for dd_key, cd_key in (("from", "from"), ("into", "to")):
-        left, right = dd.get(dd_key), cd.get(cd_key)
+        # Data Dragon omits "into" for terminal items; CDragon explicitly
+        # publishes "to": []. Only this DD-side omission denotes empty.
+        # A missing CD "to", DD "from", null, or mismatching recipe stays unsafe.
+        left = dd.get(dd_key, []) if dd_key == "into" else dd.get(dd_key)
+        right = cd.get(cd_key)
         if not isinstance(left, list) or not isinstance(right, list):
             return False
         try:

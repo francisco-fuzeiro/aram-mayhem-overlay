@@ -17,7 +17,7 @@ def test_terminal_dd_omits_into_but_cd_explicit_to_empty():
         row = deepcopy(dd[ident])
         row.pop("into")
         assert cd[ident]["to"] == []
-        assert row["from"] == cd[ident]["from"]
+        assert sorted(map(str, row["from"])) == sorted(map(str, cd[ident]["from"]))
         assert sources_agree(row, cd[ident]) is True
 
 
@@ -89,3 +89,45 @@ def test_item_loader_emits_diagnostic_from_verified_catalog(monkeypatch, tmp_pat
     catalog = _load_items()
     assert catalog.meta.availability == "verified_two_source"
     assert ("build.item_pool", "ok", "final_items", 104) in observed
+
+def test_old_v3_cache_invalidated_after_semantic_fix(monkeypatch, tmp_path):
+    import json
+    from backend.static_data import loader
+
+    offline_loader(monkeypatch, tmp_path)
+    first = _load_items()
+    assert first.meta.policy_version == "item_pool_v4"
+    cache = tmp_path / "items_v5_16.23.1.json"
+    payload = json.loads(cache.read_text(encoding="utf-8"))
+    payload["meta"]["policy_version"] = "item_pool_v3"
+    cache.write_text(json.dumps(payload), encoding="utf-8")
+    rebuilt = loader._load_items()
+    assert rebuilt.data_source == "network"
+    assert rebuilt.meta.policy_version == "item_pool_v4"
+    assert sum(x == "final" for x in rebuilt.classes.values()) == 104
+
+
+def test_unverified_source_has_feature_skip_reason(monkeypatch, tmp_path):
+    from backend import feature_diagnostics
+    observed = []
+    monkeypatch.setattr(
+        feature_diagnostics, "record",
+        lambda feature, status, reason, count=None:
+        observed.append((feature, status, reason, count)) or True,
+    )
+    offline_loader(monkeypatch, tmp_path, cdragon=False)
+    result = _load_items()
+    assert result.meta.availability == "unknown"
+    assert ("build.item_pool", "skipped", "unverified", 0) in observed
+
+
+def test_feature_journal_drops_untrusted_fields():
+    from backend.diagnostic_events import _clean
+    assert _clean("feature", {
+        "feature": "build.item_pool", "status": "ok",
+        "reason": "final_items", "count": 104,
+        "name": "PRIVATE_PLAYER", "path": "PRIVATE_PATH"
+    }) == {
+        "feature": "build.item_pool", "status": "ok",
+        "reason": "final_items", "count": 104
+    }
