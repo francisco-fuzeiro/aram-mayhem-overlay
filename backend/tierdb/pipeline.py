@@ -207,6 +207,8 @@ def _build_items(store, patch, snap_id, roles, inputs: ItemInputs, config: ItemT
         top = [r.item_id for r in sorted(
             (r for r in rows if r.champion_id == champion and r.kind == "final"
              and r.level == "champion"), key=lambda r: r.rank)]
-        weights = stat_demand(roles.get(champion, ""), top, types)
+        popular = {iid: n for iid, (_w, n) in d["finals"].items()
+                   if not inputs.eligible or inputs.canonical(iid) in set(inputs.eligible)}
+        weights = stat_demand(roles.get(champion, ""), top, types, popular=popular)
         demands[champion] = (weights, "builds" if any(types.get(i) for i in top[:8]) else "role")
     return rows, references, demands

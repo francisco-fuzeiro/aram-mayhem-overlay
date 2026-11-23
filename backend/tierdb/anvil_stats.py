@@ -102,25 +102,44 @@ def _normalise(weights: dict) -> dict:
     return {s: weights.get(s, 0.0) / total for s in ANVIL_STATS}
 
 
-def stat_demand(role: str, top_items: list[str], item_types: dict) -> dict[str, float]:
+def _item_stats(iid: str, item_types: dict) -> set[str]:
+    return {s for tag in item_types.get(iid, ()) for s in _TAG_STATS.get(tag, ())}
+
+
+def stat_demand(role: str, top_items: list[str], item_types: dict,
+                popular: dict[str, float] | None = None) -> dict[str, float]:
     """How much each stat helps this champion, summing to 1.
 
-    Measured part: stats of the champion's best items (in tier order, earlier
-    items weigh more). Fallback: role prior. A small floor keeps every stat
-    rankable.
+    Measured part: half from the champion's best items (tier order, earlier
+    items weigh more), half from what players actually build on it (items
+    weighted by games). Field test 23/11: Master Yi's best-ranked items are
+    crit/lethality, yet attack speed is in most Yi builds; ranking alone hid
+    it. Fallback: role prior. A small floor keeps every stat rankable.
     """
     weights = {s: 0.0 for s in ANVIL_STATS}
     used = 0
     for pos, iid in enumerate(top_items[:8]):
-        stats = {s for tag in item_types.get(iid, ()) for s in _TAG_STATS.get(tag, ())}
+        stats = _item_stats(iid, item_types)
         if not stats:
             continue
         used += 1
         for s in stats:
             weights[s] += (1.0 / (1 + 0.25 * pos)) / len(stats)
-    if not used:
-        weights = {s: float(v) for s, v in _ROLE_PRIOR.get(role, {}).items()}
-    base = _normalise(weights)
+    pop = {s: 0.0 for s in ANVIL_STATS}
+    for iid, games in (popular or {}).items():
+        stats = _item_stats(iid, item_types)
+        if stats and games > 0:
+            for s in stats:
+                pop[s] += float(games) / len(stats)
+    if not used and not any(pop.values()):
+        base = _normalise({s: float(v) for s, v in _ROLE_PRIOR.get(role, {}).items()})
+    elif not any(pop.values()):
+        base = _normalise(weights)
+    elif not used:
+        base = _normalise(pop)
+    else:
+        a, b = _normalise(weights), _normalise(pop)
+        base = {s: 0.5 * a[s] + 0.5 * b[s] for s in ANVIL_STATS}
     return _normalise({s: base[s] + 0.01 for s in ANVIL_STATS})
 
 

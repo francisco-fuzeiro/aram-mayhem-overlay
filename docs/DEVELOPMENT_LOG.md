@@ -1161,3 +1161,16 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Normal-ARAM (450) damage prior: offline Riot match-v5 collector, key only from
   RIOT_API_KEY, local per-champion aggregates only, blended into the impact
   baseline (20 pseudo-games). Aggregates stay out of the repo pending Riot policy.
+
+## 2026-11-23 — Field test (Master Yi, e38fd2e) follow-ups (draft #108)
+
+- Report: every always-expected feature OK. Pick inference fired twice (1 ok,
+  1 ambiguous) for 4 offers; the player used Alt+1/2/3. `card_presence.infer_pick`
+  now takes the card under the cursor last (within 1 s before the cards vanish)
+  instead of abstaining when two cards were hovered; Alt+N still corrects.
+- Master Yi build had no attack speed: AramHex 16.23 data (531k Yi games) ranks the
+  crit/lethality core (Collector, IE, LDR) top in both play and win rate; Terminus is
+  A-tier #6, just outside six slots. Not a code bug. Stat demand now blends what
+  players build (games-weighted) with the tier order: Yi AS 5% -> 8%.
+- Open: one offer produced no disappearance event at all; the level-18 offer had
+  no OCR read before the game ended; no Stat Anvil purchase edge was seen.

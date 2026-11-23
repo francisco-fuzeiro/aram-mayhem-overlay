@@ -2,8 +2,8 @@
 
 Read-only: the cursor POSITION is sampled while a verified offer is on screen
 (GetCursorPos); mouse buttons are never read and nothing is clicked. The pick
-is inferred only when the cursor sat over ONE card in the last second before
-two OCR-free probes saw the card background vanish. Otherwise Alt+N stays.
+is the card the cursor was on last, within the second before two OCR-free
+probes saw the card background vanish (no card -> abstain). Alt+N corrects.
 """
 import asyncio
 from pathlib import Path
@@ -45,9 +45,16 @@ def test_cursor_moving_to_the_champion_after_the_click_is_ignored():
     assert cp.infer_pick(trail) == "right"
 
 
-def test_two_cards_in_the_last_second_or_no_card_abstains():
+def test_sweeping_over_two_cards_picks_the_last_one_hovered():
+    # Field test 23/11: the old "exactly one card" rule abstained here.
     assert cp.infer_pick(_trail((0.0, "present", "left"), (0.3, "present", "centre"),
-                                (0.6, "absent", None), (0.9, "absent", None))) is None
+                                (0.6, "absent", None), (0.9, "absent", None))) == "centre"
+    # Cursor already left the card when the fade started: last card still counts.
+    assert cp.infer_pick(_trail((0.0, "present", "right"), (0.3, "mixed", None),
+                                (0.6, "absent", None), (0.9, "absent", None))) == "right"
+
+
+def test_no_card_abstains():
     assert cp.infer_pick(_trail((0.0, "present", None), (0.3, "absent", None),
                                 (0.6, "absent", None))) is None
     # Old hover (> 1 s before vanishing) is not evidence either.

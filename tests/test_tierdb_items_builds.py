@@ -198,3 +198,16 @@ def test_owned_items_are_never_swapped_and_conflicts_respected():
     out = adapt_build(ref, strength, conflicts=lambda a, b: {a, b} == {"x", "b"},
                       context=lambda i: (5.0, "r") if i == "x" else (0.0, None))
     assert out.swaps == () or out.swaps[0]["out"] == "b"
+
+
+def test_stat_demand_counts_what_players_build_not_only_the_best_ranked():
+    # Field test 23/11 (Master Yi): top-ranked items are crit/lethality, but
+    # attack-speed items are in most builds; AS must not vanish from demand.
+    types = {"ie": ("CriticalStrike", "Damage"), "ldr": ("Damage", "CriticalStrike"),
+             "botrk": ("Damage", "AttackSpeed"), "guinsoo": ("AttackSpeed", "SpellDamage")}
+    ranked_only = stat_demand("fighter", ["ie", "ldr"], types)
+    blended = stat_demand("fighter", ["ie", "ldr"], types,
+                          popular={"ie": 160000, "ldr": 90000, "botrk": 200000,
+                                   "guinsoo": 65000})
+    assert blended["as"] > 3 * ranked_only["as"]
+    assert blended["crit"] > blended["mr"] and abs(sum(blended.values()) - 1) < 1e-9

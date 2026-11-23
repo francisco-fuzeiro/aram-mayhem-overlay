@@ -67,15 +67,23 @@ def cards_gone(trail: Sequence[Probe]) -> bool:
 
 
 def infer_pick(trail: Sequence[Probe]) -> str | None:
-    """The single card under the cursor within PICK_WINDOW_S before vanishing."""
+    """The card under the cursor last, within PICK_WINDOW_S before vanishing.
+
+    Field test 23/11 (Master Yi): requiring ONE card in the whole last second
+    abstained whenever the player swept over two cards before clicking, so
+    every pick needed Alt+N. The click lands on the card the cursor was on
+    last; Alt+N still corrects a wrong inference.
+    """
     start = _absent_tail(trail)
     if start == 0 or start == len(trail):
         return None
     gone_at = trail[start].t
     recent = [p for p in trail[:start]
               if p.cue != "absent" and gone_at - p.t <= PICK_WINDOW_S]
-    slots = {p.slot for p in recent if p.slot is not None}
-    return next(iter(slots)) if len(slots) == 1 else None
+    for probe in reversed(recent):
+        if probe.slot is not None:
+            return probe.slot
+    return None
 
 
 def downsample(crops: dict) -> dict:
