@@ -59,3 +59,44 @@ def test_known_item_id_not_keyword_or_item_catalog():
     }
     assert count_anvil_vouchers([_item(999999)]) == {}
     assert count_anvil_vouchers(None) is None
+
+
+import pytest
+from tests.test_poll_tick_m1 import make_harness, make_snapshot
+from backend.api.server import poll_tick
+
+
+@pytest.mark.asyncio
+async def test_poll_records_voucher_edge_without_opening_augment_or_ocr_offer():
+    frames = [make_snapshot(level=1) for _ in range(4)]
+    for frame, vouchers in zip(frames, ({}, {"220008": 1}, {"220008": 1},
+                                        {"220008": 2})):
+        frame.anvil_vouchers = vouchers
+    state, deps, events = make_harness(
+        [{"tick": i} for i in range(4)], frames, ocr=True,
+    )
+    for i in range(4):
+        await poll_tick(state, deps, float(i + 10))
+    assert state.anvil_voucher_purchase_events == 2
+    assert state.anvil_voucher_last_purchase == ("220008",)
+    assert state.anvil_voucher_trigger_pending is True
+    assert state.scan_window_open is False
+    assert state.augment_choices == []
+    assert not any(event.get("type") == "ocr_result"
+                   and event.get("status") == "detected" for event in events)
+    state.reset()
+    assert state.anvil_voucher_purchase_events == 0
+    assert state.anvil_voucher_trigger_pending is False
+
+
+@pytest.mark.asyncio
+async def test_unknown_voucher_source_never_looks_like_purchase():
+    frames = [make_snapshot(level=1) for _ in range(4)]
+    for frame, voucher in zip(frames, ({"220008": 1}, None,
+                                         {"220008": 2}, {"220008": 3})):
+        frame.anvil_vouchers = voucher
+    state, deps, _ = make_harness([{"tick": i} for i in range(4)], frames)
+    for i in range(4):
+        await poll_tick(state, deps, float(i + 10))
+    # Two valid observations after the unknown frame are required.
+    assert state.anvil_voucher_purchase_events == 1
