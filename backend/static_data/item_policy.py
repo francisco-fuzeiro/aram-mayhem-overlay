@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-ITEM_POLICY_VERSION = "item_pool_v2"
+ITEM_POLICY_VERSION = "item_pool_v3"
 ARAM_MAP_ID = "12"
 _SHOP_ID_PATTERN = re.compile(r"(?:\d{4}|12\d{4})")
 _REWARD_ID_PATTERN = re.compile(r"22\d{4}")
