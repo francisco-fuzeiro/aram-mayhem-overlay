@@ -1,5 +1,13 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-23 — Mandatory diagnostic gate for each P0 repair
+
+1. Before a P0 production change, assign a stable `area.feature` id and closed allowed outcomes; add its row to `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`.
+2. Write a tests-only RED asserting exact `(feature,status,reason)`; the existing synthetic parser/item report/voucher checks alone are insufficient. GREEN must record at the actual decision point, and any rendered choice must send UI `feature_ack` from the overlay with the id in `UI_FEATURES`.
+3. The generic feature registry/diagnostic infrastructure is in separate draft #106 and not in P0 #107. Reconcile the shared implementation **without** cherry-picking TierDB features or making sibling PRs conflict; until then, runtime event recording / report is PENDING.
+4. Complete all offline fixes, exact-head Windows Actions, and user-device setup; then run **ONE** approved owner-operated custom Mayhem session for all P0 cases, inspect the per-id report plus actual shop/augment/Anvil UI. Conditional features must explain skipped/no event; an expected missing feature stays OPEN. No normal competitive-game repeated captures, private data, automated League inputs, premature P1 or automatic transfer prompt.
+5. Owner local preflight: actual Git checkout is child `aram-oracle` (the parent is not a repo), `origin` is this project, `funcionalidades.md` untracked must be preserved. Local switch to #107 P0 and read-only item v3 output NOT YET VERIFIED.
+
 ## 2026-11-23 — Mandatory phase-exit and user-response gate (supersedes historical handoffs)
 
 - **Automatic next-chat prompt only if the entire current phase is COMPLETE**, with every required offline/Windows CI and native acceptance criterion evidenced. A completed substep, green CI, documentation commit or unavailable test is not a phase exit.

@@ -1,5 +1,16 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-23 — Every P0 requires one-match diagnostics (owner directive)
+
+- [x] **P0-DIAG-00 — Define binding P0 diagnostic acceptance contract** in AGENTS + skill, with a per-feature row in `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`; owner wants a single final Mayhem match, not one per P0 substep. Reference separate TierDB draft #106; do not silently import it.
+- [ ] **P0-DIAG-01 — Safely reconcile generic feature registry/journal/report/API/UI-ack infrastructure with sibling #106** before any runtime use. P0 #107 does not currently carry those modules; no report endpoint/CLI is claimed on this branch.
+- [ ] **P0-DIAG-02 — RED exact tuple test + GREEN record per P0 id**, in particular `augment.stats_parser`, `augment.cache_schema`, `build.item_pool`, `build.next_item`, `anvil.voucher_purchase`, `anvil.offer_detected`, `anvil.offer_render`; allow only safe enumerated values and mark conditional triggers skipped. Existing parser/item-report/voucher unit tests are functional-only, not diagnostic tuple tests.
+- [ ] **P0-DIAG-03 — One owner-controlled full Mayhem match once all requested features are ready**, plus per-id OK/FAILED/SKIPPED/NOT FIRED report and UI observations; no raw logs/private data. Until then, no native PASS.
+- [x] **P0-LOCAL-01 — Correct local Git checkout found:** `aram-oracle` child; parent is not Git, origin verified, separate upstream. Preserve untracked `funcionalidades.md` without adding/cleaning it.
+- [ ] **P0-LOCAL-02 — Verify owner P0 branch switch and current-policy v3 item pool report**; the visible local branch was the F3 parent and no branch switch/report output has been verified.
+- [x] **P0-DOC-CI-PREV — Prior exact head verified:** `e7a4cd017a8a64f4e2b50e0c608847e5ad865d5b` [Windows #45195144349](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45195144349) two jobs SUCCESS.
+- [ ] **P0-DOC-CI-NEW — Verify new documentation-only HEAD Actions**, without miscalling P0 complete.
+
 ## 2026-11-23 — Owner-approved completion gate (active)
 
 - [x] **PROCESS-01 — Replace automatic prompt-on-checkpoint policy** in `AGENTS.md` and the continuation skill: automatic next-conversation prompt ONLY after phase completion; otherwise report blockers and step-by-step resolution, remain in same phase. Owner-requested transfers can still resume the same incomplete phase.

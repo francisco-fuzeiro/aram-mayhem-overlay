@@ -1,4 +1,35 @@
 ---
+
+## CURRENT 2026-11-23 — Mandatory P0 diagnostics, owner checkout and continuity
+
+- Owner instruction for **EVERY P0**: stable dotted `area.feature` id in
+  `backend/feature_registry.py`, closed reason enums; tests-only RED
+  asserts exact `(feature,status,reason)`; GREEN calls
+  `feature_diagnostics.record` at decision; visible UI results must send
+  allowlisted `feature_ack` and be registered in `UI_FEATURES`; one
+  feature row in `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`. Missing action
+  must have a reason. A synthetic functional test without diagnostic tuples
+  does not satisfy this requirement. Single owner-controlled Mayhem
+  acceptance **at end**, not a separate match per P0.
+- Reference contract: `docs/plans/GPT_BRIEF_TIERDB_2026-11-23.md` and
+  `docs/plans/FEATURE_DIAGNOSTICS.md` on independent draft #106.
+  **P0 #107 does not currently include `backend/feature_diagnostics.py`
+  or `backend/feature_registry.py`**. The new P0 checklist therefore
+  marks runtime instrumentation PENDING; do not claim diagnostic RED/GREEN,
+  endpoint availability or a generated one-match report until implemented
+  and independently verified. Do not import unrelated TierDB logic or
+  conflict with sibling PR #106.
+- Owner Windows checkout discovery: enclosing workspace is not Git,
+  child `aram-oracle` is checkout; `origin` points to this repo; separate
+  `upstream` is `fabs133/league-aram-builder`. Initial owner local
+  branch `feat/f3-post-full-build-anvil-priorities-20261123`; local
+  untracked `funcionalidades.md` must remain untouched. No full private
+  path in public docs. Owner P0 branch switch/report NOT YET VERIFIED.
+  Use non-destructive fetch/switch/ff-only pull and stop on error.
+- Prompt only when FULL phase acceptance passes; if P0 incomplete,
+  give blockers plus actionable ordered steps here. A same-phase prompt
+  is permitted only if the owner explicitly requests a transfer.
+
 name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---

@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Owner: per-feature P0 diagnosis + observed Windows checkout (documentation only)
+
+- Read owner-approved `docs/plans/GPT_BRIEF_TIERDB_2026-11-23.md` on separate docs branch and the working reference `docs/plans/FEATURE_DIAGNOSTICS.md`, `backend/feature_registry.py` and `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md` on sibling draft #106. The owner's rule is **id per P0 feature + exact diagnostic tuple test + checklist row + single final end-to-end Mayhem match**. In #107 those generic modules were not present, so this commit only records the rule and planned IDs/tests; no false claim of an event journal, server ack, or native acceptance. Preserve TierDB isolation and reconcile shared code before implementing.
+- Owner Windows screenshots located the actual checkout in child `aram-oracle` beneath a non-repo workspace. `origin` matched this repo and `upstream` was the separate league-aram-builder. The local branch was the F3 parent and `funcionalidades.md` was untracked; it must not be cleaned/overwritten/committed. No user P0 branch switch or v3 aggregate output confirmed.
+- Prior #107 HEAD `e7a4cd017a8a64f4e2b50e0c608847e5ad865d5b` had both [Windows jobs #45195144349](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45195144349) SUCCESS. New documentation HEAD must be rechecked separately. No product code, main, TierDB or other draft PR changed; native gates and P0 remain OPEN.
+
 ## 2026-11-23 — Owner policy fix: stop premature conversation handoffs (docs only)
 
 - The owner clarified that the assistant must provide a **next-session prompt automatically only when the current phase is fully completed**, not after a documentation checkpoint or passing CI. When mandatory acceptance is still open, remain in this phase and give blockers and ordered instructions to resolve them. Explicit owner-requested transfers may produce a same-phase prompt.

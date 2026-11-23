@@ -37,6 +37,61 @@ produce a conversation-transfer prompt at every checkpoint or subphase:
 5. Continue documenting factual progress safely; do not create unnecessary commits or Actions runs solely to manufacture a handoff. Protect `main`, stacked draft PRs, privacy and Riot restrictions.
 
 
+## P0 per-feature diagnostics and one-match acceptance (owner decision, 2026-11-23)
+
+This rule applies to **every P0 fix** (new and pending), not only TierDB. Follow
+the validated design in `docs/plans/GPT_BRIEF_TIERDB_2026-11-23.md` and
+`docs/plans/FEATURE_DIAGNOSTICS.md` on independent draft #106 as the reference;
+never assume those files or its generic runtime infrastructure already exist on
+the current P0 branch, and do not merge/cherry-pick unrelated TierDB work.
+
+1. Allocate a stable dotted id (`area.feature`) and closed enum status/reason
+   vocabulary in `backend/feature_registry.py` when the diagnostic infrastructure
+   has been safely integrated; examples: `augment.stats_parser`,
+   `build.item_pool`, `anvil.voucher_purchase`. A feature that abstains must
+   report a closed `skipped/reason` or `failed/reason`, not silence.
+2. In the **tests-only RED** step, assert the exact
+   `(feature, "ok"|"failed"|"skipped", reason)` tuple at the decision point;
+   implement the smallest GREEN change with
+   `feature_diagnostics.record(feature, status, reason, count)`.
+   An offline functional test without a diagnostic assertion is NOT proof of
+   instrumentation.
+3. For actual user-visible rendering, add the feature id to `UI_FEATURES`
+   and accept a strictly allowlisted `feature_ack` only after the overlay
+   actually renders. No fake UI acknowledgment from backend calculations.
+4. Add **one row per feature** to
+   `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md` with trigger, exact test,
+   expected safe diagnostic result, and live owner verification status.
+5. Run **ONE owner-controlled Mayhem match** at the end of the fully prepared
+   feature batch, not a game for each P0 patch. An aggregate report must isolate
+   OK / FAILED / SKIPPED / NOT FIRED by id; when an expected feature does not
+   fire, its blocker remains open. Do not claim any native PASS from CI.
+6. Never emit player names, Riot IDs, paths, raw OCR text, screenshots, win rates
+   or private game data in feature events, reports or this public repository.
+   Reconcile duplicate infrastructure with #106 before integrating branches.
+
+## Local Windows checkout safety (owner-observed, 2026-11-23)
+
+- The enclosing workspace folder is not a Git repository; the actual checkout
+  is a child folder named `aram-oracle`. Locate it with
+  `git rev-parse --show-toplevel` and verify `git remote -v` before actions.
+- `origin` points to `francisco-fuzeiro/aram-mayhem-overlay`. A separate
+  `upstream` points to `fabs133/league-aram-builder`; P0 operations must use
+  `origin`, never pull from `upstream`.
+- The owner observed `feat/f3-post-full-build-anvil-priorities-20261123`
+  as the then-current local branch, and `funcionalidades.md` as an untracked
+  local requirements file (`??`). Preserve that file; do not delete, reset,
+  clean, overwrite, stage or commit it automatically.
+- Safe user-operated sequence AFTER a clean/preflight check:
+  `git fetch origin`, non-forced `git switch` to
+  `fix/p0-audit-parser-items-voucher-20261123`,
+  `git pull --ff-only origin fix/p0-audit-parser-items-voucher-20261123`;
+  stop on error. Confirm exact head and run read-only
+  `py -3.11 -m scripts.item_pool_report` with League/Oracle closed.
+- **Unverified:** no new branch-switch result or owner PC v3 item report has
+  been supplied. Never infer either occurred. Never commit a private full
+  Windows path/user name or local screenshot to this public repository.
+
 ## Language and priorities
 
 - All application copy, source code comments, commit messages and documentation must be in English.
