@@ -2,6 +2,12 @@
 name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
+## 2026-11-23 — P0 audit recovery #107 CURRENT same-phase checkpoint
+
+- Draft/unmerged PR #107 on #103, branch `fix/p0-audit-parser-items-voucher-20261123`. The previous independently rechecked HEAD `6c84c823b453443ce7862d104c881a611ddf7245` passed [Windows Actions #45189586795](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45189586795): 2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax checks, 35 real pinned-v4 PASS. CI ran PR merge ref; **not** user native Mayhem evidence. This documentation checkpoint creates a later SHA: verify new exact HEAD and Windows Actions before asserting final PASS.
+- **PROVEN offline:** parser MR/MS/Homeguard and augment cache v5 invalidation, read-only existing-cache report, current-player LCDA Voucher `220008`/`220009` positive-stack observation. **SUSPECTED:** DD/CD price or recipe mismatches could be causing old zero-final pool, but no v3 report or public mismatch verified. **BLOCKED:** #49 eligibility correction and verified Anvil popup/options/catalogue. **NOT TESTED:** owner PC current-policy v3 counts; native Voucher/popup timing/three-vs-four card geometry, user custom Mayhem, live item shop. No claims of gameplay acceptance.
+- **Next same-phase action:** on owner's Windows with League and Oracle closed, `py -3.11 -m scripts.item_pool_report` then optional `--json`, share only aggregate schema/policy/patch/source status/class counts/warnings without paths or logs. If no cache or old policy, do not misreport as current v3. If current v3 still zero finals, only evidence-based public DD/CD mismatch → tests-only RED → minimal fail-closed GREEN. Voucher does not establish visual OCR offer; keep Anvil catalogue empty until verified source and controlled user test. Preserve public privacy, Riot, no League input automation; do not touch tierdb, `docs/plans/*TIERDB*`, main or stacked PRs; no merge. Automatically provide full PT-PT same-phase next-chat prompt with exact new SHA/Actions after every checkpoint.
+
 
 ## PERMANENT POLICY — automatic, evidence-based continuation after every phase
 
