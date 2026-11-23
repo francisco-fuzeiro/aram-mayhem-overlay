@@ -464,6 +464,7 @@
     }
 
     async function loadTierChampions() {
+        if (!["1", "2", "3"].includes(tierRarity.value)) tierRarity.value = "2";
         if (tierCatalogLoaded) return loadTierList();
         if (tierCatalogLoading) return;
         tierCatalogLoading = true;
