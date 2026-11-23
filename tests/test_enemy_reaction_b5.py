@@ -114,7 +114,7 @@ def test_text_classifier_strips_html_and_uses_complete_wounds_word(description, 
 def test_verified_properties_persist_and_old_cache_cannot_be_reused(tmp_path):
     assert _ITEM_CACHE_SCHEMA == 5  # B3 already consumed schema 4.
     meta = ItemPoolMeta(
-        policy_version="item_pool_v2", ddragon_version="16.23.1",
+        policy_version="item_pool_v3", ddragon_version="16.23.1",
         cdragon_patch="16.23.8406595+branch.test",
         cdragon_sha256="a" * 64, cdragon_fetched_at="2026-11-20T00:00:00Z",
         overrides_version="2026-11-20.1", availability="verified_two_source",
@@ -370,6 +370,7 @@ def test_two_source_loader_computes_properties_from_raw_dd_and_persists_them(tmp
     cd = {"3072": {
         "inStore": True, "displayInItemSets": True,
         "priceTotal": 3400, "from": [], "to": [],
+        "requiredBuffCurrencyName": "", "requiredBuffCurrencyCost": 0,
     }}
     source = _assemble_item_catalog(dd, cd, {"force_class": {}}, meta, "network")
     assert source["3072"].item_class == "final"
