@@ -1628,3 +1628,24 @@ test("TDB-FIX3: next item cost reads as ready or gold still needed", () => {
         full_build: [], purchased_items: [], owned_build_ids: []});
     assert.equal(h.element("build-next").textContent, "Next: Ravenous Hydra (1925g more)");
 });
+
+test("TDB-CTX: offer badge shows the adjusted tier with arrow and reason, base kept", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({left: "a", centre: "b"}),
+        recommendations: [], suggest_reroll: false, tiers_enabled: true,
+        augment_tiers: {
+            a: {tier: "B", adjusted_tier: "A", adjust: 1, adjust_reason: "fits your build",
+                rank: 30, rank_total: 96, tie_group: 30, tie_end: 30, level: "champion",
+                confidence: "high", rarity: "gold"},
+            b: {tier: "A", adjusted_tier: "A", adjust: 0, adjust_reason: null,
+                rank: 10, rank_total: 96, tie_group: 10, tie_end: 10, level: "champion",
+                confidence: "high", rarity: "gold"},
+        },
+    });
+    const cards = h.element("augment-list").children;
+    assert.match(cards[0].innerHTML, /class="aug-score tier-badge tier-A">Tier A ↑</);
+    const text = cards[0].children.map((c) => c.textContent).join(" | ");
+    assert.match(text, /↑ fits your build \(base B\)/);
+    assert.match(text, /Tier B · #30\/96/);
+    assert.match(cards[1].innerHTML, />Tier A</);
+});
