@@ -997,8 +997,10 @@
 
     function renderBuild(bs) {
         const nextName = bs && (bs.next_item_name || bs.next_item_id);
-        if (bs && bs.slot_blocked && !nextName) {
-            buildNext.textContent = "Inventory full";
+        if (bs && bs.slot_blocked) {
+            // A planned item is not an actionable shop purchase when all
+            // physical slots are occupied and no owned recipe can be consumed.
+            buildNext.textContent = "Inventory full — free a slot";
         } else if (nextName) {
             const cost = Number(bs.gold_to_next);
             buildNext.textContent = "Next: " + nextName +
@@ -1025,6 +1027,8 @@
             if (purchased.has(itemId)) {
                 status = "Owned";
                 cls = "owned";
+            } else if (itemId === bs.next_item_id && bs.slot_blocked) {
+                status = "BLOCKED";
             } else if (itemId === bs.next_item_id) {
                 status = "BUY NEXT";
                 cls = "buy-next";
@@ -1042,8 +1046,11 @@
             buildList.appendChild(row);
         });
 
-        // Footer
-        if (bs.next_item_id && bs.next_item_name) {
+        // Footer: do not repeat actionable buy or misleading gold advice.
+        if (bs.slot_blocked) {
+            buildFooter.textContent = "Free an item slot before buying";
+            buildFooter.className = "build-footer";
+        } else if (bs.next_item_id && bs.next_item_name) {
             const goldHint = bs.gold_to_next > 0 ? ` (${bs.gold_to_next}g)` : "";
             buildFooter.textContent = `Next: ${bs.next_item_name}${goldHint}`;
             buildFooter.className = "build-footer";
