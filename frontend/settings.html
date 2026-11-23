@@ -166,6 +166,29 @@
                             </div>
                         </div>
                     </div>
+                    <div class="setting-card">
+                        <div class="setting-details">
+                            <div class="setting-icon" aria-hidden="true">★</div>
+                            <div>
+                                <h2>Mayhem tier lists</h2>
+                                <p>Augment tiers per champion on the offer cards, and Mayhem strength
+                                   and potential in champion select. Only tiers and ranks are shown:
+                                   the overlay never shows win rates. Switching off takes effect
+                                   immediately.</p>
+                            </div>
+                        </div>
+                        <label class="small">
+                            <input type="checkbox" id="tier-enabled" disabled>
+                            Show Mayhem tier lists
+                        </label>
+                        <p id="tier-sources" class="small"></p>
+                        <div class="setting-footer">
+                            <span id="tier-status" role="status" aria-live="polite" class="form-status">Loading tier list status…</span>
+                            <div class="button-group">
+                                <button id="tier-update" type="button" class="button-secondary">Update now</button>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="panel-ocr" class="tab-panel hidden" role="tabpanel"

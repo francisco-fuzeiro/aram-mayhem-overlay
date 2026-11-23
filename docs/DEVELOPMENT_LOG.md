@@ -1,5 +1,36 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Tier DB I1: AramHex equipment import
+
+- New `item_observation`/`item_info` tables (separate from augment observations; per-value n and source). Importer reads the optional AramHex equipment tables when meta.json lists them, all SHA-256 checked: finished items per champion (+ recommendation denominator), Boots-typed holdings (+ equipment denominator), ordered first-three-legendary cores with pick, Weapon of Fate (augment 3081) first-legendary references. Unmapped champions quarantined; snapshots ingested by older builds get items once.
+- Real 16.23/normal: 17,733 champion×item, 1,383 champion×boots, 510 cores, 504 Weapon of Fate rows in 0.8 s. Item IDs kept raw; canonical mapping and eligibility come from the GPT fix (I2).
+
+## 2026-11-23 — Per-feature diagnostics for a single end-to-end test
+
+- Owner wants one final in-game test instead of one per sub-phase. Added a feature registry (`backend/feature_registry.py`), `feature_diagnostics.record()` on the existing whitelisted journal (per-feature dedup), `session_start` marker, overlay `feature_ack` for rendered UI, and the report (`python -m backend.feature_diagnostics`, `GET /api/diagnostics/features`). Tier list features instrumented. Pattern and checklist: `docs/plans/FEATURE_DIAGNOSTICS.md`, `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`.
+
+## 2026-11-23 — Tier DB wired to the overlay (TDB-UI1/UI2/UI3)
+
+- Offers: each L/C/R card gets one line `Tier S · #3/70 (tied #3–#7) · champion data` (levels: champion/class/global data, estimate) or `No tier data for this champion`. Only visible augment ids are sent; payload carries tier/rank/rank_total/tie span/level/confidence/rarity, never wins/games/n/win rate.
+- Champion select: `Mayhem strength: S · #4/172 (tied #3–#5) · Potential: very high`; no line when the champion has no data or the switch is off.
+- Settings → Build Preferences: "Mayhem tier lists" card with live switch (PUT /api/tierlist, StrictBool, reverts on failure), sources/attribution, "Update now" (POST /api/tierlist/update, one background run at a time).
+- `backend/tierdb/service.py`: download latest AramHex dataset → ingest → build → export; auto-update at startup when the export is missing or older than 72 h (`ARAM_ORACLE_TIERLIST_AUTO_UPDATE=0` disables; tests disable it). Failures are reported in status, never raised.
+- Linux: 2,098 Python PASS / 48 SKIP; 92 JS PASS. Windows CI pending at write time.
+
+## 2026-11-23 — Tier DB: champion strength + potential (owner decision)
+
+- Owner decision (ARAM is for fun): champion list shows two fields. **Strength** = tier from WR 50 / absolute leverage 23 (best-of-3 offer) / combat 19 / consistency 8. **Potential** = relative augment gain over the champion's own baseline, five quintile levels (very_low..very_high), never a number. Relative gain also orders champions inside a statistical tie group; it never moves tiers or groups.
+- Holdout 16.22→16.23: champion rank τ 0.844 without tie-break, 0.839 with the potential tie-break (WR-only 0.860). Potential bands 35/34/35/34/35 champions.
+
+
+## 2026-11-23 — Tier DB F0–F7 (branch `feat/tierdb-augment-champion-tiers`, on #103)
+
+- F0: verified the real AramHex layout on `czgreat/aramhex-data` 16.22/16.23 `normal` (meta.json maps file → SHA-256; heroes/hero_augments keyed by Riot numeric champion key; 237 augments with rarity; `excluded_augments`; ~5M valid games per patch, median ~3,900 games per champion+augment pair).
+- F1 store, F2 importer, F3/F4 augment tiers, F5 champion tiers, F6 pipeline/export/runtime switch/CLI: each as RED test commit then GREEN code commit. 54 tier DB tests; full Linux suite 2,086 PASS / 48 SKIP. Windows Actions NOT yet verified.
+- F7 `scripts/validate_tierdb_holdout.py` (aggregate metrics only; run locally): train 16.22 → test 16.23, mean per champion×rarity Kendall τ: raw ΔWR 0.750, shrunk k=300 0.750 (k barely matters at these n), composite 0.749 on the same pairs; pairs ranked only by fallback levels ≈ 0 (uninformative); tiers same-or-adjacent 97.8 %. Champions: WR-only 0.860, composite with relative leverage 0.644, with absolute leverage (E[max of 3 offers] of shrunk logit WR) 0.844 → absolute is the default, owner decision pending.
+- Not done: Settings toggle and overlay/champ-select display of tiers, arammayhem.com pick-rate and LCU local-history importers, combat/participation/duration/consistency metrics (no legal data source at scale), multi-source fusion.
+
+
 ## 2026-11-22 — V1.2c exact-head CI evidence verified, native gate unchanged
 
 - [Draft #83](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/83) still OPEN/DRAFT, direct base #80 (on #78→#76); repo intentionally PUBLIC; `main` and research branches unchanged. Exact before-checkpoint HEAD `a8ab76876f2e16d5aa08d714a9032905aaa79d78` independently checked against [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086): standard test job 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; v4 pinned-model product job 35 PASS. Job logs reviewed, both SUCCESS. No code changed or new RED/GREEN cycle required; the historical F1 concurrency timeout cause remains unknown.

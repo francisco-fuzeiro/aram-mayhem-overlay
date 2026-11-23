@@ -86,6 +86,13 @@ function successful(url, options) {
     if (url === "/api/ocr/status") return {body: {available: false}};
     if (url === "/api/ocr/scan") return {body: {status: "detected"}};
     if (url === "/api/bug-report") return {body: {filename: "report.json"}};
+    if (url === "/api/tierlist" && options.method === "PUT")
+        return {body: {enabled: JSON.parse(options.body).enabled}};
+    if (url === "/api/tierlist/update") return {body: {started: true}};
+    if (url === "/api/tierlist") return {body: {
+        enabled: true, available: true, patch: "16.23", updating: false,
+        generated_at: "2026-11-23T00:00:00+00:00", last_error: null,
+        sources: [{name: "aramhex", attribution: "Synthetic attribution"}]}};
     throw new Error("Unexpected URL: " + url);
 }
 
@@ -481,4 +488,36 @@ test("D2 Settings OCR toggle uses existing WS action and awaits acknowledgement"
     await ready();
     assert.equal(h.element("ocr-auto").disabled, false);
     assert.match(h.element("ocr-action-status").textContent, /applied/);
+});
+
+test("TDB-UI1 Settings shows tier list status and saves the live switch", async () => {
+    assert.match(html, /id="tier-enabled"/);
+    assert.match(html, /id="tier-update"/);
+    assert.match(html, /never shows win rates/);
+    const h = harness(successful);
+    await ready();
+    assert.equal(h.element("tier-enabled").checked, true);
+    assert.equal(h.element("tier-enabled").disabled, false);
+    assert.match(h.element("tier-status").textContent, /16\.23/);
+    assert.match(h.element("tier-sources").textContent, /Synthetic attribution/);
+    h.element("tier-enabled").checked = false;
+    await h.element("tier-enabled").handlers.change();
+    const put = h.calls.find((c) => c.url === "/api/tierlist" && c.options.method === "PUT");
+    assert.equal(JSON.parse(put.options.body).enabled, false);
+    assert.match(h.element("tier-status").textContent, /off/i);
+    await h.element("tier-update").handlers.click();
+    assert.equal(h.calls.filter((c) => c.url === "/api/tierlist/update").length, 1);
+    assert.match(h.element("tier-status").textContent, /Updating/);
+});
+
+test("TDB-UI1 failed tier switch save restores the saved state", async () => {
+    const h = harness(async (url, options) =>
+        url === "/api/tierlist" && options.method === "PUT"
+            ? {ok: false, body: {detail: "disk full"}}
+            : successful(url, options));
+    await ready();
+    h.element("tier-enabled").checked = false;
+    await h.element("tier-enabled").handlers.change();
+    assert.equal(h.element("tier-enabled").checked, true);
+    assert.match(h.element("tier-status").textContent, /Not saved/);
 });

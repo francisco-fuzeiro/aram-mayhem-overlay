@@ -1,5 +1,28 @@
 # ARAM Oracle — Product and UX TODO
 
+- [x] **TDB-OWN** Leverage decided 23/11: absolute leverage in strength; relative gain = tie-breaker + 5-level potential field.
+- [x] **TDB-I1** AramHex item import: finals, boots, ordered 3-item cores, Weapon of Fate (design `DESENHO_ITENS_BUILDS_ANVILS_2026-11-23.md`, approved 23/11: max 3 in-match swaps, threshold 0.5).
+- [ ] **TDB-I2..I6** Item tiers, reference build, heuristic Stat Anvils, in-match adaptation, overlay, holdout. I2+ waits for the GPT item-eligibility fix; do not touch its files.
+- [x] **DIAG-F1** Per-feature diagnostics + post-session report (`backend/feature_diagnostics.py`), one-match test checklist.
+- [x] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
+
+
+## 2026-11-23 — Tier DB (augments per champion + champion tier list)
+
+- [x] **TDB-F0** Real AramHex format verified (16.22/16.23 normal).
+- [x] **TDB-F1** Local SQLite with per-value provenance and SHA-256 idempotency.
+- [x] **TDB-F2** AramHex importer: checksums, licence, rule-set mode, quarantine; refused in commercial mode.
+- [x] **TDB-F3/F4** Augment tiers per champion and rarity: shrinkage, level fallback and caps, tie groups, frozen thresholds, full catalog coverage.
+- [x] **TDB-F5** Champion tier list (decided weights, redistribution).
+- [x] **TDB-F6** Build pipeline, export without win data, live `empirical_tiers_enabled` switch (default on), CLI, attribution.
+- [x] **TDB-F7** Offline holdout script and first 16.22→16.23 report (offline only).
+- [ ] **TDB-CI** Exact-head Windows Actions SUCCESS.
+- [x] **TDB-UI1** Settings toggle for `empirical_tiers_enabled`.
+- [x] **TDB-UI2** Show augment tier/rank/tie group/level on offers and champion tier in champ select (never win rates).
+- [ ] **TDB-D1** arammayhem.com CC BY pick-rate importer (prior only).
+- [ ] **TDB-D2** LCU local-history importer for combat/participation/duration metrics.
+
+
 **2026-11-22 — V1.2c CI checkpoint:** The previous final protocol SHA `a8ab76876f2e16d5aa08d714a9032905aaa79d78` has [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 JS syntax PASS; independent pinned v4 35 PASS). **PROVEN = offline CI only.** V12-N00..N10 and F1.3 native NOT TESTED; old N1 user-observed FAIL/root cause BLOCKED. Native feasibility must be checked in a supported custom Mayhem lobby, no ordinary competitive substitute. This documentation checkpoint requires its own final SHA Actions; no code change, merge, engine promotion, installer or Settings selector.
 
 

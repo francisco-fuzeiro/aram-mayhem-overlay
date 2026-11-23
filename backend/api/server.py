@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from itertools import count
 import sys
 import time
@@ -20,6 +21,7 @@ from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
+from backend.tierdb.service import TierListService
 from backend.collectors import screen_ocr as ocr_capture
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
@@ -34,6 +36,7 @@ from backend.config import config  # explicit opt-in for diagnostic screenshot p
 from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
+from backend import feature_diagnostics
 from backend.workflow.f0_trace import (
     classify_champion_identity, classify_offer_slots, emit_f0_trace,
 )
@@ -389,6 +392,16 @@ async def lifespan(app: FastAPI):
     game_state.overlay_preferences = saved_preferences["overlay"]
     static_data.load()
     game_state.pipeline = Pipeline(static_data)
+    feature_diagnostics.session_start()
+    feature_diagnostics.record("tierdb.switch", "ok",
+                               "enabled" if tier_service.enabled() else "disabled")
+    # Tier lists: refresh in the background when missing or older than 3 days.
+    if os.environ.get("ARAM_ORACLE_TIERLIST_AUTO_UPDATE", "1") != "1":
+        feature_diagnostics.record("tierdb.update", "skipped", "auto_update_off")
+    elif tier_service.needs_update(max_age_hours=72):
+        tier_service.start_update(static_data)
+    else:
+        feature_diagnostics.record("tierdb.update", "skipped", "fresh")
 
     poll_task = asyncio.create_task(_poll_game_loop())
     yield
@@ -401,6 +414,100 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Empirical Mayhem tier lists (backend/tierdb). Shown now by owner decision
+# 2026-11-23, behind a live switch; never exposes win rates or sample sizes.
+tier_service = TierListService()
+
+
+def _visible_augment_ids(recommendations, offers) -> list[str]:
+    """Augment ids the overlay may show: recommendations, then offer slots."""
+    ids: list[str] = []
+
+    def add(value):
+        if isinstance(value, str) and value and value not in ids:
+            ids.append(value)
+
+    for rec in recommendations or []:
+        if isinstance(rec, dict):
+            add(rec.get("augment_id"))
+    if isinstance(offers, dict):
+        offers = offers.get("offers")
+    for offer in offers or []:
+        slots = offer.get("slots") if isinstance(offer, dict) else None
+        if isinstance(slots, dict):
+            for slot in ("left", "centre", "right"):
+                identity = slots.get(slot)
+                if isinstance(identity, dict):
+                    add(identity.get("augment_id"))
+    return ids
+
+
+def _augment_tier_payload(champion_id, augment_ids) -> dict:
+    record = feature_diagnostics.record
+    if not tier_service.enabled():
+        record("tierdb.offer_tiers", "skipped", "tiers_off")
+        return {"tiers_enabled": False, "augment_tiers": {}}
+    if not champion_id:
+        record("tierdb.offer_tiers", "skipped", "no_champion")
+        return {"tiers_enabled": False, "augment_tiers": {}}
+    if not augment_ids:
+        record("tierdb.offer_tiers", "skipped", "no_visible_augments")
+        return {"tiers_enabled": True, "augment_tiers": {}}
+    tiers = {}
+    for aid in augment_ids:
+        entry = tier_service.provider.augment_tier(champion_id, aid)
+        if entry is not None:
+            tiers[aid] = {k: entry.get(k) for k in (
+                "tier", "rank", "rank_total", "tie_group", "tie_end",
+                "level", "confidence", "rarity")}
+    if tiers:
+        record("tierdb.offer_tiers", "ok", "tiers_attached", min(len(tiers), 1000))
+    elif not tier_service.provider.loaded:
+        record("tierdb.offer_tiers", "failed", "export_missing")
+    else:
+        record("tierdb.offer_tiers", "failed", "champion_not_in_tierlist")
+    return {"tiers_enabled": True, "augment_tiers": tiers}
+
+
+def _annotate_champion_candidates(result: dict) -> dict:
+    """Add Mayhem strength (tier) and potential to champion-select candidates."""
+    candidates = [c for c in result.get("candidates") or [] if isinstance(c, dict)]
+    record = feature_diagnostics.record
+    if not tier_service.enabled():
+        for candidate in candidates:
+            candidate["mayhem"] = None
+        record("tierdb.champselect_tiers", "skipped", "tiers_off")
+        return result
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        entry = tier_service.provider.champion_tier(str(candidate.get("id", "")))
+        candidate["mayhem"] = None if entry is None else {
+            "strength": entry.get("tier"), "potential": entry.get("potential"),
+            "rank": entry.get("rank"), "rank_total": entry.get("rank_total"),
+            "tie_group": entry.get("tie_group"), "tie_end": entry.get("tie_end"),
+            "confidence": entry.get("confidence"),
+        }
+    annotated = sum(1 for c in candidates if c.get("mayhem"))
+    if not candidates:
+        record("tierdb.champselect_tiers", "skipped", "no_candidates")
+    elif annotated:
+        record("tierdb.champselect_tiers", "ok", "annotated", min(annotated, 1000))
+    elif not tier_service.provider.loaded:
+        record("tierdb.champselect_tiers", "failed", "export_missing")
+    else:
+        record("tierdb.champselect_tiers", "failed", "no_candidate_in_tierlist")
+    return result
+
+
+def _handle_feature_ack(msg: dict) -> bool:
+    """Accept a DOM-render report from the overlay for UI features only."""
+    if not isinstance(msg, dict) or msg.get("feature") not in feature_diagnostics.UI_FEATURES:
+        return False
+    count = msg.get("count")
+    return feature_diagnostics.record(msg.get("feature"), msg.get("status"),
+                                      msg.get("reason"), count if count is not None else None)
 
 # In PyInstaller bundles, sys._MEIPASS points to the extraction dir.
 _APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
@@ -439,7 +546,7 @@ if FRONTEND_DIR.exists():
 # -- REST --
 
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 
 class BuildPreferenceRequest(BaseModel):
@@ -512,6 +619,40 @@ async def update_overlay_preferences(payload: dict):
         "overlay": overlay,
         "saved": True,
     }
+
+
+class TierListSwitchRequest(BaseModel):
+    enabled: StrictBool
+
+
+@app.get("/api/tierlist")
+def tierlist_status():
+    """Tier list status for Settings: never includes win rates or samples."""
+    return tier_service.status()
+
+
+@app.put("/api/tierlist")
+def update_tierlist_switch(req: TierListSwitchRequest):
+    try:
+        tier_service.set_enabled(req.enabled)
+    except OSError:
+        logger.exception("Could not persist tier list switch")
+        feature_diagnostics.record("tierdb.switch", "failed", "save_error")
+        raise HTTPException(status_code=500, detail="Could not save preference") from None
+    enabled = tier_service.enabled()
+    feature_diagnostics.record("tierdb.switch", "ok", "enabled" if enabled else "disabled")
+    return {"enabled": enabled}
+
+
+@app.get("/api/diagnostics/features")
+def feature_report():
+    """Per-feature verdicts for the last session (enums and counts only)."""
+    return feature_diagnostics.build_report()
+
+
+@app.post("/api/tierlist/update")
+def start_tierlist_update():
+    return {"started": tier_service.start_update(static_data)}
 
 
 @app.get("/health")
@@ -588,7 +729,7 @@ def _read_champ_select_payload() -> dict | None:
         emit_f0_trace("champion", "alias", "rejected",
                       "champion_unmapped", source="lcu")
     result["revision"] = revision
-    return result
+    return _annotate_champion_candidates(result)
 
 
 @app.post("/api/history/import")
@@ -1209,6 +1350,9 @@ async def game_ws(websocket: WebSocket):
                 await _send_ws_message(websocket, json.dumps({
                     "type": "ack", "action": "set_build_style", "style": style,
                 }))
+
+            elif msg_type == "feature_ack":
+                _handle_feature_ack(msg)
 
             elif msg_type == "toggle_ocr":
                 async with game_state.lock:
@@ -2461,6 +2605,10 @@ def _serialize_result(
             for eid in snapshot.enemy_champion_ids
         ]
 
+    out.update(_augment_tier_payload(
+        result.build_state.champion_id,
+        _visible_augment_ids(out["recommendations"], out.get("offers")),
+    ))
     return _strip_augment_win_stats(out)
 
 

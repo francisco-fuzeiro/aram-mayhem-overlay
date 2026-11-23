@@ -532,6 +532,34 @@
         });
     }
 
+    const TIER_LEVEL_TEXT = {champion: "champion data", role: "class data",
+        global: "global data", curated: "estimate"};
+    const POTENTIAL_TEXT = {very_low: "very low", low: "low", medium: "medium",
+        high: "high", very_high: "very high"};
+
+    // Rank and visible tie span only; win rates and sample sizes never reach
+    // the overlay (Riot policy), the backend export strips them.
+    function tierRankText(rank, total, group, end) {
+        return "#" + rank + "/" + total +
+            (Number.isInteger(end) && Number.isInteger(group) && end > group
+                ? " (tied #" + group + "–#" + end + ")" : "");
+    }
+
+    // Per-feature diagnostics: tell the local server what was actually drawn,
+    // so one end-to-end test can say which feature failed (enums and counts only).
+    function reportRender(feature, count, skippedReason) {
+        wsSend(count > 0
+            ? {type: "feature_ack", feature, status: "ok", reason: "rendered", count}
+            : {type: "feature_ack", feature, status: "skipped", reason: skippedReason});
+    }
+
+    function augmentTierText(t) {
+        if (!t || !t.tier || t.level === "none") return "No tier data for this champion";
+        return "Tier " + t.tier + " · " +
+            tierRankText(t.rank, t.rank_total, t.tie_group, t.tie_end) + " · " +
+            (TIER_LEVEL_TEXT[t.level] || "estimate");
+    }
+
     function renderChampSelect(data) {
         // Hide gameplay-only panels during champion selection.
         showWaiting(true);
@@ -551,6 +579,7 @@
         const marked = candidates.filter(c => c && c.current === true &&
             c.id === confirmedId);
         const uniqueCurrent = marked.length === 1 ? confirmedId : null;
+        let mayhemLines = 0;
         for (const candidate of candidates) {
             const card = document.createElement("div");
             card.className = "augment-card";
@@ -571,8 +600,19 @@
                 (candidate.sample_size ? " · Personal sample: " + candidate.sample_size + " games" : " · No match data yet");
 
             card.append(name, summary, reasons);
+            const m = candidate.mayhem;
+            if (m && m.strength) {
+                const mayhem = document.createElement("div");
+                mayhem.className = "aug-explain aug-tier";
+                mayhem.textContent = "Mayhem strength: " + m.strength + " · " +
+                    tierRankText(m.rank, m.rank_total, m.tie_group, m.tie_end) +
+                    " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown");
+                card.appendChild(mayhem);
+                mayhemLines += 1;
+            }
             champSelectList.appendChild(card);
         }
+        if (candidates.length) reportRender("tierdb.champselect_render", mayhemLines, "no_tier_data");
         if (candidates.length === 0) {
             const empty = document.createElement("div");
             empty.className = "aug-empty";
@@ -946,6 +986,7 @@
                 rec.modelled !== false) scored.push(rec.score);
         }
         const best = scored.length ? Math.max(...scored) : null;
+        let tierLines = 0;
         for (const [index, slot] of OFFER_SLOTS.entries()) {
             const identity = offer.slots[slot] || {};
             const id = typeof identity.augment_id === "string" ? identity.augment_id : null;
@@ -975,6 +1016,16 @@
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
                 esc(name + origin) + '</span><span class="aug-score">' +
                 esc(score) + '</span></div>';
+            const tiers = data.tiers_enabled === true && data.augment_tiers &&
+                typeof data.augment_tiers === "object" ? data.augment_tiers : null;
+            if (tiers && id && !verifiedAnvilOffer &&
+                Object.prototype.hasOwnProperty.call(tiers, id)) {
+                const tierNote = document.createElement("div");
+                tierNote.className = "aug-explain aug-tier";
+                tierNote.textContent = augmentTierText(tiers[id]);
+                row.appendChild(tierNote);
+                tierLines += 1;
+            }
             if (rec && typeof rec.explanation === "string") {
                 const note = document.createElement("div");
                 note.className = "aug-explain";
@@ -1000,6 +1051,10 @@
                 row.appendChild(pick);
             }
             augmentList.appendChild(row);
+        }
+        if (!verifiedAnvilOffer) {
+            reportRender("tierdb.offer_render", tierLines,
+                data.tiers_enabled === true ? "no_tier_data" : "tiers_off");
         }
         if (offer.state === "awaiting_confirm") {
             const hint = document.createElement("div");

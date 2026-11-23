@@ -14,6 +14,11 @@
     const feedbackStatus = $("feedback-status");
     const refreshOcrButton = $("refresh-ocr");
     const ocrAutoCheckbox = $("ocr-auto");
+    const tierEnabled = $("tier-enabled");
+    const tierStatus = $("tier-status");
+    const tierSources = $("tier-sources");
+    const tierUpdate = $("tier-update");
+    let tierSaved = null;
     const scanNowButton = $("btn-scan");
     const ocrActionStatus = $("ocr-action-status");
     const availableStyles = new Set(["Balanced", "Damage", "Survival", "Utility"]);
@@ -336,6 +341,63 @@
         }
     }
 
+    function tierStatusText(status) {
+        if (status.updating) return "Updating tier lists in the background…";
+        if (!status.enabled) return "Tier lists off.";
+        if (!status.available) return "On · no tier list downloaded yet.";
+        return "On · patch " + status.patch;
+    }
+
+    async function loadTierList() {
+        try {
+            const status = await requestJson("/api/tierlist");
+            tierSaved = status.enabled === true;
+            tierEnabled.checked = tierSaved;
+            tierEnabled.disabled = false;
+            const sources = Array.isArray(status.sources) ? status.sources : [];
+            tierSources.textContent = sources.length
+                ? "Data: " + sources.map((s) => s.attribution || s.name).join(" · ") : "";
+            message(tierStatus, tierStatusText(status) +
+                (status.last_error ? " Last update failed: " + status.last_error : ""));
+        } catch (error) {
+            message(tierStatus, "Tier list status unavailable: " + error.message, "error");
+        }
+    }
+
+    async function changeTierEnabled() {
+        const requested = tierEnabled.checked;
+        tierEnabled.disabled = true;
+        try {
+            const result = await requestJson("/api/tierlist", {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({enabled: requested}),
+            });
+            tierSaved = result.enabled === true;
+            tierEnabled.checked = tierSaved;
+            message(tierStatus, tierSaved ? "Tier lists on." : "Tier lists off.", "success");
+        } catch (error) {
+            if (tierSaved !== null) tierEnabled.checked = tierSaved;
+            message(tierStatus, "Not saved: " + error.message, "error");
+        } finally {
+            tierEnabled.disabled = false;
+        }
+    }
+
+    async function updateTierList() {
+        tierUpdate.disabled = true;
+        try {
+            const result = await requestJson("/api/tierlist/update", {method: "POST"});
+            message(tierStatus, result.started
+                ? "Updating tier lists in the background…"
+                : "Updating tier lists: an update is already running.");
+        } catch (error) {
+            message(tierStatus, "Update not started: " + error.message, "error");
+        } finally {
+            tierUpdate.disabled = false;
+        }
+    }
+
     function changeOcrEnabled() {
         const requested = ocrAutoCheckbox.checked;
         ocrAutoCheckbox.disabled = true;
@@ -468,8 +530,11 @@
     ocrAutoCheckbox.addEventListener("change", changeOcrEnabled);
     scanNowButton.addEventListener("click", scanAugmentsNow);
     feedbackButton.addEventListener("click", submitFeedback);
+    tierEnabled.addEventListener("change", changeTierEnabled);
+    tierUpdate.addEventListener("click", updateTierList);
 
     activateTab("panel-general");
     loadSettings();
     loadOcrStatus();
+    loadTierList();
 })();

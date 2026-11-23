@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from backend.feature_registry import FEATURES, REASONS, STATUSES
+
 # Values are strict enums or bounded numeric types. Never log arbitrary strings.
 SCHEMA: dict[str, dict[str, object]] = {
     "lcda": {
@@ -136,6 +138,13 @@ SCHEMA: dict[str, dict[str, object]] = {
         "x": "pixel_dimension", "y": "pixel_dimension",
         "w": "pixel_dimension", "h": "pixel_dimension",
     },
+    "session_start": {},
+    "feature": {
+        "feature": frozenset(FEATURES),
+        "status": frozenset(STATUSES),
+        "reason": REASONS,
+        "count": "int",
+    },
     "match_transition": {
         "from_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
         "to_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
@@ -254,11 +263,13 @@ class StructuredEventLogger:
             self.dropped += 1
             return False
         try:
-            if self._last.get(event) == key:
+            # Per-feature slot so interleaved features do not defeat the dedup.
+            slot = event + ":" + str(safe.get("feature", ""))
+            if self._last.get(slot) == key:
                 return False
             queued = self.emit(event, **safe)
             if queued:
-                self._last[event] = key
+                self._last[slot] = key
             return queued
         finally:
             self._transition_lock.release()
