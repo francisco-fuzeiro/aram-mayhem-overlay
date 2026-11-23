@@ -177,6 +177,40 @@
         }
     }
 
+    // Only acknowledge actually rendered UI elements, and only for a fresh
+    // match. Backend applies its own match/epoch/catalog gates. No item IDs,
+    // champion IDs, OCR titles or private data are transmitted.
+    function reportVisibleFeatures(data) {
+        const match = data && typeof data.match_id === "string"
+            && data.match_id === activeMatchId && !stale;
+        if (!match || data.phase !== "in_game") return;
+        const bs = data.build_state;
+        if (bs && bs.next_item_id && !bs.slot_blocked &&
+                !$("section-build").classList.contains("hidden") &&
+                buildNext.textContent.startsWith("Next: ")) {
+            wsSend({type: "feature_ack", feature: "build.next_item_render",
+                status: "ok", reason: "rendered", count: 1,
+                match_id: activeMatchId});
+        }
+        // This can only report a 3-card Anvil drawn by the existing verified
+        // OCR/ledger path; it cannot infer a popup from a purchased voucher.
+        const anvilCards = augmentList.children.filter
+            ? augmentList.children.filter(row =>
+                String(row.className || "").includes("stat-anvil-card"))
+            : Array.from(augmentList.children).filter(row =>
+                String(row.className || "").includes("stat-anvil-card"));
+        if (offerPanelTitle.textContent === "STAT ANVILS" &&
+                anvilCards.length === 3 &&
+                !$("section-augments").classList.contains("hidden") &&
+                !$("section-augments").classList.contains("collapsed") &&
+                data.ocr_phase === "detected" && data.ocr_stale === false &&
+                Number.isSafeInteger(data.offer_epoch)) {
+            wsSend({type: "feature_ack", feature: "anvil.offer_render",
+                status: "ok", reason: "rendered", count: 3,
+                match_id: activeMatchId, offer_epoch: data.offer_epoch});
+        }
+    }
+
     // -- Match-specific display lifecycle --
 
     function setWaitingTitle(title) {
@@ -594,6 +628,7 @@
         renderBuild(data.build_state);
         renderEnemies(data.enemies || [], data.enemy_analysis || {});
         autoExpandSections(data);
+        reportVisibleFeatures(data);
     }
 
     function renderHeader(data) {

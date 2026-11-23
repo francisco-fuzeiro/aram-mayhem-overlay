@@ -415,6 +415,68 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
+def _accept_feature_ack(state: GameState, msg: dict) -> bool:
+    """DOM-only ACK, fenced to the current match and verified Anvil offer.
+
+    Never trust an acknowledgment as proof of League shop stock or a newly
+    presented popup. Never persist match IDs, item identities or OCR text.
+    """
+    if not isinstance(msg, dict):
+        return False
+    if set(msg) - {"type", "feature", "status", "reason", "count",
+                    "match_id", "offer_epoch"}:
+        return False
+    feature = msg.get("feature")
+    count = msg.get("count")
+    if (feature not in UI_FEATURES or msg.get("type") != "feature_ack"
+            or msg.get("status") != "ok" or msg.get("reason") != "rendered"
+            or not state.had_game_last_tick or not state.match_id
+            or msg.get("match_id") != state.match_id
+            or type(count) is not int or count <= 0):
+        return False
+    if feature == "build.next_item_render":
+        if count != 1:
+            return False
+    elif feature == "anvil.offer_render":
+        if (count != 3 or type(msg.get("offer_epoch")) is not int
+                or msg["offer_epoch"] != state.offer_epoch
+                or state.ocr_phase != "detected" or state.ocr_stale
+                or not state.scan_window_open):
+            return False
+        # The existing 3-slot ledger must be independently OCR-verified
+        # and contain only real tier-zero catalog entries, not a voucher edge.
+        offers = state.offer_ledger.payload()
+        matches = [row for row in offers if row.get("state") == "visible"
+                   and row.get("epoch") == state.offer_epoch]
+        if len(matches) != 1:
+            return False
+        slots = matches[0].get("slots")
+        if not isinstance(slots, dict):
+            return False
+        ids = []
+        for slot in ("left", "centre", "right"):
+            identity = slots.get(slot)
+            if (not isinstance(identity, dict)
+                    or identity.get("source") != "ocr"
+                    or not isinstance(identity.get("augment_id"), str)):
+                return False
+            ids.append(identity["augment_id"])
+        if (len(set(ids)) != 3
+                or any(static_data.get_stat_anvil(ident) is None
+                       for ident in ids)):
+            return False
+    else:
+        return False
+    return feature_diagnostics.record(feature, "ok", "rendered", count)
+
+
+@app.get("/api/diagnostics/features")
+def get_feature_report():
+    """Sanitized last-session IDs, statuses and aggregate counts only."""
+    return feature_diagnostics.build_report()
+
+
 # In PyInstaller bundles, sys._MEIPASS points to the extraction dir.
 _APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
 FRONTEND_DIR = _APP_ROOT / "frontend"
@@ -1088,6 +1150,10 @@ async def game_ws(websocket: WebSocket):
                     await _send_ws_message(websocket, json.dumps(
                         _serialize_result(result, static_data)
                     ))
+
+            elif msg_type == "feature_ack":
+                async with game_state.lock:
+                    _accept_feature_ack(game_state, msg)
 
             elif msg_type == "set_augment_choices":
                 augment_ids = msg.get("augment_ids", [])
