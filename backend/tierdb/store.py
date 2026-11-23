@@ -24,6 +24,17 @@ SCOPES = {
     "global_aug": (False, False, True),
 }
 
+# Item scopes: (needs item_id, needs augment_id, needs ordered items)
+ITEM_SCOPES = {
+    "champ_item": (True, False, False),        # finished item held at game end
+    "champ_item_base": (False, False, False),  # denominator for champ_item/champ_core
+    "champ_boots": (True, False, False),
+    "champ_boots_base": (False, False, False),
+    "champ_core": (False, False, True),        # first three legendaries, in order
+    "champ_aug_item": (True, True, False),     # first legendary with an augment
+    "champ_aug_item_base": (False, True, False),
+}
+
 _SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 
 SCHEMA = """
@@ -68,6 +79,30 @@ CREATE TABLE IF NOT EXISTS observation (
 );
 CREATE INDEX IF NOT EXISTS ix_obs_lookup
     ON observation (metric, champion_id, augment_id);
+
+CREATE TABLE IF NOT EXISTS item_observation (
+    id          INTEGER PRIMARY KEY,
+    snapshot_id INTEGER NOT NULL REFERENCES snapshot(id) ON DELETE CASCADE,
+    scope       TEXT NOT NULL,
+    champion_id TEXT NOT NULL,
+    item_id     TEXT,
+    augment_id  TEXT,
+    items_json  TEXT,
+    ordered     INTEGER NOT NULL DEFAULT 0,
+    value       REAL,
+    wins        INTEGER NOT NULL,
+    n           INTEGER NOT NULL CHECK (n > 0),
+    low_sample  INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS ix_item_obs ON item_observation (scope, champion_id);
+
+CREATE TABLE IF NOT EXISTS item_info (
+    snapshot_id INTEGER NOT NULL REFERENCES snapshot(id) ON DELETE CASCADE,
+    item_id     TEXT NOT NULL,
+    category    TEXT NOT NULL,
+    types_json  TEXT NOT NULL,
+    PRIMARY KEY (snapshot_id, item_id)
+);
 
 CREATE TABLE IF NOT EXISTS augment_info (
     snapshot_id INTEGER NOT NULL REFERENCES snapshot(id) ON DELETE CASCADE,
@@ -166,6 +201,55 @@ class Observation:
     value: float | None = None
     wins: int | None = None
     low_sample: bool = False
+
+
+@dataclass(frozen=True)
+class ItemObservation:
+    scope: str
+    champion_id: str
+    n: int | None
+    wins: int | None
+    item_id: str | None = None
+    augment_id: str | None = None
+    items: tuple[str, ...] | None = None
+    ordered: bool = False
+    value: float | None = None
+    low_sample: bool = False
+
+
+@dataclass(frozen=True)
+class StoredItemObservation:
+    scope: str
+    champion_id: str
+    item_id: str | None
+    augment_id: str | None
+    items: tuple[str, ...] | None
+    ordered: bool
+    value: float | None
+    wins: int
+    n: int
+    low_sample: bool
+    source_name: str
+    snapshot_id: int
+
+
+def _validate_item_observation(obs: ItemObservation) -> None:
+    if obs.scope not in ITEM_SCOPES:
+        raise ProvenanceError(f"unknown item scope {obs.scope!r}")
+    if not obs.champion_id:
+        raise ProvenanceError("item observation requires champion_id")
+    if obs.n is None or int(obs.n) <= 0:
+        raise ProvenanceError("item value without a positive sample size")
+    if obs.wins is None or not 0 <= obs.wins <= obs.n:
+        raise ProvenanceError("wins must lie in [0, n]")
+    need_item, need_aug, need_items = ITEM_SCOPES[obs.scope]
+    for present, needed, label in ((obs.item_id, need_item, "item_id"),
+                                   (obs.augment_id, need_aug, "augment_id"),
+                                   (obs.items, need_items, "items")):
+        if needed and not present:
+            raise ProvenanceError(f"scope {obs.scope} requires {label}")
+        if not needed and present:
+            raise ProvenanceError(f"scope {obs.scope} must not set {label}")
 
 
 @dataclass(frozen=True)
@@ -335,6 +419,70 @@ class TierStore:
             window_start=row[4], window_end=row[5],
             metric_definitions=json.loads(row[6]), fetched_at=row[7], row_count=row[8],
         )
+
+    def ingest_items(
+        self,
+        snapshot_id: int,
+        observations: list[ItemObservation],
+        item_info: dict[str, tuple[str, tuple[str, ...]]] | None = None,
+    ) -> int:
+        """Attach item observations to a snapshot once; return rows written.
+
+        A snapshot that already has item rows is left unchanged (idempotent);
+        a snapshot stored by an older build without items gets them added.
+        """
+        for obs in observations:
+            _validate_item_observation(obs)
+        con = self.connection
+        with con:
+            if con.execute("SELECT 1 FROM item_observation WHERE snapshot_id=? LIMIT 1",
+                           (snapshot_id,)).fetchone():
+                return 0
+            con.executemany(
+                """INSERT INTO item_observation (snapshot_id, scope, champion_id, item_id,
+                       augment_id, items_json, ordered, value, wins, n, low_sample)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                [(snapshot_id, o.scope, o.champion_id, o.item_id, o.augment_id,
+                  json.dumps(list(o.items)) if o.items else None, int(bool(o.ordered)),
+                  o.value, int(o.wins), int(o.n), int(bool(o.low_sample)))
+                 for o in observations],
+            )
+            con.executemany(
+                "INSERT OR REPLACE INTO item_info (snapshot_id, item_id, category, types_json) "
+                "VALUES (?,?,?,?)",
+                [(snapshot_id, iid, cat, json.dumps(list(types)))
+                 for iid, (cat, types) in sorted((item_info or {}).items())],
+            )
+        return len(observations)
+
+    def item_observations(self, patch: str, scope: str | None = None,
+                          champion_id: str | None = None) -> list[StoredItemObservation]:
+        sql = """SELECT o.scope, o.champion_id, o.item_id, o.augment_id, o.items_json,
+                        o.ordered, o.value, o.wins, o.n, o.low_sample, src.name, s.id
+                 FROM item_observation o
+                 JOIN snapshot s ON s.id = o.snapshot_id
+                 JOIN source src ON src.id = s.source_id
+                 WHERE s.patch = ?"""
+        params: list = [patch]
+        for column, value in (("o.scope", scope), ("o.champion_id", champion_id)):
+            if value is not None:
+                sql += f" AND {column} = ?"
+                params.append(value)
+        return [
+            StoredItemObservation(
+                scope=r[0], champion_id=r[1], item_id=r[2], augment_id=r[3],
+                items=tuple(json.loads(r[4])) if r[4] else None, ordered=bool(r[5]),
+                value=r[6], wins=r[7], n=r[8], low_sample=bool(r[9]),
+                source_name=r[10], snapshot_id=r[11])
+            for r in self.connection.execute(sql + " ORDER BY o.id", params)
+        ]
+
+    def item_info(self, patch: str) -> dict[str, tuple[str, tuple[str, ...]]]:
+        rows = self.connection.execute(
+            """SELECT i.item_id, i.category, i.types_json FROM item_info i
+               JOIN snapshot s ON s.id = i.snapshot_id WHERE s.patch = ? ORDER BY s.id""",
+            (patch,))
+        return {iid: (cat, tuple(json.loads(types))) for iid, cat, types in rows}
 
     def augment_rarities(self, patch: str) -> dict[str, str]:
         """Augment id -> rarity for every augment described in the patch."""

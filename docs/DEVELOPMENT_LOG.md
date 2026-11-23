@@ -1,5 +1,10 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Tier DB I1: AramHex equipment import
+
+- New `item_observation`/`item_info` tables (separate from augment observations; per-value n and source). Importer reads the optional AramHex equipment tables when meta.json lists them, all SHA-256 checked: finished items per champion (+ recommendation denominator), Boots-typed holdings (+ equipment denominator), ordered first-three-legendary cores with pick, Weapon of Fate (augment 3081) first-legendary references. Unmapped champions quarantined; snapshots ingested by older builds get items once.
+- Real 16.23/normal: 17,733 champion×item, 1,383 champion×boots, 510 cores, 504 Weapon of Fate rows in 0.8 s. Item IDs kept raw; canonical mapping and eligibility come from the GPT fix (I2).
+
 ## 2026-11-23 — Per-feature diagnostics for a single end-to-end test
 
 - Owner wants one final in-game test instead of one per sub-phase. Added a feature registry (`backend/feature_registry.py`), `feature_diagnostics.record()` on the existing whitelisted journal (per-feature dedup), `session_start` marker, overlay `feature_ack` for rendered UI, and the report (`python -m backend.feature_diagnostics`, `GET /api/diagnostics/features`). Tier list features instrumented. Pattern and checklist: `docs/plans/FEATURE_DIAGNOSTICS.md`, `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`.

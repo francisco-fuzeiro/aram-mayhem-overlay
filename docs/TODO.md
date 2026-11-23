@@ -1,6 +1,8 @@
 # ARAM Oracle — Product and UX TODO
 
 - [x] **TDB-OWN** Leverage decided 23/11: absolute leverage in strength; relative gain = tie-breaker + 5-level potential field.
+- [x] **TDB-I1** AramHex item import: finals, boots, ordered 3-item cores, Weapon of Fate (design `DESENHO_ITENS_BUILDS_ANVILS_2026-11-23.md`, approved 23/11: max 3 in-match swaps, threshold 0.5).
+- [ ] **TDB-I2..I6** Item tiers, reference build, heuristic Stat Anvils, in-match adaptation, overlay, holdout. I2+ waits for the GPT item-eligibility fix; do not touch its files.
 - [x] **DIAG-F1** Per-feature diagnostics + post-session report (`backend/feature_diagnostics.py`), one-match test checklist.
 - [x] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
 

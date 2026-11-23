@@ -17,7 +17,13 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.tierdb.store import Observation, SnapshotMeta, SourceMeta, TierStore
+from backend.tierdb.store import (
+    ItemObservation,
+    Observation,
+    SnapshotMeta,
+    SourceMeta,
+    TierStore,
+)
 
 SOURCE_NAME = "aramhex"
 REPO_URL = "https://github.com/czgreat/aramhex-data"
@@ -29,6 +35,12 @@ ATTRIBUTION = (
 EXPECTED_LICENSE = "CC BY-NC 4.0"
 REQUIRED_FILES = ("heroes.json", "hero_augments.json", "augments.json")
 RARITIES = {"silver", "gold", "prismatic"}
+# Optional equipment tables (16.22+), imported when meta.json lists them.
+ITEM_FILES = (
+    "item_metadata.json", "hero_items.json", "equipment_recommendation_heroes.json",
+    "hero_item_holdings.json", "equipment_heroes.json", "core_builds.json",
+    "hero_augment_items.json",
+)
 
 
 class AramhexFormatError(ValueError):
@@ -46,6 +58,102 @@ class AramhexDataset:
     observations: list[Observation]
     quarantine: list[tuple[str, str]]
     augments: dict[str, tuple[str, str]]
+    item_observations: tuple[ItemObservation, ...] = ()
+    item_info: dict | None = None
+
+
+def _load_items(directory: Path, listed: dict, champion_alias: dict[str, str],
+                quarantine: list[tuple[str, str]]):
+    """Parse the optional equipment tables; empty when the dataset has none."""
+    present = [name for name in ITEM_FILES if name in listed]
+    if not present:
+        return [], {}
+    missing = sorted(set(ITEM_FILES) - set(present))
+    if missing:
+        raise AramhexFormatError(f"incomplete equipment tables: {', '.join(missing)} not listed")
+    t = {name: _read_verified(directory, name, listed) for name in ITEM_FILES}
+    if not all(isinstance(v, dict) for v in t.values()):
+        raise AramhexFormatError("equipment tables must be JSON objects")
+    info = {}
+    for iid, meta in t["item_metadata.json"].items():
+        if not isinstance(meta, dict) or not isinstance(meta.get("category"), str):
+            raise AramhexFormatError(f"item_metadata.json entry {iid} has no category")
+        info[str(iid)] = (meta["category"], tuple(str(x) for x in meta.get("types") or ()))
+    boots = {iid for iid, (_, types) in info.items() if "Boots" in types}
+    obs: list[ItemObservation] = []
+    unmapped: set[tuple[str, str]] = set()
+
+    def champ(key, table):
+        alias = champion_alias.get(str(key))
+        if alias is None:
+            unmapped.add((str(key), table))
+        return alias
+
+    def counts(entry):
+        if not isinstance(entry, dict):
+            raise AramhexFormatError(f"invalid equipment entry {entry!r}")
+        return _count(entry, "games"), _count(entry, "wins")
+
+    for table, scope, base_table, base_scope, keep in (
+        ("hero_items.json", "champ_item", "equipment_recommendation_heroes.json",
+         "champ_item_base", lambda iid: True),
+        ("hero_item_holdings.json", "champ_boots", "equipment_heroes.json",
+         "champ_boots_base", lambda iid: iid in boots),
+    ):
+        for key, entry in sorted(t[base_table].items()):
+            alias = champ(key, base_table)
+            g, w = counts(entry)
+            if alias and g:
+                obs.append(ItemObservation(scope=base_scope, champion_id=alias, wins=w, n=g))
+        for key, items in sorted(t[table].items()):
+            alias = champ(key, table)
+            if alias is None:
+                continue
+            for iid, entry in sorted((items or {}).items()):
+                if not keep(str(iid)):
+                    continue
+                g, w = counts(entry)
+                if g:
+                    obs.append(ItemObservation(scope=scope, champion_id=alias, item_id=str(iid),
+                                               wins=w, n=g,
+                                               low_sample=bool(entry.get("low_sample", False))))
+    for key, cores in sorted(t["core_builds.json"].items()):
+        alias = champ(key, "core_builds.json")
+        if alias is None:
+            continue
+        if not isinstance(cores, list):
+            raise AramhexFormatError(f"core_builds.json entry {key} is not a list")
+        for core in cores:
+            g, w = counts(core)
+            items = core.get("items")
+            if (not isinstance(items, list) or not items or
+                    not all(isinstance(i, str) for i in items)):
+                raise AramhexFormatError(f"core_builds.json entry {key} has invalid items")
+            pick = core.get("pick")
+            if g:
+                obs.append(ItemObservation(
+                    scope="champ_core", champion_id=alias, items=tuple(items),
+                    ordered=bool(core.get("ordered", False)), wins=w, n=g,
+                    value=float(pick) if isinstance(pick, (int, float)) else None))
+    for key, by_aug in sorted(t["hero_augment_items.json"].items()):
+        alias = champ(key, "hero_augment_items.json")
+        if alias is None:
+            continue
+        for aid, ref in sorted((by_aug or {}).items()):
+            g = _count(ref, "eligible_total")
+            w = _count(ref, "eligible_wins")
+            if g:
+                obs.append(ItemObservation(scope="champ_aug_item_base", champion_id=alias,
+                                           augment_id=str(aid), wins=w, n=g))
+            for entry in ref.get("items") or []:
+                gi, wi = counts(entry)
+                if gi:
+                    obs.append(ItemObservation(scope="champ_aug_item", champion_id=alias,
+                                               augment_id=str(aid), item_id=str(entry["item"]),
+                                               wins=wi, n=gi))
+    for key, table in sorted(unmapped):
+        quarantine.append((f"champion {key} in item table {table}", "unmapped Riot champion key"))
+    return obs, info
 
 
 def _source() -> SourceMeta:
@@ -161,6 +269,7 @@ def load_aramhex_dataset(
         for aid in sorted(unknown_here):
             quarantine.append((f"augment {aid} on champion {key}", "no rarity in augments.json"))
 
+    item_observations, item_info = _load_items(directory, listed, champion_alias, quarantine)
     window = meta.get("window") or {}
     snapshot = SnapshotMeta(
         patch=patch,
@@ -178,7 +287,8 @@ def load_aramhex_dataset(
             "low_sample_threshold": threshold,
         },
     )
-    return AramhexDataset(_source(), snapshot, observations, quarantine, augments)
+    return AramhexDataset(_source(), snapshot, observations, quarantine, augments,
+                          tuple(item_observations), item_info)
 
 
 def ingest_aramhex(
@@ -193,8 +303,11 @@ def ingest_aramhex(
     if app_mode != "noncommercial":
         raise LicenseError("AramHex data is CC BY-NC 4.0: not usable in commercial mode")
     ds = load_aramhex_dataset(directory, champion_alias, allow_event_mode=allow_event_mode)
-    return store.ingest(ds.source, ds.snapshot, ds.observations,
-                        quarantine=ds.quarantine, augments=ds.augments)
+    snapshot_id = store.ingest(ds.source, ds.snapshot, ds.observations,
+                               quarantine=ds.quarantine, augments=ds.augments)
+    if ds.item_observations:
+        store.ingest_items(snapshot_id, list(ds.item_observations), ds.item_info)
+    return snapshot_id
 
 
 def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None) -> Path:
@@ -214,7 +327,12 @@ def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None) -> P
     target.mkdir(parents=True, exist_ok=True)
     meta_bytes = fetch(RAW_URL.format(ref=ref, path=f"{dataset_path}/meta.json"))
     (target / "meta.json").write_bytes(meta_bytes)
-    for name in REQUIRED_FILES:
+    try:
+        listed = json.loads(meta_bytes.decode("utf-8-sig")).get("files") or {}
+    except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+        listed = {}
+    names = list(REQUIRED_FILES) + [n for n in ITEM_FILES if n in listed]
+    for name in names:
         data = fetch(RAW_URL.format(ref=ref, path=f"{dataset_path}/{name}"))
         (target / name).write_bytes(data)
     return target
