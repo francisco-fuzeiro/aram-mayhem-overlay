@@ -58,7 +58,6 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "armor penetration": "lethality",
     "magic penetration": "pen",
     "magic pen": "pen",
-    "magic resist": "pen",
     "critical": "crit",
     "crit": "crit",
     "heal": "heal_power",
@@ -88,13 +87,8 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "invulnerable": "shield",
     "invulnerability": "shield",
     "armor": "shield",
-    "resist": "shield",
-    "resistance": "shield",
     "adaptive force": "ap",
     "on-hit": "attack_speed",
-    # Movement speed maps to hp: tanky/bruiser champions that stack HP also
-    # benefit most from movement speed (closing gaps, dodging skillshots).
-    "movement speed": "hp",
     "true damage": "lethality",
     "burn": "ap",
 }
@@ -173,8 +167,10 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 # B3 schema 4 stored passive groups and movement speed. B5 adds verified
 # properties; schema 5 rejects otherwise plausible stale caches.
 _ITEM_CACHE_SCHEMA = 5
-# Version in the filename prevents reuse of contributions parsed by older rules.
-_AUGMENT_CACHE_SCHEMA = 4
+# v5: defensive MR and mobility words must not inherit misleading v4 vectors.
+# The scoring StatVector has no dedicated MR or movement-speed dimensions.
+# Their effects remain unmodelled unless another proven stat is present.
+_AUGMENT_CACHE_SCHEMA = 5
 MAYHEM_MIN_AUGMENT_ID = 1000
 _MAYHEM_ICON_MARKER = "/Kiwi/"
 MIN_NORMALIZED_NAME_LEN = 4
