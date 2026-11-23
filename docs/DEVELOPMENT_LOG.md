@@ -6,6 +6,7 @@
 - "Next: Bloodthirster" contradicted the measured reference (Ravenous Hydra first): the legacy engine ignored the tier list build. With a tier list build shown, Next is the first adapted item not owned (boots timing, full inventory and a finished build keep the engine choice). "(0g)" now reads "(ready to buy)" / "(Ng more)".
 - Offer cards: with tiers on, the badge is the measured tier and the best tier is highlighted; the legacy composite moves to a "Fit x/10" detail line; unrated labels are muted (were green). Champion select leads with Mayhem strength; the composite is labelled "Team fit".
 - Diagnosis vs a third-party overlay seen in the match (numbers not stored): divergences come from data and method, not shrinkage (Fiora median ~5.4k games per augment; k=300). Example from AramHex 16.23: Upgrade Sheen is picked in 5.6 % of Fiora games but wins 1.7 pp below her baseline; Soul Siphon 6.7 pp below. Our ranks are within rarity (/96 gold), theirs across all augments.
+- Owner chose "measure popularity on the holdout first". Holdout 16.22→16.23, 22,293 champion×augment pairs, mean Kendall τ vs next-patch ΔWR: ΔWR only 0.750; 90/10 0.745; 80/20 0.724; 70/30 0.687; popularity only 0.278. Popularity makes the prediction worse at every weight, so it is NOT added.
 
 ## 2026-11-23 — Stat Anvil estimates use the real 16.23 catalogue stats
 
