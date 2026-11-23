@@ -101,6 +101,62 @@ ANVIL_BIN_PATHS = (
 _PATCH = re.compile(r"^\d{2}\.\d{1,2}$")
 
 
+_PUBLIC_HASH = "507cdd64276919f5.bin.json"
+_SAFE_BIN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}\\.bin\\.json$")
+_MAX_LISTED_BIN_BYTES = 32 * 1024 * 1024
+
+
+def _public_index_rows(patch: str, directory: str) -> tuple[str, list[dict]]:
+    """Read the official CDragon JSON directory index, without HTML scraping."""
+    import requests
+    if not _PATCH.fullmatch(patch):
+        raise AnvilCatalogError("invalid patch identifier")
+    if not directory.startswith("game/") or not directory.endswith("/"):
+        raise AnvilCatalogError("unexpected public index directory")
+    if any(part in ("", ".", "..") for part in directory.strip("/").split("/")):
+        raise AnvilCatalogError("unsafe public index directory")
+    url = f"https://raw.communitydragon.org/json/{patch}/{directory}"
+    try:
+        response = requests.get(url, timeout=20)
+        if response.status_code == 404:
+            return "index_unavailable", []
+        response.raise_for_status()
+        rows = response.json()
+    except (requests.RequestException, ValueError):
+        return "index_unavailable", []
+    if not isinstance(rows, list) or len(rows) > 30000:
+        return "index_invalid", []
+    return "indexed", [row for row in rows if isinstance(row, dict)]
+
+
+def inspect_public_bin_index(patch: str) -> dict:
+    """List only filename candidates, NEVER certify real shard/popup content."""
+    status, rows = _public_index_rows(patch, "game/unknown/")
+    result = {
+        "patch": patch, "directory": "game/unknown/", "status": status,
+        "bin_json_count": 0, "known_hashed_bin_present": False,
+        "possible_public_filenames": [], "catalogue_verified": False,
+        "live_popup_verified": False,
+    }
+    if status != "indexed":
+        return result
+    candidates = []
+    for row in rows:
+        name = row.get("name")
+        if (row.get("type") != "file" or not isinstance(name, str)
+                or not _SAFE_BIN.fullmatch(name)):
+            continue
+        result["bin_json_count"] += 1
+        if name == _PUBLIC_HASH:
+            result["known_hashed_bin_present"] = True
+        size = row.get("size")
+        if (name != _PUBLIC_HASH and type(size) is int
+                and 1024 <= size <= _MAX_LISTED_BIN_BYTES):
+            candidates.append(name)
+    result["possible_public_filenames"] = sorted(candidates)
+    return result
+
+
 def public_patch_report(patch: str, *, locale: str | None = None) -> dict:
     """Optional network-only discovery; public sources, no cache writes."""
     import requests
