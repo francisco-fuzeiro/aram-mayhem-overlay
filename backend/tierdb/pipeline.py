@@ -11,7 +11,11 @@ from backend.tierdb.augment_tiers import (
     baseline_without,
     build_augment_tiers,
 )
-from backend.tierdb.champion_tiers import ChampionTierConfig, build_champion_tiers
+from backend.tierdb.champion_tiers import (
+    ChampionTierConfig,
+    augment_leverage,
+    build_champion_tiers,
+)
 from backend.tierdb.store import TierStore
 
 
@@ -69,13 +73,19 @@ def run_build(
         champions, pairs, rarity, roles, heuristic, aug_config)
 
     pair_deltas: dict[str, dict[str, list[float]]] = {}
+    relative: dict[str, dict[str, list[float]]] = {}
     for (c, a), (w, g) in sorted(pairs.items()):
         if c in champions and a in rarity:
             p0 = baseline_without(*champions[c], w, g)
             delta = _shrunk_delta(w, g, p0, aug_config.k_win)
             value = delta + float(_logit(p0)) if leverage_mode == "absolute" else delta
             pair_deltas.setdefault(c, {}).setdefault(rarity[a], []).append(value)
-    champ_rows, champ_thresholds = build_champion_tiers(champions, pair_deltas, champ_config)
+            relative.setdefault(c, {}).setdefault(rarity[a], []).append(delta)
+    # Owner decision 23/11: relative gain = tie-breaker + visible "potential".
+    relative_gain = {c: augment_leverage(by_r, champ_config.rarity_frequency)
+                     for c, by_r in relative.items()}
+    champ_rows, champ_thresholds = build_champion_tiers(
+        champions, pair_deltas, champ_config, relative_gain=relative_gain)
 
     empirical = [{"source": source_name, "snapshot_sha256": snap.sha256, "region": snap.region}]
     curated = [{"source": "curated_heuristic"}]
@@ -109,10 +119,11 @@ def run_build(
         )
         con.executemany(
             """INSERT INTO champion_tier (run_id, champion_id, score, components_json,
-                   rank, tie_group, tier, confidence, n) VALUES (?,?,?,?,?,?,?,?,?)""",
+                   rank, tie_group, tier, confidence, n, potential)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
             [
                 (run_id, r.champion_id, r.score, json.dumps(dict(r.components)), r.rank,
-                 r.tie_group, r.tier, r.confidence, r.n)
+                 r.tie_group, r.tier, r.confidence, r.n, r.potential)
                 for r in champ_rows
             ],
         )

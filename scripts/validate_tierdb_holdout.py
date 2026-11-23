@@ -99,6 +99,13 @@ def main(train_dir, test_dir):
     report["augment_tier_identical"] = round(float(np.mean(np.array(diffs) == 0)), 4)
 
     # Champions: composite vs WR only, target = next-patch win rate.
+    rel_deltas: dict = {}
+    for (c, a), (w, g) in tp.items():
+        if c in tc and a in tr:
+            rel_deltas.setdefault(c, {}).setdefault(tr[a], []).append(
+                _shrunk_delta(w, g, baseline_without(*tc[c], w, g), 300))
+    from backend.tierdb.champion_tiers import augment_leverage
+    gain = {c: augment_leverage(v) for c, v in rel_deltas.items()}
     for mode in ("absolute", "relative"):
         deltas: dict = {}
         for (c, a), (w, g) in tp.items():
@@ -117,6 +124,18 @@ def main(train_dir, test_dir):
         lev = {r.champion_id: dict(r.components)["leverage"] for r in crows}
         report[f"champions_tau_leverage_only_{mode}"] = kendall_tau_b(
             [lev[c] or 0 for c in common], target)
+        if mode == "absolute":
+            tb_rows, _ = build_champion_tiers(tc, deltas, ChampionTierConfig(draws=200),
+                                              relative_gain=gain)
+            rank = {r.champion_id: -r.rank for r in tb_rows}
+            report["champions_tau_rank_absolute_with_gain_tiebreak"] = kendall_tau_b(
+                [rank[c] for c in common], target)
+            rank0 = {r.champion_id: -r.rank for r in crows}
+            report["champions_tau_rank_absolute_no_tiebreak"] = kendall_tau_b(
+                [rank0[c] for c in common], target)
+            report["champions_potential_counts"] = {
+                p: sum(r.potential == p for r in tb_rows)
+                for p in ("very_low", "low", "medium", "high", "very_high")}
     report["champions_tau_wr_only"] = kendall_tau_b([tc[c][0] / tc[c][1] for c in common], target)
     print(json.dumps(report, indent=2))
     return report

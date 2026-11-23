@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS champion_tier (
     tier            TEXT,
     confidence      TEXT NOT NULL,
     n               INTEGER NOT NULL DEFAULT 0,
+    potential       TEXT CHECK (potential IN ('very_low', 'low', 'medium', 'high', 'very_high')),
     PRIMARY KEY (run_id, champion_id)
 );
 """
@@ -228,6 +229,14 @@ class TierStore:
         self.connection = sqlite3.connect(str(path))
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Additive column migrations for databases created by older builds."""
+        cols = {r[1] for r in self.connection.execute("PRAGMA table_info(champion_tier)")}
+        if "potential" not in cols:
+            with self.connection:
+                self.connection.execute("ALTER TABLE champion_tier ADD COLUMN potential TEXT")
 
     def close(self) -> None:
         self.connection.close()

@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Tier DB: champion strength + potential (owner decision)
+
+- Owner decision (ARAM is for fun): champion list shows two fields. **Strength** = tier from WR 50 / absolute leverage 23 (best-of-3 offer) / combat 19 / consistency 8. **Potential** = relative augment gain over the champion's own baseline, five quintile levels (very_low..very_high), never a number. Relative gain also orders champions inside a statistical tie group; it never moves tiers or groups.
+- Holdout 16.22→16.23: champion rank τ 0.844 without tie-break, 0.839 with the potential tie-break (WR-only 0.860). Potential bands 35/34/35/34/35 champions.
+
+
 ## 2026-11-23 — Tier DB F0–F7 (branch `feat/tierdb-augment-champion-tiers`, on #103)
 
 - F0: verified the real AramHex layout on `czgreat/aramhex-data` 16.22/16.23 `normal` (meta.json maps file → SHA-256; heroes/hero_augments keyed by Riot numeric champion key; 237 augments with rarity; `excluded_augments`; ~5M valid games per patch, median ~3,900 games per champion+augment pair).

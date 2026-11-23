@@ -1,5 +1,9 @@
 # ARAM Oracle — Product and UX TODO
 
+- [x] **TDB-OWN** Leverage decided 23/11: absolute leverage in strength; relative gain = tie-breaker + 5-level potential field.
+- [ ] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
+
+
 ## 2026-11-23 — Tier DB (augments per champion + champion tier list)
 
 - [x] **TDB-F0** Real AramHex format verified (16.22/16.23 normal).
@@ -14,7 +18,6 @@
 - [ ] **TDB-UI2** Show augment tier/rank/tie group/level on offers and champion tier in champ select (never win rates).
 - [ ] **TDB-D1** arammayhem.com CC BY pick-rate importer (prior only).
 - [ ] **TDB-D2** LCU local-history importer for combat/participation/duration metrics.
-- [ ] **TDB-OWN** Owner decision on leverage definition (absolute default vs relative).
 
 
 **2026-11-22 — V1.2c CI checkpoint:** The previous final protocol SHA `a8ab76876f2e16d5aa08d714a9032905aaa79d78` has [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 JS syntax PASS; independent pinned v4 35 PASS). **PROVEN = offline CI only.** V12-N00..N10 and F1.3 native NOT TESTED; old N1 user-observed FAIL/root cause BLOCKED. Native feasibility must be checked in a supported custom Mayhem lobby, no ordinary competitive substitute. This documentation checkpoint requires its own final SHA Actions; no code change, merge, engine promotion, installer or Settings selector.

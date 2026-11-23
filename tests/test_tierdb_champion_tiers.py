@@ -84,7 +84,7 @@ def test_same_inputs_same_output():
     assert build_champion_tiers(*_many(), CFG) == build_champion_tiers(*_many(), CFG)
 
 
-def test_relative_gain_breaks_ties_and_labels_augment_friendly():
+def test_relative_gain_breaks_ties_and_sets_potential():
     # Two statistically indistinguishable champions: the one whose augments
     # lift it more above its own baseline goes first inside the tie group.
     champions = {f"c{i:02d}": (int(20000 * (0.45 + 0.005 * i)), 20000) for i in range(20)}
@@ -97,11 +97,22 @@ def test_relative_gain_breaks_ties_and_labels_augment_friendly():
     a, b = _row(rows, "twin_a"), _row(rows, "twin_b")
     assert a.tie_group == b.tie_group
     assert b.rank < a.rank
-    assert b.augment_friendly is True
-    assert a.augment_friendly is False
+    # Owner refinement 23/11: two visible fields, strength (tier) and potential.
+    assert b.potential == "very_high"
+    assert a.potential != "very_high"
+    assert a.tier == b.tier or a.tie_group == b.tie_group
     assert sorted(r.rank for r in rows) == list(range(1, len(rows) + 1))
 
 
-def test_without_relative_gain_nobody_is_labelled():
+def test_without_relative_gain_potential_is_unknown():
     rows, _ = build_champion_tiers(*_many(), CFG)
-    assert not any(r.augment_friendly for r in rows)
+    assert all(r.potential is None for r in rows)
+
+
+def test_potential_bands_are_qualitative():
+    champions, deltas = _many()
+    gain = {c: i / 100 for i, c in enumerate(sorted(champions))}
+    rows, _ = build_champion_tiers(champions, deltas, CFG, relative_gain=gain)
+    levels = ("very_low", "low", "medium", "high", "very_high")
+    counts = {p: sum(r.potential == p for r in rows) for p in levels}
+    assert counts == {p: 4 for p in levels}  # quintiles, owner decision 23/11

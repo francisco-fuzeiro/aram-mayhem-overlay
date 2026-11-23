@@ -24,6 +24,9 @@ import numpy as np
 from backend.tierdb.augment_tiers import TIER_ORDER, _midrank_cdf, combine_components
 
 
+POTENTIAL_LEVELS = ("very_low", "low", "medium", "high", "very_high")
+
+
 @dataclass(frozen=True)
 class ChampionTierConfig:
     k_win: float = 500.0
@@ -37,8 +40,8 @@ class ChampionTierConfig:
         "win": 50, "combat": 19, "leverage": 23, "consistency": 8})
     # Offer frequency per rarity; None = equal (assumption until measured).
     rarity_frequency: dict | None = None
-    # "Uses augments well" label: relative gain strictly above this percentile.
-    friendly_percentile: float = 80.0
+    # Potential: five quintile bands on the relative gain (owner, 23/11).
+    potential_percentiles: tuple[float, ...] = (20.0, 40.0, 60.0, 80.0)
 
 
 @dataclass(frozen=True)
@@ -53,7 +56,7 @@ class ChampionTierRow:
     confidence: str
     n: int
     components: tuple  # ((name, value in [0, 1] or None), ...)
-    augment_friendly: bool = False
+    potential: str | None = None  # one of POTENTIAL_LEVELS, None = unknown
 
 
 def expected_max_of_three(values) -> float | None:
@@ -98,8 +101,8 @@ def build_champion_tiers(
     ``relative_gain`` (owner decision 2026-11-23: ARAM is for fun) is how far
     the best augment offers lift a champion above its *own* baseline. It does
     not move a champion between tie groups or tiers; it orders champions
-    inside a statistical tie group and labels the top ones as
-    ``augment_friendly``. As a score component it would reward weak
+    inside a statistical tie group and is shown as a separate qualitative
+    ``potential`` field (five levels, very low .. very high), next to strength (the tier). As a score component it would reward weak
     champions and hurt prediction (F7 holdout)."""
     rng = np.random.default_rng(config.seed)
     ids = sorted(c for c, (_, g) in champions.items() if g > 0)
@@ -143,8 +146,13 @@ def build_champion_tiers(
 
     gain = {c: (relative_gain or {}).get(c) for c in ids}
     known_gain = [g for g in gain.values() if g is not None]
-    friendly_cut = (float(np.percentile(known_gain, config.friendly_percentile))
-                    if known_gain else None)
+    cuts = ([float(np.percentile(known_gain, p)) for p in config.potential_percentiles]
+            if known_gain else None)
+
+    def potential(c):
+        if cuts is None or gain[c] is None:
+            return None
+        return POTENTIAL_LEVELS[sum(gain[c] > cut for cut in cuts)]
 
     # Statistical tie groups on the score order.
     order = sorted(ids, key=lambda c: (-med[c], c))
@@ -178,8 +186,6 @@ def build_champion_tiers(
                 champion_id=c, score=round(med[c], 4), score_p20=round(p20, 4),
                 score_p80=round(p80, 4), rank=rank, tie_group=group_id, tier=tier,
                 confidence=_confidence(n), n=n, components=comps[c],
-                augment_friendly=bool(
-                    friendly_cut is not None and gain[c] is not None
-                    and gain[c] > friendly_cut),
+                potential=potential(c),
             ))
     return rows, thresholds
