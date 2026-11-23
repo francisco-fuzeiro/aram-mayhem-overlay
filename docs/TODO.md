@@ -1,5 +1,13 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-23 — CURRENT: owner 16.23 source zero; indexed bin search gate
+
+- [x] **ANVIL-SRC-03a real negative result**: owner P0 checkout HEAD `9d3b29f` fetched public patch 16.23, `bins=['map12.bin.json'] total=0`, Silver=0 Gold=0 Prismatic=0. Historical hashed 16.22 bin not returned. This is *not* proof the game lacks Anvils, only that old locations do not provide current source.
+- [x] **ANVIL-SRC-03b code discovery RED→GREEN**: `tests/test_p0_stat_anvil_source_index.py`, `tests/test_p0_stat_anvil_discovery.py`; `scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json` searches public patch index + actual candidate `.bin.json` with bounded downloads, no game contact/write. Distinguishes keyword hits from authentic `AnvilData`/RootSpell, outputs source_paths, tiers, scanned counts, failures/limits and no-proof warning. `4a199e6` [Windows #45220848233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45220848233) two jobs GREEN (2,102 Python PASS/27 SKIP, 89 JS, 35 pinned OCR). Additional CLI/docs head must be verified.
+- [ ] **ANVIL-SRC-03c ACTUAL 16.23 GATE**: owner safely pull latest P0 HEAD and run `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json`; send public aggregated result, no local paths. If incomplete, optionally expand `--discovery-bins 200 --discovery-dirs 100`. Need **total>0 and each Silver/Gold/Prismatic>0 with precise source_paths**. Mocked tests/keyword-only hits do not count.
+- [ ] **ANVIL-SRC-03d**: only after source verified, point real patch loader to actual bin(s), add patch-location RED→GREEN; independently implement verified popup title+value OCR, 3/4 geometry and own contextual 0–10 score, genuine UI ACK.
+- [ ] **P0 live gates**: verify shop #49, Anvils and augment behavior in one user-controlled supported custom Mayhem, inspect per-ID diagnostics, then exact HEAD Windows CI; P0 stays OPEN, #107 draft, no automatic prompt while incomplete.
+
 ## 2026-11-23 — P0 Stat Anvil benchmarking and source discovery (authoritative)
 
 - [x] **ANVIL-SRC-00 — Distinguish real Anvil source from tier-zero augments**. Owner confirms OP.GG overlay rates Stat Anvils. MIT [ARAM Mayhem Tracker](https://github.com/Sygnano/aram-mayhem-tracker) source confirms patch-specific `AnvilData` game bins and locale stringtable; same name may appear in different rarities, so values must be OCR-verified. No copying OP.GG scores, third-party service access, assets, gameplay automation or personal screens.

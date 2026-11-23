@@ -1,5 +1,12 @@
 # Repository agent instructions
 
+## P0 source-acceptance override — Stat Anvils patch 16.23 (2026-11-23)
+
+- Owner Windows PC confirmed `--public-patch 16.23` on P0 HEAD `9d3b29f`: only `map12.bin.json` yielded, **total=0, silver=0, gold=0, prismatic=0**. This invalidates the previous hard-coded source assumption; a fixture/keyword hit is NOT current-patch proof. Keep recommendations disabled.
+- CommunityDragon offers public directory indexes `/json/<patch>/...`. New opt-in `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json` traverses bounded plausible game/map/mode/unknown directories, reads candidate public `.bin.json`, and separately reports keyword matches, parsed `AnvilData`, source_paths, tiers, bounds and any index failures. Read-only, explicit public network use; no League/player access.
+- **Do not accept this P0 Anvil source until actual patch-16.23 report shows total>0, Silver>0, Gold>0 and Prismatic>0 AND specific public source_paths.** Only then pin verified file paths in the parser with RED→GREEN patch tests; later separately verify popup OCR titles/values, contextual 0–10 and real UI during one supported custom match. If bounded scan is incomplete, expand via `--discovery-bins 200 --discovery-dirs 100` and continue investigation; never fabricate a valid source or auto-transfer chat.
+- Exact verified older code HEAD `4a199e6` [Windows #45220848233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45220848233) SUCCESS (2,102 Python PASS, 27 SKIP; 89 JS PASS; 35 pinned OCR PASS). The new docs/current HEAD must have its own CI check. Keep #107 draft, main/TierDB untouched and local untracked `funcionalidades.md` safe.
+
 ## Session startup
 
 Before changing code, read:

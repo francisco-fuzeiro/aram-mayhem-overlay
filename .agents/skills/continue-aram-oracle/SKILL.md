@@ -1,5 +1,13 @@
 ---
 
+## CURRENT 2026-11-23 — P0 indexed bin search, owner-real source still zero
+
+Owner checked 16.23 on Windows: only `map12.bin.json` from the two historical target bins, **total=0 across Silver/Gold/Prismatic**. Do not claim those sources are valid, that Anvils are absent from Mayhem, or that synthetic 16.19/16.22 tests prove 16.23. MIT ARAM Mayhem Tracker `service/src/upstream/documents.ts` tries `game/data/maps/shipping/map12/map12.bin.json` and `game/unknown/507cdd64276919f5.bin.json`; its examples are older patches.
+
+Tests-only RED: `tests/test_p0_stat_anvil_source_index.py`, `tests/test_p0_stat_anvil_discovery.py`; GREEN source index + bounded bin scan in `scripts/stat_anvil_catalog_report.py` via `--public-patch 16.23 --discover --json`. It uses CommunityDragon documented `json/<patch>/game/` listings, searches plausible `.bin.json` contents for keywords and actual `AnvilData`/spell values, reports exact public source_paths and all tier counts, and marks incomplete scans. No disk writes or player/game access. To widen a capped scan use `--discovery-bins 200 --discovery-dirs 100`.
+
+**Required next owner evidence:** after exact-current-head Actions SUCCESS, safe fast-forward pull P0 #107 (preserve `funcionalidades.md`), run discover command, share public JSON only. Do NOT point the loader to guessed map or produce contextual scores until **actual source total>0 and each Silver/Gold/Prismatic >0** with identified files. If still zero, use reported index errors/candidates to continue patch-specific investigation. P0 still OPEN (shop #49, popup, OCR, scoring, single final custom Mayhem), no merge/P1/handoff prompt.
+
 ## CURRENT 2026-11-23 — Stat Anvil source path discovered (still P0)
 
 - Owner confirms OP.GG displays a Stat Anvil rating. Treat as a benchmark,
