@@ -1,5 +1,13 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Tier DB F0–F7 (branch `feat/tierdb-augment-champion-tiers`, on #103)
+
+- F0: verified the real AramHex layout on `czgreat/aramhex-data` 16.22/16.23 `normal` (meta.json maps file → SHA-256; heroes/hero_augments keyed by Riot numeric champion key; 237 augments with rarity; `excluded_augments`; ~5M valid games per patch, median ~3,900 games per champion+augment pair).
+- F1 store, F2 importer, F3/F4 augment tiers, F5 champion tiers, F6 pipeline/export/runtime switch/CLI: each as RED test commit then GREEN code commit. 54 tier DB tests; full Linux suite 2,086 PASS / 48 SKIP. Windows Actions NOT yet verified.
+- F7 `scripts/validate_tierdb_holdout.py` (aggregate metrics only; run locally): train 16.22 → test 16.23, mean per champion×rarity Kendall τ: raw ΔWR 0.750, shrunk k=300 0.750 (k barely matters at these n), composite 0.749 on the same pairs; pairs ranked only by fallback levels ≈ 0 (uninformative); tiers same-or-adjacent 97.8 %. Champions: WR-only 0.860, composite with relative leverage 0.644, with absolute leverage (E[max of 3 offers] of shrunk logit WR) 0.844 → absolute is the default, owner decision pending.
+- Not done: Settings toggle and overlay/champ-select display of tiers, arammayhem.com pick-rate and LCU local-history importers, combat/participation/duration/consistency metrics (no legal data source at scale), multi-source fusion.
+
+
 ## 2026-11-22 — V1.2c exact-head CI evidence verified, native gate unchanged
 
 - [Draft #83](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/83) still OPEN/DRAFT, direct base #80 (on #78→#76); repo intentionally PUBLIC; `main` and research branches unchanged. Exact before-checkpoint HEAD `a8ab76876f2e16d5aa08d714a9032905aaa79d78` independently checked against [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086): standard test job 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; v4 pinned-model product job 35 PASS. Job logs reviewed, both SUCCESS. No code changed or new RED/GREEN cycle required; the historical F1 concurrency timeout cause remains unknown.
