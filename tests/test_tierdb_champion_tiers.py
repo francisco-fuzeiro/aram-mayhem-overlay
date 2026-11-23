@@ -82,3 +82,26 @@ def test_overlay_never_needs_win_rate():
 
 def test_same_inputs_same_output():
     assert build_champion_tiers(*_many(), CFG) == build_champion_tiers(*_many(), CFG)
+
+
+def test_relative_gain_breaks_ties_and_labels_augment_friendly():
+    # Two statistically indistinguishable champions: the one whose augments
+    # lift it more above its own baseline goes first inside the tie group.
+    champions = {f"c{i:02d}": (int(20000 * (0.45 + 0.005 * i)), 20000) for i in range(20)}
+    champions["twin_a"] = (10001, 20000)
+    champions["twin_b"] = (10000, 20000)
+    deltas = {c: {"gold": [0.0, 0.05, 0.1, 0.15]} for c in champions}
+    gain = {c: 0.1 for c in champions}
+    gain["twin_b"] = 0.9
+    rows, _ = build_champion_tiers(champions, deltas, CFG, relative_gain=gain)
+    a, b = _row(rows, "twin_a"), _row(rows, "twin_b")
+    assert a.tie_group == b.tie_group
+    assert b.rank < a.rank
+    assert b.augment_friendly is True
+    assert a.augment_friendly is False
+    assert sorted(r.rank for r in rows) == list(range(1, len(rows) + 1))
+
+
+def test_without_relative_gain_nobody_is_labelled():
+    rows, _ = build_champion_tiers(*_many(), CFG)
+    assert not any(r.augment_friendly for r in rows)
