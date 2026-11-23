@@ -1,5 +1,11 @@
 # Single Mayhem Match Test Checklist — P0 baseline
 
+## 2026-11-23 — Stat Anvil source gate PASSED on real data; native gates remain
+
+- [x] **Patch source gate (PROVEN):** `game/maps/modespecificdata/statanvils.bin.json` on 16.23, 37 `AnvilData`, `RootSpell.mSpell.DataValues` for all, Silver 13 / Gold 13 / Prismatic 8 offerable (raw 14/14/8 + 1 mixed). Exact path + sha256 in `data/anvils/stat_anvils_16.23.json`; RED→GREEN `tests/test_p0_stat_anvil_source_16_23.py`.
+- [x] Loader, dedicated title watcher, tier resolution, own 0–10 scores and render ACK — synthetic/real-catalogue tests GREEN (no screen).
+- [ ] **In the single match:** if a Stat Anvil appears, confirm the overlay panel shows `Best fit` within ~2 s, the tier label is right, and the report has `anvil.offer_detected ok verified_offer` + `anvil.offer_render ok rendered` + `anvil.offer_rating ok scored`. A `tier_ambiguous` record means the value-line OCR is needed. No Anvil seen = NOT FIRED.
+
 ## 2026-11-23 — Actual 16.23 hashed Stat Anvil source gate and subsequent native acceptance
 
 - [x] Independent read-only current-patch HTTP check [Windows Actions #45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820): `/16.23/game/unknown/507cdd64276919f5.bin.json` → **404**. Fallback same-patch CDragon JSON index checked: **exact filename absent, no matching prefix**. This path does NOT supply live current-patch `AnvilData`/RootSpell; historic 16.22 reports do not pass source gate.
@@ -60,9 +66,11 @@ In each subsequent P0 RED→GREEN change:
 | `augment.cache_schema` | Cached augment catalogue from current parser schema; stale schema rejected | `tests/test_p0_audit_parser.py::test_augment_cache_schema_changes_when_parser_semantics_change` exists (schema only); exact `(augment.cache_schema,ok,current)` / `(augment.cache_schema,skipped,stale)` RED pending | Diagnostics PENDING; native NOT TESTED |
 | `build.item_pool` | DD/CD verified current-policy item cache load (network or warm cache); abstain if unverified | `tests/test_p0_item_source_recipe.py` exact `build.item_pool/ok/final_items` (count), `failed/no_final_items`, `skipped/unverified`; [RED #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899) proves 104 terminal DD omitted `into` vs CD `to=[]` | **Code CI GREEN + owner v4 offline counts PROVEN**; native shop NOT TESTED |
 | `build.next_item` | Shop decision point; only real eligible final/boots and feasible purchase suggested | Existing shop/build tests must be connected; exact `(build.next_item,ok,recommended)` / `(build.next_item,skipped,no_eligible_item)` RED pending | Shop #49 OPEN; native NOT TESTED |
-| `anvil.voucher_purchase` | Active player's purchased voucher stack actually increases; otherwise report safe no-trigger reason | `tests/test_p0_anvil_voucher.py` exists (edge/synthetic poll only); exact `(anvil.voucher_purchase,ok,positive_edge)` / `(anvil.voucher_purchase,skipped,no_edge)` RED pending | Diagnostics PENDING; native NOT TESTED |
-| `anvil.offer_detected` | Verified voucher + actual visually confirmed Stat Anvil popup; no invented cards | Current tests only disprove OCR on voucher-only event; exact `(anvil.offer_detected,ok,verified_offer)` / `(anvil.offer_detected,skipped,popup_unverified)` RED pending | Verified option corpus/3-or-4 geometry BLOCKED |
-| `anvil.offer_render` | Three/four verified Stat Anvil choices actually appear in overlay, not backend-only decision | Exact UI `feature_ack` test and `(anvil.offer_render,ok,rendered)` / `(anvil.offer_render,skipped,no_verified_offer)` RED pending | UI not implemented; native NOT TESTED |
+| `anvil.voucher_purchase` | Voucher stack increases (220008/220009/220010) | `tests/test_p0_anvil_voucher.py`, `tests/test_p0_feature_diagnostics_m2.py`; 220010 RED→GREEN in `tests/test_p0_stat_anvil_offer.py` | Code GREEN; native NOT TESTED |
+| `anvil.offer_detected` | Dedicated watcher reads 3 shard titles while a voucher is held/just spent; tier resolved | `tests/test_p0_stat_anvil_offer.py`, `tests/test_p0_stat_anvil_popup_server.py`: `ok/verified_offer`, `skipped/popup_unverified`, `tier_ambiguous`, `mixed_tiers`, `incomplete_offer` | Code GREEN; native NOT TESTED; value OCR BLOCKED on real crop |
+| `anvil.catalog_source` | Startup: patch-matched real catalogue | `tests/test_p0_stat_anvil_source_16_23.py`: `ok/verified_catalog`, `skipped/catalog_patch_mismatch`, `failed/catalog_invalid` | Code GREEN; fires every session |
+| `anvil.offer_rating` | Verified popup scored for current champion | `tests/test_p0_stat_anvil_offer.py`: `ok/scored`, `skipped/unmodelled` | Code GREEN; native NOT TESTED |
+| `anvil.offer_render` | Overlay shows `Best fit` for the verified popup; ACK epoch + card count | `tests/js/overlay-messages.test.cjs` (P0-C panel), `tests/test_p0_stat_anvil_popup_server.py::test_render_ack_is_fenced_to_verified_epoch_and_count` | Code GREEN; native NOT TESTED |
 
 These are **proposed reason names**, not currently registered production reasons.
 At implementation, freeze/validate enums per id; do not emit raw data or free

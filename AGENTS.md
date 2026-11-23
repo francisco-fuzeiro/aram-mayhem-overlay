@@ -1,5 +1,10 @@
 # Repository agent instructions
 
+## 2026-11-23 — Stat Anvil source RESOLVED: `statanvils.bin.json` (supersedes the 404 entry below)
+
+- Real 16.23 source `game/maps/modespecificdata/statanvils.bin.json`; pinned catalogue `data/anvils/stat_anvils_16.23.json` (34 = 13/13/8). Do NOT reopen the 471-file scan. Each new patch: regenerate with `scripts/build_stat_anvil_catalog.py` and update the sha256 test; never reuse a catalogue across patches.
+- Anvil popup proof = dedicated title watcher only; voucher = timing + tier hint only. Remaining P0: value-line OCR from a real popup crop, native single match, exact-head CI. #107 stays draft; no merge/main/TierDB.
+
 ## 2026-11-23 — Exact 16.23 Stat Anvil source 404; do NOT promote historical bin
 
 - Actual Windows Actions [#45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820) GET of `https://raw.communitydragon.org/16.23/game/unknown/507cdd64276919f5.bin.json` returned **HTTP 404**. The CDragon `/json/16.23/game/unknown/` index was checked and contains **neither the exact filename nor matching hash-prefixed filenames**. This is a PROVEN missing current public asset path, not proof Stat Anvils are absent from Mayhem. Owner's historical 16.22 37 Anvils (14 silver/14 gold/8 prismatic/1 mixed) cannot be treated as patch 16.23. New read-only public probe `scripts/anvil_source_exact_probe.py` + tests reports HTTP/index status and raw/parsed tier counts; one-time CI live probe removed after evidence.
