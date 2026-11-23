@@ -82,7 +82,8 @@ def test_three_card_count_requires_two_distinct_frames_before_title_reader(monke
     assert names is not None
     assert [m[0] for m in names] == ["one", "two", "three"]
     assert len(captures) == 3
-    assert reads == ["left", "centre", "right"] * 2
+    # Slots are read concurrently (P0 latency fix): order inside a read varies.
+    assert sorted(reads[:3]) == sorted(reads[3:]) == ["centre", "left", "right"]
 
 
 def test_second_burst_frame_four_card_rejects_first_frame_ocr(monkeypatch):
@@ -92,7 +93,7 @@ def test_second_burst_frame_four_card_rejects_first_frame_ocr(monkeypatch):
     assert watcher.last_scan_stage == "layout_four_unsupported"
     assert watcher.last_detected == []
     assert watcher.current_slots is None
-    assert reads == ["left", "centre", "right"]
+    assert sorted(reads) == ["centre", "left", "right"]  # concurrent slot reads
     assert len(captures) == 3
 
 

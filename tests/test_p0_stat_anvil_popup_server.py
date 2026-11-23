@@ -63,9 +63,9 @@ def _tick(state, deps, now=101.0):
     asyncio.run(_anvil_popup_tick(state, deps, now))
 
 
-def test_no_window_no_capture_even_with_catalog(got):
+def test_no_match_no_capture_even_with_catalog(got):
     deps, calls = _deps([])
-    state = GameState()
+    state = GameState()  # no match id: not in game
     _tick(state, deps)
     assert calls == [] and state.anvil_offer is None and got == []
 
@@ -121,12 +121,55 @@ def test_popup_disappearing_closes_window(got):
     assert state.anvil_offer is None and state.anvil_window_until is None
 
 
-def test_augment_scan_has_priority(got):
+def test_popup_found_without_voucher_and_during_augment_window(got):
+    # Field RED (23/11): no voucher edge + augment window open all match ->
+    # the Anvil popup was never read. Neither may gate the popup check.
+    ids = _ids("Omnivamp Shard", "Tenacity Shard", "Move Speed Shard")
+    deps, calls = _deps([("detected", ids)])
+    state = _state()
+    state.anvil_window_until = None
+    state.scan_window_open = True
+    # Exactly what the augment watcher logged at 19:44:10: three blank titles.
+    state.ocr_slot_choices = {"left": None, "centre": None, "right": None}
+    _tick(state, deps)
+    assert calls and state.anvil_offer is not None
+
+
+def test_augment_window_still_verifying_does_not_double_ocr(got):
     deps, calls = _deps([])
     state = _state()
     state.scan_window_open = True
+    state.ocr_slot_choices = None
     _tick(state, deps)
     assert calls == []
+
+
+def test_verified_augment_cards_skip_the_anvil_read(got):
+    deps, calls = _deps([])
+    state = _state()
+    state.scan_window_open = True
+    state.ocr_slot_choices = {"left": "2083", "centre": "1038", "right": "3129"}
+    _tick(state, deps)
+    assert calls == []
+
+
+def test_anvil_cards_gone_record_the_cursor_pick(got):
+    from backend.api.server import _presence_step
+    from backend.collectors.card_presence import Probe
+    ids = _ids("Omnivamp Shard", "Tenacity Shard", "Move Speed Shard")
+    deps, _ = _deps([("detected", ids)])
+    state = _state()
+    _tick(state, deps)
+    for t, cue, slot in ((0.0, "present", "right"), (0.3, "absent", None),
+                         (0.6, "absent", None)):
+        asyncio.run(_presence_step(state, Probe(t, cue, slot), t))
+    assert state.anvil_offer is None
+    assert state.anvil_picked_ids == [state_ids(ids)[2]]
+    assert ("anvil.pick_inferred", "ok", "cursor_slot", None) in got
+
+
+def state_ids(ids):
+    return [CATALOG[i].id for i in ids]
 
 
 def test_render_ack_is_fenced_to_verified_epoch_and_count(got, monkeypatch):

@@ -83,7 +83,8 @@ def test_foreground_loss_does_not_block_verified_wgc_ocr(monkeypatch):
     assert action == "detected"
     assert watcher.check({}) == ("unchanged", None)
     assert matches.slots["left"][0] == "new"
-    assert reads == ["left", "centre", "right"] * 2
+    # Slots are read concurrently (P0 latency fix): order inside a read varies.
+    assert sorted(reads[:3]) == sorted(reads[3:]) == ["centre", "left", "right"]
 
 
 def test_manual_scan_rejects_unverified_frame(monkeypatch):
