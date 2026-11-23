@@ -2,7 +2,11 @@
 
 - [x] **TDB-OWN** Leverage decided 23/11: absolute leverage in strength; relative gain = tie-breaker + 5-level potential field.
 - [x] **TDB-I1** AramHex item import: finals, boots, ordered 3-item cores, Weapon of Fate (design `DESENHO_ITENS_BUILDS_ANVILS_2026-11-23.md`, approved 23/11: max 3 in-match swaps, threshold 0.5).
-- [ ] **TDB-I2..I6** Item tiers, reference build, heuristic Stat Anvils, in-match adaptation, overlay, holdout. I2+ waits for the GPT item-eligibility fix; do not touch its files.
+- [x] **TDB-I2** Item tiers per champion (finals + boots; 50 ΔWR / 30 core presence / 20 fit; measured ≥2 % and ≥200 games, else heuristic capped at A), on the GPT-verified item pool (#107).
+- [x] **TDB-I3** Reference build: slots 1-3 from best measured core, 4-6 from item tiers, best boots; exclusive groups respected.
+- [x] **TDB-I4** Heuristic Stat Anvils (estimate, tier capped at A): stat demand from the champion's best measured items (role prior fallback), adjusted by enemy damage mix, CC, ally frontline and confirmed augments. CommunityDragon ability ratios NOT wired yet.
+- [x] **TDB-I5** In-match adaptation (max 3 swaps, gain ≥0.5, slot 1 and owned items locked, reason per swap) + overlay block "Reference / Adapted / Stat Anvils (estimate)" + diagnostics `items.reference_build`, `items.build_render`, `anvil.stat_estimate`.
+- [ ] **TDB-I6** Holdout 16.22→16.23 for item tiers; score real Stat Anvil popup cards (hooks into the GPT Anvil detection); ability-ratio demand.
 - [x] **DIAG-F1** Per-feature diagnostics + post-session report (`backend/feature_diagnostics.py`), one-match test checklist.
 - [x] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
 

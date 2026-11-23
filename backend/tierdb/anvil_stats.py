@@ -144,7 +144,8 @@ def rank_anvil_options(
     peak = max(demand.values()) if demand else 1.0
     out = []
     for shard in shards:
-        stat = anvil_stat_for_kind(shard.get("kind"))
+        stat = shard.get("stat") if shard.get("stat") in ANVIL_STATS \
+            else anvil_stat_for_kind(shard.get("kind"))
         if stat is None:
             out.append({"id": shard.get("id"), "stat": None, "score": None, "tier": None,
                         "rank": None, "level": "unmodelled", "reason": None})

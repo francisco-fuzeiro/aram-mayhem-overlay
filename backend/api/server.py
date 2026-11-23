@@ -512,10 +512,127 @@ def _annotate_champion_candidates(result: dict) -> dict:
     return result
 
 
+_AUGMENT_TO_ANVIL = {"ap": "ap", "ad": "ad", "attack_speed": "as", "hp": "hp",
+                     "lethality": "lethality", "pen": "mpen", "crit": "crit", "cdr": "ah"}
+
+
+def _item_context(item, champion, enemy: dict, allies: dict, fate: set):
+    """Bounded 0-3 match bonus for an item and the first reason (heuristic,
+    except Weapon of Fate picks which AramHex measures)."""
+    props = getattr(item, "properties", frozenset()) or frozenset()
+    reasons: list[tuple[float, str]] = []
+    if item is not None and item.id in fate:
+        reasons.append((1.5, "Weapon of Fate pick (measured)"))
+    e = enemy or {}
+    if e.get("enemies_analyzed", 0) > 0 and props:
+        ap = champion is not None and (champion.role.lower() == "mage"
+                                       or champion.stats.ap > champion.stats.ad)
+        if "anti_heal" in props and (e.get("sustain_pressure", 0) >= 0.35
+                                     or e.get("healing_items", 0) >= 3):
+            reasons.append((1.5, "enemies heal a lot"))
+        if ("magic_pen" if ap else "armor_pen") in props and (
+                e.get("tanks", 0) >= 2 or e.get("armor_items", 0) >= 3
+                or (ap and e.get("magic_resist_items", 0) >= 3)):
+            reasons.append((1.5, "enemies stack resistances"))
+        if "armor" in props and e.get("physical_pressure", 0) >= 0.6:
+            reasons.append((1.5, "enemies deal mostly physical damage"))
+        if "magic_resist" in props and e.get("magic_pressure", 0) >= 0.6:
+            reasons.append((1.5, "enemies deal mostly magic damage"))
+        if props & {"shield", "health"} and e.get("burst_pressure", 0) >= 0.5:
+            reasons.append((1.0, "high enemy burst"))
+        if props & {"tenacity", "cleanse"} and e.get("cc_pressure", 0) >= 0.5:
+            reasons.append((1.0, "heavy enemy crowd control"))
+    a = allies or {}
+    if (a.get("known") and a.get("frontline", 1) == 0 and "health" in props
+            and props & {"armor", "magic_resist"}):
+        reasons.append((1.0, "allies lack frontline"))
+    if not reasons:
+        return 0.0, None
+    return min(3.0, sum(v for v, _ in reasons)), reasons[0][1]
+
+
+def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies, sd):
+    """Reference build (measured), adapted build (max 3 swaps, >= 0.5) and
+    heuristic Stat Anvil priorities for the overlay. No win rates."""
+    from backend.tierdb.anvil_stats import ANVIL_STATS, rank_anvil_options
+    from backend.tierdb.build_adapt import adapt_build, strength_from_rank
+
+    record = feature_diagnostics.record
+    if not tier_service.enabled():
+        record("items.reference_build", "skipped", "tiers_off")
+        record("anvil.stat_estimate", "skipped", "tiers_off")
+        return None
+    if not champion_id:
+        record("items.reference_build", "skipped", "no_champion")
+        return None
+    data = tier_service.provider.items(str(champion_id))
+    if not data or not data.get("reference"):
+        record("items.reference_build", "failed",
+               "champion_not_in_tierlist" if tier_service.provider.loaded else "export_missing")
+        record("anvil.stat_estimate", "skipped", "no_demand")
+        return None
+    champion = sd.get_champion(champion_id) if hasattr(sd, "get_champion") else None
+    finals = data.get("final") or {}
+    strength = {iid: strength_from_rank(e.get("rank"), e.get("rank_total"))
+                for iid, e in finals.items()}
+    groups = getattr(sd, "exclusive_item_groups", {}) or {}
+
+    def conflicts(a, b):
+        return any(a in ids and b in ids for ids in groups.values())
+
+    fate = set()
+    chosen = [str(a) for a in (chosen_augments or [])]
+    for aug in chosen:
+        fate |= set((data.get("fate") or {}).get(aug, []))
+
+    def context(iid):
+        return _item_context(sd.get_item(iid), champion, enemy, allies, fate)
+
+    canonical = getattr(sd, "canonical_item_id", lambda x: str(x))
+    owned = {canonical(i) for i in (owned_ids or [])}
+    reference = list(data["reference"])
+    adapted = adapt_build(reference, strength, context=context, owned=owned,
+                          conflicts=conflicts)
+
+    def name(iid):
+        item = sd.get_item(iid)
+        return item.name if item is not None and item.name else iid
+
+    payload = {
+        "reference": [{"id": i, "name": name(i)} for i in reference],
+        "adapted": [{"id": i, "name": name(i)} for i in adapted.items],
+        "boots": ({"id": data["boots_reference"], "name": name(data["boots_reference"])}
+                  if data.get("boots_reference") else None),
+        "swaps": [{"slot": s["slot"], "out": s["out"], "in": s["in"],
+                   "out_name": name(s["out"]), "in_name": name(s["in"]),
+                   "reason": s["reason"]} for s in adapted.swaps],
+        "anvil_stats": [],
+    }
+    record("items.reference_build", "ok", "attached")
+    demand = data.get("stat_demand") or {}
+    if not demand:
+        record("anvil.stat_estimate", "skipped", "no_demand")
+        return payload
+    boost: dict[str, float] = {}
+    for aug in chosen:
+        augment = sd.get_augment(aug) if hasattr(sd, "get_augment") else None
+        stats = getattr(augment, "stats", None)
+        for field_name, stat in _AUGMENT_TO_ANVIL.items():
+            value = float(getattr(stats, field_name, 0.0) or 0.0) if stats else 0.0
+            if value > 0:
+                boost[stat] = max(boost.get(stat, 0.0), min(value, 1.0))
+    ranked = rank_anvil_options([{"id": s, "stat": s} for s in ANVIL_STATS], demand,
+                                enemy=enemy, allies=allies, augment_stats=boost)
+    payload["anvil_stats"] = [{"stat": r["stat"], "tier": r["tier"], "level": r["level"],
+                               "reason": r["reason"]} for r in ranked[:3]]
+    record("anvil.stat_estimate", "ok", "estimated", len(payload["anvil_stats"]))
+    return payload
+
+
 def _handle_feature_ack(msg: dict) -> bool:
     """Accept a DOM-render report from the overlay for UI features only."""
     if (not isinstance(msg, dict) or msg.get("feature") not in UI_FEATURES
-            or not str(msg.get("feature")).startswith("tierdb.")):
+            or not str(msg.get("feature")).startswith(("tierdb.", "items."))):
         return False
     count = msg.get("count")
     return feature_diagnostics.record(msg.get("feature"), msg.get("status"),
@@ -1288,7 +1405,7 @@ async def game_ws(websocket: WebSocket):
             elif msg_type == "feature_ack":
                 # Tier list renders (incl. champ select) ack without a match;
                 # every other UI feature stays match/offer fenced.
-                if str(msg.get("feature", "")).startswith("tierdb."):
+                if str(msg.get("feature", "")).startswith(("tierdb.", "items.")):
                     _handle_feature_ack(msg)
                 else:
                     async with game_state.lock:
@@ -2711,6 +2828,10 @@ def _serialize_result(
             for eid in snapshot.enemy_champion_ids
         ]
 
+    out["mayhem_build"] = _mayhem_build_payload(
+        result.build_state.champion_id, result.build_state.chosen_augments,
+        result.build_state.purchased_items, result.enemy_analysis or {},
+        result.ally_analysis or {}, sd)
     out.update(_augment_tier_payload(
         result.build_state.champion_id,
         _visible_augment_ids(out["recommendations"], out.get("offers")),

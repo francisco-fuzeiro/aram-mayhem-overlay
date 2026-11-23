@@ -141,13 +141,14 @@ One ARAM Mayhem match covers every feature. Do not test per sub-phase.
    `python -m backend.feature_diagnostics --out feature_report.md`.
 2. Paste the table into the chat. It holds only ids, verdicts, reasons and counts:
    no names, paths or win rates.
-3. Note in one line what you saw: yes/no for each of the two checks above.
+3. Note in one line what you saw: yes/no for each of the three checks above (champ select, offer, build).
 
 ### Reading the report
 
 - **OK**: worked at least once this session.
 - **FAILED / NOT FIRED** in bold: a feature that should have run did not. The reason
   (e.g. `failed/champion_not_in_tierlist`, `failed/export_missing`) points to the cause.
+  Build features: `items.reference_build`, `items.build_render`, `anvil.stat_estimate`.
 - **SKIPPED**: the feature chose not to act (e.g. switched off).
 
 New features add their lines here (see `FEATURE_DIAGNOSTICS.md`).

@@ -62,6 +62,7 @@ class TierListProvider:
         self._mtime = None
         self._augments: dict = {}
         self._champions: dict = {}
+        self._items: dict = {}
         self.patch: str | None = None
         self.sources: list = []
 
@@ -69,7 +70,7 @@ class TierListProvider:
         try:
             mtime = self.export_path.stat().st_mtime_ns
         except OSError:
-            self._augments, self._champions, self._mtime = {}, {}, None
+            self._augments, self._champions, self._mtime, self._items = {}, {}, None, {}
             diag.record("tierdb.load", "failed", "export_missing")
             return
         if mtime == self._mtime:
@@ -90,11 +91,27 @@ class TierListProvider:
             entries = [dict(zip(ccols, row)) for row in doc["champions"]]
             _add_spans(entries)
             champions = {e.pop("champion_id"): e for e in entries}
+            icols = doc.get("item_columns") or []
+            items = {}
+            for champ, entry in (doc.get("items") or {}).items():
+                lists = {}
+                for kind in ("final", "boots"):
+                    rows = [dict(zip(icols, row)) for row in entry.get(kind, [])]
+                    _add_spans(rows)
+                    lists[kind] = {r.pop("item_id"): r for r in rows}
+                items[champ] = {
+                    **lists,
+                    "reference": list(entry.get("reference") or []),
+                    "boots_reference": entry.get("boots_reference"),
+                    "stat_demand": dict(entry.get("stat_demand") or {}),
+                    "fate": {k: list(v) for k, v in (entry.get("fate") or {}).items()},
+                }
         except (OSError, ValueError, KeyError, TypeError) as exc:
             logger.warning("Invalid tier list export %s: %s", self.export_path, exc)
             diag.record("tierdb.load", "failed", "export_invalid")
             return
         self._augments, self._champions, self._mtime = augments, champions, mtime
+        self._items = items
         self.patch, self.sources = doc.get("patch"), doc.get("sources", [])
         diag.record("tierdb.load", "ok", "loaded", min(len(champions), 1000))
 
@@ -108,6 +125,17 @@ class TierListProvider:
         self._load()
         entry = self._augments.get((champion_id, str(augment_id)))
         return dict(entry) if entry else None
+
+    def items(self, champion_id: str) -> dict | None:
+        """Item/boots tiers, reference build, stat demand and Weapon of Fate items."""
+        if not self._enabled():
+            return None
+        self._load()
+        entry = self._items.get(champion_id)
+        if not entry:
+            return None
+        return {k: (dict(v) if isinstance(v, dict) else list(v) if isinstance(v, list) else v)
+                for k, v in entry.items()}
 
     def champion_tier(self, champion_id: str) -> dict | None:
         if not self._enabled():

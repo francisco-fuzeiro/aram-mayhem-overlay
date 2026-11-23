@@ -22,10 +22,14 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "tierdb.offer_render": (True, "Overlay drew tier lines on the offer cards"),
     "tierdb.champselect_tiers": (True, "Server attached strength/potential in champ select"),
     "tierdb.champselect_render": (True, "Overlay drew strength/potential in champ select"),
+    "items.reference_build": (True, "Server attached reference + adapted build"),
+    "items.build_render": (True, "Overlay drew reference/adapted build and Anvil estimates"),
+    "anvil.stat_estimate": (True, "Heuristic Stat Anvil stat priorities attached"),
 }
 # Only actual browser/overlay rendering may ACK these IDs.
 UI_FEATURES = frozenset(("build.next_item_render", "anvil.offer_render",
-                         "tierdb.offer_render", "tierdb.champselect_render"))
+                         "tierdb.offer_render", "tierdb.champselect_render",
+                         "items.build_render"))
 STATUSES = ("ok", "failed", "skipped")
 FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     "build.item_pool": frozenset((
@@ -79,6 +83,14 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     )),
     "tierdb.champselect_render": frozenset((
         ("ok", "rendered"), ("skipped", "no_tier_data"),
+    )),
+    "items.reference_build": frozenset((
+        ("ok", "attached"), ("skipped", "tiers_off"), ("skipped", "no_champion"),
+        ("failed", "export_missing"), ("failed", "champion_not_in_tierlist"),
+    )),
+    "items.build_render": frozenset((("ok", "rendered"), ("skipped", "no_build"))),
+    "anvil.stat_estimate": frozenset((
+        ("ok", "estimated"), ("skipped", "tiers_off"), ("skipped", "no_demand"),
     )),
 }
 REASONS = frozenset(reason for allowed in FEATURE_OUTCOMES.values()

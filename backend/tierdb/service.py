@@ -69,8 +69,44 @@ def static_inputs(static_data, with_heuristic: bool = True):
     return roles, heuristic
 
 
+def item_inputs(static_data):
+    """Verified item pool (item eligibility, #107) as tier-list inputs, or None.
+
+    Without a verified two-source catalog no item tiers are built: AramHex
+    holdings alone do not prove an item is purchasable in this Mayhem patch.
+    """
+    import numpy as np
+
+    from backend.tierdb.pipeline import ItemInputs
+
+    getter = getattr(static_data, "recommendable_items", None)
+    items = list(getter()) if callable(getter) else []
+    eligible = {i.id for i in items if i.item_class == "final"}
+    if not eligible:
+        return None
+    boots = {i.id for i in items if i.item_class == "boots_tier2"}
+    groups = dict(getattr(static_data, "exclusive_item_groups", {}) or {})
+
+    def conflicts(a, b):
+        return a != b and any(a in ids and b in ids for ids in groups.values())
+
+    fit = {}
+    champions = list(getattr(static_data, "_champions", {}).values())
+    vectors = {i.id: np.array(i.stats.to_array(), dtype=float) for i in items}
+    for champ in champions:
+        cv = np.array(champ.stats.to_array(), dtype=float)
+        cn = float(np.linalg.norm(cv))
+        for iid, iv in vectors.items():
+            n = cn * float(np.linalg.norm(iv))
+            fit[(champ.id, iid)] = max(0.0, float(cv @ iv) / n) if n else 0.0
+    return ItemInputs(eligible=eligible, boots_eligible=boots,
+                      canonical=getattr(static_data, "canonical_item_id", lambda x: x),
+                      fit=fit, conflicts=conflicts)
+
+
 def update_tierlist(*, db_path: Path, export_path: Path, roles: dict, heuristic: dict,
-                    aliases: dict | None = None, dataset_dir: Path | None = None) -> dict:
+                    aliases: dict | None = None, dataset_dir: Path | None = None,
+                    items=None) -> dict:
     aliases = aliases if aliases is not None else riot_champion_aliases()
     if dataset_dir is None:
         ref, dataset = latest_dataset()
@@ -80,7 +116,7 @@ def update_tierlist(*, db_path: Path, export_path: Path, roles: dict, heuristic:
     try:
         snap_id = aramhex.ingest_aramhex(store, dataset_dir, aliases)
         patch = store.snapshot(snap_id).patch
-        run_id = run_build(store, patch, roles, heuristic)
+        run_id = run_build(store, patch, roles, heuristic, items=items)
         export_run(store, run_id, export_path)
     finally:
         store.close()
@@ -167,7 +203,7 @@ class TierListService:
                     roles, heuristic = static_inputs(static_data)
                     self.last_update = update_tierlist(
                         db_path=self.db_path, export_path=self.export_path,
-                        roles=roles, heuristic=heuristic)
+                        roles=roles, heuristic=heuristic, items=item_inputs(static_data))
                     self.last_error = None
                     diag.record("tierdb.update", "ok", "updated")
                 except Exception as exc:  # reported, never raised into the API

@@ -45,6 +45,7 @@
     const rerollBanner = $("reroll-banner");
     const rerollReason = $("reroll-reason");
     const buildList = $("build-list");
+    const mayhemBuild = $("mayhem-build");
     const buildNext = $("build-next");
     const dueHint = $("augment-due-hint");
     const augmentRecover = $("augment-recover");
@@ -247,7 +248,8 @@
         buildAlternatives.classList.add("hidden");
         buildFooter.classList.add("hidden");
 
-        for (const el of [augmentList, buildList, buildAlternatives, enemyList, augmentConfirm]) {
+        for (const el of [augmentList, buildList, buildAlternatives, enemyList, augmentConfirm,
+            mayhemBuild]) {
             el.innerHTML = "";
             el.replaceChildren();
         }
@@ -666,6 +668,7 @@
         renderHeader(data);
         renderRecommendations(data);
         renderBuild(data.build_state);
+        renderMayhemBuild(data.mayhem_build);
         renderEnemies(data.enemies || [], data.enemy_analysis || {});
         autoExpandSections(data);
         reportVisibleFeatures(data);
@@ -1104,6 +1107,43 @@
             rerollBanner.classList.remove("hidden");
             rerollReason.textContent = data.reroll_reason || "Consider rerolling";
         }
+    }
+
+    const ANVIL_STAT_TEXT = {ad: "Attack Damage", ap: "Ability Power", as: "Attack Speed",
+        hp: "Health", armor: "Armor", mr: "Magic Resist", ah: "Ability Haste",
+        crit: "Critical Strike", ms: "Move Speed", lethality: "Lethality",
+        mpen: "Magic Penetration", omnivamp: "Omnivamp", tenacity: "Tenacity"};
+
+    // Tier list build: measured reference, adapted swaps (max 3), Anvil
+    // estimates. Ranks and reasons only; never win rates.
+    function renderMayhemBuild(mb) {
+        if (!mayhemBuild) return;
+        mayhemBuild.replaceChildren();
+        if (!mb || !Array.isArray(mb.reference) || mb.reference.length === 0) return;
+        const line = (text, cls) => {
+            const row = document.createElement("div");
+            row.className = cls || "aug-explain";
+            row.textContent = text;
+            mayhemBuild.appendChild(row);
+        };
+        const names = (list) => list.map((i) => i && i.name ? i.name : String(i && i.id))
+            .join(" › ");
+        line("Reference: " + names(mb.reference) +
+            (mb.boots && mb.boots.name ? " · Boots: " + mb.boots.name : ""), "aug-explain aug-tier");
+        const swaps = Array.isArray(mb.swaps) ? mb.swaps : [];
+        if (swaps.length && Array.isArray(mb.adapted)) {
+            line("Adapted: " + names(mb.adapted), "aug-explain aug-tier");
+            for (const s of swaps) {
+                line(s.out_name + " → " + s.in_name + (s.reason ? " (" + s.reason + ")" : ""));
+            }
+        }
+        const anvils = Array.isArray(mb.anvil_stats) ? mb.anvil_stats : [];
+        if (anvils.length) {
+            line("Stat Anvils (estimate): " + anvils.map((a) =>
+                ANVIL_STAT_TEXT[a.stat] || a.stat).join(" · "));
+        }
+        wsSend({type: "feature_ack", feature: "items.build_render", status: "ok",
+            reason: "rendered", count: 1});
     }
 
     function renderBuild(bs) {

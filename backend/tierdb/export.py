@@ -18,6 +18,7 @@ FORBIDDEN_KEYS = frozenset({
     "score_p20", "score_p80", "lift", "delta", "components",
 })
 AUGMENT_COLUMNS = ("augment_id", "rank", "tie_group", "tier", "level", "confidence")
+ITEM_COLUMNS = ("item_id", "rank", "tie_group", "tier", "level", "confidence")
 CHAMPION_COLUMNS = ("champion_id", "rank", "tie_group", "tier", "confidence",
                     "potential")
 
@@ -46,6 +47,35 @@ def export_run(store: TierStore, run_id: int, path: Path | str) -> dict:
             """SELECT champion_id, rank, tie_group, tier, confidence, potential
                FROM champion_tier WHERE run_id=? ORDER BY rank""", (run_id,))
     ]
+    items: dict[str, dict] = {}
+    for row in con.execute(
+        """SELECT champion_id, kind, item_id, rank, tie_group, tier, level, confidence
+           FROM item_tier WHERE run_id=?
+           ORDER BY champion_id, kind, rank IS NULL, rank, item_id""", (run_id,)):
+        entry = items.setdefault(row[0], {"final": [], "boots": [], "reference": [],
+                                         "boots_reference": None, "stat_demand": {},
+                                         "fate": {}})
+        entry[row[1]].append(list(row[2:]))
+    for champion, slot, iid in con.execute(
+            "SELECT champion_id, slot, item_id FROM reference_build WHERE run_id=? "
+            "ORDER BY champion_id, slot", (run_id,)):
+        if champion not in items:
+            continue
+        if slot == 0:
+            items[champion]["boots_reference"] = iid
+        else:
+            items[champion]["reference"].append(iid)
+    for champion, stat, weight in con.execute(
+            "SELECT champion_id, stat, weight FROM champion_stat_demand WHERE run_id=?",
+            (run_id,)):
+        if champion in items:
+            items[champion]["stat_demand"][stat] = round(weight, 4)
+    for champion, aug, iid in con.execute(
+            f"""SELECT champion_id, augment_id, item_id FROM item_observation
+                WHERE scope='champ_aug_item' AND snapshot_id IN ({marks})
+                ORDER BY champion_id, augment_id, n DESC""", snapshot_ids):
+        if champion in items:
+            items[champion]["fate"].setdefault(aug, []).append(iid)
     doc = {
         "schema_version": EXPORT_SCHEMA_VERSION,
         "patch": patch,
@@ -56,6 +86,8 @@ def export_run(store: TierStore, run_id: int, path: Path | str) -> dict:
         "augments": augments,
         "champion_columns": list(CHAMPION_COLUMNS),
         "champions": champions,
+        "item_columns": list(ITEM_COLUMNS),
+        "items": items,
     }
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

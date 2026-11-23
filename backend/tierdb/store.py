@@ -96,6 +96,35 @@ CREATE TABLE IF NOT EXISTS item_observation (
 );
 CREATE INDEX IF NOT EXISTS ix_item_obs ON item_observation (scope, champion_id);
 
+CREATE TABLE IF NOT EXISTS item_tier (
+    run_id      INTEGER NOT NULL REFERENCES tier_run(id) ON DELETE CASCADE,
+    champion_id TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    kind        TEXT NOT NULL CHECK (kind IN ('final', 'boots')),
+    score       REAL, score_p20 REAL, score_p80 REAL,
+    rank        INTEGER, tie_group INTEGER, tier TEXT,
+    level       TEXT NOT NULL, confidence TEXT NOT NULL,
+    PRIMARY KEY (run_id, champion_id, kind, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS reference_build (
+    run_id      INTEGER NOT NULL REFERENCES tier_run(id) ON DELETE CASCADE,
+    champion_id TEXT NOT NULL,
+    slot        INTEGER NOT NULL,  -- 1..6 items, 0 = boots
+    item_id     TEXT NOT NULL,
+    source      TEXT NOT NULL CHECK (source IN ('core', 'tier', 'boots')),
+    PRIMARY KEY (run_id, champion_id, slot)
+);
+
+CREATE TABLE IF NOT EXISTS champion_stat_demand (
+    run_id      INTEGER NOT NULL REFERENCES tier_run(id) ON DELETE CASCADE,
+    champion_id TEXT NOT NULL,
+    stat        TEXT NOT NULL,
+    weight      REAL NOT NULL,
+    source      TEXT NOT NULL CHECK (source IN ('builds', 'role')),
+    PRIMARY KEY (run_id, champion_id, stat)
+);
+
 CREATE TABLE IF NOT EXISTS item_info (
     snapshot_id INTEGER NOT NULL REFERENCES snapshot(id) ON DELETE CASCADE,
     item_id     TEXT NOT NULL,

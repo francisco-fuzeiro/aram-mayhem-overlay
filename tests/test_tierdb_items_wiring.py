@@ -20,7 +20,7 @@ from tests.test_tierdb_items_import import ALIASES, _add_item_files
 
 FAST = dict(aug_config=AugmentTierConfig(draws=50), champ_config=ChampionTierConfig(draws=50),
             item_config=ItemTierConfig(draws=50))
-ELIGIBLE = {"3118", "4645", "3089", "6655"}
+ELIGIBLE = {"3118", "4645", "3089", "6655", "3157", "3135", "3165", "3116"}
 INPUTS = ItemInputs(eligible=ELIGIBLE, boots_eligible={"3020"}, canonical=lambda x: x,
                     fit={}, item_types=None)
 
@@ -53,7 +53,7 @@ def test_pipeline_writes_item_tiers_reference_and_demand(built):
         (run_id,))}
     assert items == ELIGIBLE  # observed eligible + eligible without data
     ref = [r[0] for r in con.execute(
-        "SELECT item_id FROM reference_build WHERE run_id=? AND champion_id='annie' "
+        "SELECT item_id FROM reference_build WHERE run_id=? AND champion_id='annie' AND slot > 0 "
         "ORDER BY slot", (run_id,))]
     assert ref[:3] == ["3118", "4645", "3089"]
     demand = dict(con.execute(
@@ -137,7 +137,7 @@ def test_overlay_payload_reference_adapted_and_anvils(built, tmp_path, monkeypat
     assert calm["anvil_stats"][0]["stat"] == "ap"
     assert calm["anvil_stats"][0]["level"] == "estimate"
     heal = {"enemies_analyzed": 5, "sustain_pressure": 0.8, "healing_items": 3,
-            "magic_pressure": 0.8, "physical_pressure": 0.2}
+            "magic_pressure": 0.8, "physical_pressure": 0.2, "magic_resist_items": 3}
     hot = server._mayhem_build_payload("annie", [], [], heal, {}, _sd())
     assert any(s["in"] == "6655" for s in hot["swaps"])
     assert hot["adapted"][0] == hot["reference"][0]
@@ -170,3 +170,28 @@ def test_registry_has_item_and_anvil_features():
     assert {"items.reference_build", "items.build_render", "anvil.stat_estimate"} <= set(FEATURES)
     assert "items.build_render" in UI_FEATURES
     assert allowed_outcome("items.reference_build", "ok", "attached")
+
+
+def test_item_inputs_come_from_the_verified_pool_only():
+    from backend.tierdb.service import item_inputs
+
+    class Catalog:
+        def recommendable_items(self):
+            return [ItemData("3118", "a", 1, StatVector(ap=1), item_class="final"),
+                    ItemData("3020", "b", 1, StatVector(), item_class="boots_tier2")]
+        _champions = {"annie": ChampionMeta("annie", "Annie", StatVector(ap=1), role="mage")}
+        exclusive_item_groups = {"g": frozenset({"3118", "3116"})}
+
+        def canonical_item_id(self, raw):
+            return {"223118": "3118"}.get(raw, raw)
+
+    inputs = item_inputs(Catalog())
+    assert inputs.eligible == {"3118"} and inputs.boots_eligible == {"3020"}
+    assert inputs.canonical("223118") == "3118"
+    assert inputs.conflicts("3118", "3116") and not inputs.conflicts("3118", "3020")
+    assert 0.0 <= inputs.fit[("annie", "3118")] <= 1.0
+
+    class Unverified(Catalog):
+        def recommendable_items(self):
+            return []
+    assert item_inputs(Unverified()) is None

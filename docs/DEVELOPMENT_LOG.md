@@ -1,5 +1,13 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Tier DB I2-I5: item tiers, reference builds, Stat Anvils, adaptation
+
+- Merged the GPT P0 fix (#107) into the tier DB line; item eligibility/canonical IDs come from its verified pool (`recommendable_items`, `canonical_item_id`, exclusive groups). Its files untouched.
+- `backend/tierdb/item_tiers.py`: per-champion finals and boots tiers (S = 10·(0.5 pct ΔWR + 0.3 pct core presence + 0.2 pct fit), Beta shrink k=300 to the champion's equipment baseline, Monte-Carlo tie groups, percentile tiers; unmeasured items heuristic, capped at A) and reference builds (best core slots 1-3, tiers 4-6, best boots).
+- `backend/tierdb/anvil_stats.py`: heuristic Stat Anvil ranking (13-stat space; level "estimate", tier ≤A, no win rate). Shard kinds/values are game data from CommunityDragon decoded by the GPT catalog; the ARAM Mayhem Tracker's MIT licence covers its code only and its stats (aramkit) are not used.
+- `backend/tierdb/build_adapt.py`: owner decision "more adaptation" (max 3 swaps, threshold 0.5, slot 1 locked).
+- New tables `item_tier`, `reference_build`, `champion_stat_demand`; export adds `items` (tier/rank/tie group/level/confidence only, no scores). Overlay shows Reference vs Adapted with the reason of each swap and the top-3 Stat Anvil stats. Diagnostics: `items.reference_build`, `items.build_render`, `anvil.stat_estimate`.
+
 ## 2026-11-23 — Tier DB I1: AramHex equipment import
 
 - New `item_observation`/`item_info` tables (separate from augment observations; per-value n and source). Importer reads the optional AramHex equipment tables when meta.json lists them, all SHA-256 checked: finished items per champion (+ recommendation denominator), Boots-typed holdings (+ equipment denominator), ordered first-three-legendary cores with pick, Weapon of Fate (augment 3081) first-legendary references. Unmapped champions quarantined; snapshots ingested by older builds get items once.
