@@ -107,3 +107,25 @@ def test_offer_payload_without_context_reports_skip(tmp_path, monkeypatch):
     payload = server._augment_tier_payload("ahri", ["1001"])
     assert payload["augment_tiers"]["1001"]["adjusted_tier"] == "S"
     assert ("tierdb.context_adjust", "skipped", "no_context") in calls
+
+
+def test_match_adjuster_uses_build_augments_enemy_and_personal(monkeypatch):
+    from types import SimpleNamespace
+    from backend.models import StatVector
+
+    sv = lambda **k: StatVector(**k)  # noqa: E731
+    augments = {"crit_aug": sv(crit=1.0, ad=0.5), "ap_aug": sv(ap=1.0),
+                "as_chosen": sv(attack_speed=1.0)}
+    sd = SimpleNamespace(
+        get_augment=lambda a: SimpleNamespace(stats=augments[a]) if a in augments else None,
+        get_champion=lambda c: SimpleNamespace(stats=sv(ad=0.8, attack_speed=0.4, crit=0.6)),
+        get_item=lambda i: SimpleNamespace(stats=sv(ad=1.0, crit=0.8)),
+    )
+    monkeypatch.setattr(server, "get_all_personal_winrates",
+                        lambda champ: {"ap_aug": (1, 12)})
+    monkeypatch.setattr(server, "get_champion_record", lambda champ: (30, 60))
+    adjust = server._offer_context_adjuster(
+        "fiora", ["as_chosen"], {"adapted": [{"id": "x"}]}, {"enemies_analyzed": 0}, sd)
+    assert adjust("crit_aug") == (1, "fits your build")
+    assert adjust("ap_aug")[0] == -1
+    assert adjust("unknown") == (0, None)

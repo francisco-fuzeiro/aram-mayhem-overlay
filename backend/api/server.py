@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger("aram-oracle")
 
 from backend.static_data.loader import StaticData
-from backend.storage.db import init_db, get_champion_record
+from backend.storage.db import init_db, get_champion_record, get_all_personal_winrates
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
@@ -478,7 +478,47 @@ def _visible_augment_ids(recommendations, offers) -> list[str]:
     return ids
 
 
-def _augment_tier_payload(champion_id, augment_ids) -> dict:
+def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd):
+    """adjust(aid) -> (step, reason) for the in-match context adjustment.
+
+    Demand = champion stats + the adapted build's item stats; synergy with the
+    augments already chosen; enemy comp; the player's own synced games.
+    """
+    from backend.models import StatVector
+    from backend.tierdb.context_adjust import context_adjust
+
+    def vec(obj):
+        stats = getattr(obj, "stats", None)
+        return {f: float(getattr(stats, f, 0.0) or 0.0) for f in StatVector.fields()} \
+            if stats is not None else None
+
+    demand: dict = {}
+    champion = sd.get_champion(champion_id) if hasattr(sd, "get_champion") else None
+    items = [e.get("id") for e in ((mayhem or {}).get("adapted") or [])]
+    for source in [champion] + [sd.get_item(i) for i in items if i]:
+        for k, v in (vec(source) or {}).items():
+            demand[k] = demand.get(k, 0.0) + v
+    get_aug = getattr(sd, "get_augment", lambda _a: None)
+    chosen = [v for v in (vec(get_aug(str(a))) for a in (chosen_augments or [])) if v]
+    try:
+        personal = get_all_personal_winrates(str(champion_id)) or {}
+        record_ = get_champion_record(str(champion_id))
+    except Exception:  # personal history is optional
+        personal, record_ = {}, None
+    base = (record_[0] / record_[1]) if record_ and record_[1] >= 10 else 0.5
+
+    def adjust(aid):
+        return context_adjust(vec(get_aug(str(aid))), demand=demand, chosen=chosen,
+                              enemy=enemy or {}, personal=personal.get(str(aid)),
+                              personal_base=base)
+    return adjust
+
+
+def _augment_tier_payload(champion_id, augment_ids, adjust=None) -> dict:
+    """Tiers of the visible augments. ``adjust(aid) -> (step, reason)`` adds the
+    in-match context adjustment (±1 tier, owner decision 23/11); ranks stay."""
+    from backend.tierdb.context_adjust import shift_tier
+
     record = feature_diagnostics.record
     if not tier_service.enabled():
         record("tierdb.offer_tiers", "skipped", "tiers_off")
@@ -496,7 +536,21 @@ def _augment_tier_payload(champion_id, augment_ids) -> dict:
             tiers[aid] = {k: entry.get(k) for k in (
                 "tier", "rank", "rank_total", "tie_group", "tie_end",
                 "level", "confidence", "rarity")}
+            step, reason = (0, None)
+            if adjust is not None and entry.get("tier"):
+                step, reason = adjust(aid)
+            adjusted = shift_tier(entry.get("tier"), step, entry.get("level")) \
+                if entry.get("tier") else None
+            tiers[aid]["adjusted_tier"] = adjusted
+            tiers[aid]["adjust"] = 0 if adjusted == entry.get("tier") else step
+            tiers[aid]["adjust_reason"] = reason if tiers[aid]["adjust"] else None
     if tiers:
+        if adjust is None:
+            record("tierdb.context_adjust", "skipped", "no_context")
+        else:
+            moved = sum(1 for t in tiers.values() if t["adjust"])
+            record("tierdb.context_adjust", "ok", "adjusted" if moved else "unchanged",
+                   moved or None)
         record("tierdb.offer_tiers", "ok", "tiers_attached", min(len(tiers), 1000))
     elif not tier_service.provider.loaded:
         record("tierdb.offer_tiers", "failed", "export_missing")
@@ -3084,6 +3138,10 @@ def _serialize_result(
     out.update(_augment_tier_payload(
         result.build_state.champion_id,
         _visible_augment_ids(out["recommendations"], out.get("offers")),
+        adjust=(_offer_context_adjuster(
+            result.build_state.champion_id, result.build_state.chosen_augments,
+            out["mayhem_build"], result.enemy_analysis or {}, sd)
+            if result.build_state.champion_id else None),
     ))
     return _strip_augment_win_stats(out)
 

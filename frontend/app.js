@@ -1084,11 +1084,12 @@
             Object.prototype.hasOwnProperty.call(tierTable, id) &&
             tierTable[id] && tierTable[id].tier && tierTable[id].level !== "none"
             ? tierTable[id] : null;
-        const tierKey = (t) => [TIER_ORDER.indexOf(t.tier), Number(t.rank) || 1e6];
+        const shownTier = (t) => (TIER_ORDER.includes(t.adjusted_tier) ? t.adjusted_tier : t.tier);
+        const tierKey = (t) => [TIER_ORDER.indexOf(shownTier(t)), Number(t.rank) || 1e6];
         let bestTier = null;
         for (const slot of OFFER_SLOTS) {
             const t = tierOf((offer.slots[slot] || {}).augment_id);
-            if (t && TIER_ORDER.includes(t.tier) && (!bestTier ||
+            if (t && TIER_ORDER.includes(shownTier(t)) && (!bestTier ||
                     tierKey(t)[0] < tierKey(bestTier)[0] ||
                     (tierKey(t)[0] === tierKey(bestTier)[0] && tierKey(t)[1] < tierKey(bestTier)[1])))
                 bestTier = t;
@@ -1120,8 +1121,9 @@
                 : !rec ? "No rating data"
                 : rec.modelled === false ? "No model"
                 : "Rating unavailable";
-            const badgeClass = tier ? " tier-badge tier-" + tier.tier : rated ? "" : " muted";
-            const badge = tier ? "Tier " + tier.tier : score;
+            const arrow = tier && tier.adjust > 0 ? " ↑" : tier && tier.adjust < 0 ? " ↓" : "";
+            const badgeClass = tier ? " tier-badge tier-" + shownTier(tier) : rated ? "" : " muted";
+            const badge = tier ? "Tier " + shownTier(tier) + arrow : score;
             row.innerHTML = '<div class="aug-row"><span class="aug-rank">' +
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
                 esc(name + origin) + '</span><span class="aug-score' + badgeClass + '">' +
@@ -1135,6 +1137,13 @@
                 tierNote.textContent = augmentTierText(tiers[id]);
                 row.appendChild(tierNote);
                 tierLines += 1;
+            }
+            if (tier && arrow && typeof tier.adjust_reason === "string") {
+                const why = document.createElement("div");
+                why.className = "aug-explain aug-adjust";
+                why.textContent = arrow.trim() + " " + tier.adjust_reason +
+                    " (base " + tier.tier + ")";
+                row.appendChild(why);
             }
             if (tier && rated) {
                 const fit = document.createElement("div");
