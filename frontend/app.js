@@ -40,6 +40,7 @@
     const goldEl = $("gold");
     const phaseEl = $("phase");
     const augmentList = $("augment-list");
+    const offerPanelTitle = $("offer-panel-title");
     const rerollBadge = $("reroll-badge");
     const rerollBanner = $("reroll-banner");
     const rerollReason = $("reroll-reason");
@@ -912,11 +913,30 @@
         augmentList.replaceChildren();
         rerollBadge.classList.add("hidden");
         rerollBanner.classList.add("hidden");
+        offerPanelTitle.textContent = "AUGMENTS";
         const offer = activeOffer();
         if (!offer || !offerCanOpen(offer, data)) return;
         const interactive = Boolean(document.body && document.body.classList &&
             document.body.classList.contains("interactive-mode"));
-        const recs = Array.isArray(data.recommendations) ? data.recommendations : [];
+        // The back end can rate a Stat Anvil from a known catalog vector,
+        // but never proves the option is ON SCREEN. Only the existing fresh
+        // epoch-fenced, independently OCR-verified three-slot ledger may do
+        // that. Mixed, unknown or replayed titles stay unscored.
+        const anvilRows = Array.isArray(data.anvil_recommendations)
+            ? data.anvil_recommendations : [];
+        const anvilIds = OFFER_SLOTS.map(slot => offer.slots[slot]?.augment_id);
+        const verifiedAnvilOffer =
+            offer.state === "visible" && data.ocr_phase === "detected" &&
+            data.ocr_stale === false && data.offer_epoch === offer.epoch &&
+            anvilRows.length === 3 && new Set(anvilIds).size === 3 &&
+            anvilIds.every(id => typeof id === "string" &&
+                anvilRows.some(row => row && row.anvil_id === id));
+        if (verifiedAnvilOffer) offerPanelTitle.textContent = "STAT ANVILS";
+        const recs = verifiedAnvilOffer ? anvilRows.map(row => ({
+            augment_id: row.anvil_id, augment_name: row.anvil_name,
+            score: row.score, modelled: row.modelled,
+            explanation: row.explanation,
+        })) : (Array.isArray(data.recommendations) ? data.recommendations : []);
         const scored = [];
         for (const slot of OFFER_SLOTS) {
             const identity = offer.slots[slot] || {};
@@ -939,6 +959,7 @@
                 : "Unknown — title not verified";
             const row = document.createElement("div");
             row.className = "augment-card" +
+                (verifiedAnvilOffer ? " stat-anvil-card" : "") +
                 (rated && rec.score === best ? " top-pick" : "");
             const origin = identity.source === "user_identify" ? " (manual)"
                 : identity.source === "ocr" ? " (OCR)" : "";
@@ -988,7 +1009,7 @@
         }
         const complete = OFFER_SLOTS.every(s => offer.slots[s] &&
             typeof offer.slots[s].augment_id === "string");
-        if (data.suggest_reroll && complete && scored.length === 3) {
+        if (!verifiedAnvilOffer && data.suggest_reroll && complete && scored.length === 3) {
             rerollBadge.classList.remove("hidden");
             rerollBanner.classList.remove("hidden");
             rerollReason.textContent = data.reroll_reason || "Consider rerolling";
@@ -1099,6 +1120,27 @@
                 ` · Item cost: ${swap.buy_cost}g before selling boots` + msText +
                 ` · ${swap.reason}`;
             buildAlternatives.appendChild(row);
+        }
+        // Boot swap is the first remaining item option. Once all six
+        // observed finals are owned, Anvil stat priorities are optional
+        // expanded guidance, NOT a prediction of choices in a popup.
+        const fullOwned = bs && !bs.slot_blocked &&
+            !bs.build_unavailable_reason && Array.isArray(bs.full_build) &&
+            bs.full_build.length === 6 && new Set(bs.full_build).size === 6 &&
+            bs.full_build.every(itemId => purchased.has(itemId));
+        if (fullOwned && Array.isArray(bs.anvil_stat_priorities) &&
+                bs.anvil_stat_priorities.length) {
+            const names = bs.anvil_stat_priorities
+                .filter(row => row && typeof row.label === "string")
+                .slice(0, 3).map(row => row.label);
+            if (names.length) {
+                const note = document.createElement("div");
+                note.className = "aug-explain";
+                note.textContent = "Stat Anvils (heuristic priorities): " +
+                    names.join(" · ") +
+                    " · Score specific choices only after verified OCR";
+                buildAlternatives.appendChild(note);
+            }
         }
     }
 
