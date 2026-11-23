@@ -18,6 +18,7 @@ from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
+from backend.collectors.anvil_voucher import AnvilVoucherPurchaseObserver
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
 from backend.collectors import screen_ocr as ocr_capture
@@ -133,6 +134,11 @@ class GameState:
         self.augment_choices: list[str] = []
         self.chosen_augments: list[str] = []  # real augments only (max 4)
         self.chosen_stat_anvils: list[str] = []  # stat anvil / voucher picks
+        # Voucher purchase is an LCDA signal only: never verified popup/OCR.
+        self.anvil_voucher_observer = AnvilVoucherPurchaseObserver()
+        self.anvil_voucher_purchase_events: int = 0
+        self.anvil_voucher_trigger_pending: bool = False
+        self.anvil_voucher_last_purchase: tuple[str, ...] = ()
         self.build_style: str = "Balanced"  # player preference, survives match resets
         self.overlay_preferences: dict = dict(preferences.DEFAULT_OVERLAY)  # D4a: stored only
         # OCR state
@@ -229,6 +235,10 @@ class GameState:
         self.augment_choices.clear()
         self.chosen_augments.clear()
         self.chosen_stat_anvils.clear()
+        self.anvil_voucher_observer.reset()
+        self.anvil_voucher_purchase_events = 0
+        self.anvil_voucher_trigger_pending = False
+        self.anvil_voucher_last_purchase = ()
         self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         screen_watcher.reset()
         self.last_known_level = 0
@@ -1659,6 +1669,16 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
             match_confirmation_due = False
             async with state.lock:
                 _begin_or_continue_match(state, snapshot, raw, flow)
+                # Two observed inventories, same game: detect actual voucher
+                # increments. Do not open a generic 3-slot augment scan:
+                # live Stat Anvil option catalogue/layout is still unknown.
+                bought = state.anvil_voucher_observer.observe(
+                    getattr(snapshot, "anvil_vouchers", None)
+                )
+                state.anvil_voucher_last_purchase = bought
+                if bought:
+                    state.anvil_voucher_purchase_events += len(bought)
+                    state.anvil_voucher_trigger_pending = True
                 _record_items_outside_pool(state, raw, deps.static_data)
                 # -- Scan window management --
                 #
@@ -2039,6 +2059,12 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 )
                 await deps.broadcast(_status_message(state, status))
         else:
+            # LCDA interruption cannot masquerade as zero voucher stacks.
+            # Reconnect requires a fresh two-read baseline before an edge.
+            async with state.lock:
+                state.anvil_voucher_observer.reset()
+                state.anvil_voucher_last_purchase = ()
+                state.anvil_voucher_trigger_pending = False
             # A single LCDA error is never an end-of-match signal.
             active_phases = ("GameStart", "InProgress", "Reconnect")
             if state.had_game_last_tick:
