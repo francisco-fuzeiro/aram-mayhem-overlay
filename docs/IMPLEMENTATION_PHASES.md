@@ -1,5 +1,11 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-23 — P0 16.23 Stat Anvil public-hash verification failed (real 404)
+
+- **PROVEN via Windows Actions #45228414820:** `https://raw.communitydragon.org/16.23/game/unknown/507cdd64276919f5.bin.json` returned **HTTP 404**; same patch `/json/16.23/game/unknown/` directory index checked but exact filename/prefix absent. Historical 16.22 37 rows are not current patch proof; cannot coerce report to >0, and 404 alone does not mean no game Anvils.
+- Public-only exact source/index probe + tests in current draft; CI at tested probe SHA 2115 Python PASS/27 SKIP, 89 JS PASS, pinned OCR 35 PASS; temporary non-gating workflow step now removed. Latest cleanup HEAD must be verified separately.
+- **Still P0:** seek relocated 16.23 AnvilData in current public index/permission-compatible source; previous 80/471 indexed candidates and TFT/DustToDiamonds false keyword refs are insufficient. Tested paged public search accepts offsets 80/280, 200 bins, 100 dirs. Real source requires total>0, all 3 rarities>0 and valid spell/paths. Then verify actual popup OCR/3-4 geometry, contextual 0–10/UI ack, live shop #49 and one user-operated Mayhem match, per-feature diagnostics and latest exact-head CI. No P1/merge/phase-complete claim. User explicitly asked for handoff prompt this time, not an automatic phase-exit prompt.
+
 ## 2026-11-23 — P0 Stat Anvil source leads from 80/471 owner-real bins
 
 - Owner real 16.23 public discovery was **incomplete**: 471 candidates, 80 inspected, 21 indexed directories, zero errors, no parsed AnvilData, `total=0` Silver/Gold/Prismatic all zero. Two public keyword-only files: `game/gameplay.bin.json`, `game/maps/modespecificdata/cherry.bin.json`. A keyword is not a source or native offer.
