@@ -109,3 +109,42 @@ def test_reasons_closed_and_private_keys_rejected():
         "path": "PRIVATE_PATH", "riot_id": "PRIVATE_ID",
         "ocr_text": "PRIVATE_TEXT",
     }) == {"feature": "build.next_item", "status": "ok", "reason": "ranked"}
+
+
+def test_dom_ack_denied_without_matching_live_match(monkeypatch):
+    from backend.api.server import GameState, _accept_feature_ack
+    got = _capture(monkeypatch)
+    state = GameState()
+    state.match_id = "synthetic-match"
+    state.had_game_last_tick = True
+    payload = {"type": "feature_ack", "feature": "build.next_item_render",
+               "status": "ok", "reason": "rendered", "count": 1,
+               "match_id": "synthetic-match"}
+    assert _accept_feature_ack(state, payload)
+    assert got == [("build.next_item_render", "ok", "rendered", 1)]
+    assert not _accept_feature_ack(state, {**payload, "match_id": "stale-match"})
+    assert not _accept_feature_ack(state, {**payload, "feature": "build.next_item"})
+    assert not _accept_feature_ack(state, {**payload, "reason": "ranked"})
+    assert not _accept_feature_ack(state, {**payload, "count": "private text"})
+    assert not _accept_feature_ack(state, {**payload, "name": "private-name",
+                                         "feature": "anvil.offer_render",
+                                         "offer_epoch": 999})
+    state.had_game_last_tick = False
+    assert not _accept_feature_ack(state, payload)
+    assert len(got) == 1
+
+
+def test_anvil_ui_ack_rejected_without_independently_verified_popup(monkeypatch):
+    from backend.api.server import GameState, _accept_feature_ack
+    got = _capture(monkeypatch)
+    state = GameState()
+    state.match_id = "synthetic"
+    state.had_game_last_tick = True
+    state.ocr_phase = "detected"
+    state.offer_epoch = 5
+    state.scan_window_open = True
+    payload = {"type": "feature_ack", "feature": "anvil.offer_render",
+               "status": "ok", "reason": "rendered", "count": 3,
+               "match_id": "synthetic", "offer_epoch": 5}
+    assert not _accept_feature_ack(state, payload)
+    assert not got  # No actual verified options or popup.
