@@ -65,8 +65,8 @@ def inspect_cache(path: Path) -> dict:
 
 def format_report(reports: list[dict]) -> str:
     lines = [
-        "ARAM Oracle item eligibility — offline read-only report",
-        "Existing cache classes do not prove live Mayhem shop availability.",
+        "ARAM Oracle item eligibility: offline read-only report",
+        "A classified item does not prove live Mayhem shop availability.",
         "Cache alone cannot recover source-conflict details (DD into vs CD to, prices).",
     ]
     if not reports:
