@@ -51,5 +51,6 @@ REASONS = frozenset(reason for allowed in FEATURE_OUTCOMES.values()
 
 def allowed_outcome(feature: object, status: object, reason: object) -> bool:
     """Closed outcomes per ID; source-agnostic input never becomes journal text."""
-    return (isinstance(feature, str) and
-            (status, reason) in FEATURE_OUTCOMES.get(feature, frozenset()))
+    return (isinstance(feature, str) and isinstance(status, str)
+            and isinstance(reason, str)
+            and (status, reason) in FEATURE_OUTCOMES.get(feature, frozenset()))

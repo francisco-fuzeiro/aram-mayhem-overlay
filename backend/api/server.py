@@ -36,6 +36,7 @@ from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
 from backend import feature_diagnostics
+from backend.feature_registry import UI_FEATURES
 from backend.workflow.f0_trace import (
     classify_champion_identity, classify_offer_slots, emit_f0_trace,
 )
@@ -1674,9 +1675,25 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 # Two observed inventories, same game: detect actual voucher
                 # increments. Do not open a generic 3-slot augment scan:
                 # live Stat Anvil option catalogue/layout is still unknown.
-                bought = state.anvil_voucher_observer.observe(
-                    getattr(snapshot, "anvil_vouchers", None)
-                )
+                voucher_counts = getattr(snapshot, "anvil_vouchers", None)
+                bought = state.anvil_voucher_observer.observe(voucher_counts)
+                if bought:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "ok", "positive_edge", len(bought),
+                    )
+                    # Voucher inventory alone cannot establish a visible
+                    # popup; no OCR, card identity or scoring is inferred.
+                    feature_diagnostics.record(
+                        "anvil.offer_detected", "skipped", "popup_unverified",
+                    )
+                elif voucher_counts is None:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "skipped", "source_unavailable",
+                    )
+                else:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "skipped", "no_edge",
+                    )
                 state.anvil_voucher_last_purchase = bought
                 if bought:
                     state.anvil_voucher_purchase_events += len(bought)

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from backend.feature_registry import FEATURES, STATUSES, REASONS
+from backend.feature_registry import FEATURES, STATUSES, REASONS, allowed_outcome
 
 # Values are strict enums or bounded numeric types. Never log arbitrary strings.
 SCHEMA: dict[str, dict[str, object]] = {
@@ -196,6 +196,10 @@ def _clean(event: str, fields: dict) -> dict | None:
                 maximum = 1 if constraint == "confidence1" else 100
                 if 0 <= value <= maximum:
                     safe[key] = round(float(value), 3)
+    if event == "feature" and not allowed_outcome(
+        safe.get("feature"), safe.get("status"), safe.get("reason"),
+    ):
+        return None
     return safe
 
 
@@ -259,15 +263,19 @@ class StructuredEventLogger:
         if safe is None or not self._running:
             return False
         key = json.dumps(safe, sort_keys=True)
+        # Feature duplicates are scoped per feature, not to the single shared
+        # journal event type. Never erase one feature's state with another.
+        dedup_key = (f"feature:{safe['feature']}" if event == "feature"
+                     else event)
         if not self._transition_lock.acquire(blocking=False):
             self.dropped += 1
             return False
         try:
-            if self._last.get(event) == key:
+            if self._last.get(dedup_key) == key:
                 return False
             queued = self.emit(event, **safe)
             if queued:
-                self._last[event] = key
+                self._last[dedup_key] = key
             return queued
         finally:
             self._transition_lock.release()
