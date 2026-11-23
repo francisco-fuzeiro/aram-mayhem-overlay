@@ -1,5 +1,13 @@
 # Single Mayhem Match Test Checklist — P0 baseline
 
+## 2026-11-23 — Actual 16.23 hashed Stat Anvil source gate and subsequent native acceptance
+
+- [x] Independent read-only current-patch HTTP check [Windows Actions #45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820): `/16.23/game/unknown/507cdd64276919f5.bin.json` → **404**. Fallback same-patch CDragon JSON index checked: **exact filename absent, no matching prefix**. This path does NOT supply live current-patch `AnvilData`/RootSpell; historic 16.22 reports do not pass source gate.
+- [x] Reusable `scripts.anvil_source_exact_probe` tests distinguish raw 0/8/9 singleton and mixed `AnvilTypes`, parser tiers, 404/index and unavailable source; no account/League or fixture-pretends-live acceptance. Temp public CI probe step removed after collecting evidence. At audited SHA 2,115 Python PASS/27 SKIP, 89 JS PASS, 35 real pinned OCR PASS.
+- [ ] **Patch source gate**: find **actual 16.23** public `AnvilData` source file(s) with valid `RootSpell.mSpell.DataValues`, `total>0`, Silver/Gold/Prismatic >0 and exact source paths. Earlier scan was 80/471 indexed candidates; TFT/DustToDiamonds text hits NOT sources. Only then wire current loader, dedicated title/value OCR and strict no-guess abstention with RED→GREEN tests.
+- [ ] **Native gate**: actual 3/4-card popup timing, OCR name+number identity, contextual own 0.0–10.0 scores and genuine UI-ACK; shop #49, augment flow and all P0 per-feature reports in ONE user-controlled permitted Mayhem match; any feature not fired stays SKIPPED or NOT FIRED, never PASS. Final exact-head Actions GREEN.
+- [ ] **Phase closure** only on complete functional/native evidence. Owner explicitly requested a one-time next-chat P0 continuation prompt while open, with blockers and steps; this is a session handoff, NOT P0 completion. PR #107 draft, no merge/main/TierDB.
+
 ## 2026-11-23 — Source-only target check after real 80/471 scan
 
 - [x] Owner real 16.23 public scan: 471 bins indexed, 80 inspected (21 dirs), `scan_complete=false`, `source_paths=[]`, `total=0` and silver/gold/prismatic all 0. Two keyword-only files `game/gameplay.bin.json`, `game/maps/modespecificdata/cherry.bin.json`. No source validated.
