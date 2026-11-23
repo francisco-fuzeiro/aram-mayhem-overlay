@@ -1,0 +1,357 @@
+{
+ "schema": 1,
+ "patch": "16.23",
+ "source": {
+  "url": "https://raw.communitydragon.org/16.23/game/maps/modespecificdata/statanvils.bin.json",
+  "path": "game/maps/modespecificdata/statanvils.bin.json",
+  "sha256": "494f603dffc677341a9531e5e71d5ad260d99280943b2993b18de1dcfeb694c2",
+  "last_modified": "Mon, 23 Nov 2026 18:11:48 GMT",
+  "strings": "game/en_us/data/menu/en_us/lol.stringtable.json"
+ },
+ "raw_anvil_data": 37,
+ "raw_tiers": {
+  "silver": 14,
+  "gold": 14,
+  "prismatic": 8
+ },
+ "total": 34,
+ "tiers": {
+  "silver": 13,
+  "gold": 13,
+  "prismatic": 8
+ },
+ "entries": [
+  {
+   "id": "ARAM_StatAnvil_AD",
+   "tier": "silver",
+   "title": "Attack Damage Shard",
+   "kind": "ad",
+   "stats": {
+    "ad": 11.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_AH",
+   "tier": "silver",
+   "title": "Ability Haste Shard",
+   "kind": "ah",
+   "stats": {
+    "ah": 11.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_AP",
+   "tier": "silver",
+   "title": "Ability Power Shard",
+   "kind": "ap",
+   "stats": {
+    "ap": 15.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_AR",
+   "tier": "silver",
+   "title": "Armor Shard",
+   "kind": "armor",
+   "stats": {
+    "armor": 12.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_AS",
+   "tier": "silver",
+   "title": "Attack Speed Shard",
+   "kind": "as",
+   "stats": {
+    "as": 11.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_CritChance",
+   "tier": "silver",
+   "title": "Critical Shard",
+   "kind": "crit",
+   "stats": {
+    "crit": 8.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_HP",
+   "tier": "silver",
+   "title": "Health Shard",
+   "kind": "hp",
+   "stats": {
+    "hp": 110.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_Hybrid1",
+   "tier": "silver",
+   "title": "Swiftness Shard",
+   "kind": "as+ah",
+   "stats": {
+    "as": 10.0,
+    "ah": 8.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_Hybrid2",
+   "tier": "silver",
+   "title": "Might Shard",
+   "kind": "ad+ap",
+   "stats": {
+    "ad": 8.0,
+    "ap": 12.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_Hybrid3",
+   "tier": "silver",
+   "title": "Unbreakable Shard",
+   "kind": "armor+mr",
+   "stats": {
+    "armor": 10.0,
+    "mr": 10.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_Lethality",
+   "tier": "silver",
+   "title": "Lethality Shard",
+   "kind": "lethality",
+   "stats": {
+    "lethality": 8.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_MPen",
+   "tier": "silver",
+   "title": "Magic Penetration Shard",
+   "kind": "mpen",
+   "stats": {
+    "mpen": 8.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_MR",
+   "tier": "silver",
+   "title": "Magic Resist Shard",
+   "kind": "mr",
+   "stats": {
+    "mr": 14.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_AD",
+   "tier": "gold",
+   "title": "Attack Damage Shard",
+   "kind": "ad",
+   "stats": {
+    "ad": 35.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_AH",
+   "tier": "gold",
+   "title": "Ability Haste Shard",
+   "kind": "ah",
+   "stats": {
+    "ah": 35.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_AP",
+   "tier": "gold",
+   "title": "Ability Power Shard",
+   "kind": "ap",
+   "stats": {
+    "ap": 50.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_AR",
+   "tier": "gold",
+   "title": "Armor Shard",
+   "kind": "armor",
+   "stats": {
+    "armor": 45.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_AS",
+   "tier": "gold",
+   "title": "Attack Speed Shard",
+   "kind": "as",
+   "stats": {
+    "as": 35.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_CritChance",
+   "tier": "gold",
+   "title": "Critical Strike Shard",
+   "kind": "crit",
+   "stats": {
+    "crit": 25.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_HP",
+   "tier": "gold",
+   "title": "Health Shard",
+   "kind": "hp",
+   "stats": {
+    "hp": 375.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_Hybrid1",
+   "tier": "gold",
+   "title": "Swiftness Shard",
+   "kind": "as+ah",
+   "stats": {
+    "as": 25.0,
+    "ah": 20.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_Hybrid2",
+   "tier": "gold",
+   "title": "Might Shard",
+   "kind": "ad+ap",
+   "stats": {
+    "ad": 25.0,
+    "ap": 25.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_Hybrid3",
+   "tier": "gold",
+   "title": "Unbreakable Shard",
+   "kind": "armor+mr",
+   "stats": {
+    "armor": 30.0,
+    "mr": 30.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_Lethality",
+   "tier": "gold",
+   "title": "Lethality Shard",
+   "kind": "lethality",
+   "stats": {
+    "lethality": 20.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_MPen",
+   "tier": "gold",
+   "title": "Magic Penetration Shard",
+   "kind": "mpen",
+   "stats": {
+    "mpen": 18.0
+   }
+  },
+  {
+   "id": "ARAM_GoldStatAnvil_MR",
+   "tier": "gold",
+   "title": "Magic Resist Shard",
+   "kind": "mr",
+   "stats": {
+    "mr": 45.0
+   }
+  },
+  {
+   "id": "ARAM_PrisStatAnvil_CritDamage",
+   "tier": "prismatic",
+   "title": "Critical Damage Shard",
+   "kind": "crit_damage",
+   "stats": {
+    "crit_damage": 25.0
+   }
+  },
+  {
+   "id": "ARAM_PrisStatAnvil_HP",
+   "tier": "prismatic",
+   "title": "Health and Size Shard",
+   "kind": "hp_pct+size",
+   "stats": {
+    "hp_pct": 15.0,
+    "size": 10.0
+   }
+  },
+  {
+   "id": "ARAM_PrisStatAnvil_Lethality",
+   "tier": "prismatic",
+   "title": "Armor Penetration Shard",
+   "kind": "armor_pen_pct",
+   "stats": {
+    "armor_pen_pct": 17.5
+   }
+  },
+  {
+   "id": "ARAM_PrisStatAnvil_MPen",
+   "tier": "prismatic",
+   "title": "Magic Penetration Shard",
+   "kind": "mpen_pct",
+   "stats": {
+    "mpen_pct": 17.5
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_HS",
+   "tier": "prismatic",
+   "title": "Heal & Shield Power Shard",
+   "kind": "heal_shield",
+   "stats": {
+    "heal_shield": 25.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_MS",
+   "tier": "prismatic",
+   "title": "Move Speed Shard",
+   "kind": "ms+size",
+   "stats": {
+    "ms": 15.0,
+    "size": -10.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_Omnivamp",
+   "tier": "prismatic",
+   "title": "Omnivamp Shard",
+   "kind": "omnivamp+omnivamp_ranged",
+   "stats": {
+    "omnivamp": 20.0,
+    "omnivamp_ranged": 10.0
+   }
+  },
+  {
+   "id": "ARAM_StatAnvil_Tenacity",
+   "tier": "prismatic",
+   "title": "Tenacity Shard",
+   "kind": "tenacity",
+   "stats": {
+    "tenacity": 30.0
+   }
+  }
+ ],
+ "rejected": [
+  {
+   "id": "ARAM_GoldStatAnvil_Random",
+   "tier": "gold",
+   "reason": "disabled_in_game_bin"
+  },
+  {
+   "id": "ARAM_StatAnvil_Pristine",
+   "tier": null,
+   "reason": "disabled_in_game_bin"
+  },
+  {
+   "id": "ARAM_StatAnvil_Random",
+   "tier": "silver",
+   "reason": "disabled_in_game_bin"
+  }
+ ]
+}

@@ -204,6 +204,8 @@ class StaticData:
         self._champions: dict[str, ChampionMeta] = {}
         self._augments: dict[str, AugmentData] = {}
         self._stat_anvils: dict[str, AugmentData] = {}
+        self._stat_anvil_catalog: dict[str, "StatAnvil"] = {}
+        self.stat_anvil_status: dict = {"status": "skipped", "reason": "not_loaded"}
         self._items: dict[str, ItemData] = {}
         self._all_item_names: dict[str, str] = {}  # ALL item names for display
 
@@ -218,10 +220,14 @@ class StaticData:
             k: v for k, v in all_augments.items()
             if v.tier != AugmentTier.STAT_ANVIL
         }
-        self._stat_anvils = {
-            k: v for k, v in all_augments.items()
-            if v.tier == AugmentTier.STAT_ANVIL
-        }
+        # Stat Anvils come ONLY from the patch-pinned real public catalogue
+        # (P0-B); legacy kBronze rows were never proven to be Mayhem shards.
+        try:
+            dd_version = _get_dd_version()
+        except (requests.RequestException, ValueError):
+            dd_version = "unknown"
+        self._stat_anvils, self.stat_anvil_status = _load_stat_anvils(dd_version)
+        self._stat_anvil_catalog = dict(_LAST_STAT_ANVIL_CATALOG)
         self._items = _load_items()
         self._all_item_names = _load_all_item_names()
 
@@ -376,6 +382,10 @@ class StaticData:
             "by_provenance": by_provenance, "by_rarity": by_rarity,
         }
 
+    def stat_anvil_catalog(self) -> dict:
+        """Verified real shards by id (tier, title, exact stats)."""
+        return dict(self._stat_anvil_catalog)
+
     def get_stat_anvil(self, anvil_id: str) -> AugmentData | None:
         return self._stat_anvils.get(str(anvil_id))
 
@@ -516,6 +526,72 @@ def select_mayhem_augments(augments_raw: list[dict]) -> list[dict]:
         ):
             selected[title] = raw
     return sorted(selected.values(), key=lambda row: int(row["id"]))
+
+
+# Canonical shard stat -> augment StatVector field. Armor, MR, MS, tenacity
+# and omnivamp have no StatVector dimension; the Anvil scorer reads them from
+# the catalogue directly (backend.engine.anvil_priorities).
+_ANVIL_VECTOR = {
+    "ad": "ad", "ap": "ap", "as": "attack_speed", "hp": "hp", "hp_pct": "hp",
+    "lethality": "lethality", "armor_pen_pct": "lethality", "mpen": "pen",
+    "mpen_pct": "pen", "crit": "crit", "crit_damage": "crit", "ah": "cdr",
+    "heal_shield": "heal_power",
+}
+_LAST_STAT_ANVIL_CATALOG: dict = {}
+
+
+def stat_anvil_contribution(shard, catalog) -> StatVector:
+    """Relative strength per stat: value / same-tier single-stat shard value."""
+    from backend.static_data.stat_anvil_catalog import SIDE_EFFECT_STATS
+    singles = {
+        (s.tier, s.stats[0][0]): s.stats[0][1] for s in catalog
+        if len([k for k, _ in s.stats if k not in SIDE_EFFECT_STATS]) == 1
+        and s.stats[0][0] not in SIDE_EFFECT_STATS
+    }
+    vec = StatVector()
+    for stat, value in shard.stats:
+        field_name = _ANVIL_VECTOR.get(stat)
+        if field_name is None:
+            continue
+        ref = singles.get((shard.tier, stat)) or value
+        amount = max(0.0, min(1.0, value / ref)) if ref else 0.0
+        setattr(vec, field_name, max(getattr(vec, field_name), round(amount, 3)))
+    return vec
+
+
+def _load_stat_anvils(dd_version: str) -> tuple[dict[str, AugmentData], dict]:
+    """Load the real shard catalogue only for the exact game data patch."""
+    from backend import feature_diagnostics
+    from backend.static_data.anvil_public_catalog import AnvilCatalogError
+    from backend.static_data.stat_anvil_catalog import catalog_path, load_catalog
+
+    global _LAST_STAT_ANVIL_CATALOG
+    _LAST_STAT_ANVIL_CATALOG = {}
+    try:
+        patch = patch_of(dd_version)
+    except ValueError:
+        patch = None
+    if patch is None or not catalog_path(_APP_ROOT, patch).exists():
+        feature_diagnostics.record("anvil.catalog_source", "skipped", "catalog_patch_mismatch")
+        return {}, {"status": "skipped", "reason": "catalog_patch_mismatch", "patch": patch}
+    try:
+        catalog = load_catalog(_APP_ROOT, patch)
+    except AnvilCatalogError:
+        feature_diagnostics.record("anvil.catalog_source", "failed", "catalog_invalid")
+        return {}, {"status": "failed", "reason": "catalog_invalid", "patch": patch}
+    shards = {}
+    for shard in catalog:
+        shards[shard.id] = AugmentData(
+            id=shard.id, name=shard.title, tier=AugmentTier.STAT_ANVIL,
+            description=", ".join(f"+{v:g} {k}" for k, v in shard.stats),
+            contribution=stat_anvil_contribution(shard, catalog),
+            provenance="public_game_bin",
+        )
+    _LAST_STAT_ANVIL_CATALOG = {s.id: s for s in catalog}
+    tiers = {t: sum(s.tier == t for s in catalog) for t in ("silver", "gold", "prismatic")}
+    feature_diagnostics.record("anvil.catalog_source", "ok", "verified_catalog", len(catalog))
+    return shards, {"status": "ok", "reason": "verified_catalog", "patch": patch,
+                    "total": len(catalog), "tiers": tiers}
 
 
 def _load_augments() -> dict[str, AugmentData]:

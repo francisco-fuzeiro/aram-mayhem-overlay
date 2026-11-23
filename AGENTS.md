@@ -1,5 +1,25 @@
 # Repository agent instructions
 
+## 2026-11-23 — Exact 16.23 Stat Anvil source 404; do NOT promote historical bin
+
+- Actual Windows Actions [#45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820) GET of `https://raw.communitydragon.org/16.23/game/unknown/507cdd64276919f5.bin.json` returned **HTTP 404**. The CDragon `/json/16.23/game/unknown/` index was checked and contains **neither the exact filename nor matching hash-prefixed filenames**. This is a PROVEN missing current public asset path, not proof Stat Anvils are absent from Mayhem. Owner's historical 16.22 37 Anvils (14 silver/14 gold/8 prismatic/1 mixed) cannot be treated as patch 16.23. New read-only public probe `scripts/anvil_source_exact_probe.py` + tests reports HTTP/index status and raw/parsed tier counts; one-time CI live probe removed after evidence.
+- P0 source gate remains **BLOCKED**: obtain actual 16.23 `AnvilData` and `RootSpell.mSpell.DataValues` with total>0 and each Silver/Gold/Prismatic >0 plus exact verified file path. Previous owner scan 80/471 indexed candidate bins and TFT/DustToDiamonds keyword paths are incomplete/false positives. Safely inspect remaining bins/updated exports, never guess source or activate ranks.
+- After source: real popup 3/4-card detection, title+value OCR, own 0–10 champion/augments/items/enemy-context score with true render ACK; native shop #49 and one final user-operated Mayhem match/diagnostics, then latest exact-head CI. Item pool v4 already validated on owner PC (104 final+7 boots=111); do not ask to repeat. P0 #107 remains draft based on #103; no merge/main/TierDB or private screenshots/logs. User explicitly requested a new-chat P0 continuation prompt now, with blockers, despite phase still open. Normally no automatic prompt until P0 accepted.
+
+## Active P0 Stat Anvil source lead (owner real data, 2026-11-23)
+
+- Owner tested real public patch 16.23 on P0 HEAD `47fa24b`: `candidate_bin_files=471`, `bin_files_inspected=80`, `index_directories_scanned=21`, `index_failures=0`, `scan_complete=false`, `source_paths=[]`, `total=0` and silver/gold/prismatic all 0. This is **not a complete scan or validated source**, and does not prove Mayhem Anvils are absent.
+- The only public keyword hits were `game/gameplay.bin.json` and `game/maps/modespecificdata/cherry.bin.json`. Neither is an authoritative AnvilData catalogue merely because the word "Anvil" appears.
+- Targeted RED→GREEN source-only probe `tests/test_p0_stat_anvil_keyword_probe.py` and `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` inspect only those patch-pinned public files, reporting exact JSON Anvil references and top-level/nested `AnvilData` counts. Always `catalogue_verified=false`, with no local writes/League/player data. Follow real public references if present before asking for another broad scan.
+- Require **real** patch-16.23 parsed `AnvilData`/RootSpell, `total>0` and each Silver/Gold/Prismatic >0 with exact source path, then real popup OCR/title+value, own contextual score and one final supported Mayhem match. Stay in same P0, draft PR #107 on #103; no merge/main/TierDB/handoff prompt while incomplete.
+
+## P0 source-acceptance override — Stat Anvils patch 16.23 (2026-11-23)
+
+- Owner Windows PC confirmed `--public-patch 16.23` on P0 HEAD `9d3b29f`: only `map12.bin.json` yielded, **total=0, silver=0, gold=0, prismatic=0**. This invalidates the previous hard-coded source assumption; a fixture/keyword hit is NOT current-patch proof. Keep recommendations disabled.
+- CommunityDragon offers public directory indexes `/json/<patch>/...`. New opt-in `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json` traverses bounded plausible game/map/mode/unknown directories, reads candidate public `.bin.json`, and separately reports keyword matches, parsed `AnvilData`, source_paths, tiers, bounds and any index failures. Read-only, explicit public network use; no League/player access.
+- **Do not accept this P0 Anvil source until actual patch-16.23 report shows total>0, Silver>0, Gold>0 and Prismatic>0 AND specific public source_paths.** Only then pin verified file paths in the parser with RED→GREEN patch tests; later separately verify popup OCR titles/values, contextual 0–10 and real UI during one supported custom match. If bounded scan is incomplete, expand via `--discovery-bins 200 --discovery-dirs 100` and continue investigation; never fabricate a valid source or auto-transfer chat.
+- Exact verified older code HEAD `4a199e6` [Windows #45220848233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45220848233) SUCCESS (2,102 Python PASS, 27 SKIP; 89 JS PASS; 35 pinned OCR PASS). The new docs/current HEAD must have its own CI check. Keep #107 draft, main/TierDB untouched and local untracked `funcionalidades.md` safe.
+
 ## Session startup
 
 Before changing code, read:

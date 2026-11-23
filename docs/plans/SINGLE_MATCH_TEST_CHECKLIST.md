@@ -1,5 +1,28 @@
 # Single Mayhem Match Test Checklist — P0 baseline
 
+## 2026-11-23 — Actual 16.23 hashed Stat Anvil source gate and subsequent native acceptance
+
+- [x] Independent read-only current-patch HTTP check [Windows Actions #45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820): `/16.23/game/unknown/507cdd64276919f5.bin.json` → **404**. Fallback same-patch CDragon JSON index checked: **exact filename absent, no matching prefix**. This path does NOT supply live current-patch `AnvilData`/RootSpell; historic 16.22 reports do not pass source gate.
+- [x] Reusable `scripts.anvil_source_exact_probe` tests distinguish raw 0/8/9 singleton and mixed `AnvilTypes`, parser tiers, 404/index and unavailable source; no account/League or fixture-pretends-live acceptance. Temp public CI probe step removed after collecting evidence. At audited SHA 2,115 Python PASS/27 SKIP, 89 JS PASS, 35 real pinned OCR PASS.
+- [ ] **Patch source gate**: find **actual 16.23** public `AnvilData` source file(s) with valid `RootSpell.mSpell.DataValues`, `total>0`, Silver/Gold/Prismatic >0 and exact source paths. Earlier scan was 80/471 indexed candidates; TFT/DustToDiamonds text hits NOT sources. Only then wire current loader, dedicated title/value OCR and strict no-guess abstention with RED→GREEN tests.
+- [ ] **Native gate**: actual 3/4-card popup timing, OCR name+number identity, contextual own 0.0–10.0 scores and genuine UI-ACK; shop #49, augment flow and all P0 per-feature reports in ONE user-controlled permitted Mayhem match; any feature not fired stays SKIPPED or NOT FIRED, never PASS. Final exact-head Actions GREEN.
+- [ ] **Phase closure** only on complete functional/native evidence. Owner explicitly requested a one-time next-chat P0 continuation prompt while open, with blockers and steps; this is a session handoff, NOT P0 completion. PR #107 draft, no merge/main/TierDB.
+
+## 2026-11-23 — Source-only target check after real 80/471 scan
+
+- [x] Owner real 16.23 public scan: 471 bins indexed, 80 inspected (21 dirs), `scan_complete=false`, `source_paths=[]`, `total=0` and silver/gold/prismatic all 0. Two keyword-only files `game/gameplay.bin.json`, `game/maps/modespecificdata/cherry.bin.json`. No source validated.
+- [x] `tests/test_p0_stat_anvil_keyword_probe.py` and focused `--public-patch 16.23 --probe-keyword-paths` produce bounded source-only JSON reference paths and AnvilData counts, never native or catalogue success; tested on [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982).
+- [ ] Owner targeted public probe; follow references then confirm real `total>0`, Silver/Gold/Prismatic all>0 and exact current bin paths. No ranking from a keyword or synthetic fixture.
+- [ ] Later actual popup OCR/title+stat value/3-or-4 cards and own 0–10 render, live shop and augments in ONE final owner-controlled Mayhem match; P0 OPEN.
+
+## 2026-11-23 — Source-gate correction: zero Stat Anvils on old 16.23 paths
+
+- [x] Actual owner report `--public-patch 16.23` was **total=0, silver=0, gold=0, prismatic=0**, only `map12.bin.json` reported. Older test fixture results do NOT prove live/current source.
+- [x] Index/scan code+mocked RED→GREEN tests: `test_p0_stat_anvil_source_index.py`, `test_p0_stat_anvil_discovery.py`; current code scans selected public CDragon `/json/16.23/game/` directory listings and plausible `.bin.json` files. The method itself (not real public source) passed [Windows #45220848233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45220848233) on code HEAD `4a199e6`.
+- [ ] Run real patch source discovery with `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json`. If incomplete, widen bounded scan with `--discovery-bins 200 --discovery-dirs 100`; inspect status, source_paths, keyword_paths, tiers, bin_files_inspected, candidate_bin_files, index_failures. **Keyword hits are not source validation**.
+- [ ] Source gate: only pass with **total>0, silver>0, gold>0, prismatic>0** and patch-matched validated `AnvilData` file(s), then pin that actual file path with focused tests. No guessed map, old-patch fixtures or false current source.
+- [ ] Independent real popup/3-4 cards, values OCR and own 0–10 + genuine render ACK, plus one final native Mayhem match and final exact-head CI. Until then P0 OPEN.
+
 > **Owner rule, 2026-11-23:** Test all prepared P0 features in ONE user-controlled
 > Mayhem match at the end, not one match per fix. This checklist is for draft
 > P0 #107 only; sibling TierDB draft #106 has another version of this path.
