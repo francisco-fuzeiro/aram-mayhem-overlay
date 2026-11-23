@@ -102,9 +102,9 @@ def test_no_data_and_no_model_is_explicit_not_zero():
 
 def test_op_requires_champion_level_and_lower_bound():
     champions = {"ahri": (50000, 100000), "garen": (50000, 100000)}
-    pairs = {("ahri", f"a{i}"): (5000, 10000) for i in range(40)}
+    pairs = {("ahri", f"a{i}"): (4900 + 5 * i, 10000) for i in range(40)}
     pairs[("ahri", "star")] = (7000, 10000)
-    pairs.update({("garen", f"a{i}"): (5000, 10000) for i in range(40)})
+    pairs.update({("garen", f"a{i}"): (4950 + 3 * i, 10000) for i in range(40)})
     rows, thresholds = _world(pairs, champions=champions)
     star = _by(rows, "ahri", "star")
     assert star.level == "champion"
@@ -139,7 +139,7 @@ def test_ranks_are_strict_and_restart_per_rarity():
 def test_statistically_indistinguishable_augments_share_a_tie_group():
     pairs = {("ahri", "twin1"): (520, 1000), ("ahri", "twin2"): (521, 1000),
              ("ahri", "far"): (9000, 10000), ("garen", "twin1"): (500, 1000)}
-    rows, _ = _world(pairs)
+    rows, _ = _world(pairs, champions={"ahri": (50000, 100000), "garen": (5000, 10000)})
     t1, t2, far = (_by(rows, "ahri", a) for a in ("twin1", "twin2", "far"))
     assert t1.tie_group == t2.tie_group
     assert far.tie_group != t1.tie_group
