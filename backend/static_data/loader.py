@@ -143,7 +143,6 @@ NAME_STAT_HINTS: dict[str, dict[str, float]] = {
     "draw your sword": {"ad": 0.4, "attack_speed": 0.3},
     "feel the burn": {"soft_cc": 0.4},
     "dashing": {"cdr": 0.5},
-    "homeguard": {"hp": 0.3},
     "escape plan": {"shield": 0.4},
     "giant slayer": {"ad": 0.3, "lethality": 0.3},
     "hand of baron": {"ap": 0.4, "ad": 0.4},
