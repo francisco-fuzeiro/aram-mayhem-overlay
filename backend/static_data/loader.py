@@ -58,7 +58,6 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "armor penetration": "lethality",
     "magic penetration": "pen",
     "magic pen": "pen",
-    "magic resist": "pen",
     "critical": "crit",
     "crit": "crit",
     "heal": "heal_power",
@@ -88,13 +87,8 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "invulnerable": "shield",
     "invulnerability": "shield",
     "armor": "shield",
-    "resist": "shield",
-    "resistance": "shield",
     "adaptive force": "ap",
     "on-hit": "attack_speed",
-    # Movement speed maps to hp: tanky/bruiser champions that stack HP also
-    # benefit most from movement speed (closing gaps, dodging skillshots).
-    "movement speed": "hp",
     "true damage": "lethality",
     "burn": "ap",
 }
@@ -149,7 +143,6 @@ NAME_STAT_HINTS: dict[str, dict[str, float]] = {
     "draw your sword": {"ad": 0.4, "attack_speed": 0.3},
     "feel the burn": {"soft_cc": 0.4},
     "dashing": {"cdr": 0.5},
-    "homeguard": {"hp": 0.3},
     "escape plan": {"shield": 0.4},
     "giant slayer": {"ad": 0.3, "lethality": 0.3},
     "hand of baron": {"ap": 0.4, "ad": 0.4},
@@ -173,8 +166,10 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 # B3 schema 4 stored passive groups and movement speed. B5 adds verified
 # properties; schema 5 rejects otherwise plausible stale caches.
 _ITEM_CACHE_SCHEMA = 5
-# Version in the filename prevents reuse of contributions parsed by older rules.
-_AUGMENT_CACHE_SCHEMA = 4
+# v5: defensive MR and mobility words must not inherit misleading v4 vectors.
+# The scoring StatVector has no dedicated MR or movement-speed dimensions.
+# Their effects remain unmodelled unless another proven stat is present.
+_AUGMENT_CACHE_SCHEMA = 5
 MAYHEM_MIN_AUGMENT_ID = 1000
 _MAYHEM_ICON_MARKER = "/Kiwi/"
 MIN_NORMALIZED_NAME_LEN = 4
@@ -541,9 +536,18 @@ def _load_augments() -> dict[str, AugmentData]:
             # retry the source instead of treating it as a valid cache hit.
             parsed = _parse_augment_cache(cached) if isinstance(cached, dict) else {}
             if parsed:
+                from backend import feature_diagnostics
+                feature_diagnostics.record("augment.cache_schema", "ok", "current")
                 return parsed
+            from backend import feature_diagnostics
+            feature_diagnostics.record("augment.cache_schema", "failed", "cache_invalid")
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             _loader_logger.warning("Invalid augment cache; retrying source")
+            from backend import feature_diagnostics
+            feature_diagnostics.record("augment.cache_schema", "failed", "cache_invalid")
+    else:
+        from backend import feature_diagnostics
+        feature_diagnostics.record("augment.cache_schema", "skipped", "cache_missing")
 
     # Fetch ARAM Mayhem augments from cherry-augments.json (primary source)
     try:
@@ -659,6 +663,13 @@ def _parse_description_to_stats_with_provenance(
 
     if all(value == 0.0 for value in stats.values()):
         provenance = "none"
+    # The actual catalog-parser decision; never store the description or name.
+    from backend import feature_diagnostics
+    feature_diagnostics.record(
+        "augment.stats_parser",
+        "ok" if provenance != "none" else "skipped",
+        "modelled" if provenance != "none" else "unmodelled",
+    )
     return StatVector(**stats), provenance
 
 
@@ -781,6 +792,19 @@ def _report_item_source_conflict(item_id):
 def _report_item_data_source(source):
     from backend.diagnostic_events import events
     events.emit("item_data_source", source=source)
+
+
+def _report_item_pool_diagnostic(catalog):
+    """One closed feature verdict at catalog loading; no item/player identity."""
+    from backend.feature_diagnostics import record
+    if catalog.meta.availability != "verified_two_source":
+        record("build.item_pool", "skipped", "unverified", 0)
+        return
+    final_count = sum(kind == "final" for kind in catalog.classes.values())
+    if final_count == 0:
+        record("build.item_pool", "failed", "no_final_items", 0)
+    else:
+        record("build.item_pool", "ok", "final_items", min(final_count, 1000))
 
 
 def _cdragon_index(payload):
@@ -982,6 +1006,7 @@ def _load_items() -> ItemCatalog:
         cached = _verified_cached_items(cache_file, version, overrides["version"])
         if cached is not None:
             _report_item_data_source("cache")
+            _report_item_pool_diagnostic(cached)
             return cached
 
     dd_items = {}
@@ -1027,6 +1052,7 @@ def _load_items() -> ItemCatalog:
             )
             temp.replace(cache_file)
             _report_item_data_source("network")
+            _report_item_pool_diagnostic(catalog)
             return catalog
         except (requests.RequestException, OSError, KeyError, ValueError, TypeError):
             _loader_logger.warning("CDragon unavailable or incompatible; checking verified cache")
@@ -1035,6 +1061,7 @@ def _load_items() -> ItemCatalog:
         cached = _verified_cached_items(cache_file, version, overrides["version"])
         if cached is not None:
             _report_item_data_source("cache")
+            _report_item_pool_diagnostic(cached)
             return cached
 
     # A legacy, unversioned-structure cache can recover names when both
@@ -1048,16 +1075,19 @@ def _load_items() -> ItemCatalog:
                 for item in old_items.values():
                     item.item_class = "unknown"
                 _report_item_data_source("ddragon_unverified")
-                return ItemCatalog(
+                catalog = ItemCatalog(
                     old_items, unknown_meta,
                     {ident: "unknown" for ident in old_items},
                     "legacy_unverified",
                 )
+                _report_item_pool_diagnostic(catalog)
+                return catalog
         except (OSError, ValueError, KeyError, TypeError):
             _loader_logger.warning("Legacy item names unavailable; staying unverified")
 
     catalog = _assemble_item_catalog(dd_items, None, overrides, unknown_meta, "ddragon_unverified")
     _report_item_data_source("ddragon_unverified")
+    _report_item_pool_diagnostic(catalog)
     return catalog
 
 

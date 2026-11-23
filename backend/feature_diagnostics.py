@@ -15,14 +15,14 @@ from collections import Counter
 from pathlib import Path
 
 from backend.diagnostic_events import default_log_dir, events
-from backend.feature_registry import FEATURES, REASONS, STATUSES, UI_FEATURES
+from backend.feature_registry import FEATURES, REASONS, STATUSES, UI_FEATURES, allowed_outcome
 
 __all__ = ["FEATURES", "UI_FEATURES", "record", "session_start", "build_report",
            "render_markdown", "main"]
 
 
 def _valid(feature, status, reason, count) -> bool:
-    return (feature in FEATURES and status in STATUSES and reason in REASONS and
+    return (allowed_outcome(feature, status, reason) and
             (count is None or (type(count) is int and 0 <= count <= 1000)))
 
 

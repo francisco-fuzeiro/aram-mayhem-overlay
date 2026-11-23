@@ -15,10 +15,17 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from backend.feature_registry import FEATURES, REASONS, STATUSES
+from backend.feature_registry import FEATURES, STATUSES, REASONS, allowed_outcome
 
 # Values are strict enums or bounded numeric types. Never log arbitrary strings.
 SCHEMA: dict[str, dict[str, object]] = {
+    "session_start": {},
+    "feature": {
+        "feature": frozenset(FEATURES),
+        "status": frozenset(STATUSES),
+        "reason": REASONS,
+        "count": "int",
+    },
     "lcda": {
         "status": frozenset(("available", "unavailable", "error")),
         "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse", "http_404", "refused", "bad_json")),
@@ -138,13 +145,6 @@ SCHEMA: dict[str, dict[str, object]] = {
         "x": "pixel_dimension", "y": "pixel_dimension",
         "w": "pixel_dimension", "h": "pixel_dimension",
     },
-    "session_start": {},
-    "feature": {
-        "feature": frozenset(FEATURES),
-        "status": frozenset(STATUSES),
-        "reason": REASONS,
-        "count": "int",
-    },
     "match_transition": {
         "from_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
         "to_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
@@ -196,6 +196,10 @@ def _clean(event: str, fields: dict) -> dict | None:
                 maximum = 1 if constraint == "confidence1" else 100
                 if 0 <= value <= maximum:
                     safe[key] = round(float(value), 3)
+    if event == "feature" and not allowed_outcome(
+        safe.get("feature"), safe.get("status"), safe.get("reason"),
+    ):
+        return None
     return safe
 
 
@@ -259,17 +263,19 @@ class StructuredEventLogger:
         if safe is None or not self._running:
             return False
         key = json.dumps(safe, sort_keys=True)
+        # Feature duplicates are scoped per feature, not to the single shared
+        # journal event type. Never erase one feature's state with another.
+        dedup_key = (f"feature:{safe['feature']}" if event == "feature"
+                     else event)
         if not self._transition_lock.acquire(blocking=False):
             self.dropped += 1
             return False
         try:
-            # Per-feature slot so interleaved features do not defeat the dedup.
-            slot = event + ":" + str(safe.get("feature", ""))
-            if self._last.get(slot) == key:
+            if self._last.get(dedup_key) == key:
                 return False
             queued = self.emit(event, **safe)
             if queued:
-                self._last[slot] = key
+                self._last[dedup_key] = key
             return queued
         finally:
             self._transition_lock.release()

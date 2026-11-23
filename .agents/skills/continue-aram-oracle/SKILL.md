@@ -1,17 +1,105 @@
 ---
+
+## CURRENT 2026-11-23 — Stat Anvil source path discovered (still P0)
+
+- Owner confirms OP.GG displays a Stat Anvil rating. Treat as a benchmark,
+  **not** a licensed rating feed or proof of specific 0–10 formula.
+- Independent open-source **MIT** reference:
+  https://github.com/Sygnano/aram-mayhem-tracker . Its documented
+  Stat Anvil cards occupy ordinary three-card frames; card title is a
+  *stat* alias across silver/gold/prismatic and the **value line**
+  resolves the tier. It reads `AnvilData` + `RootSpell DataValues`
+  from patch-specific CommunityDragon game bins and public stringtables;
+  from 16.22 the entries moved into a hashed bin. Riot 25.23 notes
+  confirm Stat Anvils after level 9 and tier rarity as historical background,
+  not current 16.23 live proof.
+- Implemented on P0 #107: strict pure public bin parser
+  `backend/static_data/anvil_public_catalog.py`, public-name-key lookup,
+  fail-closed matching requiring complete 3/4 distinct stat + numeric
+  evidence with a single tier, source-only summary, and opt-in network-only
+  read-only `scripts.stat_anvil_catalog_report --public-patch 16.23
+  [--locale en_us]`. Default augment cache check does **not** verify
+  Stat Anvils. Tests `tests/test_p0_anvil_public_source.py` cover
+  public-bin shape, invalid/unknown tiers, same-name cross-tier ambiguity,
+  safe value verification, same-patch URL whitelist and no network for
+  invalid arguments.
+- **NOT completed:** latest exact-head Windows CI, actual patch-16.23 public
+  AnvilData extraction on owner PC, legal current titles, 3/4 popup native
+  geometry, value OCR, linkage to scoring and UI, plus the one final
+  controlled native match. The current tier-zero synthetic Anvil ratings
+  are not equivalent to these public string-ID shards; do not display
+  guessed scores or claim normal augment OCR verifies Anvil popup. No
+  screenshot/log/player data in public repo, no merge or phase transition.
+- Next if CI green: owner pulls latest branch and runs
+  `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23`;
+  inspect counts/source warnings, then optionally
+  `--locale en_us` to resolve public titles; commands make explicit
+  read-only network requests but do not write cache or contact League.
+  Thereafter integrate into existing safe watcher with strict independent
+  title/value offer gates and tests, not blind rank scraping.
+
+## CURRENT 2026-11-23 — Verified owner-PC item pool v4 and remaining P0 gates
+
+- Owner has successfully fast-forwarded P0 draft #107 to `a4ccd15c57c28b9430f5459007839382874f1efa`, preserved local untracked `funcionalidades.md` and backed up v3. Real public network-backed `item_pool_v4`, patch `16.23.1`, `verified_two_source` returned 863 total / **104 final** / 7 tier2 boots / 111 recommendable / 26 unknown / 152 mode_variant, with no warnings. **Previously zero finals is FIXED at offline source-classification layer**. Owner does NOT need to repeat this evidence.
+- Exact code SHA [Windows Actions #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347) both jobs SUCCESS: 2,076 Python PASS / 27 SKIP; 87 JS PASS / 0 FAIL; three JS syntax PASS; 35 real pinned PP-OCRv4 PASS. This documentation checkpoint changes HEAD and needs its own CI recheck.
+- **P0 still INCOMPLETE:** live shop item purchasability/next-item recommendation #49 not tested; Stat Anvil popup/3-or-4 card geometry, verified option-source catalogue, OCR gate and UI render blocked; only `build.item_pool` generic diagnostics implemented, remaining P0 IDs and `feature_ack` pending; one end-of-batch owner-controlled custom Mayhem session/report still outstanding. Reconcile generic diagnostic registry with sibling #106 without copying TierDB code. Preserve main, draft PRs and private data. No automatic next-chat prompt until ALL native acceptance gates are proven; if blocked give ordered resolution steps.
+
+## CURRENT 2026-11-23 — Mandatory P0 diagnostics, owner checkout and continuity
+
+- Owner instruction for **EVERY P0**: stable dotted `area.feature` id in
+  `backend/feature_registry.py`, closed reason enums; tests-only RED
+  asserts exact `(feature,status,reason)`; GREEN calls
+  `feature_diagnostics.record` at decision; visible UI results must send
+  allowlisted `feature_ack` and be registered in `UI_FEATURES`; one
+  feature row in `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`. Missing action
+  must have a reason. A synthetic functional test without diagnostic tuples
+  does not satisfy this requirement. Single owner-controlled Mayhem
+  acceptance **at end**, not a separate match per P0.
+- Reference contract: `docs/plans/GPT_BRIEF_TIERDB_2026-11-23.md` and
+  `docs/plans/FEATURE_DIAGNOSTICS.md` on independent draft #106.
+  **P0 #107 does not currently include `backend/feature_diagnostics.py`
+  or `backend/feature_registry.py`**. The new P0 checklist therefore
+  marks runtime instrumentation PENDING; do not claim diagnostic RED/GREEN,
+  endpoint availability or a generated one-match report until implemented
+  and independently verified. Do not import unrelated TierDB logic or
+  conflict with sibling PR #106.
+- Owner Windows checkout discovery: enclosing workspace is not Git,
+  child `aram-oracle` is checkout; `origin` points to this repo; separate
+  `upstream` is `fabs133/league-aram-builder`. Initial owner local
+  branch `feat/f3-post-full-build-anvil-priorities-20261123`; local
+  untracked `funcionalidades.md` must remain untouched. No full private
+  path in public docs. Owner P0 branch switch/report NOT YET VERIFIED.
+  Use non-destructive fetch/switch/ff-only pull and stop on error.
+- Prompt only when FULL phase acceptance passes; if P0 incomplete,
+  give blockers plus actionable ordered steps here. A same-phase prompt
+  is permitted only if the owner explicitly requests a transfer.
+
 name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
+## 2026-11-23 — P0 #49 real source discrepancy / v4 code + diagnostics CI gate
 
-## PERMANENT POLICY — automatic, evidence-based continuation after every phase
+- Owner user-device: freshly rebuilt current public network-backed `item_pool_v3`, patch 16.23.1, 863 entries, **0 final**, 7 boots, 130 unknown; direct DD/CD comparison found **104 prospective normal terminal finals** with DD absent `into`, CD `to=[]`, all rejected. IDs 3031, 3089, 3074 illustrate. This is not proof of live Mayhem shop, and mode variants must remain excluded.
+- RED-only `2ceae72f`, [Windows #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899): 4 targeted FAIL (one str/int test assertion corrected in GREEN); 2,069 older Python PASS, 27 skip; pinned 35-model job PASS. Narrow code fix in `c640d377` normalizes missing DD terminal `into` only where CD explicitly `to=[]` while preserving price, components, conditions and mode restrictions. Policy `item_pool_v4` invalidates old v3 cache.
+- Shared-pattern P0 `build.item_pool` feature registry/diagnostic journal/CLI + tests in `aadea1ec`, with reason enum `final_items/no_final_items/unverified`. No tier lists/DB/branch #106 changes; sibling feature registry must be unioned on eventual integration. Other P0 feature IDs/UI acknowledgments remain pending.
+- Need verify **new exact code+docs HEAD Windows Actions SUCCESS** and then owner Windows `_load_items()` public-data reload plus read-only `py -3.11 -m scripts.item_pool_report` show v4 verified and nonzero finals. User's local `funcionalidades.md` untracked stays protected. Native shop/Anvil user-controlled single final Mayhem match remains NOT TESTED; P0 OPEN, no automatic chat prompt, no merge/main/TierDB changes.
 
-This policy applies to **every subsequent ARAM Oracle phase and every interrupted subphase**, automatically; the user does not need to request a handoff. At the end of each phase:
+## 2026-11-23 — P0 audit recovery #107 CURRENT same-phase checkpoint
 
-1. Verify the live GitHub repository, open draft PR chain/dependencies, exact final HEAD SHA and Windows Actions status **after all code and documentation commits**. Never reuse an older SHA, assume a merge, invent test results, or call a pending/failed run SUCCESS.
-2. Deliver a complete, copy-paste-ready **next conversation prompt** in the user-facing PT-PT answer. Include: next phase **name/objective**, repo, current branch, PR number and base/dependency stack, exact final SHA, corresponding exact Windows Actions URL/ID and evidence, completed/proven work, still open problems, all required source documents, small next tasks, RED→GREEN plan and acceptance criteria, technical/privacy/Riot safety restrictions, and explicit instruction to keep PRs as **draft**, do not merge or alter `main`. **Include this same automatic continuation rule verbatim in substance**, so it survives future conversations.
-3. If the current phase has **not** passed all required gates, is blocked, or is interrupted, give a prompt to **resume that same phase or subphase**, not to advance. Clearly label PROVEN, SUSPECTED, BLOCKED, NOT TESTED; CI never proves real native League acceptance. If an actual Windows custom-game check is mandatory, leave it open until user evidence, even with successful Actions.
-4. If context is approaching its usable limit, checkpoint factual progress in `docs/PROJECT_STATE.md`, `docs/TODO.md`, `docs/DEVELOPMENT_LOG.md`, `docs/IMPLEMENTATION_PHASES.md`, `docs/N1_NATIVE_ACCEPTANCE.md` and this skill; obtain the latest commit SHA and Windows status, and deliver the same-phase handoff **early**. Do not lose uncommitted changes, infer successful CI, or request another normal ARAM match.
-5. Always follow `AGENTS.md`, the actual upstream PRs and source lineage; preserve independent OCR #72/#74/#75, privacy-safe local-only diagnostics, the 0–10 Riot-safe scoring contract and user-authorized scope. Communicate in European Portuguese; code and repository documentation remain English.
+- Draft/unmerged PR #107 on #103, branch `fix/p0-audit-parser-items-voucher-20261123`. The previous independently rechecked HEAD `6c84c823b453443ce7862d104c881a611ddf7245` passed [Windows Actions #45189586795](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45189586795): 2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax checks, 35 real pinned-v4 PASS. CI ran PR merge ref; **not** user native Mayhem evidence. This documentation checkpoint creates a later SHA: verify new exact HEAD and Windows Actions before asserting final PASS.
+- **PROVEN offline:** parser MR/MS/Homeguard and augment cache v5 invalidation, read-only existing-cache report, current-player LCDA Voucher `220008`/`220009` positive-stack observation. **SUSPECTED:** DD/CD price or recipe mismatches could be causing old zero-final pool, but no v3 report or public mismatch verified. **BLOCKED:** #49 eligibility correction and verified Anvil popup/options/catalogue. **NOT TESTED:** owner PC current-policy v3 counts; native Voucher/popup timing/three-vs-four card geometry, user custom Mayhem, live item shop. No claims of gameplay acceptance.
+- **Next same-phase action:** on owner's Windows with League and Oracle closed, `py -3.11 -m scripts.item_pool_report` then optional `--json`, share only aggregate schema/policy/patch/source status/class counts/warnings without paths or logs. If no cache or old policy, do not misreport as current v3. If current v3 still zero finals, only evidence-based public DD/CD mismatch → tests-only RED → minimal fail-closed GREEN. Voucher does not establish visual OCR offer; keep Anvil catalogue empty until verified source and controlled user test. Preserve public privacy, Riot, no League input automation; do not touch tierdb, `docs/plans/*TIERDB*`, main or stacked PRs; no merge. If this P0 phase remains incomplete, give only blockers and a practical resolution plan; no automatic new-chat prompt. Generate a next-phase prompt only after all gates pass, or a same-phase prompt on explicit owner request.
+
+
+## PERMANENT POLICY — completion-gated continuation (owner decision, 2026-11-23)
+
+**This section overrides EVERY older conflicting instruction in this skill, including historical notes that say to return a next-chat prompt after each subphase, interruption or CI checkpoint.** Do not follow those superseded prompt-generation instructions.
+
+1. **Always verify status first.** Inspect the live GitHub draft PR/parent chain, exact final HEAD, associated Windows Actions after all commits, and the mandatory phase-specific acceptance matrix. Distinguish PROVEN (offline or native scope stated precisely), SUSPECTED, BLOCKED and NOT TESTED. CI passing does not mean native League correctness.
+2. **Phase COMPLETE:** only when ALL required acceptance gates pass with adequate evidence, including native user-controlled Windows/Mayhem tests where required. Then give the final completion report **and automatically provide one full copy/paste next-conversation prompt** for the next phase, with repository/branch/draft PR/base/exact final SHA/Actions, evidence, source docs, safety boundaries, next gated tasks and acceptance criteria. Do not merge, change main or infer Riot approval.
+3. **Phase INCOMPLETE, BLOCKED, INTERRUPTED, or NOT TESTED:** **do not automatically generate any next-chat prompt**. Keep the SAME phase, branch, draft PR and acceptance criteria. Present (a) what is PROVEN, (b) each blocker and missing evidence, (c) a concrete ordered step-by-step to resolve it, identifying remote work versus user-owned Windows/custom-game checks, (d) targeted tests-only RED → minimal GREEN only for reproduced issues, (e) exact final HEAD Actions gate, and (f) conditions to mark the phase complete. Continue available work immediately; stop only at genuinely external blockers, without inventing results or requesting normal competitive-game captures.
+4. **Explicit owner-requested transfer is the only exception:** if the user specifically asks for `ARAM Oracle: preparar passagem` or equivalent, checkpoint facts and give a same-phase prompt even if incomplete, clearly marked as incomplete. A context-limit concern alone is **not** permission to automatically hand off; save factual progress to the docs and give blockers/steps in this conversation.
+5. **Keep durable records without churn:** update state, TODO, log, phases and this skill when material progress occurs, preserving task IDs and safe evidence. Verify the new exact HEAD and corresponding Windows Actions after any commit; pending/failed are not SUCCESS. Avoid documentation-only CI loops unless they preserve important decisions or evidence. All PRs remain draft/unmerged, main untouched; respect OCR research, TierDB isolation, privacy, licensing and Riot-policy limits.
 
 ## 2026-11-22 OCR V1.2c CI checkpoint — resume SAME native phase
 

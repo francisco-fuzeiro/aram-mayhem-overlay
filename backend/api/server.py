@@ -19,6 +19,7 @@ from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
+from backend.collectors.anvil_voucher import AnvilVoucherPurchaseObserver
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
 from backend.tierdb.service import TierListService
@@ -37,6 +38,7 @@ from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
 from backend import feature_diagnostics
+from backend.feature_registry import UI_FEATURES
 from backend.workflow.f0_trace import (
     classify_champion_identity, classify_offer_slots, emit_f0_trace,
 )
@@ -136,6 +138,11 @@ class GameState:
         self.augment_choices: list[str] = []
         self.chosen_augments: list[str] = []  # real augments only (max 4)
         self.chosen_stat_anvils: list[str] = []  # stat anvil / voucher picks
+        # Voucher purchase is an LCDA signal only: never verified popup/OCR.
+        self.anvil_voucher_observer = AnvilVoucherPurchaseObserver()
+        self.anvil_voucher_purchase_events: int = 0
+        self.anvil_voucher_trigger_pending: bool = False
+        self.anvil_voucher_last_purchase: tuple[str, ...] = ()
         self.build_style: str = "Balanced"  # player preference, survives match resets
         self.overlay_preferences: dict = dict(preferences.DEFAULT_OVERLAY)  # D4a: stored only
         # OCR state
@@ -232,6 +239,10 @@ class GameState:
         self.augment_choices.clear()
         self.chosen_augments.clear()
         self.chosen_stat_anvils.clear()
+        self.anvil_voucher_observer.reset()
+        self.anvil_voucher_purchase_events = 0
+        self.anvil_voucher_trigger_pending = False
+        self.anvil_voucher_last_purchase = ()
         self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         screen_watcher.reset()
         self.last_known_level = 0
@@ -385,6 +396,7 @@ def should_open_augment_scan(
 async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
     event_log.start()  # nonblocking event queue; writer owns all disk I/O
+    feature_diagnostics.session_start()
     # Every entrypoint (CLI, desktop overlay, and direct ASGI) needs a DB.
     init_db()
     saved_preferences = preferences.load_preferences()
@@ -392,7 +404,6 @@ async def lifespan(app: FastAPI):
     game_state.overlay_preferences = saved_preferences["overlay"]
     static_data.load()
     game_state.pipeline = Pipeline(static_data)
-    feature_diagnostics.session_start()
     feature_diagnostics.record("tierdb.switch", "ok",
                                "enabled" if tier_service.enabled() else "disabled")
     # Tier lists: refresh in the background when missing or older than 3 days.
@@ -503,11 +514,74 @@ def _annotate_champion_candidates(result: dict) -> dict:
 
 def _handle_feature_ack(msg: dict) -> bool:
     """Accept a DOM-render report from the overlay for UI features only."""
-    if not isinstance(msg, dict) or msg.get("feature") not in feature_diagnostics.UI_FEATURES:
+    if (not isinstance(msg, dict) or msg.get("feature") not in UI_FEATURES
+            or not str(msg.get("feature")).startswith("tierdb.")):
         return False
     count = msg.get("count")
     return feature_diagnostics.record(msg.get("feature"), msg.get("status"),
                                       msg.get("reason"), count if count is not None else None)
+
+
+def _accept_feature_ack(state: GameState, msg: dict) -> bool:
+    """DOM-only ACK, fenced to the current match and verified Anvil offer.
+
+    Never trust an acknowledgment as proof of League shop stock or a newly
+    presented popup. Never persist match IDs, item identities or OCR text.
+    """
+    if not isinstance(msg, dict):
+        return False
+    if set(msg) - {"type", "feature", "status", "reason", "count",
+                    "match_id", "offer_epoch"}:
+        return False
+    feature = msg.get("feature")
+    count = msg.get("count")
+    if (feature not in UI_FEATURES or msg.get("type") != "feature_ack"
+            or msg.get("status") != "ok" or msg.get("reason") != "rendered"
+            or not state.had_game_last_tick or not state.match_id
+            or msg.get("match_id") != state.match_id
+            or type(count) is not int or count <= 0):
+        return False
+    if feature == "build.next_item_render":
+        if count != 1:
+            return False
+    elif feature == "anvil.offer_render":
+        if (count != 3 or type(msg.get("offer_epoch")) is not int
+                or msg["offer_epoch"] != state.offer_epoch
+                or state.ocr_phase != "detected" or state.ocr_stale
+                or not state.scan_window_open):
+            return False
+        # The existing 3-slot ledger must be independently OCR-verified
+        # and contain only real tier-zero catalog entries, not a voucher edge.
+        offers = state.offer_ledger.payload()
+        matches = [row for row in offers if row.get("state") == "visible"
+                   and row.get("epoch") == state.offer_epoch]
+        if len(matches) != 1:
+            return False
+        slots = matches[0].get("slots")
+        if not isinstance(slots, dict):
+            return False
+        ids = []
+        for slot in ("left", "centre", "right"):
+            identity = slots.get(slot)
+            if (not isinstance(identity, dict)
+                    or identity.get("source") != "ocr"
+                    or not isinstance(identity.get("augment_id"), str)):
+                return False
+            ids.append(identity["augment_id"])
+        if (len(set(ids)) != 3
+                or any(static_data.get_stat_anvil(ident) is None
+                       for ident in ids)):
+            return False
+    else:
+        return False
+    return feature_diagnostics.record(feature, "ok", "rendered", count)
+
+
+@app.get("/api/diagnostics/features")
+def get_feature_report():
+    """Sanitized last-session IDs, statuses and aggregate counts only."""
+    return feature_diagnostics.build_report()
+
 
 # In PyInstaller bundles, sys._MEIPASS points to the extraction dir.
 _APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
@@ -642,12 +716,6 @@ def update_tierlist_switch(req: TierListSwitchRequest):
     enabled = tier_service.enabled()
     feature_diagnostics.record("tierdb.switch", "ok", "enabled" if enabled else "disabled")
     return {"enabled": enabled}
-
-
-@app.get("/api/diagnostics/features")
-def feature_report():
-    """Per-feature verdicts for the last session (enums and counts only)."""
-    return feature_diagnostics.build_report()
 
 
 @app.post("/api/tierlist/update")
@@ -1217,6 +1285,15 @@ async def game_ws(websocket: WebSocket):
                         _serialize_result(result, static_data)
                     ))
 
+            elif msg_type == "feature_ack":
+                # Tier list renders (incl. champ select) ack without a match;
+                # every other UI feature stays match/offer fenced.
+                if str(msg.get("feature", "")).startswith("tierdb."):
+                    _handle_feature_ack(msg)
+                else:
+                    async with game_state.lock:
+                        _accept_feature_ack(game_state, msg)
+
             elif msg_type == "set_augment_choices":
                 augment_ids = msg.get("augment_ids", [])
                 if not isinstance(augment_ids, list):
@@ -1350,9 +1427,6 @@ async def game_ws(websocket: WebSocket):
                 await _send_ws_message(websocket, json.dumps({
                     "type": "ack", "action": "set_build_style", "style": style,
                 }))
-
-            elif msg_type == "feature_ack":
-                _handle_feature_ack(msg)
 
             elif msg_type == "toggle_ocr":
                 async with game_state.lock:
@@ -1803,6 +1877,32 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
             match_confirmation_due = False
             async with state.lock:
                 _begin_or_continue_match(state, snapshot, raw, flow)
+                # Two observed inventories, same game: detect actual voucher
+                # increments. Do not open a generic 3-slot augment scan:
+                # live Stat Anvil option catalogue/layout is still unknown.
+                voucher_counts = getattr(snapshot, "anvil_vouchers", None)
+                bought = state.anvil_voucher_observer.observe(voucher_counts)
+                if bought:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "ok", "positive_edge", len(bought),
+                    )
+                    # Voucher inventory alone cannot establish a visible
+                    # popup; no OCR, card identity or scoring is inferred.
+                    feature_diagnostics.record(
+                        "anvil.offer_detected", "skipped", "popup_unverified",
+                    )
+                elif voucher_counts is None:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "skipped", "source_unavailable",
+                    )
+                else:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "skipped", "no_edge",
+                    )
+                state.anvil_voucher_last_purchase = bought
+                if bought:
+                    state.anvil_voucher_purchase_events += len(bought)
+                    state.anvil_voucher_trigger_pending = True
                 _record_items_outside_pool(state, raw, deps.static_data)
                 # -- Scan window management --
                 #
@@ -2183,6 +2283,12 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 )
                 await deps.broadcast(_status_message(state, status))
         else:
+            # LCDA interruption cannot masquerade as zero voucher stacks.
+            # Reconnect requires a fresh two-read baseline before an edge.
+            async with state.lock:
+                state.anvil_voucher_observer.reset()
+                state.anvil_voucher_last_purchase = ()
+                state.anvil_voucher_trigger_pending = False
             # A single LCDA error is never an end-of-match signal.
             active_phases = ("GameStart", "InProgress", "Reconnect")
             if state.had_game_last_tick:

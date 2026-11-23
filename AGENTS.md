@@ -25,6 +25,103 @@ a scheduler, or a way to create the next chat automatically.
 For a mid-phase rotation, continue on the same branch/PR; create a new
 stacked branch/PR only when beginning the next phase.
 
+## Phase completion and response contract (owner decision, 2026-11-23)
+
+This is the current authoritative rule; it supersedes older instructions to
+produce a conversation-transfer prompt at every checkpoint or subphase:
+
+1. A phase is **complete only after every mandatory acceptance criterion is supported by evidence**, including exact final HEAD Windows Actions and user-controlled native validation when that phase requires it. Synthetic/CI success, completed substeps, a documentation checkpoint, or a blocked validation never completes a phase.
+2. **If COMPLETE:** report evidence and remaining out-of-scope risks, then automatically supply the full next-conversation prompt for the next phase.
+3. **If INCOMPLETE / BLOCKED / NOT TESTED:** do **not** automatically supply a new-chat prompt. Stay on the same branch, PR and phase. Give an explicit blocker table with PROVEN / SUSPECTED / BLOCKED / NOT TESTED status and an executable, ordered resolution plan: what can be done remotely, the smallest evidence needed from the owner, the RED→GREEN repair if justified, the exact-head Windows CI gate, and native acceptance. Do as much unblocked work as possible now, without guessing.
+4. Exception: if the owner **explicitly asks to transfer/prepare a new conversation**, provide a same-phase continuity prompt, clearly stating that the phase remains incomplete; never imply phase completion or transition to the next phase.
+5. Continue documenting factual progress safely; do not create unnecessary commits or Actions runs solely to manufacture a handoff. Protect `main`, stacked draft PRs, privacy and Riot restrictions.
+
+
+## P0 Stat Anvil source and scoring guardrails (2026-11-23)
+
+- Owner observed OP.GG overlay scoring Stat Anvils; implement our own 0–10
+  champion+augments+items+enemy-context assessment, not a rebranded OP.GG
+  statistic or win-rate proxy. OP.GG score formula/data are not publicly
+  verified and must not be copied.
+- Public MIT reference: https://github.com/Sygnano/aram-mayhem-tracker
+  (readme and `service/src/domain/anvils.ts`,
+  `crates/mayhem-vision/src/anvil.rs`). Distinguish its design evidence
+  from compatibility or permission to use an external statistics service.
+  No licensed assets or third-party ratings have been copied here.
+- Real public Anvil source is **AnvilData and RootSpell DataValues in
+  patch-specific CommunityDragon game bins**, not generic tier-zero
+  cherry-augments. Names in the game string table identify a shard's
+  stat; tiers may share titles, so visible value OCR is necessary before
+  selecting silver/gold/prismatic. An inventory voucher edge alone does
+  not identify popup/cards, and no action on League is allowed.
+- Pure P0 decoder `backend/static_data/anvil_public_catalog.py`;
+  independent synthetic source/value tests. Opt-in public-only, no-write
+  diagnostic: `py -3.11 -m scripts.stat_anvil_catalog_report
+  --public-patch 16.23 --locale en_us` (locale downloads a sizeable public
+  stringtable); patch/locale whitelisted; output is a **public source
+  candidate list, never live verification**. Do not default-enable
+  network fetches or silently promote this data into gameplay picks.
+- P0 Stat Anvil remains **BLOCKED for native popup geometry, 3/4-card
+  confirmation, live OCR title+value identity and contextual 0–10 rendering**
+  until patch-matched source is verified and one final owner-operated custom
+  Mayhem match demonstrates it. Keep all failures as blockers; no early
+  prompt to a new phase, no merge/main/TierDB modifications.
+
+## P0 per-feature diagnostics and one-match acceptance (owner decision, 2026-11-23)
+
+This rule applies to **every P0 fix** (new and pending), not only TierDB. Follow
+the validated design in `docs/plans/GPT_BRIEF_TIERDB_2026-11-23.md` and
+`docs/plans/FEATURE_DIAGNOSTICS.md` on independent draft #106 as the reference;
+never assume those files or its generic runtime infrastructure already exist on
+the current P0 branch, and do not merge/cherry-pick unrelated TierDB work.
+
+1. Allocate a stable dotted id (`area.feature`) and closed enum status/reason
+   vocabulary in `backend/feature_registry.py` when the diagnostic infrastructure
+   has been safely integrated; examples: `augment.stats_parser`,
+   `build.item_pool`, `anvil.voucher_purchase`. A feature that abstains must
+   report a closed `skipped/reason` or `failed/reason`, not silence.
+2. In the **tests-only RED** step, assert the exact
+   `(feature, "ok"|"failed"|"skipped", reason)` tuple at the decision point;
+   implement the smallest GREEN change with
+   `feature_diagnostics.record(feature, status, reason, count)`.
+   An offline functional test without a diagnostic assertion is NOT proof of
+   instrumentation.
+3. For actual user-visible rendering, add the feature id to `UI_FEATURES`
+   and accept a strictly allowlisted `feature_ack` only after the overlay
+   actually renders. No fake UI acknowledgment from backend calculations.
+4. Add **one row per feature** to
+   `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md` with trigger, exact test,
+   expected safe diagnostic result, and live owner verification status.
+5. Run **ONE owner-controlled Mayhem match** at the end of the fully prepared
+   feature batch, not a game for each P0 patch. An aggregate report must isolate
+   OK / FAILED / SKIPPED / NOT FIRED by id; when an expected feature does not
+   fire, its blocker remains open. Do not claim any native PASS from CI.
+6. Never emit player names, Riot IDs, paths, raw OCR text, screenshots, win rates
+   or private game data in feature events, reports or this public repository.
+   Reconcile duplicate infrastructure with #106 before integrating branches.
+
+## Local Windows checkout safety (owner-observed, 2026-11-23)
+
+- The enclosing workspace folder is not a Git repository; the actual checkout
+  is a child folder named `aram-oracle`. Locate it with
+  `git rev-parse --show-toplevel` and verify `git remote -v` before actions.
+- `origin` points to `francisco-fuzeiro/aram-mayhem-overlay`. A separate
+  `upstream` points to `fabs133/league-aram-builder`; P0 operations must use
+  `origin`, never pull from `upstream`.
+- The owner observed `feat/f3-post-full-build-anvil-priorities-20261123`
+  as the then-current local branch, and `funcionalidades.md` as an untracked
+  local requirements file (`??`). Preserve that file; do not delete, reset,
+  clean, overwrite, stage or commit it automatically.
+- Safe user-operated sequence AFTER a clean/preflight check:
+  `git fetch origin`, non-forced `git switch` to
+  `fix/p0-audit-parser-items-voucher-20261123`,
+  `git pull --ff-only origin fix/p0-audit-parser-items-voucher-20261123`;
+  stop on error. Confirm exact head and run read-only
+  `py -3.11 -m scripts.item_pool_report` with League/Oracle closed.
+- **Unverified:** no new branch-switch result or owner PC v3 item report has
+  been supplied. Never infer either occurred. Never commit a private full
+  Windows path/user name or local screenshot to this public repository.
+
 ## Language and priorities
 
 - All application copy, source code comments, commit messages and documentation must be in English.

@@ -1467,3 +1467,43 @@ test("DIAG-UI: offer and champion select renders report a feature ack", () => {
     assert.deepEqual(champ.at(-1), {type: "feature_ack", feature: "tierdb.champselect_render",
         status: "ok", reason: "rendered", count: 1});
 });
+
+test("P0 next-item UI emits match-scoped render ACK only for real rendered advice", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    const socket = h.sockets[0];
+    socket.readyState = 1;
+    const update = gameUpdate("Jinx");
+    update.match_id = "synthetic-current-match";
+    update.build_state = {
+        ...update.build_state, next_item_id: "3031",
+        next_item_name: "Infinity Edge", full_build: ["3031"],
+        purchased_items: [], gold_to_next: 1600, slot_blocked: false,
+    };
+    h.api.handleMessage(update);
+    const ack = JSON.parse(socket.sent);
+    assert.equal(ack.type, "feature_ack");
+    assert.equal(ack.feature, "build.next_item_render");
+    assert.equal(ack.status, "ok");
+    assert.equal(ack.reason, "rendered");
+    assert.equal(ack.match_id, "synthetic-current-match");
+    assert.equal(ack.count, 1);
+
+    socket.sent = undefined;
+    h.api.handleMessage({...update, match_id: "synthetic-current-match",
+        build_state: {...update.build_state, next_item_id: null,
+            next_item_name: null, full_build: []}});
+    assert.equal(socket.sent, undefined);
+    h.api.handleMessage({type: "no_game"});
+    assert.equal(socket.sent, undefined);
+});
+
+test("P0 no synthetic Anvil ACK on a normal augment update", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    h.sockets[0].readyState = 1;
+    const update = gameUpdate();
+    update.match_id = "synthetic";
+    h.api.handleMessage(update);
+    assert.equal(h.sockets[0].sent, undefined);
+});

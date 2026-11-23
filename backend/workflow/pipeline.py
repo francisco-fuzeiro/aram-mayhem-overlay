@@ -9,6 +9,25 @@ from backend.engine.team_context import analyze_enemies, analyze_allies
 from backend.storage.db import get_all_personal_winrates
 from backend.config import config
 from backend.workflow.f0_trace import classify_build_evidence, emit_f0_trace
+from backend import feature_diagnostics
+
+
+def _record_next_item_decision(build_state, meta) -> None:
+    """Observe the actual post-policy next-item verdict, not a shop claim."""
+    if meta is None or meta.availability != "verified_two_source":
+        status, reason = "skipped", "unverified"
+    elif build_state.slot_blocked:
+        status, reason = "skipped", "slot_blocked"
+    elif build_state.build_unavailable_reason == "inventory_unknown":
+        status, reason = "skipped", "inventory_unknown"
+    elif build_state.build_unavailable_reason == "item_recipe_unknown":
+        status, reason = "skipped", "item_recipe_unknown"
+    elif build_state.next_item_id:
+        status, reason = "ok", "ranked"
+    else:
+        status, reason = "skipped", "no_candidate"
+    feature_diagnostics.record("build.next_item", status, reason)
+
 
 
 class Pipeline:
@@ -135,6 +154,10 @@ class Pipeline:
                 build_state.alternatives = {}
                 build_state.boot_replacement = None
                 build_state.build_unavailable_reason = "item_availability_unknown"
+
+        # Record the final, already fail-closed item decision. No item IDs or
+        # personal data enter the per-feature diagnostic journal.
+        _record_next_item_decision(build_state, meta)
 
         # Only observe existing decisions; no candidate is reranked or promoted.
         pool_verified = bool(
