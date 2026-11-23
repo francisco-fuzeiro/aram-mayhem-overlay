@@ -22,4 +22,4 @@ hash); the table is never submitted or exported. Remakes (< 300 s) are skipped.
   rows and an AUC gain >= 0.01. Never shown as a number in the overlay.
 - LCU limit: the client match list returns at most 20 games per sync, so the
   history grows over time; ~1000 games at once would need Riot's SGP service
-  (owner decision pending).
+  — owner chose LCU only (23/11); SGP is not used.
