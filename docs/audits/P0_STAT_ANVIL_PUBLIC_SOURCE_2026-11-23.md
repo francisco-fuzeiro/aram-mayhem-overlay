@@ -156,3 +156,51 @@ follow any discovered real bin paths. Source gate remains
 **16.23 total>0, Silver>0, Gold>0, Prismatic>0** with exact bin(s),
 then independently detect popup, title+numeric values and custom
 0–10 score; final one controlled Mayhem match verifies native.
+
+## 2026-11-23 — Real exact 16.23 CommunityDragon hash URL 404 (do not infer a catalogue)
+
+Owner supplied `https://raw.communitydragon.org/16.23/game/unknown/507cdd64276919f5.bin.json`
+and a historical patch 16.22 count of 37 `AnvilData` source rows
+(14 Silver, 14 Gold, 8 Prismatic, 1 mixed). We used Windows GitHub
+Actions as an independent public-only HTTP client to avoid trusting
+synthetic fixtures or a guessed URL.
+
+**Real evidence:** [Windows run #45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820),
+commit `5b88846d0630c1d0b96410bfab6db990d5227413`:
+exact 16.23 URL GET returned HTTP **404**;
+same-patch index `https://raw.communitydragon.org/json/16.23/game/unknown/`
+returned successfully and `exact_filename_in_index=false`,
+`index_named_candidates=[]`. Thus no current-patch source,
+raw AnvilData=0, parser_total=0, Silver=Gold=Prismatic=0 and
+`source_verified=false` **at that path only**. This independently
+corroborates the owner's previous zero report. It does NOT prove
+Stat Anvils are absent from ARAM Mayhem, and the 16.22 data
+must NOT be relabeled as current 16.23.
+
+The verified read-only tool is `scripts/anvil_source_exact_probe.py`
+with `tests/test_p0_anvil_source_exact_probe.py`, counting
+raw `__type == AnvilData`, singleton/mixed `AnvilTypes` 0/8/9,
+`RootSpell`-resolved parsed records, with same-patch public-index
+fallback on 404. No local cache write, League API, account identifier,
+private OCR, player path or game screenshot. One-time non-gating
+GitHub Actions probe was **removed** after evidence was recorded.
+Both suite jobs on probe SHA GREEN: 2,115 Python PASS/27 SKIP,
+89 JS PASS, 35 real pinned OCR PASS. Latest docs/cleanup HEAD
+requires independent recheck.
+
+**BLOCKER:** Real source relocation on patch 16.23 remains unknown.
+Owner's index scan covered only 80/471 candidate BINs, and the two
+public keyword matches were TFT UI and DustToDiamonds.AnvilsGranted,
+both with no `AnvilData`. The existing safe paged scanner can
+inspect 80..279 and 280..470 by explicit offset, without repeating
+the first 80, but it must report incomplete/invalid responses
+separately; only real `total>0` across Silver/Gold/Prismatic
+and an exact current source path clears the gate.
+
+Then implement verified source integration, distinct actual popup
+3/4-card layout detection, title AND numeric-value OCR, own contextual
+0–10 scores with true client-side `feature_ack`, and validate
+shop #49 plus augment/anvil behavior in one final user-operated
+supported Mayhem match. P0 #107 remains DRAFT/open, no main/TierDB,
+no next phase; user explicitly requests a *continuation* prompt
+despite this unresolved source.
