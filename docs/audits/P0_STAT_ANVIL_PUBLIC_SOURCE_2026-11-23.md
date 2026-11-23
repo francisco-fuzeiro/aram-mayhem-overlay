@@ -123,3 +123,36 @@ after observing those values, with patch-specific RED→GREEN.
 Then validate live popup OCR title+values and own contextual score
 in one user-controlled end-of-P0 Mayhem test. This gate is currently
 BLOCKED pending real public indexed scan on owner PC.
+
+## 2026-11-23 — Owner real indexed scan, 2 public keyword references
+
+Owner ran `--public-patch 16.23 --discover --json` after pulling P0
+HEAD `47fa24b`: `candidate_bin_files=471`,
+`bin_files_inspected=80`, `downloaded_bytes=2039856`,
+`index_directories_scanned=21`, `index_failures=0`,
+`source_files_unavailable_or_invalid=0`, `scan_complete=false`,
+`status=scan_incomplete`, `source_paths=[]`, `total=0`,
+Silver=Gold=Prismatic=0. Thus **not verified**, not proof of absence.
+
+Only two literal keyword files:
+`game/gameplay.bin.json` and
+`game/maps/modespecificdata/cherry.bin.json`.
+A string reference is not a validated choice. The broad scanner examined
+only 80 of 471 plausible bin filenames.
+
+New P0 synthetic tests `tests/test_p0_stat_anvil_keyword_probe.py`
+and patch-pinned, read-only direct probe
+`py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23
+--probe-keyword-paths` inspect these two public JSONs and report
+bounded matching key/value paths, plus top-level and nested
+`__type=AnvilData` counts. Probe always outputs
+`catalogue_verified=false`: it cannot validate an in-game popup.
+Code HEAD `96a8f0b` passed
+[Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982).
+This documentation HEAD awaits exact-head CI.
+
+Next verify actual public reference structure on owner's PC and
+follow any discovered real bin paths. Source gate remains
+**16.23 total>0, Silver>0, Gold>0, Prismatic>0** with exact bin(s),
+then independently detect popup, title+numeric values and custom
+0–10 score; final one controlled Mayhem match verifies native.

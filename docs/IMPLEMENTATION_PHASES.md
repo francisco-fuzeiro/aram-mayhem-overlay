@@ -1,5 +1,10 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-23 — P0 Stat Anvil source leads from 80/471 owner-real bins
+
+- Owner real 16.23 public discovery was **incomplete**: 471 candidates, 80 inspected, 21 indexed directories, zero errors, no parsed AnvilData, `total=0` Silver/Gold/Prismatic all zero. Two public keyword-only files: `game/gameplay.bin.json`, `game/maps/modespecificdata/cherry.bin.json`. A keyword is not a source or native offer.
+- **P0 source follow-up implemented/tested:** `tests/test_p0_stat_anvil_keyword_probe.py` RED→GREEN and `scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` inspect those exact two bins with bounded JSON key paths and AnvilData counts, no disk writes/game contact. Code HEAD `96a8f0b` passed [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982); docs HEAD needs own Actions. Next owner-controlled public probe, follow exact references or expand indexed bins only if needed.
+- Accept source only on real patch 16.23 `AnvilData`/RootSpell from exact public path(s), total>0 with each Silver/Gold/Prismatic>0. After that, live popup and title+value OCR, 0–10 independent contextual ranking and native shop/augment in ONE final supported custom Mayhem match. P0 remains OPEN, no premature prompt/P1/merge.
 ## 2026-11-23 — Mandatory gate for current patch 16.23 Stat Anvil source
 
 - **Observed on owner device:** historical map12-only retrieval returned `total=0`, all tiers 0. No current Stat Anvil source; do NOT claim a valid catalog from synthetic fixtures or title aliases. Correct behavior is abstention, not a guess that Mayhem no longer has Anvils.

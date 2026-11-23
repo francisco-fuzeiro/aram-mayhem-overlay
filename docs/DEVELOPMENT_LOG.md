@@ -1,5 +1,10 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — 80/471 public bin scan produces 2 keyword-only leads; targeted investigation
+
+- Owner Windows safely updated P0 #107 to `47fa24b` and ran actual `--public-patch 16.23 --discover --json`: 471 indexed bin candidates, 80 inspected, 21 dirs, 2,039,856 bytes, zero index/source errors; `scan_complete=false`, source_paths empty, `total=0`, Silver/Gold/Prismatic=0. Two keyword paths `game/gameplay.bin.json` and `game/maps/modespecificdata/cherry.bin.json`. These are text hints only, not `AnvilData` source or permission to rank.
+- Test-first RED `d6dd7c061432e80c7a19cb681071888552629a01`: `tests/test_p0_stat_anvil_keyword_probe.py`. GREEN public-only structural probe `scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` inspects only those two files with bounded traversal, JSON paths/value summaries and top-level/nested AnvilData counts. No file writes/game/OCR/private data; probe always catalogue_verified=false. Code HEAD `96a8f0b` [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982) passed exact Python/JS/pinned OCR jobs. This latest documentation HEAD requires a separate CI check.
+- Next owner step is targeted public probe after safe fast-forward, then investigate any referenced current patch path; only broaden original scan if targeted sources inconclusive. Real 16.23 source requires total>0 with Silver/Gold/Prismatic >0 and precise path, followed by independent popup/3-or-4 choices, OCR values and contextual 0–10. Final user-controlled Mayhem one-match gate and live shop #49 are still open; no main, TierDB, merge or P1.
 ## 2026-11-23 — ARAM Mayhem Tracker bin history rechecked; 16.23 source zero, index scanner added
 
 - Owner's real Windows patch 16.23 public report on `9d3b29f`: `bins=['map12.bin.json'] total=0` and every tier zero. The old 16.22 hash was not returned, so no validated current public AnvilData. The source scanner correctly abstained; mocked fixtures from 16.19/16.22 do not establish patch 16.23 validity.
