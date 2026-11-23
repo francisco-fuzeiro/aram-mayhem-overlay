@@ -1178,3 +1178,40 @@ test("F3/#84 unknown model vs missing rating evidence display distinct safe caus
     assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
     assert.doesNotMatch(cards.map(card => card.innerHTML).join(" "), /NaN|0\.0\/10|null\/10/);
 });
+
+test("F3: slot-blocked full inventory never advertises BUY NEXT", () => {
+    const h = harness();
+    h.api.renderBuild({
+        full_build: ["3047", "3101"],
+        full_build_names: ["Synthetic Boots", "Synthetic Item"],
+        purchased_items: ["3047"],
+        next_item_id: "3101",
+        next_item_name: "Synthetic Item",
+        next_item_gold_needed: 2000,
+        gold_to_next: 0,
+        slot_blocked: true,
+        alternatives: {},
+    });
+    assert.match(h.element("build-next").textContent, /Inventory full/);
+    assert.doesNotMatch(h.element("build-next").textContent, /Next:/);
+    const rows = h.element("build-list").children;
+    assert.match(rows[0].innerHTML, /Owned/);
+    assert.match(rows[1].innerHTML, /BLOCKED/);
+    assert.doesNotMatch(rows[1].innerHTML, /BUY NEXT/);
+    assert.match(h.element("build-footer").textContent, /Free.*slot/i);
+    assert.doesNotMatch(h.element("build-footer").textContent, /Next:/);
+
+    h.api.renderBuild({
+        full_build: ["3047", "3101"],
+        full_build_names: ["Synthetic Boots", "Synthetic Item"],
+        purchased_items: ["3047"],
+        next_item_id: "3101",
+        next_item_name: "Synthetic Item",
+        next_item_gold_needed: 2000,
+        gold_to_next: 800,
+        slot_blocked: false,
+        alternatives: {},
+    });
+    assert.match(h.element("build-next").textContent, /Next: Synthetic Item/);
+    assert.match(h.element("build-list").children[1].innerHTML, /BUY NEXT/);
+});
