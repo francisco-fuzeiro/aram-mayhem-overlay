@@ -1,5 +1,11 @@
 ---
 
+## CURRENT 2026-11-23 — Verified owner-PC item pool v4 and remaining P0 gates
+
+- Owner has successfully fast-forwarded P0 draft #107 to `a4ccd15c57c28b9430f5459007839382874f1efa`, preserved local untracked `funcionalidades.md` and backed up v3. Real public network-backed `item_pool_v4`, patch `16.23.1`, `verified_two_source` returned 863 total / **104 final** / 7 tier2 boots / 111 recommendable / 26 unknown / 152 mode_variant, with no warnings. **Previously zero finals is FIXED at offline source-classification layer**. Owner does NOT need to repeat this evidence.
+- Exact code SHA [Windows Actions #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347) both jobs SUCCESS: 2,076 Python PASS / 27 SKIP; 87 JS PASS / 0 FAIL; three JS syntax PASS; 35 real pinned PP-OCRv4 PASS. This documentation checkpoint changes HEAD and needs its own CI recheck.
+- **P0 still INCOMPLETE:** live shop item purchasability/next-item recommendation #49 not tested; Stat Anvil popup/3-or-4 card geometry, verified option-source catalogue, OCR gate and UI render blocked; only `build.item_pool` generic diagnostics implemented, remaining P0 IDs and `feature_ack` pending; one end-of-batch owner-controlled custom Mayhem session/report still outstanding. Reconcile generic diagnostic registry with sibling #106 without copying TierDB code. Preserve main, draft PRs and private data. No automatic next-chat prompt until ALL native acceptance gates are proven; if blocked give ordered resolution steps.
+
 ## CURRENT 2026-11-23 — Mandatory P0 diagnostics, owner checkout and continuity
 
 - Owner instruction for **EVERY P0**: stable dotted `area.feature` id in

@@ -13,7 +13,11 @@ following sibling #106's shared pattern, with ONLY `build.item_pool` wired
 at catalog-load decision. Other P0 ids and UI acknowledgments are PENDING.
 Sibling #106's TierDB features and HTTP report endpoint have NOT been merged;
 combine BOTH feature registries/journal schemas when integrating those branches.
-No native game acceptance or v4 owner-device validation exists yet.
+**Owner OFFLINE v4 cache verification is now PROVEN:** 104 final, 7 boots,
+111 recommendable from 863 patch-16.23.1 public entries, two sources
+verified; [Windows #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347)
+SUCCESS on exact code HEAD. **No native game acceptance** exists. This
+documentation-only checkpoint needs its own exact-head CI.
 
 In each subsequent P0 RED→GREEN change:
 1. Register the dotted feature id below with closed reason enum(s).
@@ -31,7 +35,7 @@ In each subsequent P0 RED→GREEN change:
 | --- | --- | --- | --- |
 | `augment.stats_parser` | Valid current augment catalogue; unsupported MR/MS must not invent HP/pen/shield | `tests/test_p0_audit_parser.py` exists (semantics only); exact `(augment.stats_parser,ok,parsed)` or `(augment.stats_parser,skipped,unmodelled)` RED **pending** | Diagnostics PENDING; native NOT TESTED |
 | `augment.cache_schema` | Cached augment catalogue from current parser schema; stale schema rejected | `tests/test_p0_audit_parser.py::test_augment_cache_schema_changes_when_parser_semantics_change` exists (schema only); exact `(augment.cache_schema,ok,current)` / `(augment.cache_schema,skipped,stale)` RED pending | Diagnostics PENDING; native NOT TESTED |
-| `build.item_pool` | DD/CD verified current-policy item cache load (network or warm cache); abstain if unverified | `tests/test_p0_item_source_recipe.py` exact `build.item_pool/ok/final_items` (count), `failed/no_final_items`, `skipped/unverified`; [RED #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899) proves 104 terminal DD omitted `into` vs CD `to=[]` | **GREEN implementation under exact-head Windows verification**; owner v4 report + native shop NOT TESTED |
+| `build.item_pool` | DD/CD verified current-policy item cache load (network or warm cache); abstain if unverified | `tests/test_p0_item_source_recipe.py` exact `build.item_pool/ok/final_items` (count), `failed/no_final_items`, `skipped/unverified`; [RED #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899) proves 104 terminal DD omitted `into` vs CD `to=[]` | **Code CI GREEN + owner v4 offline counts PROVEN**; native shop NOT TESTED |
 | `build.next_item` | Shop decision point; only real eligible final/boots and feasible purchase suggested | Existing shop/build tests must be connected; exact `(build.next_item,ok,recommended)` / `(build.next_item,skipped,no_eligible_item)` RED pending | Shop #49 OPEN; native NOT TESTED |
 | `anvil.voucher_purchase` | Active player's purchased voucher stack actually increases; otherwise report safe no-trigger reason | `tests/test_p0_anvil_voucher.py` exists (edge/synthetic poll only); exact `(anvil.voucher_purchase,ok,positive_edge)` / `(anvil.voucher_purchase,skipped,no_edge)` RED pending | Diagnostics PENDING; native NOT TESTED |
 | `anvil.offer_detected` | Verified voucher + actual visually confirmed Stat Anvil popup; no invented cards | Current tests only disprove OCR on voucher-only event; exact `(anvil.offer_detected,ok,verified_offer)` / `(anvil.offer_detected,skipped,popup_unverified)` RED pending | Verified option corpus/3-or-4 geometry BLOCKED |
@@ -47,9 +51,9 @@ existed before instrumentation.
 - [ ] Owner's Git checkout in the `aram-oracle` child directory is on the
   intended P0 branch and exact latest PR #107 HEAD; keep the untracked local
   `funcionalidades.md` untouched.
-- [ ] Owner read-only `py -3.11 -m scripts.item_pool_report` aggregate results
-  demonstrate the actual current `item_pool_v3` status, or clearly explain no
-  cache/old policy. No private paths/raw logs or player identifiers.
+- [x] Owner read-only `py -3.11 -m scripts.item_pool_report` proves
+  current public `item_pool_v4`: 863 total / 104 final / 7 boots / 111
+  recommendable, verified_two_source, no warnings. No private data shared.
 - [ ] All remaining P0 feature ids, diagnostic tuple tests, backend records
   and real rendered UI acknowledgments integrated; `build.item_pool` alone
   has production code and still needs final CI and owner v4 report.

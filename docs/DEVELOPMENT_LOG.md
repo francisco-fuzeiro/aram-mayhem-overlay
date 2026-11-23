@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Owner verifies item pool v4: 104 finals recovered / PR #107 still P0
+
+- Owner Windows fast-forwarded to P0 code HEAD `a4ccd15c57c28b9430f5459007839382874f1efa`, backed up old v3 cache, ran existing public-source `_load_items()` on patch 16.23.1 and offline report. **v4, verified_two_source, source=network, valid/current=True, total 863, final 104, boots_tier2 7, recommendable 111, unknown 26, mode_variant 152**; no warnings. This independently confirms the concrete zero-final repair on owner device; no private report, raw OCR or game data was saved.
+- Confirmed exact code HEAD [Windows Actions #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347): test + v4-real-model jobs SUCCESS; Python 2,076 PASS / 27 SKIP, JS 87 PASS / 0 FAIL, three syntax PASS, 35 pinned PP-OCRv4 PASS.
+- **Scope:** classifications from patch-matched DD/CD do not prove live Mayhem shop items. #49 native still OPEN. Remaining P0 include feature diagnostic IDs and genuine render acks, stat Anvil option source/popup/3-or-4 layout + OCR/render, one owner-controlled final Mayhem validation and post-change exact-head CI. Do not prematurely close P0, auto-handoff or P1.
+- Updated continuity docs only; this NEW documentation HEAD needs its own exact-head Windows CI. PR #107 remains draft on #103; no merge, main, TierDB, changes to product code, or user's untracked local requirements file.
 ## 2026-11-23 — Real v3 terminal-DD field discrepancy fixed in P0 #107 (Windows GREEN pending)
 
 - Owner Windows v3 cache genuinely network-backed with two current public sources, 863 items/0 final/7 boots; additional owner public-source comparison found **104 terminal candidates** with DD missing `into` and CD explicit `to=[]`, causing all 104 to fail strict `sources_agree`. Same-patch examples IDs 3031, 3089, 3074. No private personal data uploaded or committed.

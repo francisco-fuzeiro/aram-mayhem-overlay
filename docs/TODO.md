@@ -1,5 +1,16 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-23 — Owner Windows v4 validation VERIFIED (current authoritative checkpoint)
+
+- [x] **AUD-P0-02c exact code-head GREEN:** P0 #107 code HEAD `a4ccd15c57c28b9430f5459007839382874f1efa` [Windows Actions #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347), **two jobs SUCCESS**: 2,076 Python PASS / 27 SKIP, 87 JS PASS / 0 FAIL, three JS syntax PASS, 35 pinned PP-OCRv4 PASS.
+- [x] **AUD-P0-02d owner v4 local evidence:** safe fast-forward to exact code HEAD, offline backup of v3, public network-backed `item_pool_v4` `16.23.1` `verified_two_source` `valid=True` `current=True`; **863 total, 104 final, 7 tier2 boots, 111 recommendable, 26 unknown, 152 mode variants**, no warnings. Zero-final source comparison defect confirmed fixed. No personal data collected.
+- [ ] **AUD-P0-02e #49 LIVE shop check:** user-controlled single final custom Mayhem test must confirm actual shop candidates, timing and useful next-item recommendations, not infer from cache.
+- [ ] **AUD-P0-03b ANVILS:** real user-controlled supported Mayhem popup evidence, verified 3/4-card layout and option vocabulary, source legality, safe OCR detection/render; no invented option catalogue or automations.
+- [ ] **P0-DIAG-remaining:** IDs `augment.stats_parser`, `augment.cache_schema`, `build.next_item`, `anvil.voucher_purchase`, `anvil.offer_detected`, `anvil.offer_render` need exact tuple tests, closed reasons and production journal, plus UI `feature_ack` for rendered results. Only `build.item_pool` integrated; reconcile sibling #106 registry on eventual integration without merging TierDB.
+- [ ] **P0 final release gate:** one native user-controlled Mayhem match once features are ready; full per-feature OK/FAILED/SKIPPED/NOT FIRED report, current exact-final-head Windows CI after any additional changes, keep PR #107 draft and do not merge or advance P1 prematurely.
+
+_This section supersedes earlier dated P0 TODOs still describing v3/v4 report and Actions as pending._
+
 ## 2026-11-23 — P0 #49 reproducible source-field bug, v4 GREEN pending exact CI
 
 - [x] **AUD-P0-02b:** owner real network-backed `item_pool_v3` patch 16.23.1 had 863 total, **0 final / 7 boots**, 130 unknown, 152 mode variants. User independently compared public DD/CD: 104 terminal items missing DD `into` but explicit CD `to=[]`, all 104 rejected.
