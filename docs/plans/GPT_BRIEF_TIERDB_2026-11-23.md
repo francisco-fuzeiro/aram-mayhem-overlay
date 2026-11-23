@@ -32,7 +32,7 @@ The source documents are in Portuguese; this brief is the English entry point.
 - The public Riot API returns 403 for Mayhem (queue 2400): the match-v5 collector is **blocked**.
 - AramHex gives games/wins per champion and champion+augment (CN server). Damage/min, KP, deaths, duration, enemy comp and build only come from the local LCU history (small n) or future opt-in telemetry. So in v1 the augment list is ≈ 100 % ΔWR plus the heuristic level; the code must support the other metrics without inventing them.
 
-## Implementation status (draft PR #106, branch `feat/tierdb-augment-champion-tiers`, Windows CI SUCCESS on 0f867fe)
+## Implementation status (draft PR #106; UI wiring done, Windows CI SUCCESS on 60df345), branch `feat/tierdb-augment-champion-tiers`, Windows CI SUCCESS on 0f867fe)
 Read `backend/tierdb/` and `tests/test_tierdb_*.py` before changing anything; 57 tier DB tests.
 
 | Phase | Deliverable | Status |
@@ -50,6 +50,24 @@ Read `backend/tierdb/` and `tests/test_tierdb_*.py` before changing anything; 57
 | D1 | arammayhem.com CC BY pick-rate importer (prior only) | Open |
 | D2 | LCU local-history importer (combat, KP, deaths, duration) | Open |
 | D3 | Automatic `update` on patch change | Open |
+
+## Testing policy for every phase, including your P0s (owner, 23/11)
+
+The owner runs **one** end-to-end Mayhem match at the end, not one per sub-phase. Every
+feature you build must therefore be diagnosable from that single run:
+
+- Give each feature a dotted id (`area.name`, e.g. `ocr.offer_titles`, `build.next_item`)
+  with closed enum reasons in `backend/feature_registry.py`.
+- Call `feature_diagnostics.record(feature, "ok"|"failed"|"skipped", reason, count)` at the
+  decision point. When the user sees the result, also send a `feature_ack` from the overlay
+  and add the id to `UI_FEATURES`. A feature that does not act must record why.
+- In the RED commit, add a test that asserts the exact `(feature, status, reason)`.
+- Add one line per feature to `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`.
+- Never log names, Riot IDs, paths, OCR text, screenshots or win rates.
+
+Reference implementation and the full pattern are in draft PR #106 (commit 871d4a8):
+`backend/feature_diagnostics.py`, `docs/plans/FEATURE_DIAGNOSTICS.md`. The report comes
+from `python -m backend.feature_diagnostics` or `GET /api/diagnostics/features`.
 
 ## Superseded
 - Audit §16 / §18.2 note 4 ("empirical layer only with Riot's written approval; overlay shows only level 4") → superseded by the owner decision to show it now behind the flag.
