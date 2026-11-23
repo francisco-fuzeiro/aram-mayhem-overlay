@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-11-23).** Do not follow this plan or its phase order. Current order: [WORK_ORDER_2026-11-23.md](../../WORK_ORDER_2026-11-23.md); full plan: [independent audit of 23/11](../../../audits/AUDITORIA_INDEPENDENTE_2026-11-23.md). Kept for history only.
+
 # ARAM Oracle — Auditoria revista + plano v3 (2026-11-20)
 
 Substitui a v1 e a v2. **A v3 incorpora a revisão final do GPT (6 contratos). Ver a secção 8.** Integra a revisão do GPT, as 17 capturas de `D:\Downloads` (18–20/11), o facto de jogares em **borderless com o overlay do OP.GG ativo**, e dados novos do Data Dragon 16.23.1 e do CommunityDragon.
