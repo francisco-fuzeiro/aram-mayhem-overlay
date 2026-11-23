@@ -251,3 +251,23 @@ def test_poll_is_faster_only_while_an_unread_augment_window_is_open():
     assert server._poll_interval(state, 2.0) == 2.0
     assert server._latency_bucket(2.0) == "under_3s"
     assert server._latency_bucket(45) == "over_30s"
+
+
+def test_anvil_titles_are_forced_through_ocr_every_few_seconds(got):
+    forced = []
+
+    def run(names, force=False):
+        forced.append(force)
+        return ("no_augments", None)
+
+    async def to_thread(fn, *args):
+        return fn(*args)
+
+    sd = SimpleNamespace(stat_anvil_catalog=lambda: dict(CATALOG),
+                         get_stat_anvil=lambda i: CATALOG.get(i))
+    deps = SimpleNamespace(run_anvil_check=run, static_data=sd, to_thread=to_thread,
+                           ocr_available=lambda: True)
+    state = _state()
+    for t in (101.0, 103.0, 105.5, 106.0):
+        _tick(state, deps, now=t)
+    assert forced == [True, False, True, False]

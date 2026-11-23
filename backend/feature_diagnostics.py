@@ -143,7 +143,12 @@ def _ocr_windows(session: list[dict]) -> list[dict]:
             stage, since = rec.get("stage"), t
             if stage == "titles_detected" and cur["first_read_s"] is None and t is not None:
                 cur["first_read_s"] = round((t - cur["opened"]).total_seconds(), 1)
+                waiting = sum(v for k, v in cur["stages"].items()
+                              if k in ("cards_absent", "not_scanned"))
+                # OCR's own share: time after the cards were on screen.
+                cur["ocr_s"] = round(max(0.0, cur["first_read_s"] - waiting), 1)
     return [{"level": w["level"], "first_read_s": w["first_read_s"],
+             "ocr_s": w.get("ocr_s"),
              "closed_reason": w.get("closed_reason"),
              "stages": {k: round(v, 1) for k, v in sorted(
                  w["stages"].items(), key=lambda kv: -kv[1])}} for w in windows]
@@ -166,12 +171,14 @@ def render_markdown(report: dict) -> str:
         lines.append(f"| `{f['feature']}` | {verdict} | {'yes' if f['expected'] else 'no'} "
                      f"| {reasons} |")
     if report.get("ocr_windows"):
-        lines += ["", "| Augment window (level) | First read | Time per scan stage (s) | Closed |",
-                  "| --- | --- | --- | --- |"]
+        lines += ["", "| Augment window (level) | First read | OCR after cards shown | "
+                  "Time per scan stage (s) | Closed |", "| --- | --- | --- | --- | --- |"]
         for w in report["ocr_windows"]:
             first = "-" if w["first_read_s"] is None else f"{w['first_read_s']} s"
             stages = ", ".join(f"{k}: {v}" for k, v in list(w["stages"].items())[:4]) or "-"
-            lines.append(f"| {w['level']} | {first} | {stages} | {w.get('closed_reason') or '-'} |")
+            ocr = "-" if w.get("ocr_s") is None else f"{w['ocr_s']} s"
+            lines.append(f"| {w['level']} | {first} | {ocr} | {stages} | "
+                         f"{w.get('closed_reason') or '-'} |")
     lines += ["", "Only enumerated ids and counts are logged: safe to paste in a chat or issue."]
     return "\n".join(lines) + "\n"
 

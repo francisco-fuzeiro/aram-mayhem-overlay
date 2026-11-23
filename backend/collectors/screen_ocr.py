@@ -466,7 +466,17 @@ class ScreenWatcher:
                 # A3 can return the latest WGC callback more than once. A
                 # previously observed callback must never count as a new read.
                 if second.proof.captured_at <= capture.proof.captured_at:
-                    return self._capture_failure("invalid_frame")
+                    # Field 23/11: repeated frames cost whole ticks
+                    # (capture_invalid 5-8 s per window). Try one more fresh
+                    # frame before giving up the tick.
+                    try:
+                        self._sleep(BURST_SECOND_READ_DELAY_S / 2)
+                    except (OSError, RuntimeError):
+                        return self._capture_failure("invalid_frame")
+                    second = capture_augment_region(monitor_index, league_window=game)
+                    if (not self._verified_region(second, game)
+                            or second.proof.captured_at <= capture.proof.captured_at):
+                        return self._capture_failure("invalid_frame")
                 # A four-card transition during the second C3 read invalidates
                 # the provisional first-frame OCR before any accepted result.
                 second_layout = self._independent_card_layout(

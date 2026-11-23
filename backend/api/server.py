@@ -150,6 +150,7 @@ class GameState:
         # an attention window; the offer exists only after title OCR.
         self.anvil_window_until: float | None = None
         self.anvil_last_check: float = float("-inf")
+        self.anvil_last_forced: float = float("-inf")
         self.scan_opened_at: float | None = None
         self.scan_first_read_done: bool = False
         self.anvil_voucher_tier: str | None = None
@@ -263,6 +264,7 @@ class GameState:
         self.anvil_voucher_last_purchase = ()
         self.anvil_window_until = None
         self.anvil_last_check = float("-inf")
+        self.anvil_last_forced = float("-inf")
         self.anvil_voucher_tier = None
         self.anvil_offer = None
         self.anvil_absent_ticks = 0
@@ -2139,6 +2141,9 @@ def _augment_titles_blank(state: GameState) -> bool:
 
 
 ANVIL_CHECK_IN_AUGMENT_WINDOW_S = 3.0
+# Field 23/11: 30 "no_cards" ticks and no popup read. Every few seconds the
+# Anvil titles are OCR'd even when the augment card cue says no cards.
+ANVIL_FORCED_OCR_INTERVAL_S = 4.0
 # Field 23/11: offers took 23 s to minutes to show. While an augment window is
 # open and its cards are not read yet, poll every second instead of every 2 s.
 FAST_POLL_INTERVAL_S = 1.0
@@ -2200,8 +2205,17 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
     catalog = catalog_fn()
     if not catalog:
         return
+    force = now - state.anvil_last_forced >= ANVIL_FORCED_OCR_INTERVAL_S
     state.anvil_last_check = now
-    action, ids = await deps.to_thread(run, anvil_title_catalog(catalog.values()))
+    names = anvil_title_catalog(catalog.values())
+    if force:
+        state.anvil_last_forced = now
+        try:
+            action, ids = await deps.to_thread(run, names, True)
+        except TypeError:  # injected checker without the force flag
+            action, ids = await deps.to_thread(run, names)
+    else:
+        action, ids = await deps.to_thread(run, names)
     if action in ("detected", "unchanged"):
         feature_diagnostics.record(
             "anvil.popup_watch", "ok" if ids and all(ids) else "skipped",

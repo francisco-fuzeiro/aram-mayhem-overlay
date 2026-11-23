@@ -37,4 +37,4 @@ def test_report_times_each_augment_window_by_scan_stage(tmp_path):
     assert w["first_read_s"] == 23.0 and w["stages"]["game_not_focused"] == 20.0
     assert w["closed_reason"] == "cursor_pick"
     md = fd.render_markdown(report)
-    assert "| 3 | 23.0 s | game_not_focused: 20.0" in md
+    assert "| 3 | 23.0 s | 23.0 s | game_not_focused: 20.0" in md

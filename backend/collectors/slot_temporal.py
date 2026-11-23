@@ -140,10 +140,16 @@ class SlotTemporalTracker:
                 previous.match[0] if previous is not None and previous.match is not None
                 else None
             )
+            # Field 23/11 (latency): animated Mayhem cards kept the title crop
+            # hash moving, so two reads naming the SAME augment were rejected
+            # and verification took 10-30 s. Two identical named reads now
+            # verify; an unknown (None) read still needs a stable image.
+            same_name = signature is not None and signature == previous_signature
             if (
                 previous is not None
-                and hash_distance(image_hash, previous.hash_value) <= STABLE_THRESHOLD
-                and signature == previous_signature
+                and (same_name or (
+                    hash_distance(image_hash, previous.hash_value) <= STABLE_THRESHOLD
+                    and signature == previous_signature))
             ):
                 count = previous.count + 1
             else:

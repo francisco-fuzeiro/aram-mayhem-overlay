@@ -56,10 +56,23 @@ def slot_ids(matches) -> list[str | None] | None:
     return out
 
 
-def run_anvil_check(title_names: dict[str, str]) -> tuple[str, list[str | None] | None]:
-    """One synchronous observation (call through asyncio.to_thread)."""
+def run_anvil_check(title_names: dict[str, str],
+                    force_ocr: bool = False) -> tuple[str, list[str | None] | None]:
+    """One synchronous observation (call through asyncio.to_thread).
+
+    force_ocr reads the titles even when the augment card-background cue says
+    "absent" (field 23/11: the Stat Anvil popup was never read; its cards may
+    not share the augment card background the cue was calibrated on).
+    """
     watcher = anvil_watcher()
-    action, matches = watcher.check(title_names)
+    skip = getattr(watcher, "_skip_ocr_without_cards", None)
+    if force_ocr and skip is not None:
+        watcher._skip_ocr_without_cards = False
+    try:
+        action, matches = watcher.check(title_names)
+    finally:
+        if force_ocr and skip is not None:
+            watcher._skip_ocr_without_cards = skip
     if action == "detected":
         return action, slot_ids(matches)
     if action == "unchanged":

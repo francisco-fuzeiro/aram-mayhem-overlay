@@ -162,13 +162,15 @@ def test_second_capture_without_proof_is_rejected_before_any_ocr(monkeypatch):
 
 
 def test_reused_capture_timestamp_is_not_a_fresh_second_frame(monkeypatch):
+    # Field 23/11: one extra fresh-frame attempt before giving up the tick.
     watcher, captures, _delays, reads = setup(
-        monkeypatch, [verified(timestamp=10.0), verified(timestamp=10.0)]
+        monkeypatch, [verified(timestamp=10.0), verified(timestamp=10.0),
+                      verified(timestamp=10.0)]
     )
     assert watcher.check({}) == ("capture_unavailable", None)
     assert not watcher._temporal.has_pending
     assert reads == Counter({"left": 1, "centre": 1, "right": 1})
-    assert captures == [1, 2]
+    assert captures == [1, 2, 3]
 
 
 def test_other_window_proof_cannot_confirm_pending_slots(monkeypatch):

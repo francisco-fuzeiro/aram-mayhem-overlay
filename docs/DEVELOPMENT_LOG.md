@@ -1205,3 +1205,11 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   (4) Full Mayhem build + Stat Anvil estimate shown only when dead, in the first
   60 s, or pinned with Alt+B; otherwise only the next item (no shop-open signal in
   Live Client Data, so death/start is the proxy).
+- Real match on 892f379: enemies detected (5/5). Time from cards on screen to first
+  verified read: ~0 s, ~10 s, ~11 s, ~13 s (the rest of "first read" was the player
+  opening the offer later). Causes in the stages: titles_verifying/transition and
+  capture_invalid. Fixes: two consecutive reads naming the same augment now verify
+  even if the crop hash moved (animated cards); a repeated capture frame gets one
+  more fresh attempt in the same tick. Report adds "OCR after cards shown".
+- Anvil watcher saw "no_cards" 30x: the augment card-background cue may not match
+  the Stat Anvil popup. Every 4 s it now OCRs the titles regardless of the cue.
