@@ -134,3 +134,125 @@ def rate_verified_anvil_options(champion, offered_anvils, confirmed_augments,
     return sorted(results, key=lambda row: (
         row["score"] is None, -(row["score"] or 0), row["anvil_name"],
     ))
+
+
+# --- P0-D: scores for a VERIFIED real-catalogue offer (stat_anvil_offer) ----
+
+# Canonical catalogue stat -> champion StatVector field it is valued by.
+_OFFENSIVE = {
+    "ad": "ad", "ap": "ap", "as": "attack_speed", "crit": "crit",
+    "crit_damage": "crit", "lethality": "lethality", "armor_pen_pct": "lethality",
+    "mpen": "pen", "mpen_pct": "pen", "ah": "cdr", "hp": "hp", "hp_pct": "hp",
+    "heal_shield": "heal_power",
+}
+_STAT_LABELS = {
+    "ad": "attack damage", "ap": "ability power", "as": "attack speed",
+    "crit": "crit chance", "crit_damage": "crit damage", "lethality": "lethality",
+    "armor_pen_pct": "armor penetration", "mpen": "magic penetration",
+    "mpen_pct": "magic penetration", "ah": "ability haste", "hp": "health",
+    "hp_pct": "health", "heal_shield": "heal & shield power", "armor": "armor",
+    "mr": "magic resist", "ms": "move speed", "tenacity": "tenacity",
+    "omnivamp": "omnivamp",
+}
+_IGNORED = frozenset({"size", "omnivamp_ranged"})
+
+
+def _shard_demand(champion, confirmed_augments, owned_items, enemy):
+    """Per-catalogue-stat demand >= 0, or {} when the champion is unmodelled.
+
+    Offence reuses the augment stat model (_stat_weights). Defence and
+    utility, which the augment StatVector cannot express, come from the
+    champion's frontline weight and the visible enemy damage/CC profile.
+    """
+    base = _stat_weights(champion, confirmed_augments, owned_items, enemy)
+    if not base:
+        return {}
+    vec = dict(zip(StatVector.fields(), _get_champion_vec(champion)))
+    for extra in ("pen", "heal_power", "shield"):
+        value = vec.get(extra, 0.0)
+        if extra not in base and math.isfinite(value):
+            base[extra] = max(0.0, float(value))
+    demand = {stat: base.get(field, 0.0) for stat, field in _OFFENSIVE.items()}
+    demand["heal_shield"] += 0.5 * max(0.0, float(vec.get("shield", 0.0)))
+    frontline = min(1.2, max(0.0, float(vec.get("hp", 0.0))))
+    known = isinstance(enemy, EnemyThreatProfile) and enemy.enemies_analyzed > 0
+    physical = enemy.physical_pressure if known else 0.5
+    magic = enemy.magic_pressure if known else 0.5
+    cc = enemy.cc_pressure if known else 0.3
+    demand["armor"] = (0.2 + 0.6 * frontline) * (0.5 + physical)
+    demand["mr"] = (0.2 + 0.6 * frontline) * (0.5 + magic)
+    demand["tenacity"] = 0.15 + 0.6 * min(1.0, max(0.0, cc)) * (0.5 + frontline)
+    role = getattr(champion, "role", "")
+    demand["ms"] = 0.25 + (0.2 if role in ("marksman", "assassin") else 0.0)
+    demand["omnivamp"] = 0.25 + (0.3 if role in ("fighter", "assassin") else 0.0)
+    return {k: max(0.0, float(v)) for k, v in demand.items() if math.isfinite(v)}
+
+
+def _strengths(shard, singles):
+    """Per-stat strength vs this tier's single-stat shard (hybrids < 1)."""
+    out = {}
+    for stat, value in shard.stats:
+        if stat in _IGNORED:
+            continue
+        ref = singles.get((shard.tier, stat)) or value
+        out[stat] = max(0.0, min(1.0, value / ref)) if ref else 0.0
+    return out
+
+
+def _singles(catalog):
+    result = {}
+    for shard in catalog:
+        scored = [(k, v) for k, v in shard.stats if k not in _IGNORED]
+        if len(scored) == 1:
+            result[(shard.tier, scored[0][0])] = scored[0][1]
+    return result
+
+
+def rate_stat_anvil_offer(champion, offered, catalog, confirmed_augments,
+                          owned_items, enemy):
+    """Own 0.0-10.0 score per verified shard; never a win rate or OP.GG grade.
+
+    10 = the best shard of this tier for this champion and context; the score
+    is fit / best possible fit within the same tier of the real catalogue.
+    Returns [] (abstain) when the champion cannot be modelled.
+    """
+    offered = list(offered or ())
+    catalog = list(catalog or ())
+    if not offered or not catalog or len({s.tier for s in offered}) != 1:
+        return []
+    demand = _shard_demand(champion, confirmed_augments, owned_items, enemy)
+    if not demand:
+        return []
+    singles = _singles(catalog)
+    tier = offered[0].tier
+
+    def fit(shard):
+        parts = {stat: demand.get(stat, 0.0) * strength
+                 for stat, strength in _strengths(shard, singles).items()}
+        return sum(parts.values()), parts
+
+    best = max((fit(s)[0] for s in catalog if s.tier == tier), default=0.0)
+    if best <= 0:
+        return []
+    known_enemy = isinstance(enemy, EnemyThreatProfile) and enemy.enemies_analyzed > 0
+    rows = []
+    for shard in offered:
+        total, parts = fit(shard)
+        driver = max(parts, key=parts.get) if parts else None
+        reason = f"{_STAT_LABELS.get(driver, driver)} suits this champion"
+        if driver in ("armor", "mr") and known_enemy:
+            reason = ("enemies deal mostly physical damage" if driver == "armor"
+                      else "enemies deal mostly magic damage")
+        elif driver == "tenacity" and known_enemy:
+            reason = "heavy enemy crowd control"
+        rows.append({
+            "anvil_id": shard.id, "anvil_name": shard.title, "tier": tier,
+            "stats": dict(shard.stats),
+            "score": round(10.0 * min(1.0, total / best), 1),
+            "modelled": True, "provenance": "public_game_bin",
+            "reason": reason,
+            "confidence": "medium" if known_enemy else "low",
+            "explanation": ("Own heuristic: champion stats, confirmed augments, "
+                            "owned items and visible enemies; not a win rate."),
+        })
+    return sorted(rows, key=lambda r: (-r["score"], r["anvil_name"]))

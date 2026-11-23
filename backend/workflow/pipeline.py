@@ -2,7 +2,9 @@ from backend.models import GameSnapshot, GamePhase, PipelineResult, EnemyState
 from backend.static_data.loader import StaticData
 from backend.engine.ranker import rank_augments, should_reroll
 from backend.engine.build_suggester import suggest_build
-from backend.engine.anvil_priorities import rate_verified_anvil_options
+from backend.engine.anvil_priorities import (
+    rate_stat_anvil_offer, rate_verified_anvil_options,
+)
 from backend.models import AugmentTier
 from backend.engine.inventory import build_inventory
 from backend.engine.team_context import analyze_enemies, analyze_allies
@@ -33,6 +35,24 @@ def _record_next_item_decision(build_state, meta) -> None:
 class Pipeline:
     def __init__(self, static_data: StaticData):
         self.data = static_data
+
+    def _rate_anvil_offer(self, snapshot, champion, existing, inventory, enemy):
+        """Score only a server-verified popup (anvil_offer_ids); else nothing."""
+        ids = list(getattr(snapshot, "anvil_offer_ids", None) or [])
+        catalog_fn = getattr(self.data, "stat_anvil_catalog", None)
+        if not ids or not callable(catalog_fn):
+            return []
+        catalog = catalog_fn()
+        if any(i not in catalog for i in ids):
+            return []
+        ratings = rate_stat_anvil_offer(
+            champion, [catalog[i] for i in ids], list(catalog.values()), existing,
+            [self.data.get_item(ident) for ident in inventory.finals], enemy,
+        )
+        feature_diagnostics.record(
+            "anvil.offer_rating", *(("ok", "scored") if ratings else ("skipped", "unmodelled")),
+        )
+        return ratings
 
     def run(self, snapshot: GameSnapshot) -> PipelineResult | None:
         champion = self.data.get_champion(snapshot.champion_id)
@@ -135,6 +155,9 @@ class Pipeline:
             ) if anvil_only and len(choices) == 3 and
                  len({aug.id for aug in choices}) == 3 else []
         )
+        offer_ratings = self._rate_anvil_offer(
+            snapshot, champion, existing, inventory, enemy_profile,
+        )
         meta = self.data.item_pool_meta
         if meta is not None:
             build_state.data_version = {
@@ -206,4 +229,5 @@ class Pipeline:
             enemy_analysis={**enemy_profile.as_dict(), "notes": enemy_profile.notes()},
             ally_analysis={**ally_profile.as_dict(), "notes": ally_profile.notes()},
             anvil_recommendations=anvil_ratings,
+            anvil_offer_ratings=offer_ratings,
         )

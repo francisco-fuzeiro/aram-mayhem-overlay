@@ -6,8 +6,20 @@ or that an OCR title can be mapped to a stat selection.
 """
 from __future__ import annotations
 
-# Public item catalogue: Anvil Voucher and Gold Stat Anvil Voucher.
-STAT_ANVIL_VOUCHER_IDS = frozenset({"220008", "220009"})
+# Public 16.23 items.json: all three are "Redeem during a Shopping Phase to
+# gain a Stat Anvil!" (220010 "Prismatic Stat Voucher" was missing before).
+# Tier per voucher is a HINT for title-ambiguous offers only: 220009/220010
+# are named Gold/Prismatic [Certo]; 220008 "Anvil Voucher" = Silver [Provavel].
+VOUCHER_TIERS = {"220008": "silver", "220009": "gold", "220010": "prismatic"}
+STAT_ANVIL_VOUCHER_IDS = frozenset(VOUCHER_TIERS)
+
+
+def voucher_tier(bought: object) -> str | None:
+    """Single tier of a voucher edge, else None (none or several kinds)."""
+    if not isinstance(bought, (list, tuple)):
+        return None
+    tiers = {VOUCHER_TIERS[b] for b in bought if b in VOUCHER_TIERS}
+    return tiers.pop() if len(tiers) == 1 else None
 
 
 def count_anvil_vouchers(items: object) -> dict[str, int] | None:
