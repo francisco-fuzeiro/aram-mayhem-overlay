@@ -10,32 +10,43 @@ falling back to a role prior. Ability-ratio demand from CommunityDragon
 champion bins is the planned second half (design §3) and is not wired yet;
 until then its weight redistributes to the measured builds.
 
-The shard catalogue (stat kind and value per Silver/Gold/Prismatic shard) is
-game data read from CommunityDragon by ``static_data.anvil_public_catalog``
-(#107). A kind we cannot map to one stat abstains ("unmodelled").
+The shard catalogue is game data pinned per patch by #107
+(``data/anvils/stat_anvils_<patch>.json``, from CommunityDragon
+``game/maps/modespecificdata/statanvils.bin.json`` on 16.23). Each shard
+carries canonical ``stats`` ({stat: value}); ranking uses them, so hybrids
+score on both stats, weighted by value against the pure shard of the same
+tier. Side effects (size, ranged omnivamp share) never score. A shard with no
+known stat abstains ("unmodelled").
 """
 from __future__ import annotations
 
 import re
 
-# 13 Anvil/item stats. The augment StatVector (12 dims) lacks armor, MR,
-# movement speed, tenacity and omnivamp, so Anvils use their own space.
+# 14 Anvil/item stats. The augment StatVector (12 dims) lacks armor, MR,
+# movement speed, tenacity, omnivamp and heal/shield power, so Anvils use
+# their own space.
 ANVIL_STATS = ("ad", "ap", "as", "hp", "armor", "mr", "ah", "crit", "ms",
-               "lethality", "mpen", "omnivamp", "tenacity")
+               "lethality", "mpen", "omnivamp", "tenacity", "heal_shield")
+
+# Canonical catalogue stats (#107) -> Anvil demand stats.
+_CATALOG_STAT = {"hp_pct": "hp", "armor_pen_pct": "lethality", "mpen_pct": "mpen",
+                 "crit_damage": "crit"}
+SIDE_EFFECT_STATS = frozenset({"size", "omnivamp_ranged"})
 
 _KIND_PATTERNS = (
     ("lethality", r"lethality|armorpen"),
-    ("mpen", r"magicpen|magicpenetration|spellpen"),
+    ("mpen", r"magicpen|magicpenetration|spellpen|^mpen$"),
     ("mr", r"magicresist|spellblock|^mr$"),
-    ("armor", r"armor"),
+    ("armor", r"armor|^ar$"),
     ("ap", r"abilitypower|^ap$|magicdamage"),
     ("ad", r"attackdamage|^ad$|physicaldamage"),
-    ("as", r"attackspeed"),
-    ("ah", r"abilityhaste|cooldown"),
+    ("as", r"attackspeed|^as$"),
+    ("ah", r"abilityhaste|cooldown|^ah$"),
     ("crit", r"crit"),
-    ("ms", r"movespeed|movementspeed"),
+    ("ms", r"movespeed|movementspeed|^ms$"),
     ("omnivamp", r"omnivamp|lifesteal|spellvamp|vamp"),
     ("tenacity", r"tenacity"),
+    ("heal_shield", r"healshield|^hs$"),
     ("hp", r"health|^hp$|maxhealth"),
 )
 
@@ -55,7 +66,7 @@ _ROLE_PRIOR = {
     "assassin": {"ad": 3, "lethality": 3, "ah": 1, "ap": 1},
     "fighter": {"ad": 3, "hp": 2, "ah": 2, "armor": 1, "omnivamp": 1},
     "tank": {"hp": 4, "armor": 2, "mr": 2, "ah": 1},
-    "support": {"ah": 3, "hp": 2, "ap": 1, "ms": 1},
+    "support": {"ah": 3, "hp": 2, "heal_shield": 2, "ap": 1, "ms": 1},
 }
 
 MAX_TIER = "A"
@@ -63,10 +74,21 @@ _TIER_CUTS = (("A", 8.0), ("B", 6.0), ("C", 4.0), ("D", 2.0))
 
 
 def anvil_stat_for_kind(kind: str) -> str | None:
-    """Map a public shard kind (DataValues name) to one stat, else None."""
+    """Map one shard kind, catalogue stat or raw DataValues name to a stat.
+
+    Multi-stat kinds ("as+ah", "MinAS+MinAH") return None: hybrids are ranked
+    from the catalogue's ``stats`` instead.
+    """
     if not isinstance(kind, str) or "+" in kind:
         return None
+    if kind in ANVIL_STATS:
+        return kind
+    if kind in _CATALOG_STAT:
+        return _CATALOG_STAT[kind]
+    if kind in SIDE_EFFECT_STATS:
+        return None
     key = re.sub(r"[^a-z]", "", kind.lower()).replace("flat", "").replace("percent", "")
+    key = re.sub(r"^min(?=[a-z])", "", key)
     for stat, pattern in _KIND_PATTERNS:
         if re.search(pattern, key):
             return stat
@@ -128,6 +150,33 @@ def _context(stat: str, enemy: dict | None, allies: dict | None,
     return mult, boost, reason
 
 
+def _shard_components(shard: dict) -> dict[str, float] | None:
+    """{stat: value} from catalogue stats; None if the shard has no stats field."""
+    stats = shard.get("stats")
+    if not isinstance(stats, dict):
+        return None
+    out: dict[str, float] = {}
+    for name, value in stats.items():
+        if name in SIDE_EFFECT_STATS:
+            continue
+        stat = anvil_stat_for_kind(name)
+        if stat is None or not isinstance(value, (int, float)):
+            continue
+        out[stat] = out.get(stat, 0.0) + abs(float(value))
+    return out
+
+
+def _pure_values(shards: list[dict], reference: list[dict] | None) -> dict:
+    """(tier, stat) -> value of the single-stat shard, for hybrid weighting."""
+    pure: dict[tuple, float] = {}
+    for shard in list(reference or ()) + list(shards):
+        comps = _shard_components(shard)
+        if comps and len(comps) == 1:
+            (stat, value), = comps.items()
+            pure.setdefault((shard.get("tier"), stat), value)
+    return pure
+
+
 def rank_anvil_options(
     shards: list[dict],
     demand: dict[str, float],
@@ -135,23 +184,42 @@ def rank_anvil_options(
     enemy: dict | None = None,
     allies: dict | None = None,
     augment_stats: dict | None = None,
+    reference: list[dict] | None = None,
 ) -> list[dict]:
-    """Rank the visible shards (each {id, kind, tier, values}); estimates only.
+    """Rank Stat Anvil shards; estimates only.
 
-    Score 0-10 is relative to the most wanted stat for this champion, then
-    adjusted by enemies, allies and confirmed augments. Tier is capped at A.
+    A shard is {id, tier, stats} from the pinned catalogue (preferred), or
+    {id, stat} / {id, kind} for one stat. Score 0-10 is relative to the most
+    wanted stat for this champion, adjusted by enemies, allies and confirmed
+    augments. A hybrid adds each stat's score times its value over the pure
+    shard of the same tier (from ``reference`` or the shards given; 1/n when
+    unknown). Tier is capped at A.
     """
     peak = max(demand.values()) if demand else 1.0
+    pure = _pure_values(shards, reference)
     out = []
     for shard in shards:
-        stat = shard.get("stat") if shard.get("stat") in ANVIL_STATS \
-            else anvil_stat_for_kind(shard.get("kind"))
-        if stat is None:
+        comps = _shard_components(shard)
+        if comps is None:
+            stat = shard.get("stat") if shard.get("stat") in ANVIL_STATS \
+                else anvil_stat_for_kind(shard.get("kind"))
+            comps = {stat: None} if stat else {}
+        if not comps:
             out.append({"id": shard.get("id"), "stat": None, "score": None, "tier": None,
                         "rank": None, "level": "unmodelled", "reason": None})
             continue
-        mult, boost, reason = _context(stat, enemy, allies, augment_stats)
-        score = min(10.0, 10.0 * (demand.get(stat, 0.0) / peak + boost) * mult)
+        parts = []
+        for stat, value in comps.items():
+            if len(comps) == 1:
+                share = 1.0
+            else:
+                ref = pure.get((shard.get("tier"), stat))
+                share = min(1.0, value / ref) if ref and value is not None else 1.0 / len(comps)
+            mult, boost, reason = _context(stat, enemy, allies, augment_stats)
+            part = share * 10.0 * (demand.get(stat, 0.0) / peak + boost) * mult
+            parts.append((part, stat, reason))
+        score = min(10.0, sum(p for p, _, _ in parts))
+        _, stat, reason = max(parts, key=lambda p: (p[0], p[1]))
         tier = next((t for t, cut in _TIER_CUTS if score >= cut), "E")
         out.append({"id": shard.get("id"), "stat": stat, "score": round(score, 1),
                     "tier": tier, "rank": None, "level": "estimate",

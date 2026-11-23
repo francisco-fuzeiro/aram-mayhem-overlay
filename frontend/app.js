@@ -1112,7 +1112,8 @@
     const ANVIL_STAT_TEXT = {ad: "Attack Damage", ap: "Ability Power", as: "Attack Speed",
         hp: "Health", armor: "Armor", mr: "Magic Resist", ah: "Ability Haste",
         crit: "Critical Strike", ms: "Move Speed", lethality: "Lethality",
-        mpen: "Magic Penetration", omnivamp: "Omnivamp", tenacity: "Tenacity"};
+        mpen: "Magic Penetration", omnivamp: "Omnivamp", tenacity: "Tenacity",
+        heal_shield: "Heal & Shield Power"};
 
     // Tier list build: measured reference, adapted swaps (max 3), Anvil
     // estimates. Ranks and reasons only; never win rates.

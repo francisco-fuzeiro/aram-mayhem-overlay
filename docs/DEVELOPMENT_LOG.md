@@ -1,5 +1,9 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Stat Anvil estimates use the real 16.23 catalogue stats
+
+- Merged #107 (real 16.23 catalogue: `statanvils.bin.json`, 34 offerable shards 13/13/8, pinned in `data/anvils/stat_anvils_16.23.json`). `rank_anvil_options` now ranks from each shard's canonical `stats` instead of guessing from the kind: raw `Min*` DataValues names map, hybrids (as+ah, ad+ap, armor+mr) score on both stats weighted by value against the pure shard of the same tier, side effects (size, ranged omnivamp) never score, heal/shield power added as a 14th stat. All 34 real shards are modelled (before: almost all "unmodelled"). `anvil_priorities.py` (#107) untouched.
+
 ## 2026-11-23 — Tier DB I2-I5: item tiers, reference builds, Stat Anvils, adaptation
 
 - Merged the GPT P0 fix (#107) into the tier DB line; item eligibility/canonical IDs come from its verified pool (`recommendable_items`, `canonical_item_id`, exclusive groups). Its files untouched.
