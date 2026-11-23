@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-ITEM_POLICY_VERSION = "item_pool_v2"
+ITEM_POLICY_VERSION = "item_pool_v3"
 ARAM_MAP_ID = "12"
 _SHOP_ID_PATTERN = re.compile(r"(?:\d{4}|12\d{4})")
 _REWARD_ID_PATTERN = re.compile(r"22\d{4}")
@@ -83,6 +83,10 @@ def load_item_overrides(path: Path | None = None) -> dict:
             raise ValueError("invalid item override identifier")
         if not isinstance(item, dict) or item.get("class") not in ITEM_CLASSES:
             raise ValueError("invalid item override class")
+        # Reviewed overrides may remove unsafe shop offers, never create
+        # purchase entitlement absent from both source catalogs.
+        if item["class"] in POOL_CLASSES:
+            raise ValueError("item overrides may only exclude shop items")
         if any(not isinstance(item.get(key), str) or not item[key].strip()
                for key in ("reason", "source")):
             raise ValueError("item override requires a reason and a source")
@@ -95,6 +99,11 @@ def classify_item(item_id: str, dd: dict, cd: dict | None, overrides: dict) -> I
     Source recipe consistency is checked by the loader on full raw records.
     Compact audit fixtures carry recipe counts only and are classified here.
     """
+    # Reward IDs are never ordinary shop items, even if an unsanitized
+    # caller supplies a manual promotion rule. A reward acquired in game
+    # remains recognizable through the full catalog, not recommended to buy.
+    if _REWARD_ID_PATTERN.fullmatch(item_id):
+        return "augment_reward"
     override = overrides.get("force_class", {}).get(item_id)
     if override is not None:
         if not isinstance(override, dict) or override.get("class") not in ITEM_CLASSES:
@@ -102,18 +111,25 @@ def classify_item(item_id: str, dd: dict, cd: dict | None, overrides: dict) -> I
         if any(not isinstance(override.get(k), str) or not override[k].strip()
                for k in ("reason", "source")):
             raise ValueError("forced class requires reason and source")
+        if override["class"] in POOL_CLASSES:
+            raise ValueError("item overrides may only exclude shop items")
         return override["class"]
     if cd is None:
         return "unknown"
     if dd.get("maps", {}).get(ARAM_MAP_ID) is not True:
         return "not_on_aram_map"
-    if _REWARD_ID_PATTERN.fullmatch(item_id):
-        return "augment_reward"
     if not _SHOP_ID_PATTERN.fullmatch(item_id):
         return "mode_variant"
+    # Some CDragon items carry a currency *cost* without a currency name.
+    # A missing, malformed or negative cost cannot prove a zero-cost shop
+    # path. These metadata values do not prove that an in-game quest is done.
+    currency_cost = cd.get("requiredBuffCurrencyCost")
+    if type(currency_cost) is not int or currency_cost < 0:
+        return "unknown"
     if (dd.get("requiredChampion") or dd.get("requiredAlly")
             or cd.get("requiredChampion") or cd.get("requiredAlly")
             or cd.get("requiredBuffCurrencyName")
+            or currency_cost > 0
             or cd.get("specialRecipe", 0)):
         return "conditional"
     tags = set(dd.get("tags") or ())
