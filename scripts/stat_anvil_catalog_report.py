@@ -345,6 +345,136 @@ def discover_patch_anvil_bins(
     return report
 
 
+_KEYWORD_BIN_PATHS = (
+    "game/gameplay.bin.json",
+    "game/maps/modespecificdata/cherry.bin.json",
+)
+_PUBLIC_RELATIVE_BIN = re.compile(
+    r"^game/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_.-]+\\.bin\\.json$"
+)
+_MAX_PROBE_BYTES = 16 * 1024 * 1024
+_MAX_PROBE_NODES = 100000
+_MAX_PROBE_EXAMPLES = 40
+
+
+def _validate_public_bin_path(path: object) -> str:
+    if (not isinstance(path, str) or len(path) > 200
+            or not _PUBLIC_RELATIVE_BIN.fullmatch(path)
+            or any(segment in (".", "..") for segment in path.split("/"))):
+        raise AnvilCatalogError("only safe game/*.bin.json paths are allowed")
+    return path
+
+
+def summarize_public_anvil_references(path: str, data: object) -> dict:
+    """Bounded, public-only structural inspection: NEVER validates offers.
+
+    Show the precise key/value JSON locations that mention Anvil, plus
+    top-level versus nested __type=AnvilData. A keyword is a lead only.
+    """
+    _validate_public_bin_path(path)
+    report = {
+        "path": path,
+        "valid_json": isinstance(data, dict),
+        "top_level_anvil_data": 0,
+        "nested_anvil_data": 0,
+        "keyword_hit_count": 0,
+        "keyword_examples": [],
+        "nodes_inspected": 0,
+        "truncated": False,
+        "catalogue_verified": False,
+    }
+    if not isinstance(data, dict):
+        return report
+    stack: list[tuple[str, object, int]] = [("$", data, 0)]
+    while stack and report["nodes_inspected"] < _MAX_PROBE_NODES:
+        parent_path, node, depth = stack.pop()
+        report["nodes_inspected"] += 1
+        if isinstance(node, dict):
+            if node.get("__type") == "AnvilData":
+                key = ("top_level_anvil_data" if depth == 1
+                       else "nested_anvil_data")
+                report[key] += 1
+            for name, value in node.items():
+                if not isinstance(name, str):
+                    continue
+                child_path = f"{parent_path}.{name[:70]}"
+                key_hit = "anvil" in name.lower()
+                value_hit = isinstance(value, str) and "anvil" in value.lower()
+                if key_hit or value_hit:
+                    report["keyword_hit_count"] += 1
+                    if len(report["keyword_examples"]) < _MAX_PROBE_EXAMPLES:
+                        public_value = (value[:160] if isinstance(value, str)
+                                        else "<object>" if isinstance(value, dict)
+                                        else "<array>" if isinstance(value, list)
+                                        else "<scalar>")
+                        report["keyword_examples"].append({
+                            "json_path": child_path[:250],
+                            "public_value": public_value,
+                        })
+                if isinstance(value, (dict, list)) and depth < 16:
+                    stack.append((child_path, value, depth + 1))
+        elif isinstance(node, list):
+            for i, value in enumerate(node[:10000]):
+                if isinstance(value, (dict, list)):
+                    stack.append((f"{parent_path}[{i}]", value, depth + 1))
+                elif isinstance(value, str) and "anvil" in value.lower():
+                    report["keyword_hit_count"] += 1
+                    if len(report["keyword_examples"]) < _MAX_PROBE_EXAMPLES:
+                        report["keyword_examples"].append({
+                            "json_path": f"{parent_path}[{i}]"[:250],
+                            "public_value": value[:160],
+                        })
+    report["truncated"] = bool(stack)
+    return report
+
+
+def probe_public_anvil_keyword_paths(
+    patch: str, paths: list[str] | tuple[str, ...] = _KEYWORD_BIN_PATHS,
+) -> dict:
+    """Opt-in HTTP GET for exact, allowlisted-origin public bin path(s).
+
+    No disk writes, Riot endpoints, match records, OCR or player information.
+    Missing/invalid sources keep catalogue_verified false unconditionally.
+    """
+    import requests
+
+    if not isinstance(patch, str) or not _PATCH.fullmatch(patch):
+        raise AnvilCatalogError("invalid public patch")
+    if not isinstance(paths, (list, tuple)) or not (1 <= len(paths) <= 8):
+        raise AnvilCatalogError("expected one to eight public bin paths")
+    validated = [_validate_public_bin_path(path) for path in paths]
+    if len(set(validated)) != len(validated):
+        raise AnvilCatalogError("duplicate public bin paths")
+    result = {
+        "patch": patch, "paths": [], "catalogue_verified": False,
+        "live_popup_verified": False,
+        "warnings": [
+            "Keyword matches or nested AnvilData are not a verified Stat Anvil catalog.",
+            "Only exact top-level AnvilData plus valid spell/tier parsing can verify identities.",
+        ],
+    }
+    for path in validated:
+        try:
+            response = requests.get(
+                f"https://raw.communitydragon.org/{patch}/{path}",
+                timeout=25,
+            )
+            if response.status_code == 404:
+                result["paths"].append({"path": path, "status": "missing"})
+                continue
+            response.raise_for_status()
+            if len(response.content) > _MAX_PROBE_BYTES:
+                result["paths"].append({"path": path, "status": "oversize"})
+                continue
+            report = summarize_public_anvil_references(path, response.json())
+            report["status"] = ("inspected" if report["valid_json"]
+                                else "invalid_json_root")
+            result["paths"].append(report)
+        except (requests.RequestException, UnicodeError, ValueError):
+            result["paths"].append({"path": path, "status": "unavailable"})
+    return result
+
+
 def public_patch_report(patch: str, *, locale: str | None = None) -> dict:
     """Optional network-only discovery; public sources, no cache writes."""
     import requests
@@ -390,6 +520,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="Opt-in public CDragon AnvilData bins, e.g. 16.23; makes network requests")
     parser.add_argument("--discover", action="store_true",
                         help="With --public-patch, inspect indexed .bin.json candidates in bounded public game directories")
+    parser.add_argument("--probe-keyword-paths", action="store_true",
+                        help="Opt-in inspect direct public Anvil keyword hits without assuming these are catalogues")
+    parser.add_argument("--probe-path", action="append",
+                        help="Additional safe public game/*.bin.json path (requires --probe-keyword-paths)")
     parser.add_argument("--discovery-bins", type=int, default=80,
                         help="Bounded search limit, default 80 public bins, maximum 200")
     parser.add_argument("--discovery-dirs", type=int, default=48,
@@ -404,6 +538,23 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--discover requires --public-patch")
     if args.discover and args.locale:
         parser.error("--discover does not yet resolve titles; run a pinned source lookup separately")
+    if args.probe_keyword_paths and not args.public_patch:
+        parser.error("--probe-keyword-paths requires --public-patch")
+    if args.probe_keyword_paths and (args.discover or args.locale):
+        parser.error("--probe-keyword-paths is separate from discovery and title lookup")
+    if args.probe_path and not args.probe_keyword_paths:
+        parser.error("--probe-path requires --probe-keyword-paths")
+    if args.probe_keyword_paths:
+        try:
+            report = probe_public_anvil_keyword_paths(
+                args.public_patch, args.probe_path or _KEYWORD_BIN_PATHS,
+            )
+        except AnvilCatalogError as exc:
+            print(f"PUBLIC ANVIL PROBE INVALID: {exc}")
+            return 2
+        print(json.dumps(report, indent=2, sort_keys=True))
+        # This probe can never return a verified catalogue; exit 2 is intentional.
+        return 2
     if args.public_patch:
         try:
             result = (discover_patch_anvil_bins(
