@@ -157,6 +157,184 @@ def inspect_public_bin_index(patch: str) -> dict:
     return result
 
 
+def _follow_patch_directory(path: str) -> bool:
+    """Only public game-content trees likely to contain map/Anvil bin files."""
+    parts = path.strip("/").split("/")
+    if not parts or parts[0] != "game" or len(parts) > 9:
+        return False
+    if len(parts) == 2:
+        return parts[1] in {"data", "maps", "unknown", "levels"}
+    if len(parts) == 3 and parts[:2] == ["game", "data"]:
+        return parts[2] in {"maps", "modes", "gamemodes", "cherry"}
+    if len(parts) == 3 and parts[:2] == ["game", "maps"]:
+        return any(word in parts[2].lower() for word in
+                   ("map", "mode", "cherry", "aram", "mayhem", "arena", "shipping"))
+    return any(word in parts[-1].lower() for word in
+               ("map", "mode", "cherry", "aram", "mayhem", "arena", "shipping", "unknown"))
+
+
+def _bin_priority(path: str) -> int:
+    lower = path.lower()
+    if "anvil" in lower:
+        return 100
+    if any(word in lower for word in ("mayhem", "cherry", "aram")):
+        return 90
+    if "507cdd64276919f5" in lower:
+        return 80
+    if "/unknown/" in lower:
+        return 70
+    if "gameplay" in lower:
+        return 60
+    if any(word in lower for word in ("map", "mode", "arena")):
+        return 50
+    return 0
+
+
+def discover_patch_anvil_bins(
+    patch: str, *, max_bins: int = 80,
+    max_index_directories: int = 48,
+    max_bytes: int = 128 * 1024 * 1024,
+) -> dict:
+    """Explicit bounded network discovery of REAL public AnvilData.
+
+    Fetch CDragon's official JSON directory index for the versioned game
+    subtree, inspect plausible .bin.json contents and parse the actual
+    AnvilData+RootSpell structures. No guessing, no disk writes, no game
+    API/screen/player data. A capped or unavailable scan is NOT negative proof.
+    """
+    import requests
+    from backend.static_data.anvil_public_catalog import parse_public_bins
+
+    if not isinstance(patch, str) or not _PATCH.fullmatch(patch):
+        raise AnvilCatalogError("patch must be major.minor")
+    if (type(max_bins) is not int or not (0 <= max_bins <= 200)
+            or type(max_index_directories) is not int
+            or not (1 <= max_index_directories <= 100)
+            or type(max_bytes) is not int or not (1 <= max_bytes <= 256 * 1024 * 1024)):
+        raise AnvilCatalogError("invalid public discovery budget")
+
+    queue = ["game/"]
+    visited: set[str] = set()
+    candidates: dict[str, tuple[int, int]] = {}
+    index_errors: list[str] = []
+    while queue and len(visited) < max_index_directories:
+        directory = queue.pop(0)
+        if directory in visited:
+            continue
+        visited.add(directory)
+        status, rows = _public_index_rows(patch, directory)
+        if status != "indexed":
+            index_errors.append(directory)
+            continue
+        for row in rows:
+            name = row.get("name")
+            typ = row.get("type")
+            if not isinstance(name, str):
+                continue
+            if typ == "directory":
+                if (re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,80}", name)
+                        and name not in (".", "..")):
+                    child = directory + name + "/"
+                    if (_follow_patch_directory(child) and child not in visited
+                            and child not in queue):
+                        queue.append(child)
+                continue
+            if typ != "file" or not _SAFE_BIN.fullmatch(name):
+                continue
+            size = row.get("size")
+            full_path = directory + name
+            priority = _bin_priority(full_path)
+            if (type(size) is int and 1024 <= size <= _MAX_LISTED_BIN_BYTES
+                    and priority > 0):
+                candidates[full_path] = (priority, size)
+
+    pending_directories = bool(queue)
+    ordered = sorted(candidates, key=lambda path: (
+        -candidates[path][0], -candidates[path][1], path,
+    ))
+    selected = ordered[:max_bins]
+    incomplete = pending_directories or len(ordered) > max_bins or bool(index_errors)
+    inspected = 0
+    total_bytes = 0
+    matched_docs = []
+    matched_paths = []
+    source_errors = []
+    for path in selected:
+        estimated = candidates[path][1]
+        if total_bytes + estimated > max_bytes:
+            incomplete = True
+            break
+        url = f"https://raw.communitydragon.org/{patch}/{path}"
+        try:
+            response = requests.get(url, timeout=25)
+            if response.status_code == 404:
+                source_errors.append(path)
+                incomplete = True
+                continue
+            response.raise_for_status()
+            data = response.content
+            if len(data) > _MAX_LISTED_BIN_BYTES or total_bytes + len(data) > max_bytes:
+                incomplete = True
+                break
+            total_bytes += len(data)
+            inspected += 1
+            if b"AnvilData" not in data:
+                continue
+            document = response.json()
+            if not isinstance(document, dict):
+                source_errors.append(path)
+                incomplete = True
+                continue
+            if not any(
+                isinstance(row, dict) and row.get("__type") == "AnvilData"
+                for row in document.values()
+            ):
+                continue
+            # Require full, authoritative shard/spell shape; a keyword hit
+            # alone is not a public catalogue or a live card.
+            try:
+                candidates_found = parse_public_bins([document])
+            except (AnvilCatalogError, ValueError):
+                source_errors.append(path)
+                incomplete = True
+                continue
+            if candidates_found:
+                matched_docs.append(document)
+                matched_paths.append(path)
+        except (requests.RequestException, ValueError):
+            source_errors.append(path)
+            incomplete = True
+
+    shards = parse_public_bins(matched_docs) if matched_docs else []
+    report = summarize_anvil_source(shards, patch)
+    have_all_tiers = all(report["tiers"].values())
+    verified = report["total"] > 0 and have_all_tiers
+    report.update({
+        "status": ("found" if verified else
+                   "scan_incomplete" if incomplete else
+                   "partial_tiers" if report["total"] else "no_source"),
+        "source_verified": verified,
+        "source_paths": sorted(matched_paths),
+        "index_directories_scanned": len(visited),
+        "index_failures": len(index_errors),
+        "candidate_bin_files": len(ordered),
+        "bin_files_inspected": inspected,
+        "source_files_unavailable_or_invalid": len(source_errors),
+        "downloaded_bytes": total_bytes,
+        "scan_complete": not incomplete,
+        "live_popup_verified": False,
+    })
+    if not verified:
+        report["warnings"].append(
+            "No full three-tier real AnvilData source verified; keep recommendations disabled"
+        )
+    if incomplete:
+        report["warnings"].append(
+            "Discovery bounded/incomplete or public index unavailable; zero is not proof of absence"
+        )
+    return report
+
+
 def public_patch_report(patch: str, *, locale: str | None = None) -> dict:
     """Optional network-only discovery; public sources, no cache writes."""
     import requests
