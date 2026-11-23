@@ -200,9 +200,12 @@ def test_slot_blocked_with_unrelated_full_six_slot_inventory(monkeypatch, tmp_pa
         exclusive_item_groups=sd.exclusive_item_groups,
     )
     assert inv.free_slots == 0
-    assert state.next_item_id == "3102"
+    assert state.full_build == ["3102"]  # A future plan, not an executable buy.
+    assert state.next_item_id is None
     assert state.slot_blocked
-    assert state.next_item_gold_needed > 0
+    assert state.build_unavailable_reason == "slot_blocked"
+    assert state.next_item_gold_needed == 0
+    assert state.gold_to_next == 0
 
 
 def test_safe_fallback_when_recipe_or_catalog_is_unverified(monkeypatch, tmp_path):
@@ -356,3 +359,55 @@ def test_boot_swap_fails_closed_when_champion_catalog_entry_is_missing():
     assert suggest() is not None
     sd._champions = {}
     assert suggest() is None
+
+
+def test_owned_tier2_boots_and_full_inventory_cannot_display_phantom_buy_next(
+    monkeypatch, tmp_path,
+):
+    sd = _verified_data(monkeypatch, tmp_path)
+    # Five acquired finals include boots; the sixth slot is an unrelated
+    # component, so the next ranked final cannot legally be bought yet.
+    owned = ["3047", "3074", "3053", "3089", "3031", "1036"]
+    inventory = build_inventory(owned, sd)
+    assert inventory.used_slots == 6
+    state = suggest_build(
+        _champion(), [], owned, 7000, [sd.get_item("3102")],
+        inventory=inventory, item_data=sd,
+        catalog_verified=True,
+        exclusive_item_groups=sd.exclusive_item_groups,
+    )
+    assert state.full_build == owned[:5] + ["3102"]
+    assert state.next_item_id is None
+    assert state.slot_blocked is True
+    assert state.build_unavailable_reason == "slot_blocked"
+    assert state.gold_to_next == state.next_item_gold_needed == 0
+    payload = _serialize_result(
+        __import__("backend.models", fromlist=["PipelineResult"]).PipelineResult(
+            GamePhase.IN_GAME, [], state, False,
+        ), sd,
+    )["build_state"]
+    assert payload["next_item_id"] is None
+    assert payload["slot_blocked"] is True
+    assert payload["build_unavailable_reason"] == "slot_blocked"
+    assert payload["full_build"] == owned[:5] + ["3102"]
+
+
+def test_full_inventory_with_usable_recipe_parts_keeps_actionable_next_purchase(
+    monkeypatch, tmp_path,
+):
+    sd = _verified_data(monkeypatch, tmp_path)
+    # Six observed Long Swords occupy all slots but are parts of Hydra's
+    # checked recipe; purchasing the completed item can consume some.
+    owned = ["1036"] * 6
+    inventory = build_inventory(owned, sd)
+    state = suggest_build(
+        _champion(), [], owned, 4000, [sd.get_item("3074")],
+        inventory=inventory, item_data=sd,
+        catalog_verified=True,
+    )
+    assert inventory.free_slots == 0
+    assert state.full_build == ["3074"]
+    assert state.next_item_id == "3074"
+    assert state.build_unavailable_reason is None
+    assert state.slot_blocked is False
+    assert state.next_item_gold_needed < sd.get_item("3074").cost
