@@ -111,3 +111,44 @@ def test_unmodelled_stat_vector_gives_no_fabricated_stat_priority():
 
     blank = ChampionMeta("none", "None", StatVector(), role="mage")
     assert rank_anvil_stats(blank, [], [], None) == []
+
+
+def test_exact_three_known_stat_anvil_choices_receive_bounded_scores_only(
+    monkeypatch, tmp_path,
+):
+    sd = _verified_data(monkeypatch, tmp_path)
+    sd._stat_anvils = {
+        "anvil-ap": AugmentData("anvil-ap", "Power", AugmentTier.STAT_ANVIL, "",
+                               StatVector(ap=0.6), provenance="override"),
+        "anvil-ad": AugmentData("anvil-ad", "Damage", AugmentTier.STAT_ANVIL, "",
+                               StatVector(ad=0.6), provenance="override"),
+        "anvil-blank": AugmentData("anvil-blank", "Unknown", AugmentTier.STAT_ANVIL, "",
+                                  StatVector(), provenance="none"),
+    }
+    monkeypatch.setattr("backend.workflow.pipeline.get_all_personal_winrates", lambda _: {})
+    def run(ids):
+        return Pipeline(sd).run(GameSnapshot(
+            game_id="synthetic-anvil-popup", phase=GamePhase.IN_GAME,
+            champion_id="lux", augment_choices=ids, chosen_augments=[],
+            purchased_items=OWNED, current_gold=500, game_time=500,
+            enemy_champion_ids=[],
+        ))
+    ids = list(sd._stat_anvils)
+    state = run(ids)
+    assert state.recommendations == []
+    assert state.suggest_reroll is False
+    assert len(state.anvil_recommendations) == 3
+    ratings = {row["anvil_id"]: row for row in state.anvil_recommendations}
+    assert 0 < ratings["anvil-ad"]["score"] < ratings["anvil-ap"]["score"] <= 10
+    assert ratings["anvil-blank"]["score"] is None
+    assert ratings["anvil-blank"]["modelled"] is False
+    wire = _serialize_result(state, sd)
+    assert wire["anvil_recommendations"] == state.anvil_recommendations
+    assert wire["recommendations"] == []
+    assert run(ids[:2]).anvil_recommendations == []
+    # Unverified cross-type OCR can never produce an authoritative Anvil card score.
+    sd._augments["real"] = AugmentData(
+        "real", "Real", AugmentTier.GOLD, "", StatVector(ap=1.0),
+    )
+    assert run(["anvil-ap", "real", "anvil-ad"]).anvil_recommendations == []
+    assert run(["anvil-ap", "real", "anvil-ad"]).recommendations == []

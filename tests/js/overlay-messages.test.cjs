@@ -1316,3 +1316,70 @@ test("F3: do not call a partially owned, blocked, or unverified path complete", 
         purchased_items: ids.slice(0, 5), owned_build_ids: ids.slice(0, 5)});
     assert.equal(h.element("build-next").textContent, "Next: unavailable");
 });
+
+
+test("F3: only an epoch-fenced verified all-Anvil three-card offer displays model scores", () => {
+    const h = harness();
+    const ids = {left: "stat-ap", centre: "stat-ad", right: "stat-unknown"};
+    const ratings = [
+        {anvil_id: "stat-ap", anvil_name: "Ability Power", score: 8.6,
+         modelled: true, provenance: "override", explanation: "Synthetic model fit"},
+        {anvil_id: "stat-ad", anvil_name: "Attack Damage", score: 3.8,
+         modelled: true, provenance: "override", explanation: "Synthetic model fit"},
+        {anvil_id: "stat-unknown", anvil_name: "Unmodelled", score: null,
+         modelled: false, provenance: "none", explanation: "No model"},
+    ];
+    const verified = {...gameUpdate("Lux"), ...d2VerifiedFields(ids),
+        anvil_recommendations: ratings, recommendations: [], suggest_reroll: true};
+    h.api.handleMessage(verified);
+    const cards = h.element("augment-list").children;
+    assert.equal(cards.length, 3);
+    assert.match(cards[0].innerHTML, /Ability Power.*8\.6\/10/);
+    assert.match(cards[0].className, /top-pick/);
+    assert.match(cards[1].innerHTML, /Attack Damage.*3\.8\/10/);
+    assert.match(cards[2].innerHTML, /No model/);
+    assert.equal(h.element("reroll-banner").classList.contains("hidden"), true);
+
+    // A stale OCR frame never keeps last Anvil ratings on screen.
+    h.api.handleMessage({...verified, ocr_stale: true});
+    assert.equal(h.element("augment-list").children.length, 0);
+    // An untrusted mixture of Anvil names and normal augment identities is
+    // not a verified three-Anvil offer; never paste their scores into cards.
+    const mixed = {...verified, ...d2VerifiedFields({
+        left: "stat-ap", centre: "regular-augment", right: "stat-unknown",
+    }, 8)};
+    h.api.handleMessage(mixed);
+    assert.doesNotMatch(h.element("augment-list").children
+        .map(row => row.innerHTML).join(""), /8\.6\/10/);
+});
+
+test("F3: full-build boot swap stays before conservative Anvil stat guidance", () => {
+    const h = harness();
+    const ids = ["3047", "3074", "3053", "3089", "3031", "3165"];
+    const state = {
+        full_build: ids, full_build_names: ids.map(x => "Item " + x),
+        purchased_items: ids, owned_build_ids: ids, next_item_id: null,
+        slot_blocked: false, alternatives: {},
+        anvil_stat_priorities: [
+            {stat: "ap", label: "Ability Power", reason: "Champion scaling"},
+            {stat: "cdr", label: "Ability Haste", reason: "Confirmed augment"},
+        ],
+        boot_replacement: {
+            sell_item_name: "Boots", buy_item_name: "Movement item",
+            buy_cost: 3000, listed_ms_change: -5,
+            reason: "Optional, evaluate the purchase",
+        },
+    };
+    h.api.renderBuild(state);
+    const detail = h.element("build-alternatives").children;
+    assert.equal(detail.length, 2);
+    assert.match(detail[0].textContent, /Optional boot swap/);
+    assert.match(detail[1].textContent, /Stat Anvils.*Ability Power.*Ability Haste/);
+
+    h.api.renderBuild({...state, boot_replacement: null});
+    assert.equal(h.element("build-alternatives").children.length, 1);
+    assert.match(h.element("build-alternatives").children[0].textContent, /Stat Anvils/);
+
+    h.api.renderBuild({...state, full_build: ids.slice(0, 5), boot_replacement: null});
+    assert.equal(h.element("build-alternatives").children.length, 0);
+});
