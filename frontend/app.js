@@ -546,7 +546,9 @@
                 const result = await response.json();
                 if (result.status === "ok") {
                     status.textContent = "Synced " + result.imported +
-                        " new games (" + result.inspected + " recent Mayhem games checked).";
+                        " new games (" + result.inspected + " Mayhem games checked" +
+                        (result.listed != null ? ", " + result.listed + " games listed by the client" : "") +
+                        ").";
                     const draftResponse = await fetch("/api/champ-select/status");
                     if (draftResponse.ok) {
                         const draft = await draftResponse.json();
