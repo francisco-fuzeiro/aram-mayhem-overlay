@@ -99,5 +99,50 @@ def test_conditional_currency_item_absent_from_loaded_build_candidates(monkeypat
     assert "3074" not in catalog.recommendable_ids
     assert "3074" not in {item.id for item in data.recommendable_items()}
     assert "226668" not in catalog.recommendable_ids
+    # End-to-end: build selection, next purchase, and swaps see only the
+    # filtered catalog, never an unearned / conditional item.
+    from backend.models import ChampionMeta, GamePhase, GameSnapshot, StatVector
+    from backend.workflow.pipeline import Pipeline
+
+    data._champions = {
+        "lux": ChampionMeta(id="lux", name="Lux", stats=StatVector(ap=0.9)),
+    }
+    monkeypatch.setattr(
+        "backend.workflow.pipeline.get_all_personal_winrates", lambda _: {},
+    )
+    snapshot = GameSnapshot(
+        game_id="synthetic-shop-prerequisite", phase=GamePhase.IN_GAME,
+        champion_id="lux", augment_choices=[], chosen_augments=[],
+        purchased_items=[], current_gold=5000, game_time=100,
+        enemy_champion_ids=[],
+    )
+    actual = Pipeline(data).run(snapshot)
+    assert actual is not None
+    assert "3074" not in actual.build_state.full_build
+    assert actual.build_state.next_item_id != "3074"
+    assert actual.build_state.boot_replacement is None
     # All other fixture candidates retain the existing two-source proof.
     assert len(data.recommendable_items()) == 110
+
+
+def test_old_policy_cache_cannot_promote_unsafe_item_when_sources_unavailable(
+    monkeypatch, tmp_path,
+):
+    b1.offline_loader(monkeypatch, tmp_path)
+    fresh = _load_items()
+    assert fresh.meta.availability == "verified_two_source"
+
+    cache_file = tmp_path / "items_v5_16.23.1.json"
+    cached = json.loads(cache_file.read_text(encoding="utf-8"))
+    cached["meta"]["policy_version"] = "item_pool_v2"
+    cache_file.write_text(json.dumps(cached), encoding="utf-8")
+
+    # Versioned shop rules changed, so historic proof no longer authorizes
+    # new recommendations if current CDragon patch data is unavailable.
+    b1.offline_loader(monkeypatch, tmp_path, cdragon=False)
+    old = _load_items()
+    data = StaticData()
+    data._items = old
+    assert old.meta.availability == "unknown"
+    assert not old.pool_ids
+    assert data.recommendable_items() == []

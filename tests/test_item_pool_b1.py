@@ -52,7 +52,7 @@ def test_full_480_classification_matches_versioned_expected_fixture():
     expected = fixture("expected_item_pool_16.23.1.json")
     classified = {ident: classify_item(ident, row, cd.get(ident), {"force_class": {}})
                   for ident, row in dd.items()}
-    assert ITEM_POLICY_VERSION == "item_pool_v2"
+    assert ITEM_POLICY_VERSION == "item_pool_v3"
     assert classified == expected["classes"]
     assert Counter(classified.values()) == {
         "final": 104, "boots_tier2": 7, "boots_tier1": 1,
