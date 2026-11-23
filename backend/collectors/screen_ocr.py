@@ -23,6 +23,7 @@ from pathlib import Path
 from backend.collectors.league_window import find_league_window, LeagueWindow
 from backend.collectors.window_capture import capture_league_client, reset_capture_state, CaptureProof
 from backend.collectors.card_title_geometry import title_bands_from_client_rect
+from backend.collectors.offer_card_count import OfferCardCountGate
 from backend.collectors.slot_title_ocr import SlotMatches, crop_title_slots, recognize_title_slots
 from backend.collectors.offer_visibility import (
     VerifiedAbsenceGate, IndependentCue, card_background_cue, CARD_BG_SHADOW_MODE,
@@ -155,7 +156,8 @@ class ScreenWatcher:
 
     def __init__(
         self, *, independent_observer=None, approved_calibration: str | None = None,
-        sleep_fn=None,
+        sleep_fn=None, card_count_observer=None,
+        approved_card_count_calibration: str | None = None,
     ) -> None:
         import threading
         from backend.collectors.slot_temporal import SlotTemporalTracker
@@ -167,6 +169,11 @@ class ScreenWatcher:
         # disappearance. Tests may inject only synthetic independent cues.
         self._independent_observer = independent_observer
         self._absence_gate = VerifiedAbsenceGate(approved_calibration)
+        # A separate, reviewed client-visible card counter may be injected in
+        # future; production supplies no source/calibration and runs unchanged.
+        # Title OCR, geometry and card-background pixels cannot supply count proof.
+        self._card_count_observer = card_count_observer
+        self._card_count_gate = OfferCardCountGate(approved_card_count_calibration)
         self._capture_stale = False
         self._refocus_pending = False
         self._transition_open = False
@@ -215,6 +222,7 @@ class ScreenWatcher:
         with self._lock:
             self._temporal.reset()
             self._absence_gate.suspend()
+            self._card_count_gate.reset()
             self._capture_stale = False
             self._refocus_pending = False
             self._transition_open = False
@@ -244,6 +252,7 @@ class ScreenWatcher:
 
     def _capture_failure(self, reason: str) -> tuple[str, None]:
         """Discard pending OCR and preserve A3's conservative failure mapping."""
+        self._card_count_gate.reset()
         self._capture_stale = True
         self._last_foreground = "other"
         self._last_capture_backend = None
@@ -263,11 +272,59 @@ class ScreenWatcher:
         events.transition("ocr_recognition", outcome=action)
         return (action, None)
 
+    def _independent_card_layout(
+        self, capture: "RegionCapture", game: LeagueWindow,
+        match_id: str | None, offer_epoch: int | None,
+    ) -> str:
+        """Opt-in layout attestation; never count using three cropped titles.
+
+        The observed report is bound to the *same* verified capture, window,
+        match and epoch. A source failure is unverified, not assumed three.
+        The default installation has no producer and preserves legacy scans.
+        """
+        if self._card_count_observer is None:
+            return "legacy_disabled"
+        try:
+            report = self._card_count_observer(
+                capture.image, game, capture.proof, match_id, offer_epoch,
+            )
+        except Exception as exc:
+            # No paths, OCR text, screenshots or dynamic exception messages.
+            logger.warning("Independent layout source failed: %s", type(exc).__name__)
+            report = None
+        return self._card_count_gate.observe(
+            report, capture.proof,
+            match_id=match_id if isinstance(match_id, str) else "",
+            offer_epoch=offer_epoch if type(offer_epoch) is int else -1,
+        )
+
+    def _layout_abstain(self, verdict: str) -> tuple[str, None]:
+        """Never use previously accepted three-slot names across layout doubt."""
+        self._capture_stale = True
+        # A four-card or unknown panel must not leave a prior three-card
+        # snapshot addressable. Suspend afterwards so new titles are marked
+        # freshly reverified before the stale UI can recover.
+        self._temporal.reset()
+        self._temporal.suspend()
+        self._absence_gate.suspend()
+        self._refocus_pending = True
+        self._transition_open = False
+        self._last_detected = []
+        self._last_background_observation = None
+        self._set_scan_stage(
+            "layout_four_unsupported"
+            if verdict == "four_unsupported" else "layout_unverified"
+        )
+        return ("transition", None)
+
     def check(
         self,
         augment_names: dict[str, str],
         monitor_index: int = 1,
         save: bool = False,
+        *,
+        match_id: str | None = None,
+        offer_epoch: int | None = None,
     ) -> tuple[str, SlotMatches | None]:
         """Observe each changed title crop and return only verified slot changes.
 
@@ -279,6 +336,7 @@ class ScreenWatcher:
 
         with self._lock:
             if not is_available():
+                self._card_count_gate.reset()
                 self._last_background_observation = None
                 self._capture_stale = True
                 self._temporal.suspend()
@@ -290,6 +348,7 @@ class ScreenWatcher:
 
             game = find_league_window()
             if game is None:
+                self._card_count_gate.reset()
                 self._last_background_observation = None
                 self._capture_stale = True
                 self._temporal.suspend()
@@ -313,6 +372,14 @@ class ScreenWatcher:
                 self._temporal.suspend()
                 self._capture_stale = False
                 self._refocus_pending = True
+
+            # F2/4C: an optional independently approved count must authorize
+            # all three-slot processing before any crop/title OCR is read.
+            layout = self._independent_card_layout(
+                capture, game, match_id, offer_epoch,
+            )
+            if layout not in ("legacy_disabled", "three_verified"):
+                return self._layout_abstain(layout)
 
             rect = game.rect
             width, height = rect[2] - rect[0], rect[3] - rect[1]
@@ -387,6 +454,13 @@ class ScreenWatcher:
                 # previously observed callback must never count as a new read.
                 if second.proof.captured_at <= capture.proof.captured_at:
                     return self._capture_failure("invalid_frame")
+                # A four-card transition during the second C3 read invalidates
+                # the provisional first-frame OCR before any accepted result.
+                second_layout = self._independent_card_layout(
+                    second, game, match_id, offer_epoch,
+                )
+                if second_layout not in ("legacy_disabled", "three_verified"):
+                    return self._layout_abstain(second_layout)
                 second_crops = crop_title_slots(
                     second.image, rect, get_augment_region(width, height),
                 )
@@ -518,7 +592,7 @@ SCAN_STAGES = frozenset((
     "capture_unavailable", "geometry_unsupported",
     "titles_verifying", "titles_unidentified",
     "titles_detected", "titles_unchanged", "titles_transition",
-    "verified_absence",
+    "layout_unverified", "layout_four_unsupported", "verified_absence",
 ))
 
 
