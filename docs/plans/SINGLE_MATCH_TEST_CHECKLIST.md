@@ -46,6 +46,32 @@ At implementation, freeze/validate enums per id; do not emit raw data or free
 text in any record. Do not mark a diagnostic PASS merely because a test file
 existed before instrumentation.
 
+## 2026-11-23 — Stat Anvil source and rating evidence prerequisites
+
+- [x] `anvil.offer_detected` public **source research** (offline, not a live event):
+  independent MIT [ARAM Mayhem Tracker](https://github.com/Sygnano/aram-mayhem-tracker)
+  establishes `AnvilData` / `RootSpell.DataValues` game bin instead
+  of `cherry-augments.json`; title can be shared across rarities.
+- [x] `anvil.offer_detected` pure tests for exact shard source id,
+  silver/gold/prismatic tier, spell values, prohibited choices, and
+  complete 3/4 stat/value matching:
+  `tests/test_p0_anvil_public_source.py`; source parser
+  `backend/static_data/anvil_public_catalog.py`.
+  This is **offline identity logic only**, no live popup/recognition.
+- [ ] Current owner patch `16.23` public game-bin proof via
+  `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23`,
+  then optional public title lookup `--locale en_us`. These commands
+  are opt-in network-only, no writes/player-data and do not verify the UI.
+- [ ] Actual popup visibility/3-or-4 layout and independent title + value
+  OCR, distinct from voucher edge, with precise `anvil.offer_detected`
+  and `anvil.offer_render` reason tuples and true client UI ACK.
+- [ ] Rate actually recognized offered shards on our **own 0–10 model**
+  with champion/augments/items/enemy context, never copy OP.GG scoring
+  data or display a score for unknown/mixed/stale cards.
+- [ ] Latest Windows Actions after source and docs, then **ONE** final
+  owner-controlled Mayhem match with real shop + Anvil conditional gates.
+  Conditional Anvil not observed is SKIPPED/NOT FIRED, never PASS.
+
 ## Before the one permitted final match
 
 - [ ] Owner's Git checkout in the `aram-oracle` child directory is on the

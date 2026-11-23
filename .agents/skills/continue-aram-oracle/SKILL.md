@@ -1,5 +1,43 @@
 ---
 
+## CURRENT 2026-11-23 — Stat Anvil source path discovered (still P0)
+
+- Owner confirms OP.GG displays a Stat Anvil rating. Treat as a benchmark,
+  **not** a licensed rating feed or proof of specific 0–10 formula.
+- Independent open-source **MIT** reference:
+  https://github.com/Sygnano/aram-mayhem-tracker . Its documented
+  Stat Anvil cards occupy ordinary three-card frames; card title is a
+  *stat* alias across silver/gold/prismatic and the **value line**
+  resolves the tier. It reads `AnvilData` + `RootSpell DataValues`
+  from patch-specific CommunityDragon game bins and public stringtables;
+  from 16.22 the entries moved into a hashed bin. Riot 25.23 notes
+  confirm Stat Anvils after level 9 and tier rarity as historical background,
+  not current 16.23 live proof.
+- Implemented on P0 #107: strict pure public bin parser
+  `backend/static_data/anvil_public_catalog.py`, public-name-key lookup,
+  fail-closed matching requiring complete 3/4 distinct stat + numeric
+  evidence with a single tier, source-only summary, and opt-in network-only
+  read-only `scripts.stat_anvil_catalog_report --public-patch 16.23
+  [--locale en_us]`. Default augment cache check does **not** verify
+  Stat Anvils. Tests `tests/test_p0_anvil_public_source.py` cover
+  public-bin shape, invalid/unknown tiers, same-name cross-tier ambiguity,
+  safe value verification, same-patch URL whitelist and no network for
+  invalid arguments.
+- **NOT completed:** latest exact-head Windows CI, actual patch-16.23 public
+  AnvilData extraction on owner PC, legal current titles, 3/4 popup native
+  geometry, value OCR, linkage to scoring and UI, plus the one final
+  controlled native match. The current tier-zero synthetic Anvil ratings
+  are not equivalent to these public string-ID shards; do not display
+  guessed scores or claim normal augment OCR verifies Anvil popup. No
+  screenshot/log/player data in public repo, no merge or phase transition.
+- Next if CI green: owner pulls latest branch and runs
+  `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23`;
+  inspect counts/source warnings, then optionally
+  `--locale en_us` to resolve public titles; commands make explicit
+  read-only network requests but do not write cache or contact League.
+  Thereafter integrate into existing safe watcher with strict independent
+  title/value offer gates and tests, not blind rank scraping.
+
 ## CURRENT 2026-11-23 — Verified owner-PC item pool v4 and remaining P0 gates
 
 - Owner has successfully fast-forwarded P0 draft #107 to `a4ccd15c57c28b9430f5459007839382874f1efa`, preserved local untracked `funcionalidades.md` and backed up v3. Real public network-backed `item_pool_v4`, patch `16.23.1`, `verified_two_source` returned 863 total / **104 final** / 7 tier2 boots / 111 recommendable / 26 unknown / 152 mode_variant, with no warnings. **Previously zero finals is FIXED at offline source-classification layer**. Owner does NOT need to repeat this evidence.

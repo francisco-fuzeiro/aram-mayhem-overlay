@@ -1,5 +1,17 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-23 — P0 Stat Anvil benchmarking and source discovery (authoritative)
+
+- [x] **ANVIL-SRC-00 — Distinguish real Anvil source from tier-zero augments**. Owner confirms OP.GG overlay rates Stat Anvils. MIT [ARAM Mayhem Tracker](https://github.com/Sygnano/aram-mayhem-tracker) source confirms patch-specific `AnvilData` game bins and locale stringtable; same name may appear in different rarities, so values must be OCR-verified. No copying OP.GG scores, third-party service access, assets, gameplay automation or personal screens.
+- [x] **ANVIL-SRC-01 — Offline-source parser and tests implemented**: `backend/static_data/anvil_public_catalog.py` handles silver/gold/prismatic game-bin IDs, spell DataValues, excludes unavailable Random/Shardholder variants, rejects inconsistent source, and requires a complete 3/4-card same-tier stat+numeric set to return an identity; **not yet connected to popup**. `tests/test_p0_anvil_public_source.py` tests fail-closed synthetic identity and source validation; `scripts.stat_anvil_catalog_report --public-patch 16.23 [--locale en_us]` opt-in public network read-only with no cache writes.
+- [ ] **ANVIL-SRC-02 — New exact-head Windows GREEN** after the source parser/code/docs; do not use the earlier #45213893695 job to claim subsequent commits passed.
+- [ ] **ANVIL-SRC-03 — Owner patch-16.23 public source report**: with game/Oracle closed, safe `git pull --ff-only` after CI green, run `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23`; if public bins available and valid, optionally `--locale en_us` for names; send source counts and safe public titles only. This is NOT native proof.
+- [ ] **ANVIL-UI-01 — Implement separate Anvil title+value OCR and screen timing gate**, distinguishing real popup from voucher stack, reusing existing independent capture/epoch semantics; 3/4 layout and valid tier evidence must be proven with supported public references + one final native Mayhem match. Never guess from an item purchase.
+- [ ] **ANVIL-SCORE-01 — Feed VERIFIED actual public shard identity/value into our own 0–10 champion/augments/build/enemy-context score**, keep unavailable/unmodelled no-score. Current `rate_verified_anvil_options` only handles existing 3-option tier-zero model and does not resolve source shard title variants yet.
+- [ ] **P0 DIAG + NATIVE — Continue all previous per-id exact tuple/UI ACK gates**, one owner-controlled Mayhem session at the end, verify latest final Windows CI and keep P0 OPEN. No auto next-chat prompt while any mandatory gate remains.
+
+_Earlier dated entries that call Stat Anvil source completely unknown are superseded by this public-source **discovery**; current patch data and actual popup are still unverified._
+
 ## 2026-11-23 — Owner Windows v4 validation VERIFIED (current authoritative checkpoint)
 
 - [x] **AUD-P0-02c exact code-head GREEN:** P0 #107 code HEAD `a4ccd15c57c28b9430f5459007839382874f1efa` [Windows Actions #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347), **two jobs SUCCESS**: 2,076 Python PASS / 27 SKIP, 87 JS PASS / 0 FAIL, three JS syntax PASS, 35 pinned PP-OCRv4 PASS.

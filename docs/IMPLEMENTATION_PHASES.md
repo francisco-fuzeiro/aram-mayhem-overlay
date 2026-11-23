@@ -1,5 +1,10 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-23 — P0 Stat Anvil source-first, rating only after verified popup
+
+- **Context:** user reported OP.GG showing a Stat Anvil rating. Independent MIT project provides verifiable design (actual public `AnvilData` bin IDs, tiers, raw stat values, name-key aliases, source-move 16.22 and OCR of value lines). This discovery lowers source uncertainty but does NOT establish patch 16.23 native layout or validate an OP.GG formula.
+- **Small gates (remain P0):** P0-ANVIL-A pure strict source parser + tests and optional read-only public-patch CLI → Windows exact-head GREEN; P0-ANVIL-B owner patch-matched CDragon bin/locale report (public titles, no personal data) → verified current catalogue + no-op on missing source; P0-ANVIL-C dedicated stat shard/voucher popup vision using stable OCR capture and verified name+numeric evidence + 3/4 positions with no augment-choice pollution → diagnostic tuples; P0-ANVIL-D own 0.0–10.0 scoring using champion+augments+items+enemy context only for recognized actual choices, render with strict `feature_ack`; P0-ANVIL-E one safe final owner-controlled Mayhem match with full checklist and exact final-head CI.
+- The `build.item_pool` fixed v4 and safe diagnostics are already synthetically/owner-offline proven; #49 **native** shop and all Anvil native/score gates still open. Never auto-pick or make game inputs; only use supported public source and user-approved custom gameplay, keep source licence boundaries, no main/TierDB merge and no premature next-chat prompt.
 ## 2026-11-23 — P0 #49 validated v3 false-exclusion, v4 code fix (native still open)
 
 - **Owner-proven:** network-backed DD/CD 16.23.1 `item_pool_v3` returned 863 total / 0 final / 7 boots, but 104 public source terminal items have absent DD `into` vs CD `to=[]`, erroneously rejected by `sources_agree`. The 152 mode variants are separate, not automatically purchasable.

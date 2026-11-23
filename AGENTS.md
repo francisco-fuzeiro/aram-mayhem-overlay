@@ -37,6 +37,36 @@ produce a conversation-transfer prompt at every checkpoint or subphase:
 5. Continue documenting factual progress safely; do not create unnecessary commits or Actions runs solely to manufacture a handoff. Protect `main`, stacked draft PRs, privacy and Riot restrictions.
 
 
+## P0 Stat Anvil source and scoring guardrails (2026-11-23)
+
+- Owner observed OP.GG overlay scoring Stat Anvils; implement our own 0–10
+  champion+augments+items+enemy-context assessment, not a rebranded OP.GG
+  statistic or win-rate proxy. OP.GG score formula/data are not publicly
+  verified and must not be copied.
+- Public MIT reference: https://github.com/Sygnano/aram-mayhem-tracker
+  (readme and `service/src/domain/anvils.ts`,
+  `crates/mayhem-vision/src/anvil.rs`). Distinguish its design evidence
+  from compatibility or permission to use an external statistics service.
+  No licensed assets or third-party ratings have been copied here.
+- Real public Anvil source is **AnvilData and RootSpell DataValues in
+  patch-specific CommunityDragon game bins**, not generic tier-zero
+  cherry-augments. Names in the game string table identify a shard's
+  stat; tiers may share titles, so visible value OCR is necessary before
+  selecting silver/gold/prismatic. An inventory voucher edge alone does
+  not identify popup/cards, and no action on League is allowed.
+- Pure P0 decoder `backend/static_data/anvil_public_catalog.py`;
+  independent synthetic source/value tests. Opt-in public-only, no-write
+  diagnostic: `py -3.11 -m scripts.stat_anvil_catalog_report
+  --public-patch 16.23 --locale en_us` (locale downloads a sizeable public
+  stringtable); patch/locale whitelisted; output is a **public source
+  candidate list, never live verification**. Do not default-enable
+  network fetches or silently promote this data into gameplay picks.
+- P0 Stat Anvil remains **BLOCKED for native popup geometry, 3/4-card
+  confirmation, live OCR title+value identity and contextual 0–10 rendering**
+  until patch-matched source is verified and one final owner-operated custom
+  Mayhem match demonstrates it. Keep all failures as blockers; no early
+  prompt to a new phase, no merge/main/TierDB modifications.
+
 ## P0 per-feature diagnostics and one-match acceptance (owner decision, 2026-11-23)
 
 This rule applies to **every P0 fix** (new and pending), not only TierDB. Follow
