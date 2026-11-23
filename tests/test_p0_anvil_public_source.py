@@ -111,3 +111,54 @@ def test_no_borrowed_competitor_rankings_or_screenshot_published():
     assert "win_rate" not in repr(report)
     assert report["rankings_verified"] is False
     assert report["live_popup_verified"] is False
+
+
+def test_patch_pinned_public_source_opt_in_only_and_no_local_writes(monkeypatch):
+    import requests
+    from scripts.stat_anvil_catalog_report import public_patch_report
+    called = []
+    fixture = _fixture()
+
+    class Response:
+        def __init__(self, status, data=None):
+            self.status_code = status
+            self.data = data
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError("remote request failed")
+        def json(self):
+            return self.data
+
+    def fetch(url, timeout):
+        called.append((url, timeout))
+        assert url.startswith("https://raw.communitydragon.org/16.23/")
+        if "map12.bin.json" in url:
+            return Response(404)
+        if "507cdd64276919f5.bin.json" in url:
+            return Response(200, fixture)
+        if "lol.stringtable.json" in url:
+            return Response(200, {"entries": {
+                "cherry_goldstatanvil_ar_name": "Armor Shard",
+                "cherry_goldstatanvil_ap_name": "Ability Power Shard",
+            }})
+        raise AssertionError("unapproved network URL")
+    monkeypatch.setattr(requests, "get", fetch)
+    report = public_patch_report("16.23", locale="en_us")
+    assert report["total"] == 4
+    assert report["public_bins"] == ["507cdd64276919f5.bin.json"]
+    assert report["titles_found"] == 2
+    assert report["titles_missing"] == 2
+    assert report["live_popup_verified"] is False
+    assert report["rankings_verified"] is False
+    assert len(called) == 3
+
+
+def test_bad_patch_or_locale_never_reaches_network(monkeypatch):
+    import requests
+    from scripts.stat_anvil_catalog_report import public_patch_report
+    monkeypatch.setattr(requests, "get", lambda *args, **kw:
+                        pytest.fail("network must not be used"))
+    with pytest.raises(AnvilCatalogError):
+        public_patch_report("16.23/../../private")
+    with pytest.raises(AnvilCatalogError):
+        public_patch_report("16.23", locale="this-is-not-a-locale")
