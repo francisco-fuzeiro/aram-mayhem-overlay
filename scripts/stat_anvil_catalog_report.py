@@ -102,7 +102,7 @@ _PATCH = re.compile(r"^\d{2}\.\d{1,2}$")
 
 
 _PUBLIC_HASH = "507cdd64276919f5.bin.json"
-_SAFE_BIN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}\\.bin\\.json$")
+_SAFE_BIN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}" + re.escape(".bin.json") + "$")
 _MAX_LISTED_BIN_BYTES = 32 * 1024 * 1024
 
 
@@ -258,6 +258,7 @@ def discover_patch_anvil_bins(
     total_bytes = 0
     matched_docs = []
     matched_paths = []
+    keyword_paths: list[str] = []
     source_errors = []
     for path in selected:
         estimated = candidates[path][1]
@@ -278,6 +279,10 @@ def discover_patch_anvil_bins(
                 break
             total_bytes += len(data)
             inspected += 1
+            # Record public keyword hits separately; they do not validate
+            # AnvilData and can be unrelated to current Mayhem shards.
+            if b"StatAnvil" in data or b"Anvil" in data:
+                keyword_paths.append(path)
             if b"AnvilData" not in data:
                 continue
             document = response.json()
@@ -315,6 +320,7 @@ def discover_patch_anvil_bins(
                    "partial_tiers" if report["total"] else "no_source"),
         "source_verified": verified,
         "source_paths": sorted(matched_paths),
+        "keyword_paths": sorted(keyword_paths)[:25],
         "index_directories_scanned": len(visited),
         "index_failures": len(index_errors),
         "candidate_bin_files": len(ordered),
@@ -378,15 +384,23 @@ def main(argv: list[str] | None = None) -> int:
                         help="Existing local augment cache folder, read-only")
     parser.add_argument("--public-patch", type=str,
                         help="Opt-in public CDragon AnvilData bins, e.g. 16.23; makes network requests")
+    parser.add_argument("--discover", action="store_true",
+                        help="With --public-patch, inspect indexed .bin.json candidates in bounded public game directories")
     parser.add_argument("--locale", type=str,
                         help="Opt-in public game string table (~31 MB), e.g. en_us")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     if args.locale and not args.public_patch:
         parser.error("--locale requires --public-patch")
+    if args.discover and not args.public_patch:
+        parser.error("--discover requires --public-patch")
+    if args.discover and args.locale:
+        parser.error("--discover does not yet resolve titles; run a pinned source lookup separately")
     if args.public_patch:
         try:
-            result = public_patch_report(args.public_patch, locale=args.locale)
+            result = (discover_patch_anvil_bins(args.public_patch)
+                      if args.discover else
+                      public_patch_report(args.public_patch, locale=args.locale))
         except (AnvilCatalogError, ValueError) as exc:
             print(f"PUBLIC ANVIL SOURCE UNVERIFIED: {exc}")
             return 2
@@ -399,8 +413,18 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True)
               if args.json else (
                   "ARAM Oracle public Stat Anvil source (NOT live-verified)\n"
-                  + f"patch={result['patch']} bins={result['public_bins']} "
-                  + f"total={result['total']} tiers={result['tiers']}\n"
+                  + (
+                      f"patch={result['patch']} status={result['status']} "
+                      f"bins_scanned={result['bin_files_inspected']}/"
+                      f"{result['candidate_bin_files']} "
+                      f"dirs={result['index_directories_scanned']} "
+                      f"source_paths={result['source_paths']} "
+                      f"keyword_paths={result['keyword_paths']} "
+                      f"total={result['total']} tiers={result['tiers']}\n"
+                      if args.discover else
+                      f"patch={result['patch']} bins={result['public_bins']} "
+                      f"total={result['total']} tiers={result['tiers']}\n"
+                  )
                   + f"live_popup_verified={result['live_popup_verified']} "
                   + f"rankings_verified={result['rankings_verified']}\n"
                   + "\n".join(
@@ -410,7 +434,8 @@ def main(argv: list[str] | None = None) -> int:
                   ) + "\n"
                   + "\n".join("WARNING: " + w for w in result["warnings"])
               ))
-        return 0 if result["total"] > 0 else 2
+        return 0 if (result["source_verified"] if args.discover
+                     else result["total"] > 0) else 2
     reports = [
         inspect_cache(path) for path in
         sorted(args.cache_dir.glob("augments_v5_*.json")) if path.is_file()
