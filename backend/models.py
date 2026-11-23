@@ -218,6 +218,9 @@ class GameSnapshot:
     ally_champion_ids: list[str] = field(default_factory=list)
     enemy_states: list[EnemyState] = field(default_factory=list)
     build_style: str = "Balanced"
+    # Read-only local LCDA voucher stacks; None means source unknown.
+    # Never interpreted as a verified visible Stat Anvil offer.
+    anvil_vouchers: dict[str, int] | None = None
 
 
 @dataclass
