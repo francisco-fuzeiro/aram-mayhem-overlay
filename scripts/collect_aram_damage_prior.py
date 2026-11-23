@@ -2,7 +2,9 @@
 
 Owner decision 23/11. Run in a terminal, never from the overlay:
 
-    PowerShell:  $env:RIOT_API_KEY = "RGAPI-..."   (this terminal only)
+    Key: RIOT_API_KEY, else the .env at RIOT_ENV_FILE (default %LOCALAPPDATA%\\.env),
+    outside the repo. PowerShell example:
+                 $env:RIOT_ENV_FILE = "C:\\path\\to\\.env"
                  py -3.11 -m scripts.collect_aram_damage_prior --platform euw1 --matches 300
     Test only:   py -3.11 -m scripts.collect_aram_damage_prior --probe
 

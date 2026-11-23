@@ -38,10 +38,30 @@ def test_aggregate_keeps_only_champion_stats():
     assert "monkeyking" in data["champions"]["16.23"]
 
 
-def test_key_only_from_environment(monkeypatch):
+@pytest.mark.parametrize("content", [
+    'RIOT_API_KEY: "RGAPI-abc-123"\n', "RIOT_API_KEY=RGAPI-abc-123\n",
+    "  RIOT_API_KEY = 'RGAPI-abc-123'  \n", "OTHER=1\nRGAPI-abc-123\n",
+    "export RIOT_API_KEY=RGAPI-abc-123\n"])
+def test_key_from_local_env_file_formats(tmp_path, monkeypatch, content):
     monkeypatch.delenv("RIOT_API_KEY", raising=False)
-    with pytest.raises(SystemExit):
+    f = tmp_path / ".env"
+    f.write_text(content)
+    monkeypatch.setenv("RIOT_ENV_FILE", str(f))
+    assert riot_prior.api_key_from_env() == "RGAPI-abc-123"
+
+
+def test_key_file_missing_or_empty_gives_clear_error(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("RIOT_API_KEY", raising=False)
+    monkeypatch.setenv("RIOT_ENV_FILE", str(tmp_path / "missing.env"))
+    with pytest.raises(SystemExit, match="RIOT_ENV_FILE"):
         riot_prior.api_key_from_env()
+    (tmp_path / "e.env").write_text("\n")
+    monkeypatch.setenv("RIOT_ENV_FILE", str(tmp_path / "e.env"))
+    with pytest.raises(SystemExit, match="no RIOT_API_KEY"):
+        riot_prior.api_key_from_env()
+
+
+def test_key_only_from_environment(monkeypatch):
     monkeypatch.setenv("RIOT_API_KEY", "RGAPI-test")
     assert riot_prior.api_key_from_env() == "RGAPI-test"
 

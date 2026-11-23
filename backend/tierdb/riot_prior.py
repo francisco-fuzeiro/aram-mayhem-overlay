@@ -2,8 +2,8 @@
 
 Owner decision 23/11. Mayhem (2400) is blocked on match-v5, normal ARAM is not.
 Run only from scripts/collect_aram_damage_prior.py, never inside the overlay.
-The key is read only from the RIOT_API_KEY environment variable and sent only as
-the X-Riot-Token header. Only per-champion aggregates (damage to champions/min,
+The key is read from RIOT_API_KEY or a local .env outside the repo, and sent
+only as the X-Riot-Token header; it is never printed or logged. Only per-champion aggregates (damage to champions/min,
 heal+shield on teammates/min, n, patch) are stored, locally; no PUUIDs, names or
 match ids (resume uses salted hashes in a separate local file). Not to be
 published in the repo until Riot's policy for it is confirmed.
@@ -14,6 +14,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import secrets
 import time
 from pathlib import Path
@@ -32,10 +33,46 @@ REGION = {
 }
 
 
+_KEY_LINE = re.compile(r"""^\s*(?:export\s+)?RIOT_API_KEY\s*[:=]\s*["']?([^"'\s#]+)["']?\s*$""")
+_BARE_KEY = re.compile(r"""^\s*["']?(RGAPI-[0-9A-Za-z-]+)["']?\s*$""")
+
+
+def default_env_file() -> Path:
+    base = os.environ.get("LOCALAPPDATA")
+    return Path(base) / ".env" if base else Path.home() / ".env"
+
+
+def _key_from_file(path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return None
+    bare = None
+    for line in text.splitlines():
+        m = _KEY_LINE.match(line)
+        if m:
+            return m.group(1)
+        m = _BARE_KEY.match(line)
+        if m and bare is None:
+            bare = m.group(1)
+    return bare
+
+
 def api_key_from_env() -> str:
-    key = os.environ.get("RIOT_API_KEY", "").strip()
+    """RIOT_API_KEY, else a local .env outside the repo (RIOT_ENV_FILE or
+    %LOCALAPPDATA%\\.env). Accepts `RIOT_API_KEY=...`, `RIOT_API_KEY: "..."` or the
+    key alone on a line. The key is never printed or logged."""
+    key = os.environ.get("RIOT_API_KEY", "").strip().strip("\"'")
+    if key:
+        return key
+    path = Path(os.environ.get("RIOT_ENV_FILE") or default_env_file())
+    if not path.exists():
+        raise SystemExit("No RIOT_API_KEY variable and no key file found "
+                         "(set RIOT_ENV_FILE to your .env path).")
+    key = _key_from_file(path)
     if not key:
-        raise SystemExit("Set RIOT_API_KEY in this terminal first (never in a file).")
+        raise SystemExit("The key file has no RIOT_API_KEY (expected "
+                         "RIOT_API_KEY=... , RIOT_API_KEY: \"...\" or the key alone).")
     return key
 
 
