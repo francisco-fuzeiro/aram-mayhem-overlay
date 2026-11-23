@@ -34,6 +34,11 @@ class ItemTierConfig:
     min_share: float = 0.02
     min_games: int = 200
     min_core_pick: float = 0.05
+    # Field test 23/11 (Kha'Zix): 35/173 champions have no core >= 5 % pick (their
+    # builds are spread over many variants), so the build fell back to item win
+    # rate alone and rushed Death's Dance. The source's top cores are still the
+    # most-played builds: use them when they have this many games.
+    min_core_games_fallback: int = 5000
     draws: int = 300
     seed: int = 20261125
     tie_probability: float = 0.75
@@ -251,9 +256,10 @@ def reference_build(
     total_w = sum(w for _, w, _, _ in cores) or 0
     total_g = sum(g for _, _, g, _ in cores) or 0
     p0 = (total_w + 1.0) / (total_g + 2.0)
-    for core_items, wins, games, pick in cores:
-        if (pick or 0) < config.min_core_pick:
-            continue
+    usable = [c for c in cores if (c[3] or 0) >= config.min_core_pick]
+    if not usable:
+        usable = [c for c in cores if (c[2] or 0) >= config.min_core_games_fallback]
+    for core_items, wins, games, pick in usable:
         value = _shrunk(wins, games, p0, config.k_win)
         if value > best_value:
             best, best_value = tuple(canonical(i) for i in core_items), value

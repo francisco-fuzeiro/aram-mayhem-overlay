@@ -1190,3 +1190,9 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   (from `session_start`), or `unknown` for a stale or packaged process. The Anvil
   watcher shares the poll tick with augment OCR, so while an augment window is open
   it now looks at most once every 3 s (`anvil.popup_watch skipped/throttled`).
+- Kha'Zix field report: build rushed Death's Dance with no lethality. Cause: all three
+  AramHex cores were < 5 % pick (spread builds), so no core qualified and slots 1-6
+  came from item win rate alone (DD 53.9 % on 27k games vs Hubris 48.6 % on 174k).
+  35/173 champions were in this state. Fallback: if no core reaches 5 % pick, use the
+  source's top cores with >= 5,000 games. Now 172/173 champions start from a core;
+  Kha'Zix: Hubris -> Voltaic Cyclosword -> Serylda's, then DD/Sterak's/Youmuu's.

@@ -256,3 +256,25 @@ def test_old_reference_build_table_is_migrated_to_allow_stat_slots(tmp_path):
         "SELECT sql FROM sqlite_master WHERE name='reference_build'").fetchone()[0]
     assert "'stat'" in sql
     store.close()
+
+
+def test_spread_out_champion_still_gets_its_most_played_core():
+    # Field test 23/11 (Kha'Zix): every core < 5 % pick, so the build used item
+    # win rate alone and rushed Death's Dance instead of Hubris.
+    from backend.tierdb.item_tiers import ItemTierRow, reference_build
+
+    def row(iid, rank):
+        return ItemTierRow(champion_id="kz", item_id=iid, kind="final", score=1.0,
+                           score_p20=0.0, score_p80=1.0, rank=rank, tie_group=rank,
+                           tier="A", level="champion", confidence=1.0)
+    rows = [row(i, n) for n, i in enumerate(
+        ["dd", "sterak", "youmuu", "hubris", "voltaic", "serylda", "collector"], start=1)]
+    cores = [(("hubris", "voltaic", "serylda"), 22000, 42000, 0.023),
+             (("hubris", "collector", "ie"), 20000, 40000, 0.022),
+             (("rare", "x", "y"), 900, 1500, 0.001)]
+    ref = reference_build("kz", cores, rows)
+    assert ref.items[0] == "hubris" and ref.sources[:3] == ("core", "core", "core")
+    assert ref.items[:3] == ("hubris", "voltaic", "serylda")
+    # Without enough games, no fallback core: tiers only, as before.
+    tiny = [(c, w, 100, p) for c, w, _g, p in cores]
+    assert reference_build("kz", tiny, rows).items[0] == "dd"
