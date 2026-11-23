@@ -1,5 +1,12 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-23 — Owner-approved completion gate (active)
+
+- [x] **PROCESS-01 — Replace automatic prompt-on-checkpoint policy** in `AGENTS.md` and the continuation skill: automatic next-conversation prompt ONLY after phase completion; otherwise report blockers and step-by-step resolution, remain in same phase. Owner-requested transfers can still resume the same incomplete phase.
+- [x] **AUD-P0-04b — Previous documentation checkpoint CI verified:** `e90e85b5acb93f2734d0a9af4360fe39ec56d2b6` [Windows #45192060535](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45192060535) both jobs SUCCESS (2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax, 35 pinned v4 PASS). No native acceptance.
+- [ ] **PROCESS-02 — Verify Windows Actions for this new process-only documentation HEAD** before claiming its exact-head CI gate complete. P0 itself stays OPEN regardless of CI.
+- [ ] **AUD-P0-02b, 02c/#49, 03b — P0 native/evidence gates remain OPEN:** obtain private-safe owner PC v3 cache counts; if defective, public DD/CD reproducible mismatch and minimal RED→GREEN; shop and Anvil Voucher/popup/3-or-4 options require user-controlled custom-game proof, not a CI proxy.
+
 ## 2026-11-23 — P0 same-subphase checkpoint (after independent #107 CI verification)
 
 - [x] **AUD-P0-04a — Previous exact PR head and Actions rechecked:** `6c84c823b453443ce7862d104c881a611ddf7245`, [Windows #45189586795](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45189586795), both jobs SUCCESS: 2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax checks, 35 pinned model PASS. Merge-ref CI, **not native proof**.

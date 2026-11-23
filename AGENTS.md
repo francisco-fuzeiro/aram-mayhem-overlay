@@ -25,6 +25,18 @@ a scheduler, or a way to create the next chat automatically.
 For a mid-phase rotation, continue on the same branch/PR; create a new
 stacked branch/PR only when beginning the next phase.
 
+## Phase completion and response contract (owner decision, 2026-11-23)
+
+This is the current authoritative rule; it supersedes older instructions to
+produce a conversation-transfer prompt at every checkpoint or subphase:
+
+1. A phase is **complete only after every mandatory acceptance criterion is supported by evidence**, including exact final HEAD Windows Actions and user-controlled native validation when that phase requires it. Synthetic/CI success, completed substeps, a documentation checkpoint, or a blocked validation never completes a phase.
+2. **If COMPLETE:** report evidence and remaining out-of-scope risks, then automatically supply the full next-conversation prompt for the next phase.
+3. **If INCOMPLETE / BLOCKED / NOT TESTED:** do **not** automatically supply a new-chat prompt. Stay on the same branch, PR and phase. Give an explicit blocker table with PROVEN / SUSPECTED / BLOCKED / NOT TESTED status and an executable, ordered resolution plan: what can be done remotely, the smallest evidence needed from the owner, the RED→GREEN repair if justified, the exact-head Windows CI gate, and native acceptance. Do as much unblocked work as possible now, without guessing.
+4. Exception: if the owner **explicitly asks to transfer/prepare a new conversation**, provide a same-phase continuity prompt, clearly stating that the phase remains incomplete; never imply phase completion or transition to the next phase.
+5. Continue documenting factual progress safely; do not create unnecessary commits or Actions runs solely to manufacture a handoff. Protect `main`, stacked draft PRs, privacy and Riot restrictions.
+
+
 ## Language and priorities
 
 - All application copy, source code comments, commit messages and documentation must be in English.

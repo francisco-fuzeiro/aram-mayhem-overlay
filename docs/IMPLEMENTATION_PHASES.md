@@ -1,5 +1,12 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-23 — Mandatory phase-exit and user-response gate (supersedes historical handoffs)
+
+- **Automatic next-chat prompt only if the entire current phase is COMPLETE**, with every required offline/Windows CI and native acceptance criterion evidenced. A completed substep, green CI, documentation commit or unavailable test is not a phase exit.
+- **Incomplete / blocked / not tested:** remain on the SAME branch/draft PR/phase; give explicit PROVEN/SUSPECTED/BLOCKED/NOT TESTED blockers and a step-by-step repair/evidence plan. Do not generate a prompt unless the owner specifically asks to transfer chats, in which case the prompt resumes the same phase.
+- **P0 current blockers in order:** (1) user-operated read-only `py -3.11 -m scripts.item_pool_report` with League/Oracle closed, send aggregate current-v3 counts only; (2) if actual v3 remains zero-final, reproduce public same-patch DD/CD price/recipe mismatch, tests-only RED then minimal fail-closed GREEN; (3) user-controlled supported custom Mayhem check for actual eligible shop items and Voucher stack edges, visible Anvil popup, 3/4 layout and safe verified option vocabulary, keeping private samples local; (4) exact HEAD Windows Actions and native scenario acceptance. No relaxed availability rules or fabricated Anvil scores. #49 and native Anvils remain OPEN.
+- Previous #107 docs-head `e90e85b5acb93f2734d0a9af4360fe39ec56d2b6` passed [Windows #45192060535](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45192060535); this process-only documentation change must obtain its own Windows result. Keep #107 draft on #103, main and TierDB untouched, no merge.
+
 ## 2026-11-23 — P0 same-phase verification and evidence wait (#107)
 
 - **Previous proven automated gate:** #107 draft direct child of #103, exact `6c84c823b453443ce7862d104c881a611ddf7245`, [Windows #45189586795](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45189586795): both jobs success, 2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax, 35 pinned PP-OCRv4 PASS; no native game acceptance.

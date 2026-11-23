@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Owner policy fix: stop premature conversation handoffs (docs only)
+
+- The owner clarified that the assistant must provide a **next-session prompt automatically only when the current phase is fully completed**, not after a documentation checkpoint or passing CI. When mandatory acceptance is still open, remain in this phase and give blockers and ordered instructions to resolve them. Explicit owner-requested transfers may produce a same-phase prompt.
+- Updated the authoritative policy in `AGENTS.md` and `.agents/skills/continue-aram-oracle/SKILL.md`; marked historical prompt-every-subphase rules as superseded. Synced state/TODO/phases. No product code, TierDB, item eligibility or Anvil mechanics changed, and no native tests were run.
+- Before this docs-only update, draft #107 HEAD `e90e85b5acb93f2734d0a9af4360fe39ec56d2b6` passed exact [Windows #45192060535](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45192060535) (2,068 Python/27 skip, 87 JS, three syntax, 35 pinned v4). The new documentation commit will require a new exact-head CI check. Current P0 remains incomplete: owner local v3 cache report missing, #49 native item gate open, Anvil real option vocabulary/geometry and custom Mayhem not tested. No merge, main or TierDB changes.
+
 ## 2026-11-23 — P0 follow-up evidence checkpoint, no product code change
 
 - Read `AGENTS.md`, the continuation skill, current state/TODO/log/phases, P0 offline report, and the independent audit from the separate documentation #105 branch without incorporating TierDB work.
