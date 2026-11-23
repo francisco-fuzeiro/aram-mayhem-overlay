@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-11-23).** The v3 correction plan and blueprints below are history. Current order: [WORK_ORDER_2026-11-23.md](../WORK_ORDER_2026-11-23.md).
+
 # ARAM Oracle — correction blueprints v3 and deferred feature roadmap
 
 **Decision (2026-11-20): CORRECT THE EXISTING PRODUCT FIRST.** The two original user-supplied ZIPs are archived, along with human-readable plans/blueprints and the JSON data used by their proposed regression tests. This import is DOCUMENTATION ONLY: no fixes are implemented and the latest native Windows custom-game acceptance is **FAILED**.

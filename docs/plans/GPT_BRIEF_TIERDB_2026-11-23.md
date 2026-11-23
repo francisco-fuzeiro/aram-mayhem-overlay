@@ -3,6 +3,15 @@
 Date: 2026-11-23. Owner decisions are marked **Decided**; designs not yet approved are marked **Proposal**.
 The source documents are in Portuguese; this brief is the English entry point.
 
+## Work order (Decided, owner, 23/11) — applies to you
+
+1. **You:** fix the 3 P0s first: augment parser, item eligibility, Stat Anvil trigger. Each with per-feature diagnostics (see "Testing policy" below).
+2. Tier list DB: done by Claude in draft #106. Do not redo it; avoid its files.
+3. The owner runs **one** end-to-end match with 1 + 2 together.
+4. Only after that report: the full plan of `docs/audits/AUDITORIA_INDEPENDENTE_2026-11-23.md`.
+
+The v3 plan of 20/11 is **superseded**; do not follow its A1→…→N1 order. Source: `docs/plans/WORK_ORDER_2026-11-23.md`.
+
 ## Read first (in this order)
 1. `docs/plans/DESENHO_TIERDB_2026-11-23.md` — design: DB schema, per-patch pipeline, formulas, thresholds, phases F0–F7, tests.
 2. `docs/audits/FONTES_DADOS_MAYHEM_2026-11-23.md` — which data sources are legal and what each provides.

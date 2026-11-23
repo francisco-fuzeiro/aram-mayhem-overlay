@@ -1,5 +1,17 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-23 — Work order (owner decision; supersedes the v3 plan of 20/11)
+
+See [WORK_ORDER_2026-11-23.md](plans/WORK_ORDER_2026-11-23.md). Do these in order; do not start a later step early.
+
+- [ ] **WO-1** GPT: fix P0 augment parser.
+- [ ] **WO-1** GPT: fix P0 item eligibility.
+- [ ] **WO-1** GPT: fix P0 Stat Anvil trigger.
+- [x] **WO-2** Claude: tier list DB wired to the overlay + per-feature diagnostics (draft #106).
+- [ ] **WO-3** Owner: one end-to-end Mayhem match with WO-1 + WO-2, then paste the feature report.
+- [ ] **WO-4** Only after WO-3: full plan of `audits/AUDITORIA_INDEPENDENTE_2026-11-23.md`.
+- Superseded: the v3 plan of 20/11 (`plans/ARAM_2026-11-20/`) and its A1→…→N1 order.
+
 **2026-11-22 — V1.2c CI checkpoint:** The previous final protocol SHA `a8ab76876f2e16d5aa08d714a9032905aaa79d78` has [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 JS syntax PASS; independent pinned v4 35 PASS). **PROVEN = offline CI only.** V12-N00..N10 and F1.3 native NOT TESTED; old N1 user-observed FAIL/root cause BLOCKED. Native feasibility must be checked in a supported custom Mayhem lobby, no ordinary competitive substitute. This documentation checkpoint requires its own final SHA Actions; no code change, merge, engine promotion, installer or Settings selector.
 
 
