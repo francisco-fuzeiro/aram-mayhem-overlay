@@ -177,6 +177,34 @@
         }
     }
 
+    // Only acknowledge actually rendered UI elements, and only for a fresh
+    // match. Backend applies its own match/epoch/catalog gates. No item IDs,
+    // champion IDs, OCR titles or private data are transmitted.
+    function reportVisibleFeatures(data) {
+        const match = data && typeof data.match_id === "string"
+            && data.match_id === activeMatchId && !stale;
+        if (!match || data.phase !== "in_game") return;
+        const bs = data.build_state;
+        if (bs && bs.next_item_id && !bs.slot_blocked &&
+                !$("section-build").classList.contains("hidden") &&
+                buildNext.textContent.startsWith("Next: ")) {
+            wsSend({type: "feature_ack", feature: "build.next_item_render",
+                status: "ok", reason: "rendered", count: 1,
+                match_id: activeMatchId});
+        }
+        // P0-C: only the dedicated, server-verified Stat Anvil popup can be
+        // acknowledged; a purchased voucher never produces this panel.
+        const anvil = data.anvil_offer;
+        if (anvil && Number.isSafeInteger(anvil.epoch) &&
+                Array.isArray(anvil.cards) && anvil.cards.length === anvil.count &&
+                !$("section-anvil").classList.contains("hidden") &&
+                $("anvil-top").textContent.length > 0) {
+            wsSend({type: "feature_ack", feature: "anvil.offer_render",
+                status: "ok", reason: "rendered", count: anvil.count,
+                match_id: activeMatchId, offer_epoch: anvil.epoch});
+        }
+    }
+
     // -- Match-specific display lifecycle --
 
     function setWaitingTitle(title) {
@@ -500,6 +528,8 @@
         sections.forEach((id) => {
             $(id).classList.toggle("hidden", show);
         });
+        // The Anvil panel only ever opens from a verified popup update.
+        if (show) $("section-anvil").classList.add("hidden");
     }
 
     function bindHistorySync() {
@@ -588,12 +618,62 @@
 
     // -- Render update --
 
+    // Shows only the best-fit shard; the others stay behind "Other options".
+    function renderAnvilOffer(data) {
+        const section = $("section-anvil");
+        const top = $("anvil-top");
+        const others = $("anvil-others");
+        const offer = data && data.anvil_offer;
+        const cards = offer && Array.isArray(offer.cards) ? offer.cards : [];
+        top.replaceChildren();
+        others.replaceChildren();
+        top.textContent = "";
+        if (!offer || !cards.length || cards.length !== offer.count) {
+            section.classList.add("hidden");
+            return;
+        }
+        section.classList.remove("hidden");
+        const tier = typeof offer.tier === "string" ? offer.tier : "";
+        $("anvil-title").textContent = "STAT ANVIL" + (tier ? " · " + tier.toUpperCase() : "");
+        const scored = cards.filter(c => typeof c.score === "number" &&
+            Number.isFinite(c.score) && c.modelled !== false);
+        const fmt = c => (c.anvil_name || c.anvil_id) +
+            (typeof c.score === "number" ? " · " + c.score.toFixed(1) + "/10" : " · No model");
+        if (scored.length) {
+            top.textContent = "Best fit: " + fmt(scored[0]);
+            if (typeof scored[0].reason === "string") {
+                const why = document.createElement("div");
+                why.className = "aug-explain";
+                why.textContent = scored[0].reason;
+                top.appendChild(why);
+            }
+        } else {
+            top.textContent = "Shards read: no rating for this champion";
+        }
+        for (const card of cards) {
+            if (scored.length && card === scored[0]) continue;
+            const row = document.createElement("div");
+            row.className = "aug-explain";
+            row.textContent = fmt(card) +
+                (typeof card.reason === "string" ? " — " + card.reason : "");
+            others.appendChild(row);
+        }
+        if (scored.length && typeof scored[0].explanation === "string") {
+            const note = document.createElement("div");
+            note.className = "aug-explain";
+            note.textContent = scored[0].explanation;
+            others.appendChild(note);
+        }
+    }
+
     function renderUpdate(data) {
         renderHeader(data);
         renderRecommendations(data);
+        renderAnvilOffer(data);
         renderBuild(data.build_state);
         renderEnemies(data.enemies || [], data.enemy_analysis || {});
         autoExpandSections(data);
+        reportVisibleFeatures(data);
     }
 
     function renderHeader(data) {
@@ -1237,6 +1317,7 @@
         $("section-augments").classList.add("hidden");
         $("section-build").classList.add("hidden");
         $("section-enemies").classList.add("hidden");
+        $("section-anvil").classList.add("hidden");
     }
 
     function hidePostGameFeedback() {
@@ -1290,6 +1371,7 @@
             renderUpdate,
             renderHeader,
             renderRecommendations,
+            renderAnvilOffer,
             renderBuild,
             renderEnemies,
             renderChampSelect,

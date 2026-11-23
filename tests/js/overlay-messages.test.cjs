@@ -1383,3 +1383,80 @@ test("F3: full-build boot swap stays before conservative Anvil stat guidance", (
     h.api.renderBuild({...state, full_build: ids.slice(0, 5), boot_replacement: null});
     assert.equal(h.element("build-alternatives").children.length, 0);
 });
+
+
+test("P0 next-item UI emits match-scoped render ACK only for real rendered advice", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    const socket = h.sockets[0];
+    socket.readyState = 1;
+    const update = gameUpdate("Jinx");
+    update.match_id = "synthetic-current-match";
+    update.build_state = {
+        ...update.build_state, next_item_id: "3031",
+        next_item_name: "Infinity Edge", full_build: ["3031"],
+        purchased_items: [], gold_to_next: 1600, slot_blocked: false,
+    };
+    h.api.handleMessage(update);
+    const ack = JSON.parse(socket.sent);
+    assert.equal(ack.type, "feature_ack");
+    assert.equal(ack.feature, "build.next_item_render");
+    assert.equal(ack.status, "ok");
+    assert.equal(ack.reason, "rendered");
+    assert.equal(ack.match_id, "synthetic-current-match");
+    assert.equal(ack.count, 1);
+
+    socket.sent = undefined;
+    h.api.handleMessage({...update, match_id: "synthetic-current-match",
+        build_state: {...update.build_state, next_item_id: null,
+            next_item_name: null, full_build: []}});
+    assert.equal(socket.sent, undefined);
+    h.api.handleMessage({type: "no_game"});
+    assert.equal(socket.sent, undefined);
+});
+
+test("P0 no synthetic Anvil ACK on a normal augment update", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    h.sockets[0].readyState = 1;
+    const update = gameUpdate();
+    update.match_id = "synthetic";
+    h.api.handleMessage(update);
+    assert.equal(h.sockets[0].sent, undefined);
+});
+
+test("P0-C Stat Anvil panel shows only the best fit, details collapsed, epoch-fenced ACK", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    const socket = h.sockets[0];
+    socket.readyState = 1;
+    const update = gameUpdate("Jinx");
+    update.match_id = "synthetic-current-match";
+    h.api.handleMessage(update);
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), true);
+    assert.equal(socket.sent, undefined, "no Anvil ACK without a verified popup");
+
+    update.anvil_offer = {epoch: 2, tier: "gold", tier_source: "titles", count: 3, cards: [
+        {anvil_id: "ARAM_GoldStatAnvil_CritChance", anvil_name: "Critical Strike Shard",
+         score: 10, modelled: true, reason: "crit chance suits this champion",
+         explanation: "Own heuristic; not a win rate."},
+        {anvil_id: "ARAM_GoldStatAnvil_AS", anvil_name: "Attack Speed Shard",
+         score: 7.3, modelled: true, reason: "attack speed suits this champion"},
+        {anvil_id: "ARAM_GoldStatAnvil_AR", anvil_name: "Armor Shard",
+         score: 1.9, modelled: true, reason: "armor suits this champion"},
+    ]};
+    h.api.handleMessage(update);
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), false);
+    assert.match(h.element("anvil-top").textContent, /^Best fit: Critical Strike Shard · 10\.0\/10/);
+    assert.match(h.element("anvil-title").textContent, /GOLD/);
+    assert.equal(h.element("anvil-others").children.length, 3); // 2 others + note
+    const ack = JSON.parse(socket.sent);
+    assert.equal(ack.feature, "anvil.offer_render");
+    assert.equal(ack.count, 3);
+    assert.equal(ack.offer_epoch, 2);
+
+    socket.sent = undefined;
+    h.api.handleMessage({...update, anvil_offer: null});
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), true);
+    assert.equal(socket.sent, undefined);
+});

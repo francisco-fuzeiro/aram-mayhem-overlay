@@ -158,6 +158,7 @@ class ScreenWatcher:
         self, *, independent_observer=None, approved_calibration: str | None = None,
         sleep_fn=None, card_count_observer=None,
         approved_card_count_calibration: str | None = None,
+        skip_ocr_without_cards: bool = False,
     ) -> None:
         import threading
         from backend.collectors.slot_temporal import SlotTemporalTracker
@@ -183,6 +184,10 @@ class ScreenWatcher:
         self._last_capture_backend: str | None = None  # Read-only D2 diagnostics.
         self._last_background_observation: tuple[str, str] | None = None
         self._f0_geometry_size: tuple[int, int] | None = None  # trace only
+        # Field fix 23/11 (latency): with NO card background in any title band
+        # there is nothing to read, so skip Tesseract. Never proves absence of
+        # an offer to the ledger; presence/disappearance stay elsewhere.
+        self._skip_ocr_without_cards = skip_ocr_without_cards
 
     @property
     def last_scan_stage(self) -> str:
@@ -394,6 +399,14 @@ class ScreenWatcher:
                 self._set_scan_stage("geometry_unsupported")
                 return ("unavailable", None)
 
+            if self._skip_ocr_without_cards:
+                from backend.collectors.card_presence import downsample
+                if card_background_cue(downsample(crops)) == "absent":
+                    self._transition_open = False
+                    current = self._temporal.snapshot()
+                    self._set_scan_stage("cards_absent")
+                    return ("unchanged" if current is not None else "no_augments", None)
+
             # Record *relative* physical title rectangles once per client
             # dimension, and only after verified capture+valid ROI geometry.
             # Never log the HWND, desktop origin, crop pixels or OCR text.
@@ -593,11 +606,12 @@ SCAN_STAGES = frozenset((
     "titles_verifying", "titles_unidentified",
     "titles_detected", "titles_unchanged", "titles_transition",
     "layout_unverified", "layout_four_unsupported", "verified_absence",
+    "cards_absent",
 ))
 
 
 # -- Module-level singleton --
-watcher = ScreenWatcher()
+watcher = ScreenWatcher(skip_ocr_without_cards=True)
 
 
 # -- Standalone functions (unchanged API for backwards compat) --

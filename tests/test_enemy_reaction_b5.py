@@ -114,7 +114,7 @@ def test_text_classifier_strips_html_and_uses_complete_wounds_word(description, 
 def test_verified_properties_persist_and_old_cache_cannot_be_reused(tmp_path):
     assert _ITEM_CACHE_SCHEMA == 5  # B3 already consumed schema 4.
     meta = ItemPoolMeta(
-        policy_version="item_pool_v3", ddragon_version="16.23.1",
+        policy_version="item_pool_v5", ddragon_version="16.23.1",
         cdragon_patch="16.23.8406595+branch.test",
         cdragon_sha256="a" * 64, cdragon_fetched_at="2026-11-20T00:00:00Z",
         overrides_version="2026-11-20.1", availability="verified_two_source",
@@ -132,6 +132,10 @@ def test_verified_properties_persist_and_old_cache_cannot_be_reused(tmp_path):
     path = tmp_path / "items_v5_16.23.1.json"
     path.write_text(json.dumps(encoded), encoding="utf-8")
     assert _verified_cached_items(path, "16.23.1", meta.overrides_version)["3072"].properties == original.properties
+    prior_policy = copy.deepcopy(encoded)
+    prior_policy["meta"]["policy_version"] = "item_pool_v3"
+    path.write_text(json.dumps(prior_policy), encoding="utf-8")
+    assert _verified_cached_items(path, "16.23.1", meta.overrides_version) is None
     old = copy.deepcopy(encoded)
     old["schema"] = 4
     path.write_text(json.dumps(old), encoding="utf-8")
@@ -355,7 +359,7 @@ def test_two_source_loader_computes_properties_from_raw_dd_and_persists_them(tmp
     from backend.static_data.loader import _assemble_item_catalog
 
     meta = ItemPoolMeta(
-        policy_version="item_pool_v3", ddragon_version="16.23.1",
+        policy_version="item_pool_v5", ddragon_version="16.23.1",
         cdragon_patch="16.23.8406595+branch.test",
         cdragon_sha256="b" * 64, cdragon_fetched_at="2026-11-20T00:00:00Z",
         overrides_version="2026-11-20.1", availability="verified_two_source",

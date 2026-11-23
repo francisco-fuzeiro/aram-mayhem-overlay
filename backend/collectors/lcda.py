@@ -6,6 +6,7 @@ import requests
 import urllib3
 from backend.diagnostic_events import events as event_log
 from backend.models import GameSnapshot, GamePhase, EnemyState
+from backend.collectors.anvil_voucher import count_anvil_vouchers
 
 # League's Live Client Data API uses a self-signed certificate
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -171,6 +172,9 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
         str(item["itemID"]) for item in active_player.get("items", [])
         if _is_main_inventory_item(item)
     ]
+    # Only the uniquely identified active player can supply voucher evidence.
+    # Missing player or inventory is unknown, never zero stacks.
+    anvil_vouchers = count_anvil_vouchers(active_player.get("items")) if active_player else None
     gold = int(active.get("currentGold", 0))
     game_time = float(game_data.get("gameTime", 0))
     game_id = str(game_data.get("gameId", "unknown"))
@@ -240,4 +244,5 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
         champion_stats=champion_stats,
         ally_champion_ids=allies,
         enemy_states=enemy_states,
+        anvil_vouchers=anvil_vouchers,
     )

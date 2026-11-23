@@ -111,10 +111,13 @@ def test_strict_match_same_normalized_title_prefers_lowest_mayhem_id():
 
 
 def test_cache_schema_is_incremented_to_prevent_reusing_arena_data():
-    assert loader._AUGMENT_CACHE_SCHEMA == 4
+    assert loader._AUGMENT_CACHE_SCHEMA == 5
 
 
-def test_shared_server_title_catalog_augments_take_precedence(monkeypatch):
+def test_shared_server_title_catalog_is_augments_only(monkeypatch):
+    # P0-C (2026-11-23): Stat Anvil titles moved to their own watcher
+    # (backend.collectors.anvil_popup). Silver/Gold shards share titles, so the
+    # augment watcher must never match them into an augment offer.
     monkeypatch.setattr(server.static_data, "_stat_anvils", {
         "1": SimpleNamespace(name="Anvil"),
         "2": SimpleNamespace(name="Old"),
@@ -123,7 +126,7 @@ def test_shared_server_title_catalog_augments_take_precedence(monkeypatch):
         "2": SimpleNamespace(name="Mayhem Preferred"),
         "3": SimpleNamespace(name="Goliath"),
     })
-    expected = {"1": "Anvil", "2": "Mayhem Preferred", "3": "Goliath"}
+    expected = {"2": "Mayhem Preferred", "3": "Goliath"}
     assert server._ocr_title_catalog() == expected
 
     received = []
@@ -162,7 +165,7 @@ def test_loader_persists_only_the_328_selected_mayhem_source_rows(
     monkeypatch.setattr(loader.requests, "get", fake_get)
     loaded = loader._load_augments()
     cache = json.loads(
-        (tmp_path / "augments_v4_a1-fixture.json").read_text(encoding="utf-8")
+        (tmp_path / "augments_v5_a1-fixture.json").read_text(encoding="utf-8")
     )
     expected = json.loads(
         (FIXTURES / "expected_mayhem_catalog_2026-11-20.json").read_text(encoding="utf-8")
