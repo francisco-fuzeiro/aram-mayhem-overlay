@@ -2,6 +2,8 @@ from backend.models import GameSnapshot, GamePhase, PipelineResult, EnemyState
 from backend.static_data.loader import StaticData
 from backend.engine.ranker import rank_augments, should_reroll
 from backend.engine.build_suggester import suggest_build
+from backend.engine.anvil_priorities import rate_verified_anvil_options
+from backend.models import AugmentTier
 from backend.engine.inventory import build_inventory
 from backend.engine.team_context import analyze_enemies, analyze_allies
 from backend.storage.db import get_all_personal_winrates
@@ -66,7 +68,15 @@ class Pipeline:
         )
         inventory = build_inventory(snapshot.purchased_items, self.data)
 
-        recommendations = rank_augments(
+        anvil_only = bool(choices) and all(
+            aug.tier == AugmentTier.STAT_ANVIL for aug in choices
+        )
+        # A mixed augment/Stat-Anvil OCR catalog is ambiguous: abstain.
+        mixed_offer = bool(choices) and any(
+            aug.tier == AugmentTier.STAT_ANVIL for aug in choices
+        ) and not anvil_only
+
+        recommendations = [] if anvil_only or mixed_offer else rank_augments(
             champion=champion,
             choices=choices,
             existing=existing,
@@ -95,6 +105,16 @@ class Pipeline:
             enemy_profile=enemy_profile,
             ally_profile=ally_profile,
             build_style=snapshot.build_style,
+        )
+        # Optional heuristic scores for exact tier-zero options, never a
+        # classification or observation of a visible purchased Anvil popup.
+        anvil_ratings = (
+            rate_verified_anvil_options(
+                champion, choices, existing,
+                [self.data.get_item(ident) for ident in inventory.finals],
+                enemy_profile,
+            ) if anvil_only and len(choices) == 3 and
+                 len({aug.id for aug in choices}) == 3 else []
         )
         meta = self.data.item_pool_meta
         if meta is not None:
@@ -162,4 +182,5 @@ class Pipeline:
             reroll_reason=reroll_reason,
             enemy_analysis={**enemy_profile.as_dict(), "notes": enemy_profile.notes()},
             ally_analysis={**ally_profile.as_dict(), "notes": ally_profile.notes()},
+            anvil_recommendations=anvil_ratings,
         )

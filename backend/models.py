@@ -186,6 +186,8 @@ class BuildState:
     # item-family ID that appears in the calculated build path.
     owned_build_ids: list[str] = field(default_factory=list)
     owned_build_names: dict[str, str] = field(default_factory=dict)
+    # Ranked stat preferences after six verified acquired finals; not OCR picks.
+    anvil_stat_priorities: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -227,3 +229,5 @@ class PipelineResult:
     reroll_reason: str = ""
     enemy_analysis: dict = field(default_factory=dict)
     ally_analysis: dict = field(default_factory=dict)
+    # Current offered Anvil scores; populated only from exact tier-zero choices.
+    anvil_recommendations: list[dict] = field(default_factory=list)
