@@ -27,6 +27,8 @@
                         aria-controls="panel-overlay" tabindex="-1" data-target="panel-overlay">Overlay</button>
                 <button type="button" class="tab" id="tab-preferences" role="tab" aria-selected="false"
                         aria-controls="panel-preferences" tabindex="-1" data-target="panel-preferences">Build Preferences</button>
+                <button type="button" class="tab" id="tab-tier-list" role="tab" aria-selected="false"
+                        aria-controls="panel-tier-list" tabindex="-1" data-target="panel-tier-list">Tier Lists</button>
                 <button type="button" class="tab" id="tab-ocr" role="tab" aria-selected="false"
                         aria-controls="panel-ocr" tabindex="-1" data-target="panel-ocr">OCR</button>
                 <button type="button" class="tab" id="tab-diagnostics" role="tab" aria-selected="false"
@@ -165,6 +167,47 @@
                                 <button id="save-preferences" type="button" class="button-primary" disabled>Save preference</button>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <section id="panel-tier-list" class="tab-panel hidden" role="tabpanel"
+                         aria-labelledby="tab-tier-list" tabindex="0" aria-hidden="true" hidden>
+                    <div class="section-heading">
+                        <div class="eyebrow">CHAMPION AUGMENT REFERENCE</div>
+                        <h1>Augment Tier Lists</h1>
+                        <p>Browse the baseline for any champion outside a match. Rankings use
+                           experimental champion-fit estimates—not measured performance or win rates.
+                           Live adaptive standings are a separate, unverified feature.</p>
+                    </div>
+                    <div class="info-card">
+                        <div class="tier-controls">
+                            <div class="field">
+                                <label for="tier-champion">Champion</label>
+                                <select id="tier-champion" disabled aria-label="Champion"></select>
+                            </div>
+                            <div class="field">
+                                <label for="tier-rarity">Augment rarity</label>
+                                <select id="tier-rarity" aria-label="Augment rarity">
+                                    <option value="1">Silver</option>
+                                    <option value="2" selected>Gold</option>
+                                    <option value="3">Prismatic</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="tier-search">Filter augments</label>
+                                <input id="tier-search" type="search" placeholder="Search name…"
+                                       autocomplete="off">
+                            </div>
+                        </div>
+                        <p id="tier-status" class="small" role="status" aria-live="polite">
+                            Select Tier Lists to load your local champion catalog.
+                        </p>
+                        <div id="tier-rows" class="tier-list-rows" aria-label="Augment ranking"></div>
+                        <p class="small">Ranks compare only modelled augments of the same rarity.
+                           Equal rounded scores may have different ranks based on higher-precision
+                           heuristic estimates; nearly equal estimates may share a rank.
+                           OP/S/A/B/C/D/E grades are not calibrated and are not shown.
+                           Missing ratings stay unranked. No live game is necessary.</p>
                     </div>
                 </section>
 

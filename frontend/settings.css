@@ -223,3 +223,9 @@ kbd { color: var(--text); border-radius: 4px; padding: 2px 7px; border: 1px soli
 .preview-example-head { font-size: 8px; color: #8de9e7; font-weight: 700; }
 @media(max-width:560px) { .overlay-controls{grid-template-columns:1fr}
     .overlay-controls .field:first-child{grid-column:auto} }
+
+/* D6 / SCORE-84: optional out-of-game baseline catalogue browsing. */
+.tier-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
+.tier-controls .field { display: flex; flex-direction: column; gap: 6px; }
+.tier-list-rows { display: flex; flex-direction: column; gap: 5px; max-height: 55vh; overflow-y: auto; }
+.tier-list-row { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }

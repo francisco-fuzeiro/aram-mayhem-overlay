@@ -9,6 +9,15 @@
     const saveButton = $("save-preferences");
     const retryPreferences = $("retry-preferences");
     const saveStatus = $("save-status");
+    const tierChampion = $("tier-champion");
+    const tierRarity = $("tier-rarity");
+    const tierSearch = $("tier-search");
+    const tierStatus = $("tier-status");
+    const tierRows = $("tier-rows");
+    let tierCatalogLoaded = false;
+    let tierCatalogLoading = false;
+    let tierRequest = 0;
+    let tierResult = null;
     const feedbackInput = $("feedback-description");
     const feedbackButton = $("send-feedback");
     const feedbackStatus = $("feedback-status");
@@ -405,6 +414,87 @@
         }
     }
 
+    function showTierList() {
+        tierRows.replaceChildren();
+        if (!tierResult) return;
+        const query = tierSearch.value.trim().toLowerCase();
+        const rows = [...(tierResult.rows || []).map(row => ({
+            label: "#" + row.rank + "/" + row.assessed_count + " · " +
+                   row.augment_name + " · " + Number(row.score).toFixed(1) + "/10",
+            search: row.augment_name,
+        })), ...(tierResult.unrated || []).map(row => ({
+            label: "Not rated · " + row.augment_name,
+            search: row.augment_name,
+        }))];
+        for (const row of rows) {
+            if (!row.search.toLowerCase().includes(query)) continue;
+            // Always textContent: OCR/catalog names are untrusted data.
+            const node = document.createElement("div");
+            node.className = "tier-list-row";
+            node.textContent = row.label;
+            tierRows.appendChild(node);
+        }
+    }
+
+    async function loadTierList() {
+        if (!tierChampion.value || !tierCatalogLoaded) return;
+        const generation = ++tierRequest;
+        tierStatus.textContent = "Loading the experimental baseline tier list…";
+        tierRows.replaceChildren();
+        tierResult = null;
+        try {
+            const query = "?champion_id=" + encodeURIComponent(tierChampion.value) +
+                "&rarity=" + encodeURIComponent(tierRarity.value);
+            const result = await requestJson("/api/augment-tier-list" + query);
+            if (generation !== tierRequest) return;
+            if (result.context !== "baseline" || result.grade_calibrated !== false ||
+                    !Array.isArray(result.rows) || !Array.isArray(result.unrated))
+                throw new Error("Unsupported tier-list response; no ranking shown.");
+            tierResult = result;
+            tierStatus.textContent = result.assessed_count + " of " +
+                result.catalog_count + " augments rated · " +
+                result.unrated_count + " not rated · Grades not calibrated";
+            showTierList();
+        } catch (error) {
+            if (generation !== tierRequest) return;
+            tierResult = null;
+            tierRows.replaceChildren();
+            tierStatus.textContent = "Tier list unavailable: " + error.message;
+        }
+    }
+
+    async function loadTierChampions() {
+        if (tierCatalogLoaded) return loadTierList();
+        if (tierCatalogLoading) return;
+        tierCatalogLoading = true;
+        tierChampion.disabled = true;
+        tierStatus.textContent = "Loading champion catalog…";
+        try {
+            const result = await requestJson("/api/static-names");
+            const champs = Object.entries(result.champions || {})
+                .filter(([id, name]) => typeof id === "string" && id &&
+                    typeof name === "string" && name)
+                .sort((a, b) => a[1].localeCompare(b[1]) || a[0].localeCompare(b[0]));
+            if (!champs.length) throw new Error("No local champions available");
+            tierChampion.replaceChildren();
+            for (const [id, name] of champs) {
+                const opt = document.createElement("option");
+                opt.value = id;
+                opt.textContent = name;
+                tierChampion.appendChild(opt);
+            }
+            tierChampion.value = champs[0][0];
+            tierChampion.disabled = false;
+            tierCatalogLoaded = true;
+            await loadTierList();
+        } catch (error) {
+            tierRows.replaceChildren();
+            tierStatus.textContent = "Tier list unavailable: " + error.message;
+        } finally {
+            tierCatalogLoading = false;
+        }
+    }
+
     function activateTab(target, focus = false) {
         const selected = tabs.find((tab) => tab.dataset.target === target);
         if (!selected) return;
@@ -421,7 +511,12 @@
             panel.setAttribute("aria-hidden", String(!active));
         });
         if (focus) selected.focus();
+        if (target === "panel-tier-list") void loadTierChampions();
     }
+
+    tierChampion.addEventListener("change", loadTierList);
+    tierRarity.addEventListener("change", loadTierList);
+    tierSearch.addEventListener("input", showTierList);
 
     tabs.forEach((tab, index) => {
         tab.addEventListener("click", () => activateTab(tab.dataset.target));
