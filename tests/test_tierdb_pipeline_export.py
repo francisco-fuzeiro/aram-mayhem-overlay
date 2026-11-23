@@ -147,3 +147,18 @@ def test_cli_ingest_build_export_offline(tmp_path):
     doc = json.loads(out.read_text(encoding="utf-8"))
     assert doc["sources"][0]["name"] == "aramhex"
     assert "CC BY-NC 4.0" in doc["sources"][0]["attribution"]
+
+
+def test_leverage_defaults_to_absolute_strength_with_best_offer(store):
+    # Holdout 16.22->16.23 (F7): relative lift anti-correlates with winning;
+    # absolute E[max of 3] strength keeps the composite within 0.02 of WR-only.
+    run_id = run_build(store, "16.23", ROLES, **FAST)
+    cfg = json.loads(store.connection.execute(
+        "SELECT thresholds_json FROM tier_run WHERE id=?", (run_id,)).fetchone()[0])
+    assert cfg["leverage_mode"] == "absolute"
+    rel = run_build(store, "16.23", ROLES, leverage_mode="relative", **FAST)
+    cfg = json.loads(store.connection.execute(
+        "SELECT thresholds_json FROM tier_run WHERE id=?", (rel,)).fetchone()[0])
+    assert cfg["leverage_mode"] == "relative"
+    with pytest.raises(ValueError):
+        run_build(store, "16.23", ROLES, leverage_mode="magic", **FAST)
