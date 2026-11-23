@@ -6,7 +6,10 @@ the result from their augments with (a) local shrunk ΔWR only, (b) impact only,
 context_adjust only if (c) beats (a) by >= MIN_GAIN on >= MIN_TEST_ROWS rows.
 Prints counts and scores only: no champion names, games or players.
 
-    py -3.11 -m scripts.validate_impact_holdout [--db PATH] [--train 0.7]
+    py -3.11 -m scripts.validate_impact_holdout [--db PATH] [--train 0.7] [--no-prior]
+
+Uses the local normal-ARAM prior (scripts/collect_aram_damage_prior.py) if present;
+run with and without it to see whether the prior helps.
 """
 from __future__ import annotations
 
@@ -17,6 +20,7 @@ from pathlib import Path
 
 from backend.storage.db import DB_PATH, get_participants
 from backend.tierdb.impact import ImpactConfig, augment_impact
+from backend.tierdb.riot_prior import load_prior
 
 MIN_TEST_ROWS = 500
 MIN_GAIN = 0.01
@@ -64,21 +68,21 @@ def _mean(values):
 
 
 def evaluate(rows: list[dict], train_share: float = 0.7,
-             config: ImpactConfig = ImpactConfig()) -> dict:
+             config: ImpactConfig = ImpactConfig(), prior: dict | None = None) -> dict:
     games = list(dict.fromkeys(r["game"] for r in rows))
     cut = int(len(games) * train_share)
     train_games = set(games[:cut])
     train = [r for r in rows if r["game"] in train_games]
     test = [r for r in rows if r["game"] not in train_games and r.get("win") is not None]
     wr = _shrunk_wr(train)
-    imp = {k: v["impact"] for k, v in augment_impact(train, config).items()}
+    imp = {k: v["impact"] for k, v in augment_impact(train, config, prior).items()}
     feats = []
     for r in test:
         keys = [(r["champion_id"], a) for a in dict.fromkeys(r.get("augments") or [])]
         feats.append((_mean(wr.get(k) for k in keys), _mean(imp.get(k) for k in keys),
                       bool(r["win"])))
     result = {"games": len(games), "train_games": cut, "test_rows": len(test),
-              "impact_pairs": len(imp),
+              "impact_pairs": len(imp), "prior_champions": len(prior or {}),
               "auc_wr": _auc([(a, w) for a, _, w in feats]),
               "auc_impact": _auc([(b, w) for _, b, w in feats])}
     # ΔWR is ~0.01-scale, impact is [-1, 1]: put impact on ΔWR's scale first.
@@ -96,8 +100,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", type=Path, default=DB_PATH)
     parser.add_argument("--train", type=float, default=0.7)
+    parser.add_argument("--no-prior", action="store_true",
+                        help="ignore the local normal-ARAM damage prior")
     args = parser.parse_args()
-    print(json.dumps(evaluate(get_participants(db_path=args.db), args.train), indent=2))
+    prior = None if args.no_prior else load_prior()
+    print(json.dumps(evaluate(get_participants(db_path=args.db), args.train, prior=prior),
+                     indent=2))
 
 
 if __name__ == "__main__":

@@ -1158,3 +1158,6 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Follow-up: the sync now pages the LCU match list (20 per page, up to 1000, 0.3 s
   pause) and stops when a page brings nothing new. Whether the client honours the
   indices beyond the newest 20 is unverified until run on a real client.
+- Normal-ARAM (450) damage prior: offline Riot match-v5 collector, key only from
+  RIOT_API_KEY, local per-champion aggregates only, blended into the impact
+  baseline (20 pseudo-games). Aggregates stay out of the repo pending Riot policy.

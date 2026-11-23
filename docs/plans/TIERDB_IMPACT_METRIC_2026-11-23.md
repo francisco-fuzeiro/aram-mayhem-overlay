@@ -25,3 +25,12 @@ hash); the table is never submitted or exported. Remakes (< 300 s) are skipped.
   as soon as a page brings no new games (client ignoring the indices). A one-off
   backfill is `POST /api/history/import?max_games=1000` (needs the
   `lcu_history_enabled` opt-in). Owner chose LCU only (23/11); SGP is not used.
+- **Normal-ARAM damage prior (owner decision 23/11):** `scripts/collect_aram_damage_prior.py`
+  (offline, never in the overlay) reads Riot match-v5 queue 450 with the key from
+  `RIOT_API_KEY` only (sent as a header, never logged or stored), spaces requests
+  1.25 s and backs off on 429/5xx. It stores only per-champion aggregates
+  (damage/min, heal+shield/min, n, patch) in `~/.aram-oracle/riot_prior/`.
+  `augment_impact(..., prior=load_prior())` rescales them to Mayhem levels (median
+  local/prior ratio) and blends them into each champion's baseline as 20
+  pseudo-games. The holdout runs with and without it (`--no-prior`). Aggregates
+  are not published in the repo until Riot's policy for this use is confirmed.

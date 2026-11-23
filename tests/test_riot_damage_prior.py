@@ -82,3 +82,33 @@ def test_prior_sets_baseline_for_champion_without_local_games():
                       "heal_shield_per_min_mean": 0.0, "heal_shield_per_min_sd": 0.0}}
     out = augment_impact(rows, config=cfg, prior=prior)
     assert out[("jinx", "b")]["impact"] > out[("jinx", "a")]["impact"]
+
+
+def test_collect_snowballs_saves_aggregates_only(tmp_path, monkeypatch):
+    from scripts import collect_aram_damage_prior as col
+    monkeypatch.setattr(riot_prior, "PRIOR_FILE", tmp_path / "agg.json")
+    monkeypatch.setattr(riot_prior, "SEEN_FILE", tmp_path / "seen.txt")
+
+    class Fake:
+        requests = 0
+
+        def get_json(self, url):
+            self.requests += 1
+            if "/league/v4/" in url:
+                return [{"puuid": "seed-puuid", "summonerName": "Seed"}]
+            if "/ids?" in url:
+                return ["EUW1_9", "EUW1_8"]
+            mid = url.rsplit("/", 1)[-1]
+            return _match(mid, ["Lux"] * 10)
+
+    agg = riot_prior.Aggregates()
+    agg.save = lambda: riot_prior.Aggregates.save(agg, tmp_path / "agg.json",
+                                                   tmp_path / "seen.txt")
+    out = col.collect(Fake(), "euw1", 2, agg)
+    assert out["new_matches"] == 2
+    text = (tmp_path / "agg.json").read_text() + (tmp_path / "seen.txt").read_text()
+    for secret in ("puuid", "Seed", "EUW1_9", "Name"):
+        assert secret not in text
+    again = riot_prior.Aggregates.load(tmp_path / "agg.json", tmp_path / "seen.txt")
+    assert again.seen("EUW1_9") and again.matches == 2
+    assert riot_prior.load_prior(tmp_path / "agg.json")["lux"]["n"] == 20
