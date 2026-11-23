@@ -1215,3 +1215,29 @@ test("F3: slot-blocked full inventory never advertises BUY NEXT", () => {
     assert.match(h.element("build-next").textContent, /Next: Synthetic Item/);
     assert.match(h.element("build-list").children[1].innerHTML, /BUY NEXT/);
 });
+
+test("F3: canonical build ID of a verified transformed owned item stays Owned", () => {
+    const h = harness();
+    h.api.renderBuild({
+        full_build: ["3003", "3101"],
+        full_build_names: ["Synthetic Base", "Synthetic Next"],
+        purchased_items: ["3040"],
+        owned_build_ids: ["3003"],
+        owned_build_names: {"3003": "Synthetic Upgraded"},
+        next_item_id: "3101", next_item_name: "Synthetic Next",
+        gold_to_next: 300, slot_blocked: false, alternatives: {},
+    });
+    const rows = h.element("build-list").children;
+    assert.equal(rows.length, 2);
+    assert.match(rows[0].innerHTML, /Synthetic Upgraded/);
+    assert.match(rows[0].innerHTML, /Owned/);
+    assert.doesNotMatch(rows[0].innerHTML, /Synthetic Base|BUY NEXT|Planned/);
+    assert.match(rows[1].innerHTML, /BUY NEXT/);
+
+    // Old protocol remains supported until the desktop and backend match.
+    h.api.renderBuild({
+        full_build: ["3003"], full_build_names: ["Synthetic Base"],
+        purchased_items: ["3003"], next_item_id: null, alternatives: {},
+    });
+    assert.match(h.element("build-list").children[0].innerHTML, /Owned/);
+});

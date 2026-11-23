@@ -556,3 +556,11 @@ Do not mark implementation or in-game validation as done solely because a draft 
 - [ ] **F3-I2A-FINAL-HEAD** — check both Windows jobs at exact documentation-inclusive SHA after this commit; status cannot inherit code-head result.
 - [ ] **F3-I2B-RAW-OWNED-ALIASES** — verify whether raw in-game owned item IDs differ from canonical build catalog IDs; without true equivalence proof the UI must not incorrectly claim owned or future purchases. Add synthetic end-to-end tests and a narrow safe fix.
 - [ ] **F3-I2-NATIVE** — user-private current-patch custom-game proof of full inventory/boots purchase, `Unavailable` root cause, shop-specific entitlements. No evidence yet. #49 stays OPEN.
+
+## 2026-11-23 — F3/I2b raw/owned/canonical display fidelity (draft #98)
+
+- [x] **F3-I2B-RED** — archived CDragon `3040`→`3003` specialRecipe + real `Inventory`, `BuildState`, `_serialize_result` Python regression and real frontend DOM test. Tests-only `72590122eda5d6710626dc51979187d5e15490d2`, [Windows #45116987946](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45116987946): expected 1 new Python FAIL (missing canonical-owned source field), 2,046 previous Python PASS/27 SKIP; JS regression not reached; pinned v4 PASS.
+- [x] **F3-I2B-CODE-GREEN** — `f708582b8d969604dd4a59d1eff454a8890b1256`, [Windows #45117176569](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45117176569) SUCCESS: 2,047 Python PASS/27 SKIP, 82 JS PASS, 35 pinned real-v4 PASS. Explicit `owned_build_ids` and `owned_build_names` backed by actual observed inventory and existing canonicalization; preserves raw purchased IDs and old UI payload compatibility.
+- [ ] **F3-I2B-FINAL-DOCS-CI** — exact final code+docs SHA on both Windows jobs; no false success inherited from code SHA.
+- [ ] **F3-I2C-NATIVE-ID-PROVENANCE** — test actual current-patch Mayhem item transformations and raw canonical pairs locally; same-name-only fallback is not independently proven item equivalence. Never present an unproven item as bought or valid in shop. #49 still OPEN.
+- [ ] **F3-I2D-SHOP / BOOTS ACCEPTANCE** — verify correct one next legal item, basic/tier-two boots, full inventory, known inventory items and actual shop buyability; native Windows user evidence required.

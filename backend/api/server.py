@@ -2395,6 +2395,8 @@ def _serialize_result(
             "champion_name": _resolve_champion_name(result.build_state.champion_id, sd),
             "chosen_augments": result.build_state.chosen_augments,
             "purchased_items": result.build_state.purchased_items,
+            "owned_build_ids": result.build_state.owned_build_ids,
+            "owned_build_names": result.build_state.owned_build_names,
             "purchased_items_names": [
                 _resolve_item_name(i, sd) for i in result.build_state.purchased_items
             ],

@@ -1016,10 +1016,16 @@
         }
 
         buildList.innerHTML = "";
-        const purchased = new Set(bs.purchased_items || []);
+        // The live client reports physical item IDs; the build engine plans
+        // with canonical IDs for verified item-family upgrades/variants.
+        const purchased = new Set([
+            ...(bs.purchased_items || []), ...(bs.owned_build_ids || []),
+        ]);
 
         bs.full_build.forEach((itemId, i) => {
-            const name = (bs.full_build_names && bs.full_build_names[i])
+            const name = (purchased.has(itemId) &&
+                bs.owned_build_names && bs.owned_build_names[itemId])
+                || (bs.full_build_names && bs.full_build_names[i])
                 || staticNames.items[itemId] || itemId;
 
             let status = "";

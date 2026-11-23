@@ -356,3 +356,32 @@ def test_boot_swap_fails_closed_when_champion_catalog_entry_is_missing():
     assert suggest() is not None
     sd._champions = {}
     assert suggest() is None
+
+def test_transformed_owned_item_uses_canonical_build_id_and_observed_name(
+    monkeypatch, tmp_path,
+):
+    """The owned upgraded item must not render as a future base-item buy."""
+    from backend.models import PipelineResult
+
+    sd = _verified_data(monkeypatch, tmp_path)
+    # Archived patch-matched CDragon specialRecipe relation, not name guessing:
+    # acquired Seraph's Embrace maps to the base shop-family Archangel's Staff.
+    assert sd.canonical_item_id("3040") == "3003"
+    inventory = build_inventory(["3040"], sd)
+    assert inventory.finals == ("3003",)
+
+    state = suggest_build(
+        _champion(), [], ["3040"], 5000,
+        sd.recommendable_items(), inventory=inventory,
+        item_data=sd, catalog_verified=True,
+        exclusive_item_groups=sd.exclusive_item_groups,
+    )
+    assert state.full_build[0] == "3003"
+    assert state.purchased_items == ["3040"]  # Preserve original live item ID.
+    assert state.owned_build_ids == ["3003"]
+
+    result = PipelineResult(GamePhase.IN_GAME, [], state, False)
+    payload = _serialize_result(result, sd)["build_state"]
+    assert payload["purchased_items"] == ["3040"]
+    assert payload["owned_build_ids"] == ["3003"]
+    assert payload["owned_build_names"]["3003"] == "Seraph's Embrace"
