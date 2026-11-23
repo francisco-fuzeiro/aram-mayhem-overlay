@@ -9,6 +9,7 @@ No screenshots, OCR text or crops are stored by this module.
 """
 from __future__ import annotations
 
+from backend.collectors.anvil_voucher import voucher_tier
 from backend.collectors.slot_title_ocr import SLOTS
 
 ANVIL_WINDOW_S = 150.0   # attention window after a voucher edge (no proof)
@@ -24,6 +25,23 @@ def anvil_watcher():
         from backend.collectors.screen_ocr import ScreenWatcher
         _watcher = ScreenWatcher()
     return _watcher
+
+
+def attention(previous: object, counts: object) -> tuple[bool, str | None]:
+    """Should the popup be watched now, and which voucher tier hints it?
+
+    Vouchers are redeemed later in the shop, and redeeming (a stack going
+    DOWN) is when the popup appears; so watch while one is held and right
+    after one is spent. This is timing only, never evidence of an offer.
+    """
+    if not isinstance(counts, dict):
+        return False, None
+    prev = previous if isinstance(previous, dict) else {}
+    spent = tuple(sorted(k for k, v in prev.items() if counts.get(k, 0) < v))
+    if spent:
+        return True, voucher_tier(spent)
+    held = tuple(sorted(k for k, v in counts.items() if v > 0))
+    return (True, voucher_tier(held)) if held else (False, None)
 
 
 def slot_ids(matches) -> list[str | None] | None:

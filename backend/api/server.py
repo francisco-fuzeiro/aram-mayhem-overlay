@@ -18,7 +18,7 @@ from backend.storage.db import init_db, get_champion_record
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
-from backend.collectors.anvil_voucher import AnvilVoucherPurchaseObserver, voucher_tier
+from backend.collectors.anvil_voucher import AnvilVoucherPurchaseObserver
 from backend.collectors import anvil_popup
 from backend.engine.stat_anvil_offer import resolve_offer as resolve_anvil_offer, title_catalog as anvil_title_catalog
 from backend.collectors.lcu import read_champ_select, read_gameflow
@@ -150,6 +150,7 @@ class GameState:
         self.anvil_epoch: int = 0
         self.anvil_offer = None  # AnvilOfferResolution with status "ok"
         self.anvil_absent_ticks: int = 0
+        self.anvil_prev_counts: dict | None = None
         self.build_style: str = "Balanced"  # player preference, survives match resets
         self.overlay_preferences: dict = dict(preferences.DEFAULT_OVERLAY)  # D4a: stored only
         # OCR state
@@ -254,6 +255,7 @@ class GameState:
         self.anvil_voucher_tier = None
         self.anvil_offer = None
         self.anvil_absent_ticks = 0
+        self.anvil_prev_counts = None
         self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         screen_watcher.reset()
         self.last_known_level = 0
@@ -1824,9 +1826,14 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 if bought:
                     state.anvil_voucher_purchase_events += len(bought)
                     state.anvil_voucher_trigger_pending = True
-                    # Attention window + tier hint only; never an offer.
+                # Attention window + tier hint only; never an offer.
+                watch, hint = anvil_popup.attention(state.anvil_prev_counts, voucher_counts)
+                if watch:
                     state.anvil_window_until = now + anvil_popup.ANVIL_WINDOW_S
-                    state.anvil_voucher_tier = voucher_tier(bought)
+                    if hint is not None:
+                        state.anvil_voucher_tier = hint
+                state.anvil_prev_counts = (
+                    dict(voucher_counts) if isinstance(voucher_counts, dict) else None)
                 _record_items_outside_pool(state, raw, deps.static_data)
                 # -- Scan window management --
                 #

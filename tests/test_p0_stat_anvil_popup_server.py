@@ -155,3 +155,14 @@ def test_payload_and_pipeline_rating_use_only_verified_ids(got):
     payload = _anvil_offer_payload(state, SimpleNamespace(anvil_offer_ratings=[]))
     assert payload["epoch"] == 1 and payload["count"] == 3
     assert {c["anvil_id"] for c in payload["cards"]} == {s.id for s in state.anvil_offer.shards}
+
+
+def test_attention_window_follows_held_and_spent_vouchers_only():
+    from backend.collectors.anvil_popup import attention
+    assert attention(None, None) == (False, None)
+    assert attention(None, {}) == (False, None)
+    assert attention(None, {"220009": 1}) == (True, "gold")
+    # Redeeming (stack goes down) is when the popup appears; hint = spent tier.
+    assert attention({"220009": 1, "220010": 1}, {"220009": 1}) == (True, "prismatic")
+    assert attention({"220008": 1}, {}) == (True, "silver")
+    assert attention({"220008": 1, "220009": 1}, {"220008": 1, "220009": 1}) == (True, None)
