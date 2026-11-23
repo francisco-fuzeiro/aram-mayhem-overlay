@@ -8,12 +8,12 @@
 
 ## Evidence and diagnostic status
 
-Current P0 branch has offline parser/item-report/voucher tests **but does not yet
-contain** sibling #106's `backend/feature_registry.py`,
-`backend/feature_diagnostics.py`, server diagnostics endpoint or UI
-`feature_ack`. **All live per-feature diagnostic assertions below are
-PENDING, not PASS.** The named current tests prove only their stated synthetic
-functionality. No game is required or authorised for this checklist yet.
+P0 #107 now includes the generic feature registry, journal and offline CLI
+following sibling #106's shared pattern, with ONLY `build.item_pool` wired
+at catalog-load decision. Other P0 ids and UI acknowledgments are PENDING.
+Sibling #106's TierDB features and HTTP report endpoint have NOT been merged;
+combine BOTH feature registries/journal schemas when integrating those branches.
+No native game acceptance or v4 owner-device validation exists yet.
 
 In each subsequent P0 RED→GREEN change:
 1. Register the dotted feature id below with closed reason enum(s).
@@ -31,7 +31,7 @@ In each subsequent P0 RED→GREEN change:
 | --- | --- | --- | --- |
 | `augment.stats_parser` | Valid current augment catalogue; unsupported MR/MS must not invent HP/pen/shield | `tests/test_p0_audit_parser.py` exists (semantics only); exact `(augment.stats_parser,ok,parsed)` or `(augment.stats_parser,skipped,unmodelled)` RED **pending** | Diagnostics PENDING; native NOT TESTED |
 | `augment.cache_schema` | Cached augment catalogue from current parser schema; stale schema rejected | `tests/test_p0_audit_parser.py::test_augment_cache_schema_changes_when_parser_semantics_change` exists (schema only); exact `(augment.cache_schema,ok,current)` / `(augment.cache_schema,skipped,stale)` RED pending | Diagnostics PENDING; native NOT TESTED |
-| `build.item_pool` | Current-policy, patch-matched DD/CD cache loaded; abstain on unknown/disagreeing source | `tests/test_p0_item_pool_report.py` exists (read-only report only); exact `(build.item_pool,ok,verified)` or `(build.item_pool,failed,source_mismatch)` / `(build.item_pool,skipped,cache_missing)` RED pending | Current owner PC v3 report OPEN; diagnostics PENDING |
+| `build.item_pool` | DD/CD verified current-policy item cache load (network or warm cache); abstain if unverified | `tests/test_p0_item_source_recipe.py` exact `build.item_pool/ok/final_items` (count), `failed/no_final_items`, `skipped/unverified`; [RED #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899) proves 104 terminal DD omitted `into` vs CD `to=[]` | **GREEN implementation under exact-head Windows verification**; owner v4 report + native shop NOT TESTED |
 | `build.next_item` | Shop decision point; only real eligible final/boots and feasible purchase suggested | Existing shop/build tests must be connected; exact `(build.next_item,ok,recommended)` / `(build.next_item,skipped,no_eligible_item)` RED pending | Shop #49 OPEN; native NOT TESTED |
 | `anvil.voucher_purchase` | Active player's purchased voucher stack actually increases; otherwise report safe no-trigger reason | `tests/test_p0_anvil_voucher.py` exists (edge/synthetic poll only); exact `(anvil.voucher_purchase,ok,positive_edge)` / `(anvil.voucher_purchase,skipped,no_edge)` RED pending | Diagnostics PENDING; native NOT TESTED |
 | `anvil.offer_detected` | Verified voucher + actual visually confirmed Stat Anvil popup; no invented cards | Current tests only disprove OCR on voucher-only event; exact `(anvil.offer_detected,ok,verified_offer)` / `(anvil.offer_detected,skipped,popup_unverified)` RED pending | Verified option corpus/3-or-4 geometry BLOCKED |
@@ -50,8 +50,9 @@ existed before instrumentation.
 - [ ] Owner read-only `py -3.11 -m scripts.item_pool_report` aggregate results
   demonstrate the actual current `item_pool_v3` status, or clearly explain no
   cache/old policy. No private paths/raw logs or player identifiers.
-- [ ] P0 diagnostic ids, exact tuple RED→GREEN tests, backend record and
-  rendered UI acknowledgments are integrated and exact-head Windows CI GREEN.
+- [ ] All remaining P0 feature ids, diagnostic tuple tests, backend records
+  and real rendered UI acknowledgments integrated; `build.item_pool` alone
+  has production code and still needs final CI and owner v4 report.
 - [ ] User confirms that a **supported custom Mayhem mode** and test environment
   exist. No need to play a normal competitive match merely to test.
 
@@ -69,11 +70,11 @@ existed before instrumentation.
 
 ## After the final match
 
-- [ ] **Only after #106's generic diagnostics framework is correctly integrated
-  and tested on this branch** obtain its safe per-feature report via
-  `python -m backend.feature_diagnostics` or the local
-  `GET /api/diagnostics/features` route. These are **not currently available
-  on #107**; do not ask the owner to execute them now.
+- [ ] At the final single Mayhem acceptance, obtain the safe last-session
+  report using `python -m backend.feature_diagnostics` (generic CLI now
+  available on P0 #107 for `build.item_pool`). The optional HTTP route
+  from sibling #106 is NOT yet integrated. Do not use the isolated P0 pool
+  result to claim all other P0 features passed.
 - [ ] For every feature above, inspect OK / FAILED / SKIPPED / NOT FIRED and
   closed reasons, cross-check with observed user-visible output; keep unverified
   mandatory cases open. Share sanitized ids/status/reasons/counts only.

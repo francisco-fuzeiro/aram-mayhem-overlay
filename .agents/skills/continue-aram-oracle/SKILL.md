@@ -33,6 +33,13 @@
 name: continue-aram-oracle
 description: Resume ARAM Oracle development safely across ChatGPT project conversations using GitHub state, stacked draft PRs and evidence-based TODO tracking.
 ---
+## 2026-11-23 — P0 #49 real source discrepancy / v4 code + diagnostics CI gate
+
+- Owner user-device: freshly rebuilt current public network-backed `item_pool_v3`, patch 16.23.1, 863 entries, **0 final**, 7 boots, 130 unknown; direct DD/CD comparison found **104 prospective normal terminal finals** with DD absent `into`, CD `to=[]`, all rejected. IDs 3031, 3089, 3074 illustrate. This is not proof of live Mayhem shop, and mode variants must remain excluded.
+- RED-only `2ceae72f`, [Windows #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899): 4 targeted FAIL (one str/int test assertion corrected in GREEN); 2,069 older Python PASS, 27 skip; pinned 35-model job PASS. Narrow code fix in `c640d377` normalizes missing DD terminal `into` only where CD explicitly `to=[]` while preserving price, components, conditions and mode restrictions. Policy `item_pool_v4` invalidates old v3 cache.
+- Shared-pattern P0 `build.item_pool` feature registry/diagnostic journal/CLI + tests in `aadea1ec`, with reason enum `final_items/no_final_items/unverified`. No tier lists/DB/branch #106 changes; sibling feature registry must be unioned on eventual integration. Other P0 feature IDs/UI acknowledgments remain pending.
+- Need verify **new exact code+docs HEAD Windows Actions SUCCESS** and then owner Windows `_load_items()` public-data reload plus read-only `py -3.11 -m scripts.item_pool_report` show v4 verified and nonzero finals. User's local `funcionalidades.md` untracked stays protected. Native shop/Anvil user-controlled single final Mayhem match remains NOT TESTED; P0 OPEN, no automatic chat prompt, no merge/main/TierDB changes.
+
 ## 2026-11-23 — P0 audit recovery #107 CURRENT same-phase checkpoint
 
 - Draft/unmerged PR #107 on #103, branch `fix/p0-audit-parser-items-voucher-20261123`. The previous independently rechecked HEAD `6c84c823b453443ce7862d104c881a611ddf7245` passed [Windows Actions #45189586795](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45189586795): 2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax checks, 35 real pinned-v4 PASS. CI ran PR merge ref; **not** user native Mayhem evidence. This documentation checkpoint creates a later SHA: verify new exact HEAD and Windows Actions before asserting final PASS.

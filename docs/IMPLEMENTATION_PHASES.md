@@ -1,5 +1,11 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-23 — P0 #49 validated v3 false-exclusion, v4 code fix (native still open)
+
+- **Owner-proven:** network-backed DD/CD 16.23.1 `item_pool_v3` returned 863 total / 0 final / 7 boots, but 104 public source terminal items have absent DD `into` vs CD `to=[]`, erroneously rejected by `sources_agree`. The 152 mode variants are separate, not automatically purchasable.
+- **RED:** tests-only [Windows #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899): 4 targeted FAIL / 2,069 other PASS / 27 SKIP, pinned model job PASS. One non-semantic str/int assertion mistake repaired during GREEN.
+- **Code GREEN implemented:** normalize ONLY missing DD terminal `into` to [] when CD `to` is explicit and agrees; keep price/from/required fields and all exclusion gates. Set `ITEM_POLICY_VERSION=item_pool_v4` to reject old verified-but-empty v3 cache. `build.item_pool` now provides exact safe diagnostic reason and generic CLI with tests; other P0 features and sibling #106 union remain pending.
+- **Not a P0 phase exit:** verify exact latest SHA Windows CI, have owner regenerate via existing network loader then read offline v4 report, finish all P0 diagnostics and verified Anvil sources, then ONE controlled custom Mayhem native match for shop/overlay. No next-chat prompt automatically while incomplete; no main/PR merge or TierDB updates.
 ## 2026-11-23 — Mandatory diagnostic gate for each P0 repair
 
 1. Before a P0 production change, assign a stable `area.feature` id and closed allowed outcomes; add its row to `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`.

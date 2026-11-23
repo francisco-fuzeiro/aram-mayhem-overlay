@@ -1,5 +1,15 @@
 # ARAM Oracle — Product and UX TODO
 
+## 2026-11-23 — P0 #49 reproducible source-field bug, v4 GREEN pending exact CI
+
+- [x] **AUD-P0-02b:** owner real network-backed `item_pool_v3` patch 16.23.1 had 863 total, **0 final / 7 boots**, 130 unknown, 152 mode variants. User independently compared public DD/CD: 104 terminal items missing DD `into` but explicit CD `to=[]`, all 104 rejected.
+- [x] **AUD-P0-02c targeted RED:** tests-only `2ceae72f`, [Windows #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899), 4 intended new FAIL, 2,069 other Python PASS / 27 SKIP, independent OCR pinned tests PASS; one test's str/int assertion corrected in GREEN.
+- [x] **AUD-P0-02c code implemented:** absent DD terminal `into` normalized only if CD explicit `to` agrees, strict prices/other recipes preserved, `item_pool_v4` invalidates stale v3 cache. Shared-pattern `build.item_pool` diagnostics and exact-tuple tests added without TierDB code; the previous real-v3 cache may still be present locally.
+- [ ] **AUD-P0-02c verification:** newest code+docs HEAD full Windows Python/JS/syntax/pinned OCR model Actions must pass, including all new tests.
+- [ ] **AUD-P0-02d:** user updates own PC to latest P0 HEAD, runs safe public-source `_load_items()` then `py -3.11 -m scripts.item_pool_report`; verify policy `item_pool_v4`, source status and nonzero final count without guessing outcome.
+- [ ] **AUD-P0-02e #49:** final native Mayhem item shop acceptance in ONE user-operated controlled match, after remaining P0 Anvil/augment diagnostics gates ready; never equate verified public catalogue to live purchasability.
+- [ ] **P0-DIAG remaining:** other IDs in single-match checklist need feature registry, exact-tuple RED→GREEN and UI ack where actually displayed. Reconcile shared registry/journal with sibling draft #106 later; do not merge TierDB feature code into #107.
+
 ## 2026-11-23 — Every P0 requires one-match diagnostics (owner directive)
 
 - [x] **P0-DIAG-00 — Define binding P0 diagnostic acceptance contract** in AGENTS + skill, with a per-feature row in `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`; owner wants a single final Mayhem match, not one per P0 substep. Reference separate TierDB draft #106; do not silently import it.

@@ -28,3 +28,40 @@ The report intentionally does not fetch or fabricate raw two-source disagreement
 ## Voucher/Anvil limitation
 
 The two public catalogue item IDs (`220008` and `220009`) are used *only* to observe positive owned-stack transitions in LCDA. A purchase event does **not** prove a popup is visible or identify any option. Production has no verified Stat Anvil choice catalogue or independently validated layout; no fabricated entries, OCR scoring or automatic pick are allowed. Native availability and timing remain **NOT TESTED**.
+
+## 2026-11-23 — Verified owner-device v3 root cause; v4 repair awaiting CI/native
+
+The owner rebuilt the item cache through the current public sources and
+reported `item_pool_v3`, patch `16.23.1`, `source=network`,
+`verified_two_source`, **863 items / 0 final / 7 tier-2 boots**;
+`unknown=130`, `mode_variant=152`. This proves the false-empty pool
+persists with new v3 cache (not just old v2).
+
+Owner-operated read-only independent public-source comparison found
+**104 otherwise eligible terminal final items**, all 104 rejected by
+`sources_agree`, because Data Dragon omits `into` while CommunityDragon
+explicitly uses `to=[]`. Examples include public item IDs `3031` Infinity
+Edge, `3089` Rabadon's Deathcap, `3074` Ravenous Hydra. This is
+distinct from 152 excluded mode variants, which are **not** promoted.
+
+Tests-only [Windows RED #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899):
+4 new FAIL (including one overly strict test string/int comparison, corrected
+in GREEN), 2,069 other Python PASS / 27 SKIP; real pinned OCR model job PASS.
+Minimal repair: DD absent terminal `into` = [] ONLY when CD supplies an
+explicit matching `to` array; preserve DD `from` multiset, CD field
+presence, exact price, mode/reward/conditional exclusions. Bump
+`ITEM_POLICY_VERSION` v3→v4 so stale classified v3 caches are rejected;
+re-download current public sources on next loader use. No blanket
+eligibility relaxation.
+
+Added backend diagnostic `build.item_pool` reporting exact enumerated
+`ok/final_items` (count), `failed/no_final_items`,
+`skipped/unverified`, with privacy-safe generic report CLI
+`python -m backend.feature_diagnostics`; no UI ack needed because it is an
+internal backend decision. The parent TierDB draft #106 keeps its
+independent feature list until careful reconciliation.
+
+**Not yet established:** new exact HEAD Windows GREEN, owner Windows v4 pool
+counts, actual Mayhem shop availability, popup/Stat Anvil support, full
+P0 phase completion. One owner-controlled custom Mayhem match at the END
+for the complete P0 batch, never one match per partial repair.
