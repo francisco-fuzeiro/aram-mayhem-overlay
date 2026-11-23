@@ -231,6 +231,15 @@ def _build_items(store, patch, snap_id, roles, inputs: ItemInputs, config: ItemT
             ref = reference_build(champion, d["cores"], rows, config=config,
                                   conflicts=inputs.conflicts, canonical=inputs.canonical,
                                   required=required)
+        boots_played = {inputs.canonical(i): n for i, (_w, n) in (d.get("boots") or {}).items()
+                        if not inputs.boots_eligible
+                        or inputs.canonical(i) in set(inputs.boots_eligible)}
+        if boots_played:
+            # Owner decision 23/11: the default boots are the ones most played on
+            # the champion (Yi: Berserker's); the enemy team may change them live.
+            import dataclasses
+            ref = dataclasses.replace(ref, boots=max(sorted(boots_played),
+                                                     key=lambda i: boots_played[i]))
         references[champion] = ref
         top = [r.item_id for r in sorted(
             (r for r in rows if r.champion_id == champion and r.kind == "final"

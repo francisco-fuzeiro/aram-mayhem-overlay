@@ -44,7 +44,7 @@ Play normally to the end.
 - **OK**: worked at least once. **SKIPPED**: chose not to act, with a reason.
 - **FAILED / NOT FIRED**: should have run and did not; the reason points to the cause.
 - Features that should fire every session: `build.item_pool`, `augment.cache_schema`,
-  `build.next_item`, `anvil.catalog_source`, `anvil.popup_watch`, `tierdb.load`, `tierdb.switch`,
+  `build.next_item`, `anvil.catalog_source`, `anvil.popup_watch`, `enemy.detection`, `tierdb.load`, `tierdb.switch`,
   `tierdb.offer_tiers`, `tierdb.offer_render`, `tierdb.champselect_tiers`,
   `tierdb.champselect_render`, `items.reference_build`, `items.build_render`,
   `anvil.stat_estimate`.
@@ -52,7 +52,7 @@ Play normally to the end.
   `augment.stats_parser`, `build.next_item_render`, `tierdb.update`,
   `anvil.voucher_purchase`, `anvil.offer_detected`, `anvil.offer_rating`,
   `anvil.offer_render`, `augment.pick_inferred`, `anvil.pick_inferred`,
-  `tierdb.context_adjust`. No Stat Anvil in the match = Anvil popup checks stay
+  `tierdb.context_adjust`, `augment.read_latency`. No Stat Anvil in the match = Anvil popup checks stay
   open, never PASS.
 
 ## Closing rule

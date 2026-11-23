@@ -1654,3 +1654,21 @@ test("TDB-CTX: offer badge shows the adjusted tier with arrow and reason, base k
     assert.match(text, /Tier B · #30\/96/);
     assert.match(cards[1].innerHTML, /<span class="tier-pill tier-A">A<\/span>/);
 });
+
+test("FIELD 23/11: full Mayhem build only with the shop reachable, else next item only", () => {
+    const h = harness();
+    const mb = {reference: [{id: "6676", name: "The Collector"}],
+        boots: {id: "3111", name: "Mercury's Treads", reason: "enemy crowd control"},
+        adapted: [], swaps: [], anvil_stats: [{stat: "as"}]};
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false, game_time: 600,
+        mayhem_build: mb});
+    assert.equal(h.element("mayhem-build").classList.contains("hidden"), true);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: true, game_time: 640,
+        mayhem_build: mb});
+    assert.equal(h.element("mayhem-build").classList.contains("hidden"), false);
+    assert.match(h.element("mayhem-build").innerHTML + h.element("mayhem-build").children
+        .map(c => c.textContent).join(" "), /Mercury's Treads \(enemy crowd control\)/);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false, game_time: 30,
+        mayhem_build: mb});
+    assert.equal(h.element("mayhem-build").classList.contains("hidden"), false);
+});

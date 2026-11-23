@@ -1196,3 +1196,12 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   35/173 champions were in this state. Fallback: if no core reaches 5 % pick, use the
   source's top cores with >= 5,000 games. Now 172/173 champions start from a core;
   Kha'Zix: Hubris -> Voltaic Cyclosword -> Serylda's, then DD/Sterak's/Youmuu's.
+- Owner batch before the next test match: (1) latency: polling every 1 s while an
+  augment window is open and unread; report gains per-window "first read" time and
+  time per OCR scan stage, plus `augment.read_latency` buckets. (2) Boots: default =
+  most-played boots on the champion (Yi: Berserker's); live, with >= 3 analysed
+  enemies, heavy CC -> Mercury's, heavy physical damage -> Plated Steelcaps, with the
+  reason shown. (3) `enemy.detection` (always expected): enemies listed vs analysed.
+  (4) Full Mayhem build + Stat Anvil estimate shown only when dead, in the first
+  60 s, or pinned with Alt+B; otherwise only the next item (no shop-open signal in
+  Live Client Data, so death/start is the proxy).

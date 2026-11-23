@@ -635,6 +635,46 @@ def _item_context(item, champion, enemy: dict, allies: dict, fate: set):
     return min(3.0, sum(v for v, _ in reasons)), reasons[0][1]
 
 
+MERCURY_TREADS = "3111"
+PLATED_STEELCAPS = "3047"
+
+
+def _context_boots(base: str | None, eligible: set, enemy: dict | None):
+    """(boots id, reason) from the enemy team; else the champion's usual boots.
+
+    Owner decision 23/11: heavy crowd control -> Mercury's Treads; heavy
+    physical (auto-attack) damage -> Plated Steelcaps; otherwise the boots most
+    played on the champion. Needs at least 3 analysed enemies.
+    """
+    e = enemy or {}
+    if (e.get("enemies_analyzed") or 0) < 3:
+        return base, None
+    options = []
+    cc, phys = float(e.get("cc_pressure") or 0), float(e.get("physical_pressure") or 0)
+    if cc >= 0.55 and MERCURY_TREADS in eligible:
+        options.append((cc - 0.55, MERCURY_TREADS, "enemy crowd control"))
+    if phys >= 0.65 and PLATED_STEELCAPS in eligible:
+        options.append((phys - 0.65, PLATED_STEELCAPS, "enemy physical damage"))
+    if not options:
+        return base, None
+    _, iid, reason = max(options)
+    return (base, None) if iid == base else (iid, reason)
+
+
+def _record_enemy_detection(enemy: dict | None) -> None:
+    """How many enemy champions the live data listed and the model analysed."""
+    e = enemy or {}
+    visible, analysed = int(e.get("enemies_visible") or 0), int(e.get("enemies_analyzed") or 0)
+    if visible == 0:
+        feature_diagnostics.record("enemy.detection", "skipped", "no_enemies_listed")
+    elif analysed == 0:
+        feature_diagnostics.record("enemy.detection", "failed", "none_resolved", visible)
+    elif analysed < visible:
+        feature_diagnostics.record("enemy.detection", "ok", "partial", analysed)
+    else:
+        feature_diagnostics.record("enemy.detection", "ok", "all_resolved", analysed)
+
+
 def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies, sd):
     """Reference build (measured), adapted build (max 3 swaps, >= 0.5) and
     heuristic Stat Anvil priorities for the overlay. No win rates."""
@@ -685,13 +725,16 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     payload = {
         "reference": [{"id": i, "name": name(i)} for i in reference],
         "adapted": [{"id": i, "name": name(i)} for i in adapted.items],
-        "boots": ({"id": data["boots_reference"], "name": name(data["boots_reference"])}
-                  if data.get("boots_reference") else None),
+        "boots": None,
         "swaps": [{"slot": s["slot"], "out": s["out"], "in": s["in"],
                    "out_name": name(s["out"]), "in_name": name(s["in"]),
                    "reason": s["reason"]} for s in adapted.swaps],
         "anvil_stats": [],
     }
+    boots_ids = {str(b) for b in (data.get("boots") or {})}
+    boots_id, boots_reason = _context_boots(data.get("boots_reference"), boots_ids, enemy)
+    if boots_id:
+        payload["boots"] = {"id": boots_id, "name": name(boots_id), "reason": boots_reason}
     record("items.reference_build", "ok", "attached")
     demand = data.get("stat_demand") or {}
     if not demand:
@@ -3189,6 +3232,7 @@ def _serialize_result(
             for eid in snapshot.enemy_champion_ids
         ]
 
+    _record_enemy_detection(result.enemy_analysis)
     out["mayhem_build"] = _mayhem_build_payload(
         result.build_state.champion_id, result.build_state.chosen_augments,
         result.build_state.purchased_items, result.enemy_analysis or {},

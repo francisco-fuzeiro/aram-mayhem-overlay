@@ -1233,7 +1233,9 @@
         const names = (list) => list.map((i) => i && i.name ? i.name : String(i && i.id))
             .join(" › ");
         line("Reference: " + names(mb.reference) +
-            (mb.boots && mb.boots.name ? " · Boots: " + mb.boots.name : ""), "aug-explain aug-tier");
+            (mb.boots && mb.boots.name ? " · Boots: " + mb.boots.name +
+                (mb.boots.reason ? " (" + mb.boots.reason + ")" : "") : ""),
+            "aug-explain aug-tier");
         const swaps = Array.isArray(mb.swaps) ? mb.swaps : [];
         if (swaps.length && Array.isArray(mb.adapted)) {
             line("Adapted: " + names(mb.adapted), "aug-explain aug-tier");
@@ -1420,8 +1422,13 @@
         const interactive = Boolean(document.body && document.body.classList &&
             document.body.classList.contains("interactive-mode"));
         augmentRecover.classList.toggle("hidden", !interactive || !due);
-        const details = data.is_dead === true || buildPinnedByHotkey;
+        // Field 23/11 (owner): the full build and Stat Anvil estimate only when
+        // the shop can be open (dead, game start) or pinned with Alt+B;
+        // otherwise just the next item.
+        const shopTime = typeof data.game_time === "number" && data.game_time < 60;
+        const details = data.is_dead === true || shopTime || buildPinnedByHotkey;
         buildList.classList.toggle("hidden", !details);
+        if (mayhemBuild) mayhemBuild.classList.toggle("hidden", !details);
         buildFooter.classList.toggle("hidden", !details);
         buildAlternatives.classList.toggle("hidden", !details);
         enemySection.classList.toggle("collapsed", !interactive || !enemyManuallyOpen);
