@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — In-match context adjustment, patch recency, visible tier/rank
+
+- Owner decision: in-match "context adjustment" (`backend/tierdb/context_adjust.py`). Base tier (measured ΔWR, list rank unchanged) moves at most one tier within its level cap, from fit with champion + adapted build stats (40), synergy with chosen augments (25), enemy comp (20) and the player's own synced games (15; k=30 shrinkage, ≥5 games). The overlay shows the adjusted tier with ↑/↓ and the reason, base tier kept. Diagnostic `tierdb.context_adjust`.
+- Patch recency (holdout 16.21+16.22→16.23): adding the previous patch at weight 0.25 moves τ from 0.7499 to 0.7518 (+0.002); 0.5 → 0.7515; 1.0 → 0.7502. Too small to justify a second patch in the pipeline: not added.
+- Owner request: tier and rank must be readable at a glance. Offers and champion select show a large coloured tier pill and the rank (#n/N) next to it; everything else is secondary text.
+
 ## 2026-11-23 — Fixes from the owner's Fiora match test (6e8074e)
 
 - Tie groups chained: each item was compared only with its neighbour, so evenly spaced items became one group ("tied #32–#69"). Now an item is tied only if indistinguishable from the group's first (augments, champions, items). Real 16.23 Fiora: largest group 25–33 → 6–11.

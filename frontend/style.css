@@ -1138,3 +1138,18 @@ body.overlay-mode:not(.interactive-mode)::after {
 .tier-C { color: #f2c94c; }
 .tier-D, .tier-E { color: #a0a4ab; }
 .aug-tier.mayhem-main { font-size: 13px; font-weight: 700; margin-top: 2px; }
+
+.tier-pill { display: inline-block; min-width: 26px; padding: 1px 7px; margin-left: 6px;
+    border-radius: 4px; font-size: 15px; font-weight: 800; text-align: center;
+    color: #0d0f14; background: #a0a4ab; }
+.tier-pill.tier-OP { background: #ff7ad9; }
+.tier-pill.tier-S { background: #b18cff; }
+.tier-pill.tier-A { background: #5fb3ff; }
+.tier-pill.tier-B { background: #5fd38d; }
+.tier-pill.tier-C { background: #f2c94c; }
+.tier-pill.tier-D, .tier-pill.tier-E { background: #a0a4ab; }
+.rank-pill { margin-left: 6px; font-size: 13px; font-weight: 700;
+    font-variant-numeric: tabular-nums; color: var(--text, #e8e8e8); }
+.mayhem-main { display: flex; align-items: center; gap: 2px; margin: 3px 0; }
+.mayhem-main .tier-pill { margin-left: 0; }
+.mayhem-sub { margin-left: 8px; font-size: 11px; font-weight: 400; opacity: 0.8; }

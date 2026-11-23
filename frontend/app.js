@@ -586,6 +586,17 @@
             : {type: "feature_ack", feature, status: "skipped", reason: skippedReason});
     }
 
+    // Big coloured tier pill + rank, the two things to read at a glance.
+    function tierPill(tier, arrow) {
+        const t = TIER_ORDER.includes(tier) ? tier : "E";
+        return '<span class="tier-pill tier-' + t + '">' + esc(t + (arrow || "")) + "</span>";
+    }
+
+    function rankPill(rank, total) {
+        return Number.isInteger(rank) && Number.isInteger(total)
+            ? '<span class="rank-pill">#' + rank + "/" + total + "</span>" : "";
+    }
+
     function augmentTierText(t) {
         if (!t || !t.tier || t.level === "none") return "No tier data for this champion";
         return "Tier " + t.tier + " · " +
@@ -639,10 +650,14 @@
             const m = candidate.mayhem;
             if (m && m.strength) {
                 const mayhem = document.createElement("div");
-                mayhem.className = "aug-tier mayhem-main tier-" + m.strength;
-                mayhem.textContent = "Mayhem strength: " + m.strength + " · " +
-                    tierRankText(m.rank, m.rank_total, m.tie_group, m.tie_end) +
-                    " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown");
+                mayhem.className = "aug-tier mayhem-main";
+                const tied = Number.isInteger(m.tie_end) && Number.isInteger(m.tie_group) &&
+                    m.tie_end > m.tie_group ? " · tied #" + m.tie_group + "–#" + m.tie_end : "";
+                mayhem.innerHTML = tierPill(m.strength, "") +
+                    rankPill(m.rank, m.rank_total) +
+                    '<span class="mayhem-sub">' + esc("Mayhem strength" + tied +
+                        " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown")) +
+                    "</span>";
                 card.appendChild(mayhem);
                 mayhemLines += 1;
             }
@@ -1122,12 +1137,11 @@
                 : rec.modelled === false ? "No model"
                 : "Rating unavailable";
             const arrow = tier && tier.adjust > 0 ? " ↑" : tier && tier.adjust < 0 ? " ↓" : "";
-            const badgeClass = tier ? " tier-badge tier-" + shownTier(tier) : rated ? "" : " muted";
-            const badge = tier ? "Tier " + shownTier(tier) + arrow : score;
+            const right = tier ? tierPill(shownTier(tier), arrow) + rankPill(tier.rank, tier.rank_total)
+                : '<span class="aug-score' + (rated ? "" : " muted") + '">' + esc(score) + "</span>";
             row.innerHTML = '<div class="aug-row"><span class="aug-rank">' +
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
-                esc(name + origin) + '</span><span class="aug-score' + badgeClass + '">' +
-                esc(badge) + '</span></div>';
+                esc(name + origin) + "</span>" + right + "</div>";
             const tiers = data.tiers_enabled === true && data.augment_tiers &&
                 typeof data.augment_tiers === "object" ? data.augment_tiers : null;
             if (tiers && id && !verifiedAnvilOffer &&
