@@ -40,3 +40,10 @@ def test_unmodelled_defenses_do_not_erase_other_supported_stats():
 def test_augment_cache_schema_changes_when_parser_semantics_change():
     # A pre-fix cache stored misleading contribution vectors and must not be trusted.
     assert loader._AUGMENT_CACHE_SCHEMA >= 5
+
+
+def test_homeguard_name_hint_does_not_reintroduce_speed_as_health():
+    vector = loader._parse_description_to_stats(
+        "Gain 30% Movement Speed after respawning.", "Homeguard"
+    )
+    assert vector.hp == 0
