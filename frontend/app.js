@@ -539,9 +539,9 @@
         const status = $("history-sync-status");
         button.addEventListener("click", async () => {
             button.disabled = true;
-            status.textContent = "Reading your recent Mayhem games from the League client...";
+            status.textContent = "Reading your Mayhem games from the League client (first run can take a minute)...";
             try {
-                const response = await fetch("/api/history/import", { method: "POST" });
+                const response = await fetch("/api/history/import?max_games=1000", { method: "POST" });
                 if (!response.ok) throw new Error("HTTP " + response.status);
                 const result = await response.json();
                 if (result.status === "ok") {
