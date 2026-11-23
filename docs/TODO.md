@@ -1,6 +1,7 @@
 # ARAM Oracle — Product and UX TODO
 
 - [x] **TDB-OWN** Leverage decided 23/11: absolute leverage in strength; relative gain = tie-breaker + 5-level potential field.
+- [x] **DIAG-F1** Per-feature diagnostics + post-session report (`backend/feature_diagnostics.py`), one-match test checklist.
 - [x] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
 
 

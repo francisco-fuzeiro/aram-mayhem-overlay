@@ -1,5 +1,9 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Per-feature diagnostics for a single end-to-end test
+
+- Owner wants one final in-game test instead of one per sub-phase. Added a feature registry (`backend/feature_registry.py`), `feature_diagnostics.record()` on the existing whitelisted journal (per-feature dedup), `session_start` marker, overlay `feature_ack` for rendered UI, and the report (`python -m backend.feature_diagnostics`, `GET /api/diagnostics/features`). Tier list features instrumented. Pattern and checklist: `docs/plans/FEATURE_DIAGNOSTICS.md`, `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`.
+
 ## 2026-11-23 — Tier DB wired to the overlay (TDB-UI1/UI2/UI3)
 
 - Offers: each L/C/R card gets one line `Tier S · #3/70 (tied #3–#7) · champion data` (levels: champion/class/global data, estimate) or `No tier data for this champion`. Only visible augment ids are sent; payload carries tier/rank/rank_total/tie span/level/confidence/rarity, never wins/games/n/win rate.

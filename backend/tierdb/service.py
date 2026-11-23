@@ -13,6 +13,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from backend import feature_diagnostics as diag
 from backend.tierdb import aramhex
 from backend.tierdb.export import export_run
 from backend.tierdb.pipeline import run_build
@@ -87,6 +88,25 @@ def update_tierlist(*, db_path: Path, export_path: Path, roles: dict, heuristic:
             "finished_at": datetime.now(timezone.utc).isoformat()}
 
 
+def classify_update_error(exc: BaseException) -> str:
+    """Map an update failure to a diagnostics reason (no free text)."""
+    import urllib.error
+    try:
+        import requests
+        network = (requests.RequestException,)
+    except ImportError:  # pragma: no cover
+        network = ()
+    if isinstance(exc, aramhex.LicenseError):
+        return "license"
+    if isinstance(exc, aramhex.AramhexFormatError):
+        return "bad_dataset"
+    if isinstance(exc, (ConnectionError, TimeoutError, urllib.error.URLError) + network):
+        return "network"
+    if isinstance(exc, ValueError):
+        return "build_failed"
+    return "unexpected"
+
+
 class TierListService:
     def __init__(self, export_path: Path | None = None, preferences_path: Path | None = None,
                  db_path: Path | None = None):
@@ -139,6 +159,7 @@ class TierListService:
         """Start one background update; False if one is already running."""
         with self._lock:
             if self.updating:
+                diag.record("tierdb.update", "skipped", "already_running")
                 return False
 
             def work():
@@ -148,9 +169,11 @@ class TierListService:
                         db_path=self.db_path, export_path=self.export_path,
                         roles=roles, heuristic=heuristic)
                     self.last_error = None
+                    diag.record("tierdb.update", "ok", "updated")
                 except Exception as exc:  # reported, never raised into the API
                     logger.warning("Tier list update failed: %s", exc)
                     self.last_error = f"{type(exc).__name__}: {exc}"
+                    diag.record("tierdb.update", "failed", classify_update_error(exc))
 
             self._thread = threading.Thread(target=work, name="tierlist-update", daemon=True)
             self._thread.start()

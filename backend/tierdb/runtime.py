@@ -12,6 +12,8 @@ import logging
 import os
 from pathlib import Path
 
+from backend import feature_diagnostics as diag
+
 logger = logging.getLogger("aram-oracle.tierdb")
 
 TIER_PREFERENCES_FILE = Path.home() / ".aram-oracle" / "tierlist_preferences.json"
@@ -68,6 +70,7 @@ class TierListProvider:
             mtime = self.export_path.stat().st_mtime_ns
         except OSError:
             self._augments, self._champions, self._mtime = {}, {}, None
+            diag.record("tierdb.load", "failed", "export_missing")
             return
         if mtime == self._mtime:
             return
@@ -89,9 +92,15 @@ class TierListProvider:
             champions = {e.pop("champion_id"): e for e in entries}
         except (OSError, ValueError, KeyError, TypeError) as exc:
             logger.warning("Invalid tier list export %s: %s", self.export_path, exc)
+            diag.record("tierdb.load", "failed", "export_invalid")
             return
         self._augments, self._champions, self._mtime = augments, champions, mtime
         self.patch, self.sources = doc.get("patch"), doc.get("sources", [])
+        diag.record("tierdb.load", "ok", "loaded", min(len(champions), 1000))
+
+    @property
+    def loaded(self) -> bool:
+        return self._mtime is not None
 
     def augment_tier(self, champion_id: str, augment_id: str) -> dict | None:
         if not self._enabled():

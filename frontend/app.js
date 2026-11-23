@@ -545,6 +545,14 @@
                 ? " (tied #" + group + "–#" + end + ")" : "");
     }
 
+    // Per-feature diagnostics: tell the local server what was actually drawn,
+    // so one end-to-end test can say which feature failed (enums and counts only).
+    function reportRender(feature, count, skippedReason) {
+        wsSend(count > 0
+            ? {type: "feature_ack", feature, status: "ok", reason: "rendered", count}
+            : {type: "feature_ack", feature, status: "skipped", reason: skippedReason});
+    }
+
     function augmentTierText(t) {
         if (!t || !t.tier || t.level === "none") return "No tier data for this champion";
         return "Tier " + t.tier + " · " +
@@ -571,6 +579,7 @@
         const marked = candidates.filter(c => c && c.current === true &&
             c.id === confirmedId);
         const uniqueCurrent = marked.length === 1 ? confirmedId : null;
+        let mayhemLines = 0;
         for (const candidate of candidates) {
             const card = document.createElement("div");
             card.className = "augment-card";
@@ -599,9 +608,11 @@
                     tierRankText(m.rank, m.rank_total, m.tie_group, m.tie_end) +
                     " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown");
                 card.appendChild(mayhem);
+                mayhemLines += 1;
             }
             champSelectList.appendChild(card);
         }
+        if (candidates.length) reportRender("tierdb.champselect_render", mayhemLines, "no_tier_data");
         if (candidates.length === 0) {
             const empty = document.createElement("div");
             empty.className = "aug-empty";
@@ -975,6 +986,7 @@
                 rec.modelled !== false) scored.push(rec.score);
         }
         const best = scored.length ? Math.max(...scored) : null;
+        let tierLines = 0;
         for (const [index, slot] of OFFER_SLOTS.entries()) {
             const identity = offer.slots[slot] || {};
             const id = typeof identity.augment_id === "string" ? identity.augment_id : null;
@@ -1012,6 +1024,7 @@
                 tierNote.className = "aug-explain aug-tier";
                 tierNote.textContent = augmentTierText(tiers[id]);
                 row.appendChild(tierNote);
+                tierLines += 1;
             }
             if (rec && typeof rec.explanation === "string") {
                 const note = document.createElement("div");
@@ -1038,6 +1051,10 @@
                 row.appendChild(pick);
             }
             augmentList.appendChild(row);
+        }
+        if (!verifiedAnvilOffer) {
+            reportRender("tierdb.offer_render", tierLines,
+                data.tiers_enabled === true ? "no_tier_data" : "tiers_off");
         }
         if (offer.state === "awaiting_confirm") {
             const hint = document.createElement("div");

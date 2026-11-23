@@ -36,6 +36,7 @@ from backend.config import config  # explicit opt-in for diagnostic screenshot p
 from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
+from backend import feature_diagnostics
 from backend.workflow.f0_trace import (
     classify_champion_identity, classify_offer_slots, emit_f0_trace,
 )
@@ -391,10 +392,16 @@ async def lifespan(app: FastAPI):
     game_state.overlay_preferences = saved_preferences["overlay"]
     static_data.load()
     game_state.pipeline = Pipeline(static_data)
+    feature_diagnostics.session_start()
+    feature_diagnostics.record("tierdb.switch", "ok",
+                               "enabled" if tier_service.enabled() else "disabled")
     # Tier lists: refresh in the background when missing or older than 3 days.
-    if (os.environ.get("ARAM_ORACLE_TIERLIST_AUTO_UPDATE", "1") == "1"
-            and tier_service.needs_update(max_age_hours=72)):
+    if os.environ.get("ARAM_ORACLE_TIERLIST_AUTO_UPDATE", "1") != "1":
+        feature_diagnostics.record("tierdb.update", "skipped", "auto_update_off")
+    elif tier_service.needs_update(max_age_hours=72):
         tier_service.start_update(static_data)
+    else:
+        feature_diagnostics.record("tierdb.update", "skipped", "fresh")
 
     poll_task = asyncio.create_task(_poll_game_loop())
     yield
@@ -437,8 +444,16 @@ def _visible_augment_ids(recommendations, offers) -> list[str]:
 
 
 def _augment_tier_payload(champion_id, augment_ids) -> dict:
-    if not champion_id or not tier_service.enabled():
+    record = feature_diagnostics.record
+    if not tier_service.enabled():
+        record("tierdb.offer_tiers", "skipped", "tiers_off")
         return {"tiers_enabled": False, "augment_tiers": {}}
+    if not champion_id:
+        record("tierdb.offer_tiers", "skipped", "no_champion")
+        return {"tiers_enabled": False, "augment_tiers": {}}
+    if not augment_ids:
+        record("tierdb.offer_tiers", "skipped", "no_visible_augments")
+        return {"tiers_enabled": True, "augment_tiers": {}}
     tiers = {}
     for aid in augment_ids:
         entry = tier_service.provider.augment_tier(champion_id, aid)
@@ -446,12 +461,25 @@ def _augment_tier_payload(champion_id, augment_ids) -> dict:
             tiers[aid] = {k: entry.get(k) for k in (
                 "tier", "rank", "rank_total", "tie_group", "tie_end",
                 "level", "confidence", "rarity")}
+    if tiers:
+        record("tierdb.offer_tiers", "ok", "tiers_attached", min(len(tiers), 1000))
+    elif not tier_service.provider.loaded:
+        record("tierdb.offer_tiers", "failed", "export_missing")
+    else:
+        record("tierdb.offer_tiers", "failed", "champion_not_in_tierlist")
     return {"tiers_enabled": True, "augment_tiers": tiers}
 
 
 def _annotate_champion_candidates(result: dict) -> dict:
     """Add Mayhem strength (tier) and potential to champion-select candidates."""
-    for candidate in result.get("candidates") or []:
+    candidates = [c for c in result.get("candidates") or [] if isinstance(c, dict)]
+    record = feature_diagnostics.record
+    if not tier_service.enabled():
+        for candidate in candidates:
+            candidate["mayhem"] = None
+        record("tierdb.champselect_tiers", "skipped", "tiers_off")
+        return result
+    for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
         entry = tier_service.provider.champion_tier(str(candidate.get("id", "")))
@@ -461,7 +489,25 @@ def _annotate_champion_candidates(result: dict) -> dict:
             "tie_group": entry.get("tie_group"), "tie_end": entry.get("tie_end"),
             "confidence": entry.get("confidence"),
         }
+    annotated = sum(1 for c in candidates if c.get("mayhem"))
+    if not candidates:
+        record("tierdb.champselect_tiers", "skipped", "no_candidates")
+    elif annotated:
+        record("tierdb.champselect_tiers", "ok", "annotated", min(annotated, 1000))
+    elif not tier_service.provider.loaded:
+        record("tierdb.champselect_tiers", "failed", "export_missing")
+    else:
+        record("tierdb.champselect_tiers", "failed", "no_candidate_in_tierlist")
     return result
+
+
+def _handle_feature_ack(msg: dict) -> bool:
+    """Accept a DOM-render report from the overlay for UI features only."""
+    if not isinstance(msg, dict) or msg.get("feature") not in feature_diagnostics.UI_FEATURES:
+        return False
+    count = msg.get("count")
+    return feature_diagnostics.record(msg.get("feature"), msg.get("status"),
+                                      msg.get("reason"), count if count is not None else None)
 
 # In PyInstaller bundles, sys._MEIPASS points to the extraction dir.
 _APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
@@ -591,8 +637,17 @@ def update_tierlist_switch(req: TierListSwitchRequest):
         tier_service.set_enabled(req.enabled)
     except OSError:
         logger.exception("Could not persist tier list switch")
+        feature_diagnostics.record("tierdb.switch", "failed", "save_error")
         raise HTTPException(status_code=500, detail="Could not save preference") from None
-    return {"enabled": tier_service.enabled()}
+    enabled = tier_service.enabled()
+    feature_diagnostics.record("tierdb.switch", "ok", "enabled" if enabled else "disabled")
+    return {"enabled": enabled}
+
+
+@app.get("/api/diagnostics/features")
+def feature_report():
+    """Per-feature verdicts for the last session (enums and counts only)."""
+    return feature_diagnostics.build_report()
 
 
 @app.post("/api/tierlist/update")
@@ -1295,6 +1350,9 @@ async def game_ws(websocket: WebSocket):
                 await _send_ws_message(websocket, json.dumps({
                     "type": "ack", "action": "set_build_style", "style": style,
                 }))
+
+            elif msg_type == "feature_ack":
+                _handle_feature_ack(msg)
 
             elif msg_type == "toggle_ocr":
                 async with game_state.lock:
