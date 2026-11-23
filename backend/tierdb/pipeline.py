@@ -38,7 +38,16 @@ def run_build(
     champ_config: ChampionTierConfig = ChampionTierConfig(),
     commercial_only: bool = False,
     code_sha: str | None = None,
+    leverage_mode: str = "absolute",
 ) -> int:
+    """``leverage_mode``: "absolute" (default) feeds the champion leverage
+    component with shrunk logit win rates of each champion+augment pair, i.e.
+    strength when taking the best of three offers; "relative" uses ΔWR against
+    the champion's own baseline. The F7 holdout (16.22 -> 16.23) showed the
+    relative form anti-correlates with next-patch win rate (tau -0.25) while
+    the absolute one keeps the composite within 0.02 of win rate alone."""
+    if leverage_mode not in ("absolute", "relative"):
+        raise ValueError(f"unknown leverage_mode {leverage_mode!r}")
     obs = store.observations(patch=patch, metric="win", commercial_only=commercial_only)
     latest: dict[str, int] = {}
     for o in obs:
@@ -63,8 +72,9 @@ def run_build(
     for (c, a), (w, g) in sorted(pairs.items()):
         if c in champions and a in rarity:
             p0 = baseline_without(*champions[c], w, g)
-            pair_deltas.setdefault(c, {}).setdefault(rarity[a], []).append(
-                _shrunk_delta(w, g, p0, aug_config.k_win))
+            delta = _shrunk_delta(w, g, p0, aug_config.k_win)
+            value = delta + float(_logit(p0)) if leverage_mode == "absolute" else delta
+            pair_deltas.setdefault(c, {}).setdefault(rarity[a], []).append(value)
     champ_rows, champ_thresholds = build_champion_tiers(champions, pair_deltas, champ_config)
 
     empirical = [{"source": source_name, "snapshot_sha256": snap.sha256, "region": snap.region}]
@@ -78,6 +88,7 @@ def run_build(
                 patch, datetime.now(timezone.utc).isoformat(), code_sha,
                 json.dumps({"augments": aug_config.weights, "champions": champ_config.weights}),
                 json.dumps({"augments": aug_thresholds, "champions": champ_thresholds,
+                            "leverage_mode": leverage_mode,
                             "augment_config": asdict(aug_config),
                             "champion_config": asdict(champ_config)}, sort_keys=True),
                 json.dumps([snap_id]), aug_config.seed,

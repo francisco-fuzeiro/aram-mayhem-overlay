@@ -3,9 +3,10 @@
 Components (decided weights; missing ones redistribute):
 
 * ``win`` 50 — champion win rate shrunk to the mode mean (Beta, k = 500);
-* ``leverage`` 23 — how far the best of three random augment offers lifts the
-  champion above its own baseline: mean over rarities of
-  ``E[max of 3 offered ΔWR]`` (exact order statistics, no simulation);
+* ``leverage`` 23 — strength when taking the best of three random augment
+  offers: mean over rarities of ``E[max of 3 offered values]`` (exact order
+  statistics). The pipeline feeds shrunk absolute logit win rates by default;
+  relative ΔWR is available but anti-correlated with winning (F7 holdout);
 * ``combat`` 19 — role-relative combat metrics (needs per-match data);
 * ``consistency`` 8 — rank stability across snapshots (needs >= 2 patches).
 
