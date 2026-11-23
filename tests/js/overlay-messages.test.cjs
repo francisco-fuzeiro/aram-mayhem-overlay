@@ -1241,3 +1241,30 @@ test("F3: canonical build ID of a verified transformed owned item stays Owned", 
     });
     assert.match(h.element("build-list").children[0].innerHTML, /Owned/);
 });
+
+test("F3: next-item unavailability distinguishes verified backend reasons", () => {
+    const h = harness();
+    const reasons = [
+        ["item_availability_unknown", "Item catalog unverified"],
+        ["item_pool_unverified", "Item catalog unverified"],
+        ["inventory_unknown", "Inventory item unrecognized"],
+        ["item_recipe_unknown", "Item recipe unverified"],
+    ];
+    const base = {
+        full_build: ["3047"], full_build_names: ["Owned boots"],
+        purchased_items: ["3047"], next_item_id: null,
+        next_item_name: null, gold_to_next: 0, slot_blocked: false,
+        alternatives: {},
+    };
+    for (const [reason, label] of reasons) {
+        h.api.renderBuild({...base, build_unavailable_reason: reason});
+        assert.equal(h.element("build-next").textContent, label);
+        assert.doesNotMatch(h.element("build-next").textContent, /BUY NEXT|Next:/);
+        assert.equal(h.element("build-footer").textContent, "");
+    }
+    // Unknown and absent reasons cannot be guessed by the UI.
+    h.api.renderBuild({...base, build_unavailable_reason: "synthetic-untrusted"});
+    assert.equal(h.element("build-next").textContent, "Next: unavailable");
+    h.api.renderBuild({...base});
+    assert.equal(h.element("build-next").textContent, "Next: unavailable");
+});
