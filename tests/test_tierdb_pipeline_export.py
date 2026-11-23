@@ -162,3 +162,15 @@ def test_leverage_defaults_to_absolute_strength_with_best_offer(store):
     assert cfg["leverage_mode"] == "relative"
     with pytest.raises(ValueError):
         run_build(store, "16.23", ROLES, leverage_mode="magic", **FAST)
+
+
+def test_export_and_provider_carry_augment_friendly_label(store, tmp_path):
+    run_id = run_build(store, "16.23", ROLES, **FAST)
+    doc = export_run(store, run_id, tmp_path / "tierlist.json")
+    assert "augment_friendly" in doc["champion_columns"]
+    provider = TierListProvider(tmp_path / "tierlist.json", enabled=lambda: True)
+    assert isinstance(provider.champion_tier("ahri")["augment_friendly"], bool)
+    labelled = store.connection.execute(
+        "SELECT COUNT(*) FROM champion_tier WHERE run_id=? AND augment_friendly=1",
+        (run_id,)).fetchone()[0]
+    assert 0 < labelled < len(CHAMPS)
