@@ -21,6 +21,7 @@ from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
 from backend.collectors.anvil_voucher import AnvilVoucherPurchaseObserver
 from backend.collectors import anvil_popup
+from backend.collectors import card_presence
 from backend.engine.stat_anvil_offer import resolve_offer as resolve_anvil_offer, title_catalog as anvil_title_catalog
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
@@ -153,6 +154,10 @@ class GameState:
         self.anvil_offer = None  # AnvilOfferResolution with status "ok"
         self.anvil_absent_ticks: int = 0
         self.anvil_prev_counts: dict | None = None
+        self.anvil_picked_ids: list[str] = []  # shards picked (cursor-inferred)
+        # Field fix: OCR-free card presence trail (cue + card under cursor).
+        # Positions are reduced to a slot name and never leave memory.
+        self.presence_trail: list = []
         self.build_style: str = "Balanced"  # player preference, survives match resets
         self.overlay_preferences: dict = dict(preferences.DEFAULT_OVERLAY)  # D4a: stored only
         # OCR state
@@ -258,6 +263,8 @@ class GameState:
         self.anvil_offer = None
         self.anvil_absent_ticks = 0
         self.anvil_prev_counts = None
+        self.anvil_picked_ids = []
+        self.presence_trail = []
         self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         screen_watcher.reset()
         self.last_known_level = 0
@@ -430,12 +437,14 @@ async def lifespan(app: FastAPI):
         feature_diagnostics.record("tierdb.update", "skipped", "fresh")
 
     poll_task = asyncio.create_task(_poll_game_loop())
+    presence_task = asyncio.create_task(_presence_loop())
     yield
-    poll_task.cancel()
-    try:
-        await poll_task
-    except asyncio.CancelledError:
-        pass
+    for task in (poll_task, presence_task):
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
     event_log.stop()
 
 
@@ -1207,7 +1216,8 @@ def _sync_confirmed_augments(
     if state.scan_window_open:
         event_log.emit(
             "ocr_window", state="closed",
-            reason="confirmed" if method == "automatic" else "manual_choice",
+            reason=("confirmed" if method == "automatic" else
+                    "cursor_pick" if method == "cursor" else "manual_choice"),
             level=state.scan_window_level,
         )
     state.scan_window_open = False
@@ -2005,24 +2015,45 @@ def _anvil_offer_payload(state: GameState, result) -> dict | None:
                 for s in offer.shards]}
 
 
-async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
-    """P0-C: watch the screen for the Stat Anvil popup inside the window.
+def _augment_cards_verified(state: GameState) -> bool:
+    slots = state.ocr_slot_choices
+    return bool(state.scan_window_open and isinstance(slots, dict)
+                and all(isinstance(slots.get(s), str) and slots[s]
+                        for s in ("left", "centre", "right")))
 
-    Runs only while the augment scan is closed (never races its watcher).
+
+def _augment_titles_blank(state: GameState) -> bool:
+    slots = state.ocr_slot_choices
+    return isinstance(slots, dict) and bool(slots) and all(v is None for v in slots.values())
+
+
+async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
+    """P0-C: watch the screen for the Stat Anvil popup during the match.
+
+    Field fix 23/11: neither a voucher edge nor the augment scan window may
+    gate this (the popup came with no voucher while the augment window was
+    still open). It uses its own watcher, which skips OCR when no card
+    background is on screen, and skips while verified AUGMENT cards show.
     Diagnostics carry IDs/reasons only, never OCR text or pixels.
     """
     run = getattr(deps, "run_anvil_check", None)
     sd = getattr(deps, "static_data", None)
     catalog_fn = getattr(sd, "stat_anvil_catalog", None)
-    window_open = state.anvil_window_until is not None and now <= state.anvil_window_until
-    if run is None or not callable(catalog_fn):
+    if run is None or not callable(catalog_fn) or not state.match_id:
         return
-    if not window_open and state.anvil_offer is None:
-        if state.anvil_window_until is not None:
-            state.anvil_window_until = None
-            feature_diagnostics.record("anvil.offer_detected", "skipped", "popup_unverified")
+    if (state.anvil_window_until is not None and now > state.anvil_window_until
+            and state.anvil_offer is None):
+        # The voucher hint expired unseen. Diagnostic only: the popup is
+        # still watched below (field 23/11: it came with no voucher edge).
+        state.anvil_window_until = None
+        state.anvil_voucher_tier = None
+        feature_diagnostics.record("anvil.offer_detected", "skipped", "popup_unverified")
+    if not state.ocr_enabled or not deps.ocr_available():
         return
-    if state.scan_window_open or not state.ocr_enabled or not deps.ocr_available():
+    if state.scan_window_open and not _augment_titles_blank(state):
+        # The augment watcher is reading (or has read) augment titles: never
+        # OCR the same cards twice. Field 23/11: during the Anvil popup it
+        # read three BLANK titles, which is when this watcher must look.
         return
     catalog = catalog_fn()
     if not catalog:
@@ -2053,6 +2084,110 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
                     state.anvil_window_until = None
                     state.anvil_voucher_tier = None
                     state.anvil_absent_ticks = 0
+
+
+def _presence_armed(state: GameState) -> str | None:
+    """Which verified offer the OCR-free presence probe is guarding, if any."""
+    if not state.match_id:
+        return None
+    if state.anvil_offer is not None:
+        return "anvil"
+    if _augment_cards_verified(state):
+        return "augment"
+    return None
+
+
+async def _presence_step(state: GameState, probe, now: float) -> str | None:
+    """Apply one probe; on confirmed disappearance close and infer the pick.
+
+    Returns the closed target ("augment"/"anvil") or None. Inference is a
+    correctable pick (Alt+N wins); without one clear card it abstains.
+    """
+    message = None
+    closed = None
+    async with state.lock:
+        target = _presence_armed(state)
+        if target is None:
+            state.presence_trail.clear()
+            return None
+        trail = state.presence_trail
+        trail.append(probe)
+        del trail[:-card_presence.TRAIL_LEN]
+        if not card_presence.cards_gone(trail):
+            return None
+        slot = card_presence.infer_pick(trail)
+        trail.clear()
+        closed = target
+        if target == "anvil":
+            offer = state.anvil_offer
+            index = ("left", "centre", "right", "fourth").index(slot) if slot else None
+            if offer is not None and index is not None and index < len(offer.shards):
+                state.anvil_picked_ids.append(offer.shards[index].id)
+                feature_diagnostics.record("anvil.pick_inferred", "ok", "cursor_slot")
+            else:
+                feature_diagnostics.record("anvil.pick_inferred", "skipped", "cursor_ambiguous")
+            state.anvil_offer = None
+            state.anvil_window_until = None
+            state.anvil_voucher_tier = None
+            state.anvil_absent_ticks = 0
+            event_log.emit("ocr_window", state="closed", reason="anvil_cards_gone",
+                           level=state.scan_window_level)
+        else:
+            message = _augment_cards_gone(state, slot)
+    if message is not None:
+        await _broadcast(message)
+    return closed
+
+
+def _augment_cards_gone(state: GameState, slot: str | None) -> str:
+    """Cards vanished (two OCR-free probes). State lock held by the caller."""
+    state.offer_ledger.on_titles_unverified()
+    state.offer_lifecycle.observe("disappeared", verified_absence=True)
+    state.set_ocr_phase("no_offer", offer_closed=True)
+    event_log.emit("ocr_window", state="closed", reason="offer_disappeared",
+                   level=state.scan_window_level)
+    state.confirmation_pending = True
+    state.awaiting_stat_delta = True
+    state.delta_wait_ticks = 0
+    inferred = None
+    if slot is not None:
+        try:
+            inferred = state.offer_ledger.confirm_inferred(slot)
+        except LedgerError:
+            inferred = None
+    if inferred is not None:
+        feature_diagnostics.record("augment.pick_inferred", "ok", "cursor_slot")
+        _sync_confirmed_augments(state, inferred, method="cursor")
+    else:
+        feature_diagnostics.record("augment.pick_inferred", "skipped", "cursor_ambiguous")
+        state.scan_window_open = False
+        state.offer_epoch += 1
+    return json.dumps({
+        "type": "ocr_result", "status": "disappeared",
+        "offer_state": state.offer_state, "stale": False,
+        "phase": state.ocr_phase,
+        "picked_id": inferred.picked_id if inferred is not None else None,
+        "pick_source": "cursor_inferred" if inferred is not None else None,
+        "augment_choices": list(state.augment_choices),
+        "offer_epoch": state.offer_epoch, "match_id": state.match_id,
+        "offers": state.offer_ledger.payload(),
+    })
+
+
+async def _presence_loop() -> None:
+    """Fast OCR-free probe, active only while a verified offer is shown."""
+    loop = asyncio.get_running_loop()
+    while True:
+        try:
+            if _presence_armed(game_state) is not None:
+                now = loop.time()
+                probe = await asyncio.to_thread(card_presence.probe_cards, now)
+                await _presence_step(game_state, probe, now)
+            elif game_state.presence_trail:
+                game_state.presence_trail.clear()
+        except Exception as exc:  # never kill the loop; IDs only in logs
+            logger.warning("Card presence probe failed: %s", type(exc).__name__)
+        await asyncio.sleep(card_presence.PROBE_INTERVAL_S)
 
 
 async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:

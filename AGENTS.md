@@ -1,5 +1,13 @@
 # Repository agent instructions
 
+## CURRENT — 2026-11-23 Field fixes after the owner's Fiora match (code GREEN, native NOT TESTED)
+
+- Anvil popup is watched all match (never gated by voucher or augment window; skipped only while augment titles are being read; looks when they come back blank). Voucher = tier hint only.
+- Picks: `backend/collectors/card_presence.py` OCR-free probe (0.3 s) + `GetCursorPos` (position only; never buttons/input). Cards gone = 2 absent probes after present; pick = single card under cursor in last 1 s; else abstain. Ledger `confirm_inferred` (`cursor_inferred`), Alt+N corrects; never overrides manual picks.
+- Latency: `SlotTemporalTracker` reads slots concurrently; `ScreenWatcher(skip_ocr_without_cards=True)` in production (stage `cards_absent`).
+- Items: omitted DD `from` = empty (26 base components were `unknown`); `item_pool_v5`.
+- Never commit the owner's photos (player name visible) or logs.
+
 ## 2026-11-23 — Stat Anvil source RESOLVED: `statanvils.bin.json` (supersedes the 404 entry below)
 
 - Real 16.23 source `game/maps/modespecificdata/statanvils.bin.json`; pinned catalogue `data/anvils/stat_anvils_16.23.json` (34 = 13/13/8). Do NOT reopen the 471-file scan. Each new patch: regenerate with `scripts/build_stat_anvil_catalog.py` and update the sha256 test; never reuse a catalogue across patches.

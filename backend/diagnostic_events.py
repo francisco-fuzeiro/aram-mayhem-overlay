@@ -38,7 +38,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
-        "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "offer_disappeared", "reset", "unknown")),
+        "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "offer_disappeared", "anvil_cards_gone", "cursor_pick", "reset", "unknown")),
         "level": "int",
     },
     "ocr_scan_stage": {
@@ -48,7 +48,7 @@ SCHEMA: dict[str, dict[str, object]] = {
             "capture_unavailable", "geometry_unsupported",
             "titles_verifying", "titles_unidentified",
             "titles_detected", "titles_unchanged", "titles_transition",
-            "verified_absence",
+            "verified_absence", "cards_absent",
         )),
     },
     "ocr_recognition": {
@@ -78,7 +78,7 @@ SCHEMA: dict[str, dict[str, object]] = {
         "confidence": "confidence1",
     },
     "augment_confirmation": {
-        "method": frozenset(("manual", "automatic")),
+        "method": frozenset(("manual", "automatic", "cursor")),
         "kind": frozenset(("augment", "anvil", "unknown")),
     },
     "item_data_source": {

@@ -33,6 +33,8 @@
 - [x] **P0-C (code)** dedicated popup watcher + tier resolution, `tests/test_p0_stat_anvil_offer.py`, `tests/test_p0_stat_anvil_popup_server.py`.
 - [x] **P0-D (code)** own 0–10 scores + best-fit-only overlay panel + epoch-fenced ACK (`tests/js/overlay-messages.test.cjs`).
 - [ ] **P0-C value OCR live:** add value-line crops once a real Anvil popup crop confirms geometry (ROI must extend past 0.50 H). Until then Silver/Gold rely on the voucher hint.
+- [x] **Field fixes 23/11 (code):** Anvil without voucher/during augment window; pick by card disappearance + cursor position; concurrent slot OCR + skip without cards; base components no longer `unknown`.
+- [ ] **Field fixes native:** confirm in the next match (see checklist rows `augment.pick_inferred`, `anvil.pick_inferred`).
 - [ ] **P0-E native:** one owner-controlled Mayhem match per `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`; then exact-head Windows Actions.
 - [ ] Regenerate the catalogue each patch: `py -3.11 -m scripts.build_stat_anvil_catalog --patch <x.y> --fetch` (or `--bin/--strings` offline) and update the sha256 test.
 

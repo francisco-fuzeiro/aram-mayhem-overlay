@@ -22,6 +22,9 @@ already contains #106 and #107. Detailed evidence history:
 4. **Shop:** the next-item suggestion is a real item you can buy.
 5. **Stat Anvil (only if you get one):** within ~2 s the panel shows `Best fit`
    with the right tier (Silver/Gold/Prismatic).
+6. **Your pick:** after you choose an augment (no Alt+N), the counter goes up and
+   the build/tiers adapt. The first augment read takes a few seconds, not ~30 s.
+   If the pick is wrong, Alt+N corrects it.
 
 Play normally to the end.
 
@@ -30,7 +33,7 @@ Play normally to the end.
 1. With ARAM Oracle still open, open `http://127.0.0.1:8765/api/diagnostics/features`,
    or in the project folder run `py -3.11 -m backend.feature_diagnostics --out feature_report.md`.
 2. Paste the table in the chat (ids, verdicts, reasons and counts only: no names,
-   paths or win rates) plus one line: yes/no for checks 1–5 above.
+   paths or win rates) plus one line: yes/no for checks 1–6 above.
 
 ## Reading the report
 
@@ -44,11 +47,12 @@ Play normally to the end.
 - Conditional (NOT FIRED is acceptable when the event did not happen):
   `augment.stats_parser`, `build.next_item_render`, `tierdb.update`,
   `anvil.voucher_purchase`, `anvil.offer_detected`, `anvil.offer_rating`,
-  `anvil.offer_render`. No Stat Anvil in the match = Anvil popup checks stay
+  `anvil.offer_render`, `augment.pick_inferred`, `anvil.pick_inferred`,
+  `tierdb.context_adjust`. No Stat Anvil in the match = Anvil popup checks stay
   open, never PASS.
 
 ## Closing rule
 
-P0 and the Tier DB items phase close only when this report and checks 1–5 agree,
+P0 and the Tier DB items phase close only when this report and checks 1–6 agree,
 and Windows CI is green on the exact HEAD tested. New features add one line here
 (see `FEATURE_DIAGNOSTICS.md`).

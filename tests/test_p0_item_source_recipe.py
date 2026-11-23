@@ -96,14 +96,14 @@ def test_old_v3_cache_invalidated_after_semantic_fix(monkeypatch, tmp_path):
 
     offline_loader(monkeypatch, tmp_path)
     first = _load_items()
-    assert first.meta.policy_version == "item_pool_v4"
+    assert first.meta.policy_version == "item_pool_v5"
     cache = tmp_path / "items_v5_16.23.1.json"
     payload = json.loads(cache.read_text(encoding="utf-8"))
     payload["meta"]["policy_version"] = "item_pool_v3"
     cache.write_text(json.dumps(payload), encoding="utf-8")
     rebuilt = loader._load_items()
     assert rebuilt.data_source == "network"
-    assert rebuilt.meta.policy_version == "item_pool_v4"
+    assert rebuilt.meta.policy_version == "item_pool_v5"
     assert sum(x == "final" for x in rebuilt.classes.values()) == 104
 
 

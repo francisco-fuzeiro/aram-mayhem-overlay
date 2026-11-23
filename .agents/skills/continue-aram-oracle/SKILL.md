@@ -1,5 +1,13 @@
 ---
 
+## CURRENT — 2026-11-23 Field fixes after the owner's Fiora match (code GREEN, native NOT TESTED)
+
+- Anvil popup is watched all match (never gated by voucher or augment window; skipped only while augment titles are being read; looks when they come back blank). Voucher = tier hint only.
+- Picks: `backend/collectors/card_presence.py` OCR-free probe (0.3 s) + `GetCursorPos` (position only; never buttons/input). Cards gone = 2 absent probes after present; pick = single card under cursor in last 1 s; else abstain. Ledger `confirm_inferred` (`cursor_inferred`), Alt+N corrects; never overrides manual picks.
+- Latency: `SlotTemporalTracker` reads slots concurrently; `ScreenWatcher(skip_ocr_without_cards=True)` in production (stage `cards_absent`).
+- Items: omitted DD `from` = empty (26 base components were `unknown`); `item_pool_v5`.
+- Never commit the owner's photos (player name visible) or logs.
+
 ## CURRENT — 2026-11-23 P0 Stat Anvils: real source found, code GREEN, native pending
 
 - **P0-A PROVEN (real data):** patch 16.23 Stat Anvils live in `game/maps/modespecificdata/statanvils.bin.json` (CommunityDragon named the 16.22 hash file; `game/unknown/507cdd64276919f5.bin.json` 404 is explained). Fetched 2026-11-23 via the owner's desktop built-in browser (cloud proxy blocks CDragon), Last-Modified `Mon, 23 Nov 2026 18:11:48 GMT`, sha256 `494f603d…94c2`. **37 `AnvilData`** (raw 14 Silver / 14 Gold / 8 Prismatic / 1 mixed), every `RootSpell.mSpell.DataValues` resolved; **34 offerable = 13/13/8** (`Random` x2 and `Pristine` are `Enabled=false`, rejected generically). Titles from same-patch `lol.stringtable.json` (60 keys, 0 missing). Unmodified bin + allowlisted string extract pinned in `tests/fixtures/anvils/`.

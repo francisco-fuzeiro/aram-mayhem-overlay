@@ -1,0 +1,119 @@
+"""P0 field fix: OCR-free card presence probe + read-only cursor pick inference.
+
+Field evidence (Fiora match, 23/11): the cards vanished after every pick and
+the overlay never noticed, so it kept asking Alt+1/2/3 and the build never
+adapted. While a verified offer (augments or Stat Anvil shards) is on screen,
+a fast probe reads only the card-background colour of the three title bands
+(no OCR) and the cursor POSITION. When two consecutive probes see the cards
+gone, the pick is the one card the cursor sat over in the last second before
+they vanished; any doubt abstains and the user confirms with Alt+N.
+
+Policy: GetCursorPos only. Mouse buttons are never read, nothing is clicked
+or moved, and positions stay in memory (never logged or stored).
+"""
+from __future__ import annotations
+
+import sys
+from dataclasses import dataclass
+from typing import Callable, Sequence
+
+from backend.collectors.card_title_geometry import title_bands_from_client_rect
+from backend.collectors.offer_visibility import card_background_cue
+from backend.collectors.pick_clicks import SLOTS, card_body_rects
+
+PROBE_INTERVAL_S = 0.3
+ABSENT_PROBES_TO_CLOSE = 2
+PICK_WINDOW_S = 1.0
+TRAIL_LEN = 40
+DOWNSAMPLE = 4
+
+
+@dataclass(frozen=True)
+class Probe:
+    t: float
+    cue: str           # present | absent | mixed | unavailable
+    slot: str | None   # card under the cursor at that instant
+
+
+def slot_at(point, client_rect) -> str | None:
+    """Card body (client-anchored) containing a desktop point, if any."""
+    if point is None or client_rect is None:
+        return None
+    bands = title_bands_from_client_rect(tuple(client_rect))
+    if bands is None:
+        return None
+    left, top, right, bottom = client_rect
+    rects = card_body_rects((left, top, right - left, bottom - top), bands)
+    x, y = point
+    for slot in SLOTS:
+        r = rects[slot]
+        if r[0] <= x < r[2] and r[1] <= y < r[3]:
+            return slot
+    return None
+
+
+def _absent_tail(trail: Sequence[Probe]) -> int:
+    i = len(trail)
+    while i > 0 and trail[i - 1].cue == "absent":
+        i -= 1
+    return i
+
+
+def cards_gone(trail: Sequence[Probe]) -> bool:
+    """Two consecutive absent probes after the cards were seen present."""
+    start = _absent_tail(trail)
+    seen = any(p.cue == "present" for p in trail[:start])
+    return seen and len(trail) - start >= ABSENT_PROBES_TO_CLOSE
+
+
+def infer_pick(trail: Sequence[Probe]) -> str | None:
+    """The single card under the cursor within PICK_WINDOW_S before vanishing."""
+    start = _absent_tail(trail)
+    if start == 0 or start == len(trail):
+        return None
+    gone_at = trail[start].t
+    recent = [p for p in trail[:start]
+              if p.cue != "absent" and gone_at - p.t <= PICK_WINDOW_S]
+    slots = {p.slot for p in recent if p.slot is not None}
+    return next(iter(slots)) if len(slots) == 1 else None
+
+
+def downsample(crops: dict) -> dict:
+    """Nearest-neighbour shrink: keeps exact colours, ~16x fewer pixels."""
+    from PIL import Image
+    return {k: v.resize((max(1, v.width // DOWNSAMPLE), max(1, v.height // DOWNSAMPLE)),
+                        Image.NEAREST) for k, v in crops.items()}
+
+
+def read_cursor() -> tuple[int, int] | None:
+    """Desktop cursor position (Windows); None elsewhere. Read-only."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+        point = wintypes.POINT()
+        if not ctypes.windll.user32.GetCursorPos(ctypes.byref(point)):
+            return None
+        return int(point.x), int(point.y)
+    except (OSError, AttributeError, ValueError):
+        return None
+
+
+def probe_cards(now: float, cursor: Callable[[], tuple[int, int] | None] = read_cursor) -> Probe:
+    """One synchronous OCR-free observation (call through asyncio.to_thread)."""
+    from backend.collectors.screen_ocr import (
+        capture_augment_region, find_league_window, get_augment_region,
+    )
+    from backend.collectors.slot_title_ocr import crop_title_slots
+    game = find_league_window()
+    if game is None:
+        return Probe(now, "unavailable", None)
+    region = capture_augment_region(league_window=game)
+    if region.reason != "ok" or region.image is None:
+        return Probe(now, "unavailable", None)
+    width, height = game.right - game.left, game.bottom - game.top
+    crops = crop_title_slots(region.image, game.rect, get_augment_region(width, height))
+    if crops is None:
+        return Probe(now, "unavailable", None)
+    return Probe(now, card_background_cue(downsample(crops)), slot_at(cursor(), game.rect))

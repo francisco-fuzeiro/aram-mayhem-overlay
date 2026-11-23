@@ -14,6 +14,17 @@ from PIL import Image
 
 from backend.collectors.slot_title_ocr import SLOTS, SlotMatches
 
+
+def _read_concurrently(plan, augment_names, read_slot) -> list:
+    """Read the planned slots in parallel; results keep the plan's order."""
+    if len(plan) <= 1:
+        return [read_slot(slot, crop, augment_names) for slot, crop, _ in plan]
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=len(plan)) as pool:
+        futures = [pool.submit(read_slot, slot, crop, augment_names)
+                   for slot, crop, _ in plan]
+        return [future.result() for future in futures]
+
 Match = tuple[str, str, int] | None
 
 # 32x32 average hashes: keep jitter tolerance below visibly changed glyph strokes.
@@ -95,6 +106,7 @@ class SlotTemporalTracker:
             raise ValueError("exactly three ordered, client-bounded crops required")
 
         verified: dict[str, tuple[Match, str]] = {}
+        plan: list[tuple[str, Image.Image, str]] = []
         for slot in SLOTS:
             crop = crops[slot]
             image_hash = hash_image(crop)
@@ -114,10 +126,14 @@ class SlotTemporalTracker:
                     continue
                 self._unknown_retry_ticks[slot] = UNKNOWN_RETRY_INTERVAL_TICKS
                 self._baselines.pop(slot, None)
+            plan.append((slot, crop, image_hash))
 
-            # No old baseline (new offer/refocus) or a changed card: sample OCR.
-            # This uses the same strict C2 matcher irrespective of the trigger.
-            match = read_slot(slot, crop, augment_names)
+        # No old baseline (new offer/refocus) or a changed card: sample OCR.
+        # Field fix 23/11 (latency): the slots are independent and Tesseract
+        # runs out of process, so read them concurrently; results are applied
+        # below in physical slot order with the same strict C2 matcher.
+        reads = _read_concurrently(plan, augment_names, read_slot)
+        for (slot, crop, image_hash), match in zip(plan, reads):
             previous = self._pending.get(slot)
             signature = match[0] if match is not None else None
             previous_signature = (

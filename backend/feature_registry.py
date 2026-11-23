@@ -27,6 +27,8 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "items.build_render": (True, "Overlay drew reference/adapted build and Anvil estimates"),
     "anvil.stat_estimate": (True, "Heuristic Stat Anvil stat priorities attached"),
     "anvil.offer_rating": (False, "Own 0-10 heuristic scores for the visible shards"),
+    "augment.pick_inferred": (False, "Cards vanished; pick read from the card under the cursor"),
+    "anvil.pick_inferred": (False, "Shards vanished; pick read from the card under the cursor"),
 }
 # Only actual browser/overlay rendering may ACK these IDs.
 UI_FEATURES = frozenset(("build.next_item_render", "anvil.offer_render",
@@ -102,6 +104,12 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     )),
     "anvil.offer_rating": frozenset((
         ("ok", "scored"), ("skipped", "unmodelled"),
+    )),
+    "augment.pick_inferred": frozenset((
+        ("ok", "cursor_slot"), ("skipped", "cursor_ambiguous"),
+    )),
+    "anvil.pick_inferred": frozenset((
+        ("ok", "cursor_slot"), ("skipped", "cursor_ambiguous"),
     )),
 }
 REASONS = frozenset(reason for allowed in FEATURE_OUTCOMES.values()
