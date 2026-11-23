@@ -7,9 +7,11 @@ already contains #106 and #107. Detailed evidence history:
 
 ## Before (5 min)
 
-1. Update the local copy to the branch HEAD given in the chat and start ARAM Oracle.
+1. Update the local copy to the branch HEAD given in the chat and start ARAM Oracle
+   (close and reopen it: the report covers one app session).
 2. Wait about 1 minute on first start (tier list download).
    Settings → Build Preferences → "Mayhem tier lists" shows `On · patch …`.
+   After a build-logic change, press "Update now" there once.
 3. Join an ARAM Mayhem match. No automatic clicks; nothing to screenshot.
 
 ## During the match (just look)
@@ -42,7 +44,7 @@ Play normally to the end.
 - **OK**: worked at least once. **SKIPPED**: chose not to act, with a reason.
 - **FAILED / NOT FIRED**: should have run and did not; the reason points to the cause.
 - Features that should fire every session: `build.item_pool`, `augment.cache_schema`,
-  `build.next_item`, `anvil.catalog_source`, `tierdb.load`, `tierdb.switch`,
+  `build.next_item`, `anvil.catalog_source`, `anvil.popup_watch`, `tierdb.load`, `tierdb.switch`,
   `tierdb.offer_tiers`, `tierdb.offer_render`, `tierdb.champselect_tiers`,
   `tierdb.champselect_render`, `items.reference_build`, `items.build_render`,
   `anvil.stat_estimate`.

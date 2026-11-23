@@ -62,7 +62,7 @@ class ItemTierRow:
 class ReferenceBuild:
     champion_id: str
     items: tuple[str, ...]
-    sources: tuple[str, ...]  # core | tier
+    sources: tuple[str, ...]  # core | tier | stat
     boots: str | None
 
 
@@ -226,8 +226,15 @@ def reference_build(
     size: int = 6,
     conflicts: Callable[[str, str], bool] | None = None,
     canonical: Callable[[str], str] | None = None,
+    required: dict[str, set[str]] | None = None,
 ) -> ReferenceBuild:
-    """Slots 1-3 from the best measured core (order kept), 4-6 from item tiers."""
+    """Slots 1-3 from the best measured core (order kept), 4-6 from item tiers.
+
+    `required` = {stat: items giving it} for stats the champion's players build
+    in most games (field test 23/11: a Master Yi build with no attack speed).
+    If none of the six gives such a stat, the last tier slot is replaced by the
+    best-ranked item that does (source "stat"); core slots are never touched.
+    """
     canonical = canonical or (lambda x: x)
     conflicts = conflicts or (lambda a, b: False)
     mine = [r for r in rows if r.champion_id == champion]
@@ -260,5 +267,15 @@ def reference_build(
         if fits(row.item_id):
             items.append(row.item_id)
             sources.append("tier")
+    for stat, givers in sorted((required or {}).items()):
+        if any(i in givers for i in items) or "tier" not in sources:
+            continue
+        slot = len(sources) - 1 - sources[::-1].index("tier")
+        rest = items[:slot] + items[slot + 1:]
+        pick = next((r.item_id for r in finals if r.item_id in givers
+                     and r.item_id not in rest
+                     and not any(conflicts(r.item_id, o) for o in rest)), None)
+        if pick is not None:
+            items[slot], sources[slot] = pick, "stat"
     return ReferenceBuild(champion, tuple(items), tuple(sources),
                           boots[0].item_id if boots else None)

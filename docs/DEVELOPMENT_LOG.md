@@ -1174,3 +1174,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   players build (games-weighted) with the tier order: Yi AS 5% -> 8%.
 - Open: one offer produced no disappearance event at all; the level-18 offer had
   no OCR read before the game ended; no Stat Anvil purchase edge was seen.
+- Second report (same app session): Stat Anvils bought, nothing shown. Cause
+  [Provável]: the popup watcher returned early whenever an augment window was open
+  but not yet read (level reached, cards not shown or pick postponed), which in
+  Mayhem can last minutes. Now it is blocked only once augment titles were read.
+  New always-expected diagnostic `anvil.popup_watch` says why each tick did or did
+  not look (no_cards, titles_partial, augment_cards_read, ocr_off, ...).
+- Owner: a Yi build with no attack speed is not acceptable. Reference builds now
+  keep one attack-speed item when attack-speed items appear in >= 60% of the
+  champion's games and the core is not AP: the last tier slot becomes the best-
+  ranked AS item (source `stat`, core untouched). 16.23: Yi gets Terminus; 8 of 173
+  champions affected. Tier DB schema migrates `reference_build.source`.

@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS reference_build (
     champion_id TEXT NOT NULL,
     slot        INTEGER NOT NULL,  -- 1..6 items, 0 = boots
     item_id     TEXT NOT NULL,
-    source      TEXT NOT NULL CHECK (source IN ('core', 'tier', 'boots')),
+    source      TEXT NOT NULL CHECK (source IN ('core', 'tier', 'stat', 'boots')),
     PRIMARY KEY (run_id, champion_id, slot)
 );
 
@@ -350,6 +350,18 @@ class TierStore:
         if "potential" not in cols:
             with self.connection:
                 self.connection.execute("ALTER TABLE champion_tier ADD COLUMN potential TEXT")
+        sql = (self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE name='reference_build'").fetchone() or [""])[0]
+        if "'stat'" not in sql:
+            # Field 23/11: builds may carry a required-stat slot (source 'stat').
+            con = self.connection
+            con.execute("PRAGMA foreign_keys = OFF")
+            with con:
+                con.execute("ALTER TABLE reference_build RENAME TO reference_build_old")
+                con.executescript(SCHEMA)
+                con.execute("INSERT INTO reference_build SELECT * FROM reference_build_old")
+                con.execute("DROP TABLE reference_build_old")
+            con.execute("PRAGMA foreign_keys = ON")
 
     def close(self) -> None:
         self.connection.close()

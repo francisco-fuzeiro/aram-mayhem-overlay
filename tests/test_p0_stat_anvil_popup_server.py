@@ -135,13 +135,9 @@ def test_popup_found_without_voucher_and_during_augment_window(got):
     assert calls and state.anvil_offer is not None
 
 
-def test_augment_window_still_verifying_does_not_double_ocr(got):
-    deps, calls = _deps([])
-    state = _state()
-    state.scan_window_open = True
-    state.ocr_slot_choices = None
-    _tick(state, deps)
-    assert calls == []
+# Spec change (field 23/11): an open augment window with nothing read yet no
+# longer blocks the Anvil watcher; see
+# test_open_but_unread_augment_window_does_not_block_the_anvil_watcher.
 
 
 def test_verified_augment_cards_skip_the_anvil_read(got):
@@ -209,3 +205,26 @@ def test_attention_window_follows_held_and_spent_vouchers_only():
     assert attention({"220009": 1, "220010": 1}, {"220009": 1}) == (True, "prismatic")
     assert attention({"220008": 1}, {}) == (True, "silver")
     assert attention({"220008": 1, "220009": 1}, {"220008": 1, "220009": 1}) == (True, None)
+
+
+def test_open_but_unread_augment_window_does_not_block_the_anvil_watcher(got):
+    # Field 23/11 (Master Yi): level reached, augment cards not read yet (or
+    # pick postponed); Stat Anvils bought meanwhile were never looked at.
+    ids = _ids("Omnivamp Shard", "Tenacity Shard", "Move Speed Shard")
+    deps, calls = _deps([("detected", ids)])
+    state = _state()
+    state.scan_window_open = True
+    state.ocr_slot_choices = None
+    _tick(state, deps)
+    assert calls and state.anvil_offer is not None
+    assert ("anvil.popup_watch", "ok", "titles_matched", None) in got
+
+
+def test_read_augment_titles_still_block_and_say_why(got):
+    deps, calls = _deps([])
+    state = _state()
+    state.scan_window_open = True
+    state.ocr_slot_choices = {"left": "a", "centre": None, "right": None}
+    _tick(state, deps)
+    assert calls == []
+    assert ("anvil.popup_watch", "skipped", "augment_cards_read", None) in got

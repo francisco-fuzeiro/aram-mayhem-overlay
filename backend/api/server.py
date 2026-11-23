@@ -2077,6 +2077,13 @@ def _augment_cards_verified(state: GameState) -> bool:
                         for s in ("left", "centre", "right")))
 
 
+def _augment_titles_read(state: GameState) -> bool:
+    """Augment titles were read in the open window (some slot has a title)."""
+    slots = state.ocr_slot_choices
+    return bool(state.scan_window_open and isinstance(slots, dict)
+                and any(isinstance(v, str) and v for v in slots.values()))
+
+
 def _augment_titles_blank(state: GameState) -> bool:
     slots = state.ocr_slot_choices
     return isinstance(slots, dict) and bool(slots) and all(v is None for v in slots.values())
@@ -2104,16 +2111,28 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
         state.anvil_voucher_tier = None
         feature_diagnostics.record("anvil.offer_detected", "skipped", "popup_unverified")
     if not state.ocr_enabled or not deps.ocr_available():
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "ocr_off")
         return
-    if state.scan_window_open and not _augment_titles_blank(state):
-        # The augment watcher is reading (or has read) augment titles: never
+    if _augment_titles_read(state):
+        # The augment watcher has read augment titles in this window: never
         # OCR the same cards twice. Field 23/11: during the Anvil popup it
         # read three BLANK titles, which is when this watcher must look.
+        # Field 23/11 (Master Yi): an augment window that is open but not yet
+        # READ (level reached, cards not shown or pick postponed for minutes)
+        # no longer blocks this watcher; it used to, so no Anvil was seen.
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_cards_read")
         return
     catalog = catalog_fn()
     if not catalog:
         return
     action, ids = await deps.to_thread(run, anvil_title_catalog(catalog.values()))
+    if action in ("detected", "unchanged"):
+        feature_diagnostics.record(
+            "anvil.popup_watch", "ok" if ids and all(ids) else "skipped",
+            "titles_matched" if ids and all(ids) else "titles_partial")
+    else:
+        feature_diagnostics.record("anvil.popup_watch", "skipped",
+                                   "no_cards" if action == "no_augments" else "unavailable")
     async with state.lock:
         if action in ("detected", "unchanged") and ids and all(ids):
             state.anvil_absent_ticks = 0

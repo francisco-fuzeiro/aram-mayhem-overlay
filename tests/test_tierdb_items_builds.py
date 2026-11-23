@@ -211,3 +211,48 @@ def test_stat_demand_counts_what_players_build_not_only_the_best_ranked():
                                    "guinsoo": 65000})
     assert blended["as"] > 3 * ranked_only["as"]
     assert blended["crit"] > blended["mr"] and abs(sum(blended.values()) - 1) < 1e-9
+
+
+def test_build_keeps_attack_speed_when_most_games_use_it():
+    # Field test 23/11 (Master Yi): crit/lethality ranked top, the six slots had
+    # no attack speed although most Yi games build it.
+    from backend.tierdb.item_tiers import ItemTierRow, reference_build
+    from backend.tierdb.pipeline import required_stats
+
+    def row(iid, rank):
+        return ItemTierRow(champion_id="yi", item_id=iid, kind="final", score=1.0,
+                           score_p20=0.0, score_p80=1.0, rank=rank, tie_group=rank,
+                           tier="A", level="champion", confidence=1.0)
+    ranked = ["ldr", "ie", "sterak", "dd", "er", "terminus", "collector", "botrk"]
+    rows = [row(i, n) for n, i in enumerate(ranked, start=1)]
+    types = {"terminus": ("Damage", "AttackSpeed"), "botrk": ("Damage", "AttackSpeed"),
+             "navori": ("AttackSpeed",), "guinsoo": ("AttackSpeed",), "kraken": ("AttackSpeed",),
+             "ie": ("CriticalStrike",), "ldr": ("Damage",)}
+    finals = {"botrk": (1, 200000), "navori": (1, 81000), "guinsoo": (1, 65000),
+              "kraken": (1, 49000), "terminus": (1, 21000), "ie": (1, 160000)}
+    req = required_stats(finals, 531000, types)
+    assert set(req) == {"as"}
+    cores = [(("collector", "ie", "ldr"), 55000, 94000, 0.06)]
+    plain = reference_build("yi", cores, rows)
+    assert not {"terminus", "botrk"} & set(plain.items)
+    fixed = reference_build("yi", cores, rows, required=req)
+    assert fixed.items[:3] == ("collector", "ie", "ldr")      # core untouched
+    assert "terminus" in fixed.items and fixed.sources[fixed.items.index("terminus")] == "stat"
+    assert len(fixed.items) == 6
+    # A champion whose players rarely build attack speed gets no forced item.
+    assert required_stats({"botrk": (1, 1000)}, 531000, types) == {}
+
+
+def test_old_reference_build_table_is_migrated_to_allow_stat_slots(tmp_path):
+    import sqlite3
+
+    from backend.tierdb.store import SCHEMA, TierStore
+    path = tmp_path / "old.sqlite"
+    con = sqlite3.connect(path)
+    con.executescript(SCHEMA.replace("'core', 'tier', 'stat', 'boots'", "'core', 'tier', 'boots'"))
+    con.close()
+    store = TierStore(path)
+    sql = store.connection.execute(
+        "SELECT sql FROM sqlite_master WHERE name='reference_build'").fetchone()[0]
+    assert "'stat'" in sql
+    store.close()

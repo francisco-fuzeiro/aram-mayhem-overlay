@@ -175,6 +175,25 @@ def run_build(
     return run_id
 
 
+# Stats a build must not miss when most of the champion's games use them.
+REQUIRED_STAT_TAGS = {"as": ("AttackSpeed",)}
+REQUIRED_STAT_COVERAGE = 0.6   # item-instances with the stat per champion game
+
+
+def required_stats(finals: dict, champion_games: int, types: dict, *,
+                   canonical=lambda x: x) -> dict[str, set[str]]:
+    """{stat: items giving it} for stats in >= 60% of the champion's games."""
+    if champion_games <= 0:
+        return {}
+    out = {}
+    for stat, tags in REQUIRED_STAT_TAGS.items():
+        givers = {canonical(i) for i in finals if set(types.get(i, ())) & set(tags)}
+        games = sum(n for i, (_w, n) in finals.items() if canonical(i) in givers)
+        if givers and games / champion_games >= REQUIRED_STAT_COVERAGE:
+            out[stat] = givers
+    return out
+
+
 def _build_items(store, patch, snap_id, roles, inputs: ItemInputs, config: ItemTierConfig):
     """Item tiers, reference builds and Anvil stat demand for one snapshot."""
     obs = [o for o in store.item_observations(patch) if o.snapshot_id == snap_id]
@@ -201,9 +220,18 @@ def _build_items(store, patch, snap_id, roles, inputs: ItemInputs, config: ItemT
         types = {iid: tags for iid, (_, tags) in store.item_info(patch).items()}
     references, demands = {}, {}
     for champion, d in data.items():
-        references[champion] = reference_build(
-            champion, d["cores"], rows, config=config, conflicts=inputs.conflicts,
+        ref = reference_build(champion, d["cores"], rows, config=config,
+                              conflicts=inputs.conflicts, canonical=inputs.canonical)
+        core = [i for i, src in zip(ref.items, ref.sources) if src == "core"]
+        ap_core = sum("SpellDamage" in types.get(i, ()) for i in core) >= 2
+        required = {} if ap_core else required_stats(
+            d.get("finals") or {}, (d.get("base") or (0, 0))[1], types,
             canonical=inputs.canonical)
+        if required:  # AP cores (e.g. AP Trundle) never get a forced AS item
+            ref = reference_build(champion, d["cores"], rows, config=config,
+                                  conflicts=inputs.conflicts, canonical=inputs.canonical,
+                                  required=required)
+        references[champion] = ref
         top = [r.item_id for r in sorted(
             (r for r in rows if r.champion_id == champion and r.kind == "final"
              and r.level == "champion"), key=lambda r: r.rank)]
