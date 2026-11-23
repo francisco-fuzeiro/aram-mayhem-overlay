@@ -532,6 +532,26 @@
         });
     }
 
+    const TIER_LEVEL_TEXT = {champion: "champion data", role: "class data",
+        global: "global data", curated: "estimate"};
+    const POTENTIAL_TEXT = {very_low: "very low", low: "low", medium: "medium",
+        high: "high", very_high: "very high"};
+
+    // Rank and visible tie span only; win rates and sample sizes never reach
+    // the overlay (Riot policy), the backend export strips them.
+    function tierRankText(rank, total, group, end) {
+        return "#" + rank + "/" + total +
+            (Number.isInteger(end) && Number.isInteger(group) && end > group
+                ? " (tied #" + group + "–#" + end + ")" : "");
+    }
+
+    function augmentTierText(t) {
+        if (!t || !t.tier || t.level === "none") return "No tier data for this champion";
+        return "Tier " + t.tier + " · " +
+            tierRankText(t.rank, t.rank_total, t.tie_group, t.tie_end) + " · " +
+            (TIER_LEVEL_TEXT[t.level] || "estimate");
+    }
+
     function renderChampSelect(data) {
         // Hide gameplay-only panels during champion selection.
         showWaiting(true);
@@ -571,6 +591,15 @@
                 (candidate.sample_size ? " · Personal sample: " + candidate.sample_size + " games" : " · No match data yet");
 
             card.append(name, summary, reasons);
+            const m = candidate.mayhem;
+            if (m && m.strength) {
+                const mayhem = document.createElement("div");
+                mayhem.className = "aug-explain aug-tier";
+                mayhem.textContent = "Mayhem strength: " + m.strength + " · " +
+                    tierRankText(m.rank, m.rank_total, m.tie_group, m.tie_end) +
+                    " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown");
+                card.appendChild(mayhem);
+            }
             champSelectList.appendChild(card);
         }
         if (candidates.length === 0) {
@@ -975,6 +1004,15 @@
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
                 esc(name + origin) + '</span><span class="aug-score">' +
                 esc(score) + '</span></div>';
+            const tiers = data.tiers_enabled === true && data.augment_tiers &&
+                typeof data.augment_tiers === "object" ? data.augment_tiers : null;
+            if (tiers && id && !verifiedAnvilOffer &&
+                Object.prototype.hasOwnProperty.call(tiers, id)) {
+                const tierNote = document.createElement("div");
+                tierNote.className = "aug-explain aug-tier";
+                tierNote.textContent = augmentTierText(tiers[id]);
+                row.appendChild(tierNote);
+            }
             if (rec && typeof rec.explanation === "string") {
                 const note = document.createElement("div");
                 note.className = "aug-explain";

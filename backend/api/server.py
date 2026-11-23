@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from itertools import count
 import sys
 import time
@@ -20,6 +21,7 @@ from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
+from backend.tierdb.service import TierListService
 from backend.collectors import screen_ocr as ocr_capture
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
@@ -389,6 +391,10 @@ async def lifespan(app: FastAPI):
     game_state.overlay_preferences = saved_preferences["overlay"]
     static_data.load()
     game_state.pipeline = Pipeline(static_data)
+    # Tier lists: refresh in the background when missing or older than 3 days.
+    if (os.environ.get("ARAM_ORACLE_TIERLIST_AUTO_UPDATE", "1") == "1"
+            and tier_service.needs_update(max_age_hours=72)):
+        tier_service.start_update(static_data)
 
     poll_task = asyncio.create_task(_poll_game_loop())
     yield
@@ -401,6 +407,61 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Empirical Mayhem tier lists (backend/tierdb). Shown now by owner decision
+# 2026-11-23, behind a live switch; never exposes win rates or sample sizes.
+tier_service = TierListService()
+
+
+def _visible_augment_ids(recommendations, offers) -> list[str]:
+    """Augment ids the overlay may show: recommendations, then offer slots."""
+    ids: list[str] = []
+
+    def add(value):
+        if isinstance(value, str) and value and value not in ids:
+            ids.append(value)
+
+    for rec in recommendations or []:
+        if isinstance(rec, dict):
+            add(rec.get("augment_id"))
+    if isinstance(offers, dict):
+        offers = offers.get("offers")
+    for offer in offers or []:
+        slots = offer.get("slots") if isinstance(offer, dict) else None
+        if isinstance(slots, dict):
+            for slot in ("left", "centre", "right"):
+                identity = slots.get(slot)
+                if isinstance(identity, dict):
+                    add(identity.get("augment_id"))
+    return ids
+
+
+def _augment_tier_payload(champion_id, augment_ids) -> dict:
+    if not champion_id or not tier_service.enabled():
+        return {"tiers_enabled": False, "augment_tiers": {}}
+    tiers = {}
+    for aid in augment_ids:
+        entry = tier_service.provider.augment_tier(champion_id, aid)
+        if entry is not None:
+            tiers[aid] = {k: entry.get(k) for k in (
+                "tier", "rank", "rank_total", "tie_group", "tie_end",
+                "level", "confidence", "rarity")}
+    return {"tiers_enabled": True, "augment_tiers": tiers}
+
+
+def _annotate_champion_candidates(result: dict) -> dict:
+    """Add Mayhem strength (tier) and potential to champion-select candidates."""
+    for candidate in result.get("candidates") or []:
+        if not isinstance(candidate, dict):
+            continue
+        entry = tier_service.provider.champion_tier(str(candidate.get("id", "")))
+        candidate["mayhem"] = None if entry is None else {
+            "strength": entry.get("tier"), "potential": entry.get("potential"),
+            "rank": entry.get("rank"), "rank_total": entry.get("rank_total"),
+            "tie_group": entry.get("tie_group"), "tie_end": entry.get("tie_end"),
+            "confidence": entry.get("confidence"),
+        }
+    return result
 
 # In PyInstaller bundles, sys._MEIPASS points to the extraction dir.
 _APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
@@ -439,7 +500,7 @@ if FRONTEND_DIR.exists():
 # -- REST --
 
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 
 class BuildPreferenceRequest(BaseModel):
@@ -512,6 +573,31 @@ async def update_overlay_preferences(payload: dict):
         "overlay": overlay,
         "saved": True,
     }
+
+
+class TierListSwitchRequest(BaseModel):
+    enabled: StrictBool
+
+
+@app.get("/api/tierlist")
+def tierlist_status():
+    """Tier list status for Settings: never includes win rates or samples."""
+    return tier_service.status()
+
+
+@app.put("/api/tierlist")
+def update_tierlist_switch(req: TierListSwitchRequest):
+    try:
+        tier_service.set_enabled(req.enabled)
+    except OSError:
+        logger.exception("Could not persist tier list switch")
+        raise HTTPException(status_code=500, detail="Could not save preference") from None
+    return {"enabled": tier_service.enabled()}
+
+
+@app.post("/api/tierlist/update")
+def start_tierlist_update():
+    return {"started": tier_service.start_update(static_data)}
 
 
 @app.get("/health")
@@ -588,7 +674,7 @@ def _read_champ_select_payload() -> dict | None:
         emit_f0_trace("champion", "alias", "rejected",
                       "champion_unmapped", source="lcu")
     result["revision"] = revision
-    return result
+    return _annotate_champion_candidates(result)
 
 
 @app.post("/api/history/import")
@@ -2461,6 +2547,10 @@ def _serialize_result(
             for eid in snapshot.enemy_champion_ids
         ]
 
+    out.update(_augment_tier_payload(
+        result.build_state.champion_id,
+        _visible_augment_ids(out["recommendations"], out.get("offers")),
+    ))
     return _strip_augment_win_stats(out)
 
 

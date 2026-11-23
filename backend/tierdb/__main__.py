@@ -23,44 +23,17 @@ from backend.tierdb.store import TierStore
 DEFAULT_DB = Path.home() / ".aram-oracle" / "tierdb.sqlite"
 
 
-def riot_champion_aliases() -> dict[str, str]:
-    """Riot numeric champion key -> lowercase Data Dragon id (public data)."""
-    import requests
-
-    base = "https://ddragon.leagueoflegends.com"
-    versions = requests.get(f"{base}/api/versions.json", timeout=10)
-    versions.raise_for_status()
-    version = versions.json()[0]
-    r = requests.get(f"{base}/cdn/{version}/data/en_US/champion.json", timeout=15)
-    r.raise_for_status()
-    return {str(c["key"]): c["id"].lower() for c in r.json()["data"].values()}
+from backend.tierdb.service import latest_dataset as _latest_dataset  # noqa: E402
+from backend.tierdb.service import riot_champion_aliases  # noqa: E402
 
 
 def _static_inputs(with_heuristic: bool):
-    from backend.engine.augment_rating import rate_augment
     from backend.static_data.loader import StaticData
+    from backend.tierdb.service import static_inputs
 
     sd = StaticData()
     sd.load()
-    champions = list(sd._champions.values())
-    roles = {c.id: c.role for c in champions}
-    heuristic = {}
-    if with_heuristic:
-        for champ in champions:
-            for aug in sd.all_augments():
-                rating = rate_augment(champ, aug, [])
-                heuristic[(champ.id, aug.id)] = rating.score
-    return roles, heuristic
-
-
-def _latest_dataset(ref: str) -> tuple[str, str]:
-    import requests
-
-    r = requests.get(aramhex.RAW_URL.format(ref=ref, path="latest.json"), timeout=15)
-    r.raise_for_status()
-    latest = r.json()
-    seq = latest.get("seq")
-    return (f"data-v{seq}" if seq else ref), latest["path"]
+    return static_inputs(sd, with_heuristic)
 
 
 def main(argv: list[str] | None = None) -> int:

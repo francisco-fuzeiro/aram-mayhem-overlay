@@ -42,3 +42,9 @@ def require_tesseract_or_skip():
         unavailable(f"executable/language probe failed ({type(exc).__name__})")
     if "eng" not in languages:
         unavailable("missing eng traineddata")
+
+
+@pytest.fixture(autouse=True)
+def _no_tierlist_network_update(monkeypatch):
+    """Lifespan tests must not download AramHex data or write the user's home."""
+    monkeypatch.setenv("ARAM_ORACLE_TIERLIST_AUTO_UPDATE", "0")

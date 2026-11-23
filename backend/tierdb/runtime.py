@@ -42,6 +42,17 @@ def save_empirical_tiers_enabled(enabled: bool, path: Path | None = None) -> Non
     os.replace(tmp, target)
 
 
+def _add_spans(entries: list[dict]) -> None:
+    """Add ``rank_total`` (ranked rows) and ``tie_end`` (last rank of the group)."""
+    ranked = [e for e in entries if e.get("rank") is not None]
+    ends: dict = {}
+    for e in ranked:
+        ends[e["tie_group"]] = max(ends.get(e["tie_group"], 0), e["rank"])
+    for e in entries:
+        e["rank_total"] = len(ranked)
+        e["tie_end"] = ends.get(e.get("tie_group")) if e.get("rank") is not None else None
+
+
 class TierListProvider:
     def __init__(self, export_path: Path | None = None, enabled=None):
         self.export_path = Path(export_path) if export_path else DEFAULT_EXPORT_FILE
@@ -66,16 +77,16 @@ class TierListProvider:
             augments = {}
             for champ, by_rarity in doc["augments"].items():
                 for rarity, rows in by_rarity.items():
-                    for row in rows:
-                        entry = dict(zip(cols, row))
+                    entries = [dict(zip(cols, row)) for row in rows]
+                    _add_spans(entries)
+                    for entry in entries:
                         aid = entry.pop("augment_id")
                         entry["rarity"] = rarity
                         augments[(champ, aid)] = entry
             ccols = doc["champion_columns"]
-            champions = {}
-            for row in doc["champions"]:
-                entry = dict(zip(ccols, row))
-                champions[entry.pop("champion_id")] = entry
+            entries = [dict(zip(ccols, row)) for row in doc["champions"]]
+            _add_spans(entries)
+            champions = {e.pop("champion_id"): e for e in entries}
         except (OSError, ValueError, KeyError, TypeError) as exc:
             logger.warning("Invalid tier list export %s: %s", self.export_path, exc)
             return

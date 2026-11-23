@@ -1,5 +1,13 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Tier DB wired to the overlay (TDB-UI1/UI2/UI3)
+
+- Offers: each L/C/R card gets one line `Tier S · #3/70 (tied #3–#7) · champion data` (levels: champion/class/global data, estimate) or `No tier data for this champion`. Only visible augment ids are sent; payload carries tier/rank/rank_total/tie span/level/confidence/rarity, never wins/games/n/win rate.
+- Champion select: `Mayhem strength: S · #4/172 (tied #3–#5) · Potential: very high`; no line when the champion has no data or the switch is off.
+- Settings → Build Preferences: "Mayhem tier lists" card with live switch (PUT /api/tierlist, StrictBool, reverts on failure), sources/attribution, "Update now" (POST /api/tierlist/update, one background run at a time).
+- `backend/tierdb/service.py`: download latest AramHex dataset → ingest → build → export; auto-update at startup when the export is missing or older than 72 h (`ARAM_ORACLE_TIERLIST_AUTO_UPDATE=0` disables; tests disable it). Failures are reported in status, never raised.
+- Linux: 2,098 Python PASS / 48 SKIP; 92 JS PASS. Windows CI pending at write time.
+
 ## 2026-11-23 — Tier DB: champion strength + potential (owner decision)
 
 - Owner decision (ARAM is for fun): champion list shows two fields. **Strength** = tier from WR 50 / absolute leverage 23 (best-of-3 offer) / combat 19 / consistency 8. **Potential** = relative augment gain over the champion's own baseline, five quintile levels (very_low..very_high), never a number. Relative gain also orders champions inside a statistical tie group; it never moves tiers or groups.

@@ -1,7 +1,7 @@
 # ARAM Oracle — Product and UX TODO
 
 - [x] **TDB-OWN** Leverage decided 23/11: absolute leverage in strength; relative gain = tie-breaker + 5-level potential field.
-- [ ] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
+- [x] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
 
 
 ## 2026-11-23 — Tier DB (augments per champion + champion tier list)
@@ -14,8 +14,8 @@
 - [x] **TDB-F6** Build pipeline, export without win data, live `empirical_tiers_enabled` switch (default on), CLI, attribution.
 - [x] **TDB-F7** Offline holdout script and first 16.22→16.23 report (offline only).
 - [ ] **TDB-CI** Exact-head Windows Actions SUCCESS.
-- [ ] **TDB-UI1** Settings toggle for `empirical_tiers_enabled`.
-- [ ] **TDB-UI2** Show augment tier/rank/tie group/level on offers and champion tier in champ select (never win rates).
+- [x] **TDB-UI1** Settings toggle for `empirical_tiers_enabled`.
+- [x] **TDB-UI2** Show augment tier/rank/tie group/level on offers and champion tier in champ select (never win rates).
 - [ ] **TDB-D1** arammayhem.com CC BY pick-rate importer (prior only).
 - [ ] **TDB-D2** LCU local-history importer for combat/participation/duration metrics.
 
