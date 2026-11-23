@@ -1,5 +1,11 @@
 # ARAM Oracle — Small, Gated Implementation Phases
 
+## 2026-11-23 — Mandatory gate for current patch 16.23 Stat Anvil source
+
+- **Observed on owner device:** historical map12-only retrieval returned `total=0`, all tiers 0. No current Stat Anvil source; do NOT claim a valid catalog from synthetic fixtures or title aliases. Correct behavior is abstention, not a guess that Mayhem no longer has Anvils.
+- **Implemented in the same P0:** `inspect_public_bin_index` and `discover_patch_anvil_bins` read official public CommunityDragon JSON indexes for selected game/map/unknown subtrees and bounded candidate `.bin.json` contents. Synthetic RED→GREEN tests in `test_p0_stat_anvil_source_index.py` and `test_p0_stat_anvil_discovery.py`. CLI `--public-patch 16.23 --discover --json` provides exact source_paths, keyword paths, tiers, scanned counts and incomplete flags; opt-in public network, no writes/LCDA/LCU/game.
+- **Next accepted source gate (owner/public real data):** `total>0`, silver>0, gold>0, prismatic>0 and exact public file paths with validated `AnvilData` + RootSpell values. If incomplete, widen bounded scan to 200 bins/100 dirs and continue investigation; `StatAnvil` keyword or old 16.22 hash is not validation. Pin the *actual* discovered file into normal patch loader after evidence and tests.
+- **Later gates unchanged:** separate popup OCR of displayed title+numeric value, verified 3/4 geometry, contextual 0–10 score and UI ACK, user-controlled one-match Mayhem for all P0 including live shop; exact final HEAD Actions, draft unmerged PR #107, no TierDB/main changes, no automatic prompt while P0 incomplete.
 ## 2026-11-23 — P0 Stat Anvil source-first, rating only after verified popup
 
 - **Context:** user reported OP.GG showing a Stat Anvil rating. Independent MIT project provides verifiable design (actual public `AnvilData` bin IDs, tiers, raw stat values, name-key aliases, source-move 16.22 and OCR of value lines). This discovery lowers source uncertainty but does NOT establish patch 16.23 native layout or validate an OP.GG formula.

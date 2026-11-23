@@ -80,3 +80,46 @@ implemented independently; the competitor's license is MIT.
 **Current status:** SOURCE RESEARCH/STRICT OFFLINE DECODER IMPLEMENTED,
 current patch direct source/locale extraction and all live/anvil-score
 requirements **NOT TESTED/BLOCKED**. This is not an accepted P0 phase.
+
+## 2026-11-23 — Owner-real 16.23 result and next public index search
+
+**PROVEN owner output:** after `git pull --ff-only` to P0 HEAD `9d3b29f`,
+`py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23`
+returned `patch=16.23 bins=['map12.bin.json'] total=0
+tiers={'silver':0,'gold':0,'prismatic':0}`,
+`live_popup_verified=False` and `rankings_verified=False`.
+This supersedes earlier assumptions from mocked tests/old-patch examples;
+the two hard-coded paths did not yield real 16.23 AnvilData. It does NOT
+prove Anvils are missing from Mayhem or that any new path is correct.
+
+Rechecked MIT [ARAM Mayhem Tracker](https://github.com/Sygnano/aram-mayhem-tracker)
+`service/src/upstream/documents.ts`: exact old candidates
+`game/data/maps/shipping/map12/map12.bin.json` and
+`game/unknown/507cdd64276919f5.bin.json`. Its bundled screenshot
+and shard test examples refer to 16.19, not verified 16.23 content.
+[CommunityDragon's docs](https://communitydragon.org/docs/assets)
+confirm public JSON directory listings under `/json/<patch>/...`.
+
+**New approach and current evidence boundary:** mocked RED→GREEN
+`tests/test_p0_stat_anvil_source_index.py` and
+`tests/test_p0_stat_anvil_discovery.py`, plus
+`scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json`.
+This explicitly scans bounded selected public index paths, fetches
+plausible `.bin.json` contents, distinguishes keyword hit versus
+actual `AnvilData` + spell shape, reports exact `source_paths`,
+`keyword_paths`, scanned candidate/dir counts, failures and
+completeness. Optional bounded expansion:
+`--discovery-bins 200 --discovery-dirs 100`.
+No private game data, OCR captures, disk writes or gameplay actions.
+First GREEN scanner code commit `4a199e6` passed
+[Windows #45220848233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45220848233)
+(2,102 Python pass/27 skip; 89 JS pass; pinned model 35 pass).
+Subsequent docs/CLI changes need new exact HEAD Actions.
+
+**Do NOT mark 16.23 catalogue resolved** until a real public report
+shows `total>0`, **each** Silver/Gold/Prismatic count >0,
+and exact public source path(s). Point normal parser there only
+after observing those values, with patch-specific RED→GREEN.
+Then validate live popup OCR title+values and own contextual score
+in one user-controlled end-of-P0 Mayhem test. This gate is currently
+BLOCKED pending real public indexed scan on owner PC.
