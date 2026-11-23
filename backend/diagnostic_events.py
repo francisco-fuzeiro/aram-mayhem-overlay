@@ -15,8 +15,17 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from backend.feature_registry import FEATURES, STATUSES, REASONS
+
 # Values are strict enums or bounded numeric types. Never log arbitrary strings.
 SCHEMA: dict[str, dict[str, object]] = {
+    "session_start": {},
+    "feature": {
+        "feature": frozenset(FEATURES),
+        "status": frozenset(STATUSES),
+        "reason": REASONS,
+        "count": "int",
+    },
     "lcda": {
         "status": frozenset(("available", "unavailable", "error")),
         "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse", "http_404", "refused", "bad_json")),

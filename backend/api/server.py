@@ -35,6 +35,7 @@ from backend.config import config  # explicit opt-in for diagnostic screenshot p
 from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
+from backend import feature_diagnostics
 from backend.workflow.f0_trace import (
     classify_champion_identity, classify_offer_slots, emit_f0_trace,
 )
@@ -392,6 +393,7 @@ def should_open_augment_scan(
 async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
     event_log.start()  # nonblocking event queue; writer owns all disk I/O
+    feature_diagnostics.session_start()
     # Every entrypoint (CLI, desktop overlay, and direct ASGI) needs a DB.
     init_db()
     saved_preferences = preferences.load_preferences()

@@ -778,6 +778,19 @@ def _report_item_data_source(source):
     events.emit("item_data_source", source=source)
 
 
+def _report_item_pool_diagnostic(catalog):
+    """One closed feature verdict at catalog loading; no item/player identity."""
+    from backend.feature_diagnostics import record
+    if catalog.meta.availability != "verified_two_source":
+        record("build.item_pool", "skipped", "unverified", 0)
+        return
+    final_count = sum(kind == "final" for kind in catalog.classes.values())
+    if final_count == 0:
+        record("build.item_pool", "failed", "no_final_items", 0)
+    else:
+        record("build.item_pool", "ok", "final_items", min(final_count, 1000))
+
+
 def _cdragon_index(payload):
     if isinstance(payload, dict):
         payload = payload.get("items", payload.get("data"))
@@ -977,6 +990,7 @@ def _load_items() -> ItemCatalog:
         cached = _verified_cached_items(cache_file, version, overrides["version"])
         if cached is not None:
             _report_item_data_source("cache")
+            _report_item_pool_diagnostic(cached)
             return cached
 
     dd_items = {}
@@ -1022,6 +1036,7 @@ def _load_items() -> ItemCatalog:
             )
             temp.replace(cache_file)
             _report_item_data_source("network")
+            _report_item_pool_diagnostic(catalog)
             return catalog
         except (requests.RequestException, OSError, KeyError, ValueError, TypeError):
             _loader_logger.warning("CDragon unavailable or incompatible; checking verified cache")
@@ -1030,6 +1045,7 @@ def _load_items() -> ItemCatalog:
         cached = _verified_cached_items(cache_file, version, overrides["version"])
         if cached is not None:
             _report_item_data_source("cache")
+            _report_item_pool_diagnostic(cached)
             return cached
 
     # A legacy, unversioned-structure cache can recover names when both
@@ -1043,16 +1059,19 @@ def _load_items() -> ItemCatalog:
                 for item in old_items.values():
                     item.item_class = "unknown"
                 _report_item_data_source("ddragon_unverified")
-                return ItemCatalog(
+                catalog = ItemCatalog(
                     old_items, unknown_meta,
                     {ident: "unknown" for ident in old_items},
                     "legacy_unverified",
                 )
+                _report_item_pool_diagnostic(catalog)
+                return catalog
         except (OSError, ValueError, KeyError, TypeError):
             _loader_logger.warning("Legacy item names unavailable; staying unverified")
 
     catalog = _assemble_item_catalog(dd_items, None, overrides, unknown_meta, "ddragon_unverified")
     _report_item_data_source("ddragon_unverified")
+    _report_item_pool_diagnostic(catalog)
     return catalog
 
 
