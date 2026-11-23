@@ -26,6 +26,17 @@
 - [ ] **TDB-D1** arammayhem.com CC BY pick-rate importer (prior only).
 - [ ] **TDB-D2** LCU local-history importer for combat/participation/duration metrics.
 
+## 2026-11-23 — P0 Stat Anvils after real source (Claude)
+
+- [x] **P0-ANVIL-SRC-04c RESOLVED:** real source `game/maps/modespecificdata/statanvils.bin.json`, 37 raw / 34 offerable 13/13/8, sha256 pinned, tests `tests/test_p0_stat_anvil_source_16_23.py`.
+- [x] **P0-B** pinned catalogue + loader patch gate (`anvil.catalog_source`).
+- [x] **P0-C (code)** dedicated popup watcher + tier resolution, `tests/test_p0_stat_anvil_offer.py`, `tests/test_p0_stat_anvil_popup_server.py`.
+- [x] **P0-D (code)** own 0–10 scores + best-fit-only overlay panel + epoch-fenced ACK (`tests/js/overlay-messages.test.cjs`).
+- [ ] **P0-C value OCR live:** add value-line crops once a real Anvil popup crop confirms geometry (ROI must extend past 0.50 H). Until then Silver/Gold rely on the voucher hint.
+- [ ] **P0-E native:** one owner-controlled Mayhem match per `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`; then exact-head Windows Actions.
+- [ ] Regenerate the catalogue each patch: `py -3.11 -m scripts.build_stat_anvil_catalog --patch <x.y> --fetch` (or `--bin/--strings` offline) and update the sha256 test.
+
+
 ## 2026-11-23 — Exact public 16.23 AnvilData BIN investigated; source BLOCKED
 
 - [x] **P0-ANVIL-SRC-04a real exact URL check:** Windows Actions [#45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820) requested `/16.23/game/unknown/507cdd64276919f5.bin.json` → **HTTP 404**; same patch JSON directory index checked, exact filename **absent** and matching prefix candidate list **empty**. Raw AnvilData=0, Silver/Gold/Prismatic=0, parsed=0; source_verified=false. Do NOT re-run as if the URL were confirmed; historic 16.22 count (37 =14/14/8+1 mixed) is NOT current-patch proof.

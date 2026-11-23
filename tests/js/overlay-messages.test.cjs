@@ -1536,3 +1536,39 @@ test("TDB-I5: build panel shows Mayhem reference, adapted swaps and Anvil estima
     h.api.handleMessage({...gameUpdate(), mayhem_build: null});
     assert.equal(h.element("mayhem-build").children.length, 0);
 });
+
+test("P0-C Stat Anvil panel shows only the best fit, details collapsed, epoch-fenced ACK", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    const socket = h.sockets[0];
+    socket.readyState = 1;
+    const update = gameUpdate("Jinx");
+    update.match_id = "synthetic-current-match";
+    h.api.handleMessage(update);
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), true);
+    assert.equal(socket.sent, undefined, "no Anvil ACK without a verified popup");
+
+    update.anvil_offer = {epoch: 2, tier: "gold", tier_source: "titles", count: 3, cards: [
+        {anvil_id: "ARAM_GoldStatAnvil_CritChance", anvil_name: "Critical Strike Shard",
+         score: 10, modelled: true, reason: "crit chance suits this champion",
+         explanation: "Own heuristic; not a win rate."},
+        {anvil_id: "ARAM_GoldStatAnvil_AS", anvil_name: "Attack Speed Shard",
+         score: 7.3, modelled: true, reason: "attack speed suits this champion"},
+        {anvil_id: "ARAM_GoldStatAnvil_AR", anvil_name: "Armor Shard",
+         score: 1.9, modelled: true, reason: "armor suits this champion"},
+    ]};
+    h.api.handleMessage(update);
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), false);
+    assert.match(h.element("anvil-top").textContent, /^Best fit: Critical Strike Shard · 10\.0\/10/);
+    assert.match(h.element("anvil-title").textContent, /GOLD/);
+    assert.equal(h.element("anvil-others").children.length, 3); // 2 others + note
+    const ack = JSON.parse(socket.sent);
+    assert.equal(ack.feature, "anvil.offer_render");
+    assert.equal(ack.count, 3);
+    assert.equal(ack.offer_epoch, 2);
+
+    socket.sent = undefined;
+    h.api.handleMessage({...update, anvil_offer: null});
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), true);
+    assert.equal(socket.sent, undefined);
+});

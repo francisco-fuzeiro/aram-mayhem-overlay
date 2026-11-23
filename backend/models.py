@@ -221,6 +221,8 @@ class GameSnapshot:
     # Read-only local LCDA voucher stacks; None means source unknown.
     # Never interpreted as a verified visible Stat Anvil offer.
     anvil_vouchers: dict[str, int] | None = None
+    # P0-C: ids of a visually verified, tier-resolved Stat Anvil popup.
+    anvil_offer_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -234,3 +236,5 @@ class PipelineResult:
     ally_analysis: dict = field(default_factory=dict)
     # Current offered Anvil scores; populated only from exact tier-zero choices.
     anvil_recommendations: list[dict] = field(default_factory=list)
+    # P0-D: own 0-10 ratings of the verified real-catalogue popup.
+    anvil_offer_ratings: list[dict] = field(default_factory=list)

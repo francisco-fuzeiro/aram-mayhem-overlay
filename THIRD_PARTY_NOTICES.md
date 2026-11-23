@@ -36,6 +36,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
+## ARAM Mayhem Tracker — Sygnano (MIT)
+
+Design reference only (no code copied): Stat Anvil data location in
+CommunityDragon game bins (`AnvilData`, `RootSpell.mSpell.DataValues`,
+`AnvilTypes` 0/8/9), shard titles from `lol.stringtable.json`, shard cards
+sharing the augment card frame, and the idea of settling Silver/Gold by the
+value lines. https://github.com/Sygnano/aram-mayhem-tracker — MIT License,
+Copyright (c) 2026 Sygnano.
+
 ## Reviewed but not copied
 
 - Mayhem Advisor (ItzStorDz/mayhem-advisor) is all-rights-reserved.

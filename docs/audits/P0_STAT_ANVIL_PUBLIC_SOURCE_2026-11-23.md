@@ -1,5 +1,15 @@
 # P0 — Stat Anvil public source discovery and scoring gate (2026-11-23)
 
+## RESOLVED — real 16.23 source (later on 2026-11-23)
+
+The hashed 16.22 file was renamed by CommunityDragon. On 16.23 the shards are
+in `game/maps/modespecificdata/statanvils.bin.json` (index `/json/16.23/game/maps/modespecificdata/` lists it, 74,980 B).
+Verified content: 37 `AnvilData` (14/14/8 + 1 mixed `Pristine`), each with
+`RootSpell.mSpell.DataValues`; 34 offerable after `Enabled=false` rows.
+The MIT tracker comment in `service/src/upstream/documents.ts` predicted
+exactly this ("once CommunityDragon names the file it moves and this entry
+404s"). The paged 471-file discovery is no longer needed for 16.23.
+
 ## Purpose and evidence levels
 
 **OWNER-OBSERVED:** OP.GG overlay displays a rating for Stat Anvils. Its exact
