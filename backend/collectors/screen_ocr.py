@@ -301,6 +301,10 @@ class ScreenWatcher:
     def _layout_abstain(self, verdict: str) -> tuple[str, None]:
         """Never use previously accepted three-slot names across layout doubt."""
         self._capture_stale = True
+        # A four-card or unknown panel must not leave a prior three-card
+        # snapshot addressable. Suspend afterwards so new titles are marked
+        # freshly reverified before the stale UI can recover.
+        self._temporal.reset()
         self._temporal.suspend()
         self._absence_gate.suspend()
         self._refocus_pending = True

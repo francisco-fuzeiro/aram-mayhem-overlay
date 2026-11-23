@@ -128,3 +128,27 @@ def test_unapproved_calibration_does_not_accept_three_cards(monkeypatch):
     assert check(watcher) == ("transition", None)
     assert check(watcher) == ("transition", None)
     assert reads == []
+
+def test_four_card_transition_clears_accepted_three_card_snapshot(monkeypatch):
+    watcher, reads, captures = setup(
+        monkeypatch, card_counts=[3, 3, 3, 4, 3, 3, 3],
+    )
+    assert check(watcher) == ("transition", None)
+    action, prior = check(watcher)
+    assert action == "detected"
+    assert [value[0] for value in prior] == ["one", "two", "three"]
+    assert watcher.has_detection
+    assert check(watcher) == ("transition", None)
+    assert watcher.last_scan_stage == "layout_four_unsupported"
+    assert watcher.current_slots is None
+    assert watcher.has_detection is False
+    assert watcher.last_detected == []
+
+    # A fresh independent 3-card observation must begin a new count streak
+    # and the existing title identity cannot bypass temporal re-verification.
+    assert check(watcher) == ("transition", None)
+    action, recovered = check(watcher)
+    assert action == "detected"
+    assert [value[0] for value in recovered] == ["one", "two", "three"]
+    assert watcher._temporal.last_emit_reverified is True
+    assert len(captures) == 7
