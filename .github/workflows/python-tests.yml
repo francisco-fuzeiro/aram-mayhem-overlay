@@ -28,10 +28,6 @@ jobs:
         run: '& "C:\Program Files\Tesseract-OCR\tesseract.exe" --list-langs'
       - name: Run regression suite
         run: python -m pytest -q
-      - name: P0 TEMPORARY public 16.23 AnvilData exact-source audit (non-gating)
-        # Only public Riot/CommunityDragon data, never user or match data.
-        continue-on-error: true
-        run: python -m scripts.anvil_source_exact_probe --patch 16.23
       - name: Check overlay JavaScript syntax
         run: node --check frontend/app.js
       - name: Check Settings JavaScript syntax
