@@ -1572,3 +1572,59 @@ test("P0-C Stat Anvil panel shows only the best fit, details collapsed, epoch-fe
     assert.equal(h.element("section-anvil").classList.contains("hidden"), true);
     assert.equal(socket.sent, undefined);
 });
+
+test("TDB-FIX1: offer badge shows the tier, unrated labels are muted, best tier highlighted", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({
+        left: "jinx", centre: "circle", right: "nodata",
+    }),
+        recommendations: [
+            {augment_id: "circle", augment_name: "Circle", score: 2.7, label: [],
+                core_items_names: [], explanation: "Modelled", sample_size: 0},
+            {augment_id: "jinx", augment_name: "Jinx", score: null, modelled: false,
+                label: [], core_items_names: [], explanation: null, sample_size: 0},
+        ],
+        suggest_reroll: false, tiers_enabled: true,
+        augment_tiers: {
+            jinx: {tier: "A", rank: 9, rank_total: 96, tie_group: 9, tie_end: 9,
+                level: "champion", confidence: "high", rarity: "gold"},
+            circle: {tier: "C", rank: 53, rank_total: 70, tie_group: 53, tie_end: 53,
+                level: "champion", confidence: "high", rarity: "prismatic"},
+        },
+    });
+    const cards = h.element("augment-list").children;
+    const badge = (card) => card.children[0].innerHTML.match(/class="aug-score([^"]*)">([^<]*)</);
+    assert.deepEqual(badge(cards[0]).slice(1), [" tier-badge tier-A", "Tier A"]);
+    assert.deepEqual(badge(cards[1]).slice(1), [" tier-badge tier-C", "Tier C"]);
+    assert.equal(badge(cards[2])[1], " muted");
+    assert.equal(cards[0].className.includes("top-pick"), true);
+    assert.equal(cards[1].className.includes("top-pick"), false);
+    const text = cards[1].children.map((c) => c.textContent).join(" | ");
+    assert.match(text, /Fit 2\.7\/10/);
+});
+
+test("TDB-FIX2: champion select leads with Mayhem strength; composite is labelled team fit", () => {
+    const h = harness();
+    h.api.handleMessage({
+        type: "champ_select", current_status: "unresolved",
+        candidates: [{current: false, score: 6.6, tier: "B", role: "fighter", reasons: [],
+            sample_size: 0, id: "fiora", name: "Fiora", mayhem: {strength: "OP",
+                potential: "high", rank: 2, rank_total: 173, tie_group: 2, tie_end: 2,
+                confidence: "high"}}],
+    });
+    const card = h.element("champ-select-list").children[0];
+    assert.equal(card.children[1].textContent,
+        "Mayhem strength: OP · #2/173 · Potential: high");
+    assert.equal(card.children[1].className.includes("mayhem-main"), true);
+    assert.match(card.children[2].textContent, /^Team fit: B · 6\.6\/10 · fighter/);
+});
+
+test("TDB-FIX3: next item cost reads as ready or gold still needed", () => {
+    const h = harness();
+    h.api.renderBuild({next_item_id: "a", next_item_name: "Ravenous Hydra", gold_to_next: 0,
+        full_build: [], purchased_items: [], owned_build_ids: []});
+    assert.equal(h.element("build-next").textContent, "Next: Ravenous Hydra (ready to buy)");
+    h.api.renderBuild({next_item_id: "a", next_item_name: "Ravenous Hydra", gold_to_next: 1925,
+        full_build: [], purchased_items: [], owned_build_ids: []});
+    assert.equal(h.element("build-next").textContent, "Next: Ravenous Hydra (1925g more)");
+});
