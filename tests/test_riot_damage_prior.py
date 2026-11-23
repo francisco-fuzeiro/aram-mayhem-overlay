@@ -112,3 +112,35 @@ def test_collect_snowballs_saves_aggregates_only(tmp_path, monkeypatch):
     again = riot_prior.Aggregates.load(tmp_path / "agg.json", tmp_path / "seen.txt")
     assert again.seen("EUW1_9") and again.matches == 2
     assert riot_prior.load_prior(tmp_path / "agg.json")["lux"]["n"] == 20
+
+
+def test_probe_reports_statuses_and_stores_nothing():
+    from scripts import collect_aram_damage_prior as col
+
+    class Fake:
+        requests = 0
+
+        def get_json(self, url):
+            if "/league/v4/" in url:
+                return [{"puuid": "zz-secret"}]
+            if "queue=450" in url:
+                return ["EUW1_5"]
+            return None
+
+        def request(self, url):
+            if "queue=2400" in url:
+                return 200, []
+            return 200, _match("EUW1_5", ["Lux"] * 10)
+
+    out = col.probe(Fake(), "euw1")
+    assert out["aram450"]["has_damage"] and out["aram450"]["has_heal_shield"]
+    assert out["mayhem2400"] == {"ids_status": 200, "ids_listed": 0}
+    assert "zz-secret" not in str(out) and "EUW1_5" not in str(out)
+
+
+def test_client_returns_403_status_without_raising_on_request():
+    client = riot_prior.RiotClient("k", get=lambda u, headers, timeout: _Resp(403),
+                                   sleep=lambda s: None, min_interval=0)
+    assert client.request("https://x")[0] == 403
+    with pytest.raises(SystemExit):
+        client.get_json("https://x")

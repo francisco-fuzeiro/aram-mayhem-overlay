@@ -52,6 +52,14 @@ class RiotClient:
         self.requests = 0
 
     def get_json(self, url: str):
+        status, body = self.request(url)
+        if status in (401, 403):
+            raise SystemExit("Riot API key rejected or expired (HTTP %d)." % status)
+        return body if status == 200 else None
+
+    def request(self, url: str) -> tuple[int | None, object]:
+        """(status, json body or None), after spacing, 429 and 5xx backoff."""
+        status = None
         for attempt in range(self._tries):
             wait = self._min - (time.monotonic() - self._last)
             if wait > 0:
@@ -63,21 +71,23 @@ class RiotClient:
             except Exception:  # network error: back off, never echo the request
                 self._sleep(min(60, 2 ** attempt))
                 continue
-            if resp.status_code == 200:
-                return resp.json()
-            if resp.status_code == 429:
+            status = resp.status_code
+            if status == 200:
+                try:
+                    return status, resp.json()
+                except ValueError:
+                    return status, None
+            if status == 429:
                 try:
                     retry = float(resp.headers.get("Retry-After", 0))
                 except (TypeError, ValueError):
                     retry = 0.0
                 self._sleep(max(retry, 2 ** attempt))
                 continue
-            if resp.status_code in (401, 403):
-                raise SystemExit("Riot API key rejected or expired (HTTP %d)." % resp.status_code)
-            if resp.status_code == 404:
-                return None
+            if status in (400, 401, 403, 404):
+                return status, None
             self._sleep(min(60, 2 ** attempt))
-        return None
+        return status, None
 
 
 def _patch(version: str) -> str | None:
