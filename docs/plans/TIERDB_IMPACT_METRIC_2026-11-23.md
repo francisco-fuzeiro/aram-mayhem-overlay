@@ -20,6 +20,8 @@ hash); the table is never submitted or exported. Remakes (< 300 s) are skipped.
   (off). Turn it on only when `py -3.11 -m scripts.validate_impact_holdout`
   (temporal split, AUC of ΔWR vs ΔWR + w·impact) says `enable`: >= 500 test
   rows and an AUC gain >= 0.01. Never shown as a number in the overlay.
-- LCU limit: the client match list returns at most 20 games per sync, so the
-  history grows over time; ~1000 games at once would need Riot's SGP service
-  — owner chose LCU only (23/11); SGP is not used.
+- LCU history depth: the sync pages the local client's match list 20 at a time
+  (begIndex/endIndex) going back, up to 1000 games, with a short pause, and stops
+  as soon as a page brings no new games (client ignoring the indices). A one-off
+  backfill is `POST /api/history/import?max_games=1000` (needs the
+  `lcu_history_enabled` opt-in). Owner chose LCU only (23/11); SGP is not used.

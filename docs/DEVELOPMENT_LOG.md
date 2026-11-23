@@ -1155,3 +1155,6 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   `scripts/validate_impact_holdout.py` must return `enable` on real local history.
 - The LCU list returns at most 20 games per sync; ~1000 games at once would need
   Riot SGP (owner decision pending). Doc: `docs/plans/TIERDB_IMPACT_METRIC_2026-11-23.md`.
+- Follow-up: the sync now pages the LCU match list (20 per page, up to 1000, 0.3 s
+  pause) and stops when a page brings nothing new. Whether the client honours the
+  indices beyond the newest 20 is unverified until run on a real client.

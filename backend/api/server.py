@@ -1014,7 +1014,7 @@ def _read_champ_select_payload() -> dict | None:
 
 
 @app.post("/api/history/import")
-async def import_personal_history():
+async def import_personal_history(max_games: int = 40):
     """Explicit, local-only sync of own ARAM Mayhem matches.
 
     Called on user action only. Never returns raw match or player data.
@@ -1025,7 +1025,8 @@ async def import_personal_history():
             detail="LCU history import disabled pending policy review and explicit opt-in",
         )
     from backend.storage.history_import import sync_recent_mayhem_games
-    return await asyncio.to_thread(sync_recent_mayhem_games)
+    # max_games up to 1000 pages the local client's list back in time (one-off backfill).
+    return await asyncio.to_thread(sync_recent_mayhem_games, max_games)
 
 
 @app.get("/api/champ-select/status")

@@ -6,6 +6,7 @@ tokens or raw match data are returned by this module or sent externally.
 """
 import logging
 import re
+import time
 
 import requests
 
@@ -112,36 +113,69 @@ def _own_participant(match: dict, puuid: str) -> dict | None:
     return None
 
 
-def sync_recent_mayhem_games(max_games: int = 40) -> dict:
-    """Import up to 40 recent games, using local LCU data only.
+PAGE_SIZE = 20
+MAX_HISTORY_GAMES = 1000
+PAGE_PAUSE_SECS = 0.3
+
+
+def _list_matches(session, max_games: int, pause: float) -> list[dict] | None:
+    """Page the local client's match list (begIndex/endIndex) going back in time.
+
+    Stops at max_games, on an empty page, or when a page brings no new game ids
+    (i.e. the client ignores the indices). Only the loopback League Client API.
+    """
+    seen: set = set()
+    out: list[dict] = []
+    for beg in range(0, max_games, PAGE_SIZE):
+        end = min(beg + PAGE_SIZE, max_games)
+        response = _get_json(
+            session,
+            f"/lol-match-history/v1/products/lol/current-summoner/matches"
+            f"?begIndex={beg}&endIndex={end}",
+        )
+        page = ((response or {}).get("games") or {}).get("games")
+        if not isinstance(page, list):
+            return out if beg else None
+        fresh = [g for g in page if isinstance(g, dict) and g.get("gameId") not in seen]
+        if not fresh:
+            break
+        for g in fresh:
+            seen.add(g.get("gameId"))
+        out.extend(fresh)
+        if len(page) < end - beg:
+            break
+        if pause > 0:
+            time.sleep(pause)
+    return out[:max_games]
+
+
+def sync_recent_mayhem_games(max_games: int = 40, pause: float = PAGE_PAUSE_SECS) -> dict:
+    """Import up to max_games (<= 1000) recent games, using local LCU data only.
 
     The return value deliberately excludes account identifiers and match IDs.
     No network calls are made beyond the loopback League Client API.
     """
-    max_games = max(1, min(int(max_games), 40))
+    max_games = max(1, min(int(max_games), MAX_HISTORY_GAMES))
     session = get_lcu_session()
     if session is None:
         return {"status": "client_unavailable", "imported": 0, "inspected": 0}
 
     imported = 0
     inspected = 0
+    listed = 0
     with session:
         summoner = _get_json(session, "/lol-summoner/v1/current-summoner")
         puuid = summoner.get("puuid") if summoner else None
         if not isinstance(puuid, str) or not puuid:
             return {"status": "identity_unavailable", "imported": 0, "inspected": 0}
 
-        response = _get_json(
-            session,
-            f"/lol-match-history/v1/products/lol/current-summoner/matches"
-            f"?begIndex=0&endIndex={max_games}",
-        )
-        matches = ((response or {}).get("games") or {}).get("games") or []
-        if not isinstance(matches, list):
+        matches = _list_matches(session, max_games, pause)
+        if matches is None:
             return {"status": "history_unavailable", "imported": 0, "inspected": 0}
+        listed = len(matches)
         aliases = get_champion_id_map(session)
 
-        for summary in matches[:max_games]:
+        for summary in matches:
             if not isinstance(summary, dict):
                 continue
             if summary.get("queueId") != MAYHEM_QUEUE_ID and str(
@@ -187,4 +221,5 @@ def sync_recent_mayhem_games(max_games: int = 40) -> dict:
             )
             imported += 1
 
-    return {"status": "ok", "imported": imported, "inspected": inspected}
+    return {"status": "ok", "imported": imported, "inspected": inspected,
+            "listed": listed}

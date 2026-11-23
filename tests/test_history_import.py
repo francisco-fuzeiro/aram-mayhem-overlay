@@ -50,7 +50,7 @@ def test_sync_only_own_mayhem_match_and_never_returns_account_ids(monkeypatch):
                 "/lol-summoner/v1/current-summoner": {
                     "puuid": "super-private-puuid",
                 },
-                "/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=40": {
+                "/lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=20": {
                     "games": {"games": [
                         {"gameId": 77, "queueId": 2400, "gameDuration": 700},
                         {"gameId": 88, "queueId": 450},
@@ -89,7 +89,7 @@ def test_sync_only_own_mayhem_match_and_never_returns_account_ids(monkeypatch):
                         lambda gid, dur, rows: stored.append((dur, rows)) or len(rows))
 
     result = history_import.sync_recent_mayhem_games()
-    assert result == {"status": "ok", "imported": 1, "inspected": 1}
+    assert result == {"status": "ok", "imported": 1, "inspected": 1, "listed": 2}
     assert len(written) == 1
     assert written[0]["champion_id"] == "jinx"
     assert written[0]["augments"] == ["1234"]
@@ -110,3 +110,38 @@ def test_champion_record_counts_only_finished_known_results(tmp_path):
     record_game("4", "jinx", [], [], True, 600, {}, db_path=path)
     assert get_champion_record("lux", db_path=path) == (1, 2)
     assert get_champion_record("unknown", db_path=path) is None
+
+
+class _PagedSession:
+    base_url = "https://127.0.0.1:1"
+
+    def __init__(self, total, ignore_indices=False):
+        self.total, self.ignore, self.calls = total, ignore_indices, []
+
+    def get(self, url, timeout):
+        endpoint = url.split(self.base_url, 1)[-1]
+        self.calls.append(endpoint)
+        q = dict(kv.split("=") for kv in endpoint.split("?", 1)[1].split("&"))
+        beg, end = (0, 20) if self.ignore else (int(q["begIndex"]), int(q["endIndex"]))
+        games = [{"gameId": i} for i in range(beg, min(end, self.total))]
+        response = Mock(status_code=200)
+        response.json.return_value = {"games": {"games": games}}
+        return response
+
+
+def test_match_list_pages_back_until_history_ends():
+    s = _PagedSession(total=65)
+    out = history_import._list_matches(s, 1000, pause=0)
+    assert [g["gameId"] for g in out] == list(range(65))
+    assert len(s.calls) == 4
+
+
+def test_match_list_stops_when_client_ignores_indices():
+    s = _PagedSession(total=500, ignore_indices=True)
+    out = history_import._list_matches(s, 1000, pause=0)
+    assert len(out) == 20 and len(s.calls) == 2
+
+
+def test_match_list_respects_max_games():
+    s = _PagedSession(total=500)
+    assert len(history_import._list_matches(s, 50, pause=0)) == 50
