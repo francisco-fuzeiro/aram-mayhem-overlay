@@ -1442,3 +1442,28 @@ test("TDB-UI3: champion select shows Mayhem strength and potential side by side"
         "Mayhem strength: S · #4/172 (tied #3–#5) · Potential: very high");
     assert.equal(cards[1].children.length, 3);
 });
+
+test("DIAG-UI: offer and champion select renders report a feature ack", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    h.sockets[0].readyState = 1;
+    const sent = [];
+    h.sockets[0].send = (m) => sent.push(JSON.parse(m));
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({left: "great"}),
+        recommendations: [{augment_id: "great", augment_name: "Great", score: 7.2,
+            label: [], core_items_names: [], explanation: "Modelled", sample_size: 0}],
+        suggest_reroll: false, tiers_enabled: true,
+        augment_tiers: {great: {tier: "S", rank: 1, rank_total: 9, tie_group: 1,
+            tie_end: 1, level: "champion", confidence: "high", rarity: "gold"}}});
+    const offer = sent.filter((m) => m.type === "feature_ack" &&
+        m.feature === "tierdb.offer_render");
+    assert.deepEqual(offer.at(-1), {type: "feature_ack", feature: "tierdb.offer_render",
+        status: "ok", reason: "rendered", count: 1});
+    h.api.handleMessage({type: "champ_select", current_status: "unresolved", candidates: [
+        {id: "ahri", name: "Ahri", current: false, score: 6, tier: "B", role: "mage",
+            reasons: [], sample_size: 0, mayhem: {strength: "S", potential: "high",
+                rank: 1, rank_total: 2, tie_group: 1, tie_end: 1}}]});
+    const champ = sent.filter((m) => m.feature === "tierdb.champselect_render");
+    assert.deepEqual(champ.at(-1), {type: "feature_ack", feature: "tierdb.champselect_render",
+        status: "ok", reason: "rendered", count: 1});
+});
