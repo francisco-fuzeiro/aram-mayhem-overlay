@@ -192,6 +192,7 @@ def _bin_priority(path: str) -> int:
 
 def discover_patch_anvil_bins(
     patch: str, *, max_bins: int = 80,
+    start_index: int = 0,
     max_index_directories: int = 48,
     max_bytes: int = 128 * 1024 * 1024,
 ) -> dict:
@@ -208,6 +209,7 @@ def discover_patch_anvil_bins(
     if not isinstance(patch, str) or not _PATCH.fullmatch(patch):
         raise AnvilCatalogError("patch must be major.minor")
     if (type(max_bins) is not int or not (0 <= max_bins <= 200)
+            or type(start_index) is not int or not (0 <= start_index <= 10000)
             or type(max_index_directories) is not int
             or not (1 <= max_index_directories <= 100)
             or type(max_bytes) is not int or not (1 <= max_bytes <= 256 * 1024 * 1024)):
@@ -252,8 +254,15 @@ def discover_patch_anvil_bins(
     ordered = sorted(candidates, key=lambda path: (
         -candidates[path][0], -candidates[path][1], path,
     ))
-    selected = ordered[:max_bins]
-    incomplete = pending_directories or len(ordered) > max_bins or bool(index_errors)
+    # Stable full-catalog ordering makes non-overlapping, bounded batches
+    # possible. A nonzero offset is never a complete catalogue scan.
+    selected = ordered[start_index:start_index + max_bins]
+    stop_index = (min(len(ordered), start_index + max_bins)
+                  if start_index < len(ordered) else start_index)
+    incomplete = (pending_directories or start_index > 0
+                  or stop_index < len(ordered) or bool(index_errors)
+                  or start_index >= len(ordered))
+    window_incomplete = False
     inspected = 0
     total_bytes = 0
     matched_docs = []
@@ -264,6 +273,7 @@ def discover_patch_anvil_bins(
         estimated = candidates[path][1]
         if total_bytes + estimated > max_bytes:
             incomplete = True
+            window_incomplete = True
             break
         url = f"https://raw.communitydragon.org/{patch}/{path}"
         try:
@@ -271,11 +281,13 @@ def discover_patch_anvil_bins(
             if response.status_code == 404:
                 source_errors.append(path)
                 incomplete = True
+                window_incomplete = True
                 continue
             response.raise_for_status()
             data = response.content
             if len(data) > _MAX_LISTED_BIN_BYTES or total_bytes + len(data) > max_bytes:
                 incomplete = True
+                window_incomplete = True
                 break
             total_bytes += len(data)
             inspected += 1
@@ -289,6 +301,7 @@ def discover_patch_anvil_bins(
             if not isinstance(document, dict):
                 source_errors.append(path)
                 incomplete = True
+                window_incomplete = True
                 continue
             if not any(
                 isinstance(row, dict) and row.get("__type") == "AnvilData"
@@ -302,6 +315,7 @@ def discover_patch_anvil_bins(
             except (AnvilCatalogError, ValueError):
                 source_errors.append(path)
                 incomplete = True
+                window_incomplete = True
                 continue
             if candidates_found:
                 matched_docs.append(document)
@@ -309,6 +323,7 @@ def discover_patch_anvil_bins(
         except (requests.RequestException, ValueError):
             source_errors.append(path)
             incomplete = True
+            window_incomplete = True
 
     shards = parse_public_bins(matched_docs) if matched_docs else []
     report = summarize_anvil_source(shards, patch)
@@ -324,6 +339,9 @@ def discover_patch_anvil_bins(
         "index_directories_scanned": len(visited),
         "index_failures": len(index_errors),
         "candidate_bin_files": len(ordered),
+        "scan_start_index": start_index,
+        "scan_stop_index_exclusive": stop_index,
+        "scan_window_complete": not window_incomplete and inspected == len(selected),
         "bin_files_inspected": inspected,
         "source_files_unavailable_or_invalid": len(source_errors),
         "downloaded_bytes": total_bytes,
@@ -525,7 +543,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--probe-path", action="append",
                         help="Additional safe public game/*.bin.json path (requires --probe-keyword-paths)")
     parser.add_argument("--discovery-bins", type=int, default=80,
-                        help="Bounded search limit, default 80 public bins, maximum 200")
+                        help="Bounded batch size, default 80 public bins, maximum 200")
+    parser.add_argument("--discovery-offset", type=int, default=0,
+                        help="Start at stable 0-based candidate index; use 80 and 280 after the owner's existing 80-bin scan")
     parser.add_argument("--discovery-dirs", type=int, default=48,
                         help="Bounded public index directory limit, default 48, maximum 100")
     parser.add_argument("--locale", type=str,
@@ -559,6 +579,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             result = (discover_patch_anvil_bins(
                           args.public_patch, max_bins=args.discovery_bins,
+                          start_index=args.discovery_offset,
                           max_index_directories=args.discovery_dirs,
                       ) if args.discover else
                       public_patch_report(args.public_patch, locale=args.locale))
@@ -578,6 +599,8 @@ def main(argv: list[str] | None = None) -> int:
                       f"patch={result['patch']} status={result['status']} "
                       f"bins_scanned={result['bin_files_inspected']}/"
                       f"{result['candidate_bin_files']} "
+                      f"window=[{result['scan_start_index']},"
+                      f"{result['scan_stop_index_exclusive']}) "
                       f"dirs={result['index_directories_scanned']} "
                       f"source_paths={result['source_paths']} "
                       f"keyword_paths={result['keyword_paths']} "
