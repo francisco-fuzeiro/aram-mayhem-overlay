@@ -6,8 +6,9 @@ Run from the checkout with League and Oracle closed:
 
 Existing CommunityDragon-derived augment caches are *not* authoritative
 Stat Anvil choice catalogs. Tier-zero entries, if any, are only leads.
-This script never opens the game, accesses local player info, makes HTTP calls
-or writes files. No title is promoted to a selectable Anvil option.
+By default it never makes HTTP requests; --public-patch is an explicit
+network-only public CDragon read (no file writes). It never opens the game,
+accesses player information or writes files. No title is promoted to a selectable Anvil option.
 """
 from __future__ import annotations
 
@@ -97,7 +98,7 @@ ANVIL_BIN_PATHS = (
     "game/data/maps/shipping/map12/map12.bin.json",
     "game/unknown/507cdd64276919f5.bin.json",
 )
-_PATCH = re.compile(r"^\\d{2}\\.\\d{1,2}$")
+_PATCH = re.compile(r"^\d{2}\.\d{1,2}$")
 
 
 def public_patch_report(patch: str, *, locale: str | None = None) -> dict:
@@ -163,17 +164,17 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(result, indent=2, sort_keys=True)
               if args.json else (
-                  "ARAM Oracle public Stat Anvil source (NOT live-verified)\\n"
+                  "ARAM Oracle public Stat Anvil source (NOT live-verified)\n"
                   + f"patch={result['patch']} bins={result['public_bins']} "
-                  + f"total={result['total']} tiers={result['tiers']}\\n"
+                  + f"total={result['total']} tiers={result['tiers']}\n"
                   + f"live_popup_verified={result['live_popup_verified']} "
-                  + f"rankings_verified={result['rankings_verified']}\\n"
-                  + "\\n".join(
+                  + f"rankings_verified={result['rankings_verified']}\n"
+                  + "\n".join(
                       f"{row['tier']} | {row['id']} | {row['name']} | "
                       f"{row['kind']} | {row['values']}"
                       for row in result["titles"]
-                  ) + "\\n"
-                  + "\\n".join("WARNING: " + w for w in result["warnings"])
+                  ) + "\n"
+                  + "\n".join("WARNING: " + w for w in result["warnings"])
               ))
         return 0 if result["total"] > 0 else 2
     reports = [
