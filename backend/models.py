@@ -182,6 +182,10 @@ class BuildState:
     boot_replacement: BootReplacement | None = None
     data_version: dict = field(default_factory=dict)
     build_unavailable_reason: str | None = None
+    # Physical owned items may have an observed ID distinct from the canonical
+    # item-family ID that appears in the calculated build path.
+    owned_build_ids: list[str] = field(default_factory=list)
+    owned_build_names: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

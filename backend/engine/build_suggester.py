@@ -380,6 +380,22 @@ def suggest_build(
     selected_style = build_style if build_style in BUILD_STYLES else "Balanced"
     purchased = list(purchased_items)
     owned_finals = list(inventory.finals) if inventory is not None else purchased
+    # Preserve original in-game item IDs and their observed display names,
+    # while build planning continues to use the same canonical inventory IDs.
+    # Do not infer an item purchase from a matching offer or item name.
+    owned_build_names: dict[str, str] = {}
+    if item_data is not None and inventory is not None:
+        for raw_id in purchased:
+            canonical = item_data.canonical_item_id(raw_id)
+            if canonical not in owned_finals or canonical in owned_build_names:
+                continue
+            observed = item_data.get_item(raw_id)
+            if observed is not None and observed.name:
+                owned_build_names[canonical] = observed.name
+            elif hasattr(item_data, "get_item_name"):
+                observed_name = item_data.get_item_name(raw_id)
+                if observed_name and observed_name != str(raw_id):
+                    owned_build_names[canonical] = observed_name
     available = [
         item for item in all_items
         if item.id not in owned_finals
@@ -468,4 +484,6 @@ def suggest_build(
         selected_style=selected_style,
         boot_replacement=boot_replacement,
         build_unavailable_reason=build_unavailable_reason,
+        owned_build_ids=list(owned_finals),
+        owned_build_names=owned_build_names,
     )
