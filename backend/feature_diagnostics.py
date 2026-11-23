@@ -102,7 +102,51 @@ def build_report(log_dir: Path | None = None) -> dict:
             "last": None if last is None else {
                 k: last.get(k) for k in ("timestamp", "status", "reason", "count")},
         })
-    return {"session_started_at": started_at, "code": code, "features": features}
+    return {"session_started_at": started_at, "code": code, "features": features,
+            "ocr_windows": _ocr_windows(session)}
+
+
+def _ts(rec: dict):
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(rec.get("timestamp")))
+    except ValueError:
+        return None
+
+
+def _ocr_windows(session: list[dict]) -> list[dict]:
+    """Per augment window: seconds to the first read and time per scan stage.
+
+    Only enumerated stages and durations (field 23/11: reads took 23 s to
+    minutes; this shows whether the cards were absent, the game unfocused,
+    the titles unreadable, ...)."""
+    windows, cur, stage, since = [], None, None, None
+
+    def close_stage(t):
+        if cur is not None and stage is not None and since is not None and t is not None:
+            cur["stages"][stage] = cur["stages"].get(stage, 0.0) + (t - since).total_seconds()
+
+    for rec in session:
+        t = _ts(rec)
+        ev = rec.get("event")
+        if ev == "ocr_window" and rec.get("state") == "opened":
+            close_stage(t)
+            cur = {"level": rec.get("level"), "opened": t, "first_read_s": None, "stages": {}}
+            windows.append(cur)
+            stage, since = None, t
+        elif ev == "ocr_window" and rec.get("state") == "closed" and cur is not None:
+            close_stage(t)
+            cur["closed_reason"] = rec.get("reason")
+            cur, stage, since = None, None, None
+        elif ev == "ocr_scan_stage" and cur is not None:
+            close_stage(t)
+            stage, since = rec.get("stage"), t
+            if stage == "titles_detected" and cur["first_read_s"] is None and t is not None:
+                cur["first_read_s"] = round((t - cur["opened"]).total_seconds(), 1)
+    return [{"level": w["level"], "first_read_s": w["first_read_s"],
+             "closed_reason": w.get("closed_reason"),
+             "stages": {k: round(v, 1) for k, v in sorted(
+                 w["stages"].items(), key=lambda kv: -kv[1])}} for w in windows]
 
 
 _LABEL = {"ok": "OK", "failed": "FAILED", "skipped": "SKIPPED", "not_fired": "NOT FIRED"}
@@ -121,6 +165,13 @@ def render_markdown(report: dict) -> str:
         reasons = ", ".join(f"{k}: {v}" for k, v in sorted(f["reasons"].items())) or "-"
         lines.append(f"| `{f['feature']}` | {verdict} | {'yes' if f['expected'] else 'no'} "
                      f"| {reasons} |")
+    if report.get("ocr_windows"):
+        lines += ["", "| Augment window (level) | First read | Time per scan stage (s) | Closed |",
+                  "| --- | --- | --- | --- |"]
+        for w in report["ocr_windows"]:
+            first = "-" if w["first_read_s"] is None else f"{w['first_read_s']} s"
+            stages = ", ".join(f"{k}: {v}" for k, v in list(w["stages"].items())[:4]) or "-"
+            lines.append(f"| {w['level']} | {first} | {stages} | {w.get('closed_reason') or '-'} |")
     lines += ["", "Only enumerated ids and counts are logged: safe to paste in a chat or issue."]
     return "\n".join(lines) + "\n"
 

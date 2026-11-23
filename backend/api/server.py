@@ -150,6 +150,8 @@ class GameState:
         # an attention window; the offer exists only after title OCR.
         self.anvil_window_until: float | None = None
         self.anvil_last_check: float = float("-inf")
+        self.scan_opened_at: float | None = None
+        self.scan_first_read_done: bool = False
         self.anvil_voucher_tier: str | None = None
         self.anvil_epoch: int = 0
         self.anvil_offer = None  # AnvilOfferResolution with status "ok"
@@ -271,6 +273,8 @@ class GameState:
         screen_watcher.reset()
         self.last_known_level = 0
         self.scan_window_open = False
+        self.scan_opened_at = None
+        self.scan_first_read_done = False
         self.scan_window_level = 0
         self.was_dead = False
         self.stat_snapshot_before.clear()
@@ -2092,6 +2096,21 @@ def _augment_titles_blank(state: GameState) -> bool:
 
 
 ANVIL_CHECK_IN_AUGMENT_WINDOW_S = 3.0
+# Field 23/11: offers took 23 s to minutes to show. While an augment window is
+# open and its cards are not read yet, poll every second instead of every 2 s.
+FAST_POLL_INTERVAL_S = 1.0
+
+
+def _latency_bucket(seconds: float) -> str:
+    """Seconds from the augment window opening to the first verified read."""
+    return ("under_3s" if seconds < 3 else "3_to_10s" if seconds < 10
+            else "10_to_30s" if seconds < 30 else "over_30s")
+
+
+def _poll_interval(state: GameState, base: float) -> float:
+    if state.scan_window_open and not _augment_cards_verified(state):
+        return min(base, FAST_POLL_INTERVAL_S)
+    return base
 
 
 async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
@@ -2434,6 +2453,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 ):
                     state.scan_window_open = True
                     state.scan_window_level = current_level
+                    state.scan_opened_at = now
+                    state.scan_first_read_done = False
                     if len(state.offer_ledger.offers) == prior_count:
                         state.offer_epoch += 1
                         if state.offer_ledger.offers:
@@ -2600,6 +2621,11 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             state.ocr_last_detected.extend(ids)
                             state.ocr_slot_choices = _slots_from_detected(detected)
                             logger.info("OCR detected augments: %s", detected)
+                            if not state.scan_first_read_done and state.scan_opened_at is not None:
+                                state.scan_first_read_done = True
+                                feature_diagnostics.record(
+                                    "augment.read_latency", "ok",
+                                    _latency_bucket(now - state.scan_opened_at))
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
                                 "status": "detected", "stale": state.ocr_stale,
@@ -2828,7 +2854,7 @@ async def _poll_game_loop(interval: float | None = None):
             await poll_tick(game_state, deps, asyncio.get_running_loop().time())
         except Exception as e:
             logger.error("Poll loop error: %s", e, exc_info=True)
-        await asyncio.sleep(interval)
+        await asyncio.sleep(_poll_interval(game_state, interval))
 
 def _queue_ws_message(
     state: GameState,

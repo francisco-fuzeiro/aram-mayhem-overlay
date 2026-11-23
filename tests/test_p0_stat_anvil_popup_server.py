@@ -240,3 +240,14 @@ def test_anvil_watcher_is_throttled_while_an_augment_window_is_open(got):
         _tick(state, deps, now=t)
     assert len(calls) == 2
     assert ("anvil.popup_watch", "skipped", "throttled", None) in got
+
+
+def test_poll_is_faster_only_while_an_unread_augment_window_is_open():
+    state = GameState()
+    assert server._poll_interval(state, 2.0) == 2.0
+    state.scan_window_open = True
+    assert server._poll_interval(state, 2.0) == 1.0
+    state.ocr_slot_choices = {"left": "1", "centre": "2", "right": "3"}
+    assert server._poll_interval(state, 2.0) == 2.0
+    assert server._latency_bucket(2.0) == "under_3s"
+    assert server._latency_bucket(45) == "over_30s"

@@ -15,6 +15,7 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "anvil.voucher_purchase": (False, "Observed genuine local-player voucher stack edge"),
     "anvil.offer_detected": (False, "Independently verified Stat Anvil popup"),
     "anvil.offer_render": (False, "Overlay rendered verified Stat Anvil cards"),
+    "augment.read_latency": (False, "Seconds from augment window opening to first verified read"),
     "anvil.popup_watch": (True, "Stat Anvil popup watcher ran during the match"),
     # Tier list DB (PR #106)
     "tierdb.load": (True, "Tier list export read from disk"),
@@ -69,6 +70,9 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
         ("skipped", "incomplete_offer"),
     )),
     "anvil.offer_render": frozenset((("ok", "rendered"),)),
+    "augment.read_latency": frozenset((
+        ("ok", "under_3s"), ("ok", "3_to_10s"), ("ok", "10_to_30s"), ("ok", "over_30s"),
+    )),
     "anvil.popup_watch": frozenset((
         ("ok", "titles_matched"), ("skipped", "titles_partial"), ("skipped", "no_cards"),
         ("skipped", "unavailable"), ("skipped", "augment_cards_read"), ("skipped", "ocr_off"),
