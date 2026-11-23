@@ -548,3 +548,11 @@ Do not mark implementation or in-game validation as done solely because a draft 
 
 - [x] **F3-I1-CODE-GREEN** — `add0cdab0820ca2a9571bc5840277bb544aec483`, [Windows #45114368288](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45114368288) SUCCESS: 2,046 Python pass/27 skip, 80 JS pass/0 fail, three syntax checks, 35 pinned real-v4 pass. Includes policy v3 cache invalidation and both updated synthetic B5 fixtures. No false in-game access proof claimed.
 - [ ] **F3-I1-DOCS-HEAD-CI** — check current documentation-inclusive SHA independently on Windows; do not reuse prior code SHA. Remaining per-patch Mayhem entitlement source and native acceptances still unchecked.
+
+## 2026-11-23 — F3/I2a honest blocked-inventory UI (draft #97)
+
+- [x] **F3-I2A-RED** — `6838a6c9eb1accd1dd80c3237b53cfe1bcb7a2af`, [Windows #45116128768](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45116128768): new DOM real-renderer test FAIL expected; 80 old JS PASS, 2,046 Python PASS / 27 SKIP, 35 pinned real-v4 PASS.
+- [x] **F3-I2A-CODE-GREEN** — `5bd3af9fe2a8bab27d5f079b713ffaf649378f53`, [Windows #45116384034](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45116384034) SUCCESS: 2,046 Python PASS / 27 SKIP, 81 JS PASS / 0 FAIL, 35 real pinned-v4 PASS. `slot_blocked` is now clearly signaled at header, planned item and footer; only the actual actionable buy state displays `BUY NEXT`.
+- [ ] **F3-I2A-FINAL-HEAD** — check both Windows jobs at exact documentation-inclusive SHA after this commit; status cannot inherit code-head result.
+- [ ] **F3-I2B-RAW-OWNED-ALIASES** — verify whether raw in-game owned item IDs differ from canonical build catalog IDs; without true equivalence proof the UI must not incorrectly claim owned or future purchases. Add synthetic end-to-end tests and a narrow safe fix.
+- [ ] **F3-I2-NATIVE** — user-private current-patch custom-game proof of full inventory/boots purchase, `Unavailable` root cause, shop-specific entitlements. No evidence yet. #49 stays OPEN.
