@@ -308,3 +308,8 @@ D6–D8 are **product core work**, not prerequisites for prototyping the Setting
 ### 2026-11-23 — F3/I2c checkpoint on draft #100
 
 The next offline source-verified subphase is draft #100, restricted to truthful compact item-data/inventory/recipe unavailable messages. It does **not** provide Mayhem shop entitlements or native proof and must not be counted as resolving issue #49. Its RED/GREEN Windows Actions results and final code+docs SHA are tracked in the latest `PROJECT_STATE.md` and `TODO.md`. Other P0 STOP and native release gates remain unchanged.
+
+### 2026-11-23 — F3/I2d evidence-backed completed-build UI
+
+- Offline incremental UI truthfulness draft [#102](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/102) is stacked on #100→#99→#98→#97→#96; original user requirement of a single real Mayhem feasible build is **NOT** closed by an explanatory label. Six distinct observed bought final IDs display `Build complete`; blocked slots and missing proof retain precise previous warnings. Tests-only RED #45170011854; code GREEN #45170378046 (2,047 Python, 85 JS, 35 real pinned-v4); final docs-head Windows run required.
+- D6 shop context controller and D7 four-card aligned guidance still require authoritative current game signals/private calibration; no heuristic `is_dead` → shop-open conversion, invisible inventory inference or production four-card acceptance. D9–D11 installer/release must wait for those native/policy/security gates and user approval.
