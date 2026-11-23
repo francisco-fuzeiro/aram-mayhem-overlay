@@ -1370,9 +1370,9 @@ def _slots_from_detected(detected: list[dict] | None) -> dict[str, str | None] |
 
 def _ocr_title_catalog() -> dict[str, str]:
     """Share one deterministic title catalog for manual and watcher scans."""
-    names = {aid: aug.name for aid, aug in static_data._stat_anvils.items()}
-    names.update({aid: aug.name for aid, aug in static_data._augments.items()})
-    return names
+    # Stat Anvil titles have a dedicated watcher (P0-C); shared Silver/Gold
+    # titles must never be read into an augment offer.
+    return {aid: aug.name for aid, aug in static_data._augments.items()}
 
 
 def _run_ocr_scan_manual() -> _ManualScanEvidence:
