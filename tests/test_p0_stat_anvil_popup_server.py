@@ -228,3 +228,15 @@ def test_read_augment_titles_still_block_and_say_why(got):
     _tick(state, deps)
     assert calls == []
     assert ("anvil.popup_watch", "skipped", "augment_cards_read", None) in got
+
+
+def test_anvil_watcher_is_throttled_while_an_augment_window_is_open(got):
+    # It shares the poll tick with the augment OCR: at most one look per 3 s.
+    deps, calls = _deps([("no_augments", None)] * 5)
+    state = _state()
+    state.scan_window_open = True
+    state.ocr_slot_choices = None
+    for t in (101.0, 101.5, 102.0, 102.5, 104.5):
+        _tick(state, deps, now=t)
+    assert len(calls) == 2
+    assert ("anvil.popup_watch", "skipped", "throttled", None) in got

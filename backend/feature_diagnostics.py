@@ -39,9 +39,23 @@ def record(feature: str, status: str, reason: str, count: int | None = None) -> 
         return False
 
 
+def code_version() -> str | None:
+    """Short git commit of the running code, or None (packaged build, no git)."""
+    import subprocess
+    root = Path(__file__).resolve().parents[1]
+    try:
+        out = subprocess.run(["git", "rev-parse", "--short=7", "HEAD"], cwd=root,
+                             capture_output=True, text=True, timeout=2)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    sha = out.stdout.strip()
+    return sha if out.returncode == 0 and sha else None
+
+
 def session_start() -> bool:
     try:
-        return bool(events.emit("session_start"))
+        sha = code_version()
+        return bool(events.emit("session_start", **({"code": sha} if sha else {})))
     except Exception:
         return False
 
@@ -72,6 +86,7 @@ def build_report(log_dir: Path | None = None) -> dict:
     starts = [i for i, r in enumerate(records) if r.get("event") == "session_start"]
     session = records[starts[-1] + 1:] if starts else records
     started_at = records[starts[-1]].get("timestamp") if starts else None
+    code = records[starts[-1]].get("code") if starts else None
     features = []
     for feature, (expected, description) in FEATURES.items():
         rows = [r for r in session if r.get("event") == "feature" and
@@ -87,7 +102,7 @@ def build_report(log_dir: Path | None = None) -> dict:
             "last": None if last is None else {
                 k: last.get(k) for k in ("timestamp", "status", "reason", "count")},
         })
-    return {"session_started_at": started_at, "features": features}
+    return {"session_started_at": started_at, "code": code, "features": features}
 
 
 _LABEL = {"ok": "OK", "failed": "FAILED", "skipped": "SKIPPED", "not_fired": "NOT FIRED"}
@@ -95,7 +110,8 @@ _LABEL = {"ok": "OK", "failed": "FAILED", "skipped": "SKIPPED", "not_fired": "NO
 
 def render_markdown(report: dict) -> str:
     lines = ["# Feature report (last session)", "",
-             f"Session start: {report.get('session_started_at') or 'unknown'}", "",
+             f"Session start: {report.get('session_started_at') or 'unknown'}",
+             f"Running code: {report.get('code') or 'unknown (restart ARAM Oracle)'}", "",
              "| Feature | Verdict | Expected | Reasons (status/reason: times) |",
              "| --- | --- | --- | --- |"]
     for f in report["features"]:

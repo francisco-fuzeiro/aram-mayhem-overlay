@@ -19,7 +19,7 @@ from backend.feature_registry import FEATURES, STATUSES, REASONS, allowed_outcom
 
 # Values are strict enums or bounded numeric types. Never log arbitrary strings.
 SCHEMA: dict[str, dict[str, object]] = {
-    "session_start": {},
+    "session_start": {"code": "git_sha"},
     "feature": {
         "feature": frozenset(FEATURES),
         "status": frozenset(STATUSES),
@@ -177,6 +177,10 @@ def _clean(event: str, fields: dict) -> dict | None:
                 safe[key] = value
         elif constraint == "item_id":
             if isinstance(value, str) and value.isascii() and value.isdecimal() and 4 <= len(value) <= 6:
+                safe[key] = value
+        elif constraint == "git_sha":
+            if (isinstance(value, str) and value.isascii() and 7 <= len(value) <= 12
+                    and all(c in "0123456789abcdef" for c in value)):
                 safe[key] = value
         elif constraint == "int":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000:

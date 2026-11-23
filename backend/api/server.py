@@ -149,6 +149,7 @@ class GameState:
         # P0-C: dedicated Stat Anvil popup watch. The voucher edge only opens
         # an attention window; the offer exists only after title OCR.
         self.anvil_window_until: float | None = None
+        self.anvil_last_check: float = float("-inf")
         self.anvil_voucher_tier: str | None = None
         self.anvil_epoch: int = 0
         self.anvil_offer = None  # AnvilOfferResolution with status "ok"
@@ -259,6 +260,7 @@ class GameState:
         self.anvil_voucher_trigger_pending = False
         self.anvil_voucher_last_purchase = ()
         self.anvil_window_until = None
+        self.anvil_last_check = float("-inf")
         self.anvil_voucher_tier = None
         self.anvil_offer = None
         self.anvil_absent_ticks = 0
@@ -2089,6 +2091,9 @@ def _augment_titles_blank(state: GameState) -> bool:
     return isinstance(slots, dict) and bool(slots) and all(v is None for v in slots.values())
 
 
+ANVIL_CHECK_IN_AUGMENT_WINDOW_S = 3.0
+
+
 async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
     """P0-C: watch the screen for the Stat Anvil popup during the match.
 
@@ -2122,9 +2127,18 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
         # no longer blocks this watcher; it used to, so no Anvil was seen.
         feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_cards_read")
         return
+    if (state.scan_window_open and state.anvil_offer is None
+            and now - state.anvil_last_check < ANVIL_CHECK_IN_AUGMENT_WINDOW_S):
+        # Field 23/11: an unread augment window may last minutes, so the Anvil
+        # watcher must look then too, but it runs in the same tick as the
+        # augment OCR: at most one look every few seconds so it never slows
+        # the augment read.
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "throttled")
+        return
     catalog = catalog_fn()
     if not catalog:
         return
+    state.anvil_last_check = now
     action, ids = await deps.to_thread(run, anvil_title_catalog(catalog.values()))
     if action in ("detected", "unchanged"):
         feature_diagnostics.record(

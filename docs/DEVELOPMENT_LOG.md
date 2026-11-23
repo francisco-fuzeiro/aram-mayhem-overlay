@@ -1185,3 +1185,8 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   champion's games and the core is not AP: the last tier slot becomes the best-
   ranked AS item (source `stat`, core untouched). 16.23: Yi gets Terminus; 8 of 173
   champions affected. Tier DB schema migrates `reference_build.source`.
+- Third report still showed the 20:56 session and no `anvil.popup_watch` row: the
+  old app process was never restarted. The report now prints `Running code: <sha>`
+  (from `session_start`), or `unknown` for a stale or packaged process. The Anvil
+  watcher shares the poll tick with augment OCR, so while an augment window is open
+  it now looks at most once every 3 s (`anvil.popup_watch skipped/throttled`).

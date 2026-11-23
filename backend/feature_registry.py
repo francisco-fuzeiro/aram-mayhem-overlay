@@ -72,6 +72,7 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     "anvil.popup_watch": frozenset((
         ("ok", "titles_matched"), ("skipped", "titles_partial"), ("skipped", "no_cards"),
         ("skipped", "unavailable"), ("skipped", "augment_cards_read"), ("skipped", "ocr_off"),
+        ("skipped", "throttled"),
     )),
     "tierdb.load": frozenset((
         ("ok", "loaded"), ("failed", "export_missing"), ("failed", "export_invalid"),
