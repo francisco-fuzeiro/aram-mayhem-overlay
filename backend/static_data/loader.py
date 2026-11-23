@@ -536,9 +536,18 @@ def _load_augments() -> dict[str, AugmentData]:
             # retry the source instead of treating it as a valid cache hit.
             parsed = _parse_augment_cache(cached) if isinstance(cached, dict) else {}
             if parsed:
+                from backend import feature_diagnostics
+                feature_diagnostics.record("augment.cache_schema", "ok", "current")
                 return parsed
+            from backend import feature_diagnostics
+            feature_diagnostics.record("augment.cache_schema", "failed", "cache_invalid")
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             _loader_logger.warning("Invalid augment cache; retrying source")
+            from backend import feature_diagnostics
+            feature_diagnostics.record("augment.cache_schema", "failed", "cache_invalid")
+    else:
+        from backend import feature_diagnostics
+        feature_diagnostics.record("augment.cache_schema", "skipped", "cache_missing")
 
     # Fetch ARAM Mayhem augments from cherry-augments.json (primary source)
     try:
@@ -654,6 +663,13 @@ def _parse_description_to_stats_with_provenance(
 
     if all(value == 0.0 for value in stats.values()):
         provenance = "none"
+    # The actual catalog-parser decision; never store the description or name.
+    from backend import feature_diagnostics
+    feature_diagnostics.record(
+        "augment.stats_parser",
+        "ok" if provenance != "none" else "skipped",
+        "modelled" if provenance != "none" else "unmodelled",
+    )
     return StatVector(**stats), provenance
 
 
