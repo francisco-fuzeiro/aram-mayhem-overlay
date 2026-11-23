@@ -350,7 +350,7 @@ _KEYWORD_BIN_PATHS = (
     "game/maps/modespecificdata/cherry.bin.json",
 )
 _PUBLIC_RELATIVE_BIN = re.compile(
-    r"^game/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_.-]+\\.bin\\.json$"
+    r"^game/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_.-]+" + re.escape(".bin.json") + "$"
 )
 _MAX_PROBE_BYTES = 16 * 1024 * 1024
 _MAX_PROBE_NODES = 100000
