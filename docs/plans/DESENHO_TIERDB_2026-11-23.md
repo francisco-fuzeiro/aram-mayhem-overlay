@@ -105,3 +105,9 @@ Treino no patch N, teste no N+1. Augments: Kendall τ entre o score previsto e o
 | F7 | Harness de validação holdout | só ΔWR vs composto |
 
 PR draft sobre o #103, sem merge. Sem dados privados no repo.
+
+## 8. Atualização após implementação (23/11)
+
+- **Decidido (Francisco):** a lista de campeões mostra dois campos. **Força** é o tier, calculado com o aproveitamento absoluto (força com a melhor de 3 ofertas). **Potencial** é o ganho relativo com augments face à base do próprio campeão, em 5 níveis (muito baixo, baixo, médio, alto, muito alto; quintis), nunca um número. O potencial também desempata dentro de cada grupo de empate.
+- Holdout 16.22→16.23: τ 0,844 sem desempate, 0,839 com o desempate pelo potencial, 0,860 com só o WR. O ganho relativo usado como peso descia para 0,644.
+- Implementado no PR draft #106 (Windows CI verde no commit anterior a esta alteração).
