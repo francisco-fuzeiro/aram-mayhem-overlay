@@ -1006,7 +1006,19 @@
             buildNext.textContent = "Next: " + nextName +
                 (Number.isFinite(cost) && cost >= 0 ? " (" + cost + "g)" : "");
         } else {
-            buildNext.textContent = "Next: unavailable";
+            // Do not conflate missing shop catalog proof with an unknown
+            // inventory or an unverified recipe. Only emit known backend
+            // classifications; never guess a live shop-open/stock state.
+            const unavailableReasons = {
+                item_availability_unknown: "Item catalog unverified",
+                item_pool_unverified: "Item catalog unverified",
+                inventory_unknown: "Inventory item unrecognized",
+                item_recipe_unknown: "Item recipe unverified",
+            };
+            const reason = bs && bs.build_unavailable_reason;
+            buildNext.textContent =
+                Object.prototype.hasOwnProperty.call(unavailableReasons, reason)
+                    ? unavailableReasons[reason] : "Next: unavailable";
         }
         if (!bs || !bs.full_build || bs.full_build.length === 0) {
             buildList.innerHTML = '<div style="color:var(--text-dim);padding:8px;">No build data</div>';
