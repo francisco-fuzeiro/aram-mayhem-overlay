@@ -1,5 +1,11 @@
 # Repository agent instructions
 
+## 2026-11-23 — Exact 16.23 Stat Anvil source 404; do NOT promote historical bin
+
+- Actual Windows Actions [#45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820) GET of `https://raw.communitydragon.org/16.23/game/unknown/507cdd64276919f5.bin.json` returned **HTTP 404**. The CDragon `/json/16.23/game/unknown/` index was checked and contains **neither the exact filename nor matching hash-prefixed filenames**. This is a PROVEN missing current public asset path, not proof Stat Anvils are absent from Mayhem. Owner's historical 16.22 37 Anvils (14 silver/14 gold/8 prismatic/1 mixed) cannot be treated as patch 16.23. New read-only public probe `scripts/anvil_source_exact_probe.py` + tests reports HTTP/index status and raw/parsed tier counts; one-time CI live probe removed after evidence.
+- P0 source gate remains **BLOCKED**: obtain actual 16.23 `AnvilData` and `RootSpell.mSpell.DataValues` with total>0 and each Silver/Gold/Prismatic >0 plus exact verified file path. Previous owner scan 80/471 indexed candidate bins and TFT/DustToDiamonds keyword paths are incomplete/false positives. Safely inspect remaining bins/updated exports, never guess source or activate ranks.
+- After source: real popup 3/4-card detection, title+value OCR, own 0–10 champion/augments/items/enemy-context score with true render ACK; native shop #49 and one final user-operated Mayhem match/diagnostics, then latest exact-head CI. Item pool v4 already validated on owner PC (104 final+7 boots=111); do not ask to repeat. P0 #107 remains draft based on #103; no merge/main/TierDB or private screenshots/logs. User explicitly requested a new-chat P0 continuation prompt now, with blockers, despite phase still open. Normally no automatic prompt until P0 accepted.
+
 ## Active P0 Stat Anvil source lead (owner real data, 2026-11-23)
 
 - Owner tested real public patch 16.23 on P0 HEAD `47fa24b`: `candidate_bin_files=471`, `bin_files_inspected=80`, `index_directories_scanned=21`, `index_failures=0`, `scan_complete=false`, `source_paths=[]`, `total=0` and silver/gold/prismatic all 0. This is **not a complete scan or validated source**, and does not prove Mayhem Anvils are absent.
