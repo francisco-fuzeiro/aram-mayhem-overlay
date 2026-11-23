@@ -1127,3 +1127,14 @@ body.overlay-mode:not(.interactive-mode)::after {
     font-size: 11px;
     padding: 5px 8px;
 }
+
+/* Tier list headline badges (Fiora match test 23/11). */
+.augment-card .aug-score.muted { color: var(--text-dim, #8a8f98); font-weight: 400; }
+.tier-badge { padding: 0 6px; border-radius: 3px; }
+.tier-OP { color: #ff7ad9; }
+.tier-S { color: #b18cff; }
+.tier-A { color: #5fb3ff; }
+.tier-B { color: #5fd38d; }
+.tier-C { color: #f2c94c; }
+.tier-D, .tier-E { color: #a0a4ab; }
+.aug-tier.mayhem-main { font-size: 13px; font-weight: 700; margin-top: 2px; }

@@ -153,15 +153,12 @@ def _score_one(champion: str, kind: str, base: tuple[int, int], items: dict,
 
 def _rank(scored: dict, config: ItemTierConfig):
     ids = sorted(scored, key=lambda i: (-float(np.median(scored[i][1])), i))
-    groups, group = {}, 0
+    groups, group, leader = {}, 0, None
     for pos, iid in enumerate(ids, start=1):
-        if pos == 1:
-            group = 1
-        else:
-            prev = scored[ids[pos - 2]][1]
-            cur = scored[iid][1]
-            if float(np.mean(prev > cur)) >= config.tie_probability:
-                group = pos
+        cur = scored[iid][1]
+        # Tied = not distinguishable from the group's first item.
+        if leader is None or float(np.mean(leader > cur)) >= config.tie_probability:
+            group, leader = pos, cur
         groups[iid] = (pos, group)
     return ids, groups
 

@@ -232,11 +232,13 @@ def build_augment_tiers(
             scored = [(a, raw[(c, a)]) for a in augs if raw.get((c, a)) is not None]
             scored.sort(key=lambda t: (-float(np.median(t[1][0])), t[0]))
             group = 0
-            prev = None
+            leader = None
             for rank, (a, (draws, level, n_eff)) in enumerate(scored, start=1):
-                if prev is None or float(np.mean(prev > draws)) >= config.tie_probability:
+                # Tied = not distinguishable from the group's first augment
+                # (comparing neighbours only chained whole lists together).
+                if leader is None or float(np.mean(leader > draws)) >= config.tie_probability:
                     group = rank
-                prev = draws
+                    leader = draws
                 med = float(np.median(draws))
                 p20, p80 = (float(x) for x in np.percentile(draws, [20, 80]))
                 rows.append(AugmentTierRow(

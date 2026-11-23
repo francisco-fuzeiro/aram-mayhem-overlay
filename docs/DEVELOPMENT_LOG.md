@@ -1,5 +1,12 @@
 # Overlay LoL — Development Log
 
+## 2026-11-23 — Fixes from the owner's Fiora match test (6e8074e)
+
+- Tie groups chained: each item was compared only with its neighbour, so evenly spaced items became one group ("tied #32–#69"). Now an item is tied only if indistinguishable from the group's first (augments, champions, items). Real 16.23 Fiora: largest group 25–33 → 6–11.
+- "Next: Bloodthirster" contradicted the measured reference (Ravenous Hydra first): the legacy engine ignored the tier list build. With a tier list build shown, Next is the first adapted item not owned (boots timing, full inventory and a finished build keep the engine choice). "(0g)" now reads "(ready to buy)" / "(Ng more)".
+- Offer cards: with tiers on, the badge is the measured tier and the best tier is highlighted; the legacy composite moves to a "Fit x/10" detail line; unrated labels are muted (were green). Champion select leads with Mayhem strength; the composite is labelled "Team fit".
+- Diagnosis vs a third-party overlay seen in the match (numbers not stored): divergences come from data and method, not shrinkage (Fiora median ~5.4k games per augment; k=300). Example from AramHex 16.23: Upgrade Sheen is picked in 5.6 % of Fiora games but wins 1.7 pp below her baseline; Soul Siphon 6.7 pp below. Our ranks are within rarity (/96 gold), theirs across all augments.
+
 ## 2026-11-23 — Stat Anvil estimates use the real 16.23 catalogue stats
 
 - Merged #107 (real 16.23 catalogue: `statanvils.bin.json`, 34 offerable shards 13/13/8, pinned in `data/anvils/stat_anvils_16.23.json`). `rank_anvil_options` now ranks from each shard's canonical `stats` instead of guessing from the kind: raw `Min*` DataValues names map, hybrids (as+ah, ad+ap, armor+mr) score on both stats weighted by value against the pure shard of the same tier, side effects (size, ranged omnivamp) never score, heal/shield power added as a 14th stat. All 34 real shards are modelled (before: almost all "unmodelled"). `anvil_priorities.py` (#107) untouched.

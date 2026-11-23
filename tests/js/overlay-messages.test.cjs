@@ -1042,7 +1042,7 @@ test("F0 source-to-UI replay: next item is copied from build_state without shop 
         alternatives: {}, selected_style: "Balanced",
     };
     h.api.handleMessage(update);
-    assert.equal(h.element("build-next").textContent, "Next: Synthetic Item (520g)");
+    assert.equal(h.element("build-next").textContent, "Next: Synthetic Item (520g more)");
     // This tests today's presentation contract; F4 shop-aware visibility is
     // deliberately NOT implemented by the F0 evidence-only phase.
     h.api.handleMessage({...update, build_state: {...update.build_state,
@@ -1438,7 +1438,7 @@ test("TDB-UI3: champion select shows Mayhem strength and potential side by side"
     });
     const cards = h.element("champ-select-list").children;
     assert.equal(cards[0].children[0].textContent, "Ahri");
-    assert.equal(cards[0].children[3].textContent,
+    assert.equal(cards[0].children[1].textContent,
         "Mayhem strength: S · #4/172 (tied #3–#5) · Potential: very high");
     assert.equal(cards[1].children.length, 3);
 });
@@ -1593,7 +1593,7 @@ test("TDB-FIX1: offer badge shows the tier, unrated labels are muted, best tier 
         },
     });
     const cards = h.element("augment-list").children;
-    const badge = (card) => card.children[0].innerHTML.match(/class="aug-score([^"]*)">([^<]*)</);
+    const badge = (card) => card.innerHTML.match(/class="aug-score([^"]*)">([^<]*)</);
     assert.deepEqual(badge(cards[0]).slice(1), [" tier-badge tier-A", "Tier A"]);
     assert.deepEqual(badge(cards[1]).slice(1), [" tier-badge tier-C", "Tier C"]);
     assert.equal(badge(cards[2])[1], " muted");

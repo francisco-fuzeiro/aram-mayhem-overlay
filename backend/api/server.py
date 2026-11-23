@@ -644,6 +644,42 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     return payload
 
 
+def _align_next_with_mayhem_build(build_state: dict, mayhem: dict | None,
+                                  current_gold, sd) -> dict:
+    """Make Next follow the tier list build shown beside it.
+
+    Fiora match test 23/11: the legacy engine suggested Bloodthirster while the
+    measured reference started with Ravenous Hydra. With a tier list build, Next
+    is the first adapted item not owned yet. Boots timing, a full inventory and
+    a completed adapted build keep the engine's choice.
+    """
+    if not mayhem or not mayhem.get("adapted") or build_state.get("slot_blocked"):
+        return build_state
+    canonical = getattr(sd, "canonical_item_id", lambda x: str(x))
+    engine_next = build_state.get("next_item_id")
+    boots = (mayhem.get("boots") or {}).get("id")
+    if engine_next and boots and canonical(engine_next) == boots:
+        return build_state
+    owned = {canonical(i) for i in (build_state.get("purchased_items") or [])}
+    owned |= {canonical(i) for i in (build_state.get("owned_build_ids") or [])}
+    candidate = next((e["id"] for e in mayhem["adapted"] if e.get("id") not in owned), None)
+    if candidate is None:
+        return build_state
+    out = dict(build_state)
+    out["next_source"] = "tierlist"
+    if engine_next and canonical(engine_next) == candidate:
+        return out
+    item = sd.get_item(candidate)
+    cost = int(getattr(item, "cost", 0) or 0) if item is not None else 0
+    out["engine_next_item_id"] = engine_next
+    out["next_item_id"] = candidate
+    out["next_item_name"] = item.name if item is not None and item.name else candidate
+    out["next_item_gold_needed"] = cost
+    out["gold_to_next"] = (max(0, cost - int(current_gold))
+                           if isinstance(current_gold, (int, float)) and cost else None)
+    return out
+
+
 def _handle_feature_ack(msg: dict) -> bool:
     """Accept a DOM-render report from the overlay for UI features only."""
     if (not isinstance(msg, dict) or msg.get("feature") not in UI_FEATURES
@@ -2908,6 +2944,8 @@ def _serialize_result(
         result.build_state.champion_id, result.build_state.chosen_augments,
         result.build_state.purchased_items, result.enemy_analysis or {},
         result.ally_analysis or {}, sd)
+    out["build_state"] = _align_next_with_mayhem_build(
+        out["build_state"], out["mayhem_build"], out.get("current_gold"), sd)
     out.update(_augment_tier_payload(
         result.build_state.champion_id,
         _visible_augment_ids(out["recommendations"], out.get("offers")),

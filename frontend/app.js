@@ -564,6 +564,7 @@
         });
     }
 
+    const TIER_ORDER = ["OP", "S", "A", "B", "C", "D", "E"];
     const TIER_LEVEL_TEXT = {champion: "champion data", role: "class data",
         global: "global data", curated: "estimate"};
     const POTENTIAL_TEXT = {very_low: "very low", low: "low", medium: "medium",
@@ -624,24 +625,28 @@
 
             const summary = document.createElement("div");
             summary.className = "aug-details";
-            summary.textContent = candidate.tier + " · " + Number(candidate.score).toFixed(1) + "/10.0 composite · " + candidate.role;
+            summary.textContent = "Team fit: " + candidate.tier + " · " +
+                Number(candidate.score).toFixed(1) + "/10 · " + candidate.role;
 
             const reasons = document.createElement("div");
             reasons.className = "aug-explain";
             reasons.textContent = (candidate.reasons || []).join(" · ") +
                 (candidate.sample_size ? " · Personal sample: " + candidate.sample_size + " games" : " · No match data yet");
 
-            card.append(name, summary, reasons);
+            card.appendChild(name);
+            // The measured Mayhem strength leads; the legacy composite is
+            // only the team-fit estimate (Fiora match test 23/11).
             const m = candidate.mayhem;
             if (m && m.strength) {
                 const mayhem = document.createElement("div");
-                mayhem.className = "aug-explain aug-tier";
+                mayhem.className = "aug-tier mayhem-main tier-" + m.strength;
                 mayhem.textContent = "Mayhem strength: " + m.strength + " · " +
                     tierRankText(m.rank, m.rank_total, m.tie_group, m.tie_end) +
                     " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown");
                 card.appendChild(mayhem);
                 mayhemLines += 1;
             }
+            card.append(summary, reasons);
             champSelectList.appendChild(card);
         }
         if (candidates.length) reportRender("tierdb.champselect_render", mayhemLines, "no_tier_data");
@@ -1069,6 +1074,25 @@
                 rec.modelled !== false) scored.push(rec.score);
         }
         const best = scored.length ? Math.max(...scored) : null;
+        // With the tier list on, the measured tier is the headline: the best
+        // tier on screen is highlighted and the legacy fit score moves to a
+        // detail line (Fiora match test 23/11: "No model" read as a verdict).
+        const tierTable = data.tiers_enabled === true && data.augment_tiers &&
+            typeof data.augment_tiers === "object" && !verifiedAnvilOffer
+            ? data.augment_tiers : null;
+        const tierOf = (id) => tierTable && id &&
+            Object.prototype.hasOwnProperty.call(tierTable, id) &&
+            tierTable[id] && tierTable[id].tier && tierTable[id].level !== "none"
+            ? tierTable[id] : null;
+        const tierKey = (t) => [TIER_ORDER.indexOf(t.tier), Number(t.rank) || 1e6];
+        let bestTier = null;
+        for (const slot of OFFER_SLOTS) {
+            const t = tierOf((offer.slots[slot] || {}).augment_id);
+            if (t && TIER_ORDER.includes(t.tier) && (!bestTier ||
+                    tierKey(t)[0] < tierKey(bestTier)[0] ||
+                    (tierKey(t)[0] === tierKey(bestTier)[0] && tierKey(t)[1] < tierKey(bestTier)[1])))
+                bestTier = t;
+        }
         let tierLines = 0;
         for (const [index, slot] of OFFER_SLOTS.entries()) {
             const identity = offer.slots[slot] || {};
@@ -1082,9 +1106,10 @@
                   (staticNames.augments[id] && staticNames.augments[id].name) || id
                 : "Unknown — title not verified";
             const row = document.createElement("div");
+            const tier = tierOf(id);
             row.className = "augment-card" +
                 (verifiedAnvilOffer ? " stat-anvil-card" : "") +
-                (rated && rec.score === best ? " top-pick" : "");
+                ((bestTier ? tier === bestTier : rated && rec.score === best) ? " top-pick" : "");
             const origin = identity.source === "user_identify" ? " (manual)"
                 : identity.source === "ocr" ? " (OCR)" : "";
             // A visible but unrated card is not necessarily a missing model:
@@ -1095,10 +1120,12 @@
                 : !rec ? "No rating data"
                 : rec.modelled === false ? "No model"
                 : "Rating unavailable";
+            const badgeClass = tier ? " tier-badge tier-" + tier.tier : rated ? "" : " muted";
+            const badge = tier ? "Tier " + tier.tier : score;
             row.innerHTML = '<div class="aug-row"><span class="aug-rank">' +
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
-                esc(name + origin) + '</span><span class="aug-score">' +
-                esc(score) + '</span></div>';
+                esc(name + origin) + '</span><span class="aug-score' + badgeClass + '">' +
+                esc(badge) + '</span></div>';
             const tiers = data.tiers_enabled === true && data.augment_tiers &&
                 typeof data.augment_tiers === "object" ? data.augment_tiers : null;
             if (tiers && id && !verifiedAnvilOffer &&
@@ -1108,6 +1135,12 @@
                 tierNote.textContent = augmentTierText(tiers[id]);
                 row.appendChild(tierNote);
                 tierLines += 1;
+            }
+            if (tier && rated) {
+                const fit = document.createElement("div");
+                fit.className = "aug-explain";
+                fit.textContent = "Fit " + rec.score.toFixed(1) + "/10 (team and stats estimate)";
+                row.appendChild(fit);
             }
             if (rec && typeof rec.explanation === "string") {
                 const note = document.createElement("div");
@@ -1207,7 +1240,8 @@
         } else if (nextName) {
             const cost = Number(bs.gold_to_next);
             buildNext.textContent = "Next: " + nextName +
-                (Number.isFinite(cost) && cost >= 0 ? " (" + cost + "g)" : "");
+                (bs.gold_to_next == null || !Number.isFinite(cost) || cost < 0 ? ""
+                    : cost === 0 ? " (ready to buy)" : " (" + cost + "g more)");
         } else if (bs && !bs.build_unavailable_reason &&
                 Array.isArray(bs.full_build) && bs.full_build.length === 6 &&
                 new Set(bs.full_build).size === 6 &&
