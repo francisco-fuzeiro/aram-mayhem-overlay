@@ -83,6 +83,10 @@ def test_sync_only_own_mayhem_match_and_never_returns_account_ids(monkeypatch):
     monkeypatch.setattr(history_import, "get_champion_id_map", lambda _: {"222": "jinx"})
     monkeypatch.setattr(history_import, "game_exists", lambda _: False)
     monkeypatch.setattr(history_import, "record_game", lambda **kwargs: written.append(kwargs))
+    stored = []
+    monkeypatch.setattr(history_import, "participants_exist", lambda _: False)
+    monkeypatch.setattr(history_import, "record_participants",
+                        lambda gid, dur, rows: stored.append((dur, rows)) or len(rows))
 
     result = history_import.sync_recent_mayhem_games()
     assert result == {"status": "ok", "imported": 1, "inspected": 1}
@@ -93,6 +97,8 @@ def test_sync_only_own_mayhem_match_and_never_returns_account_ids(monkeypatch):
     assert written[0]["win"] is True
     assert "super-private-puuid" not in str(result)
     assert "super-private-puuid" not in str(written)
+    assert len(stored) == 1 and len(stored[0][1]) == 1  # other champion unknown
+    assert "puuid" not in str(stored)
 
 
 def test_champion_record_counts_only_finished_known_results(tmp_path):

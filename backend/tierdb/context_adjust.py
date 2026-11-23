@@ -24,8 +24,10 @@ class AdjustConfig:
     personal_k: float = 30.0         # strong shrinkage of the player's own record
     personal_scale: float = 0.08     # shrunk win-rate delta that counts as a full vote
     personal_min_games: int = 5
+    # "impact" (local 10-player history, backend.tierdb.impact) stays at 0 =
+    # off until scripts/validate_impact_holdout.py shows it improves the holdout.
     weights: tuple = (("build", 0.40), ("synergy", 0.25), ("enemy", 0.20),
-                      ("personal", 0.15))
+                      ("personal", 0.15), ("impact", 0.0))
 
 
 def _cos(a: dict, b: dict) -> float | None:
@@ -50,6 +52,7 @@ def context_adjust(
     enemy: dict | None = None,
     personal: tuple[int, int] | None = None,
     personal_base: float | None = None,
+    impact: float | None = None,
     config: AdjustConfig = AdjustConfig(),
 ) -> tuple[int, str | None]:
     """(step in -1..1, reason) for one offered augment; (0, None) without context."""
@@ -87,9 +90,14 @@ def context_adjust(
             v = max(-1.0, min(1.0, shrunk / config.personal_scale))
             votes["personal"] = (v, "wins in your own games" if v > 0
                                  else "loses in your own games" if v < 0 else None)
+    if impact is not None:
+        v = max(-1.0, min(1.0, float(impact)))
+        votes["impact"] = (v, "does more in your local games" if v > 0
+                           else "does less in your local games" if v < 0 else None)
+    weights = dict(config.weights)
+    votes = {k: v for k, v in votes.items() if weights.get(k, 0.0) > 0}
     if not votes:
         return 0, None
-    weights = dict(config.weights)
     total_w = sum(weights[k] for k in votes)
     score = sum(weights[k] * v for k, (v, _) in votes.items()) / total_w
     if abs(score) < config.threshold:

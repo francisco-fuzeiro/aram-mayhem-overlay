@@ -32,6 +32,8 @@ Play normally to the end.
 
 1. With ARAM Oracle still open, open `http://127.0.0.1:8765/api/diagnostics/features`,
    or in the project folder run `py -3.11 -m backend.feature_diagnostics --out feature_report.md`.
+   Optional: `py -3.11 -m scripts.validate_impact_holdout` prints only counts
+   and a verdict (`insufficient_data` is expected until the local history grows).
 2. Paste the table in the chat (ids, verdicts, reasons and counts only: no names,
    paths or win rates) plus one line: yes/no for checks 1–6 above.
 

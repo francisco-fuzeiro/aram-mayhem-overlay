@@ -10,7 +10,9 @@ import re
 import requests
 
 from backend.collectors.lcu import get_lcu_session, get_champion_id_map
-from backend.storage.db import game_exists, record_game
+from backend.storage.db import (
+    game_exists, participants_exist, record_game, record_participants,
+)
 
 logger = logging.getLogger("aram-oracle.history")
 
@@ -36,6 +38,51 @@ def extract_items(stats: dict) -> list[str]:
         if isinstance(stats.get(f"item{slot}"), int)
         and stats[f"item{slot}"] > 0
     ]
+
+
+def _int_or_none(value) -> int | None:
+    return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def extract_participants(detail: dict, aliases: dict, own_puuid: str | None) -> list[dict]:
+    """All players of one game as anonymous stat rows (no names or account IDs).
+
+    `heal_shield` is healing + shielding on teammates when the client reports it,
+    else None; `heal_total` (includes self-healing) is kept as the fallback.
+    """
+    own_id = None
+    if own_puuid:
+        for item in detail.get("participantIdentities") or []:
+            if isinstance(item, dict) and (item.get("player") or {}).get("puuid") == own_puuid:
+                own_id = item.get("participantId")
+                break
+    rows = []
+    for p in detail.get("participants") or []:
+        if not isinstance(p, dict):
+            continue
+        champion = aliases.get(str(p.get("championId", 0)))
+        stats = p.get("stats") or {}
+        if not champion or not isinstance(stats, dict):
+            continue
+        win = stats.get("win")
+        heals = _int_or_none(stats.get("totalHealsOnTeammates"))
+        shields = _int_or_none(stats.get("totalDamageShieldedOnTeammates"))
+        rows.append({
+            "champion_id": champion,
+            "team": _int_or_none(p.get("teamId")),
+            "win": bool(win) if isinstance(win, (bool, int)) else None,
+            "is_self": own_id is not None and p.get("participantId") == own_id,
+            "augments": extract_augments(stats),
+            "items": extract_items(stats),
+            "damage_to_champions": _int_or_none(stats.get("totalDamageDealtToChampions")),
+            "heal_shield": None if heals is None and shields is None
+            else (heals or 0) + (shields or 0),
+            "heal_total": _int_or_none(stats.get("totalHeal")),
+            "kills": _int_or_none(stats.get("kills")),
+            "deaths": _int_or_none(stats.get("deaths")),
+            "assists": _int_or_none(stats.get("assists")),
+        })
+    return rows
 
 
 def _get_json(session: requests.Session, endpoint: str) -> dict | None:
@@ -103,11 +150,19 @@ def sync_recent_mayhem_games(max_games: int = 40) -> dict:
                 continue
             inspected += 1
             game_id = summary.get("gameId")
-            if not isinstance(game_id, int) or game_id <= 0 or game_exists(str(game_id)):
+            if not isinstance(game_id, int) or game_id <= 0:
+                continue
+            own_done = game_exists(str(game_id))
+            if own_done and participants_exist(str(game_id)):
                 continue
             detail = _get_json(session, f"/lol-match-history/v1/games/{game_id}")
             if not detail:
                 logger.debug("Game details missing for an otherwise eligible match")
+                continue
+            duration = int(detail.get("gameDuration") or summary.get("gameDuration") or 0)
+            record_participants(str(game_id), duration,
+                                extract_participants(detail, aliases, puuid))
+            if own_done:
                 continue
             participant = _own_participant(detail, puuid)
             if participant is None:
@@ -127,8 +182,7 @@ def sync_recent_mayhem_games(max_games: int = 40) -> dict:
                 augments=extract_augments(stats),
                 items=extract_items(stats),
                 win=bool(win),
-                game_time_secs=int(detail.get("gameDuration")
-                                   or summary.get("gameDuration") or 0),
+                game_time_secs=duration,
                 kda={k: stats.get(k, 0) for k in ("kills", "deaths", "assists")},
             )
             imported += 1

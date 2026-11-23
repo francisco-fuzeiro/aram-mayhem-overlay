@@ -129,3 +129,11 @@ def test_match_adjuster_uses_build_augments_enemy_and_personal(monkeypatch):
     assert adjust("crit_aug") == (1, "fits your build")
     assert adjust("ap_aug")[0] == -1
     assert adjust("unknown") == (0, None)
+
+
+def test_impact_vote_is_off_by_default_and_works_when_weighted():
+    from backend.tierdb.context_adjust import AdjustConfig, context_adjust
+    assert context_adjust({"ad": 1.0}, demand=None, impact=1.0) == (0, None)
+    cfg = AdjustConfig(weights=(("build", 0.4), ("impact", 0.3)))
+    step, reason = context_adjust({"ad": 1.0}, demand=None, impact=0.9, config=cfg)
+    assert step == 1 and reason == "does more in your local games"

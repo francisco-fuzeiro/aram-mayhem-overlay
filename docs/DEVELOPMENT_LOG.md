@@ -1142,3 +1142,16 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added `docs/plans/ADAPTIVE_SCORING_ANVILS_PRODUCT_CONTRACT_2026-11-23.md`: full roster per champion/context, numeric score + calibrated grade + meaningful tied ranking/denominator, patch/rarity/coverage/uncertainty; bought Stat Anvil popup at *any* inventory stage, actual OCR options only, full-build boots MS swap then stats; contextual, unobtrusive in-game display. New specs are **not equivalent to passing code**.
 - Added `docs/audits/CLAUDE_FULL_REVIEW_BRIEF_2026-11-23.md` with scoped read-only source inspections, code paths/math, five open P0/P1 issues, Riot/data license and native Windows acceptance questions and structured report requirements. Added `docs/audits/UX_AUDIT_SOURCE_NOTES_2026-11-23.md` as text-only summary of project-provided historic screenshot audit, excluding private screen pixels and web media placeholders. No AI Claude review result exists yet.
 - Linked documents from PROJECT_STATE/TODO and prepare pointer comment to #84 and #49. New audit docs-only commits require exact new final Windows gate; do not claim native popup triggered, OCR right, physical 4 cards supported, picked ID automatic or global tier/rank implemented.
+
+## 2026-11-23 — Local 10-player Mayhem history and impact metric (draft #108)
+
+- Owner approved importing local LCU Mayhem history for all 10 players. New local
+  `participants` table (salted local game key, no names/PUUIDs/summoner/match IDs,
+  never submitted); remakes skipped; existing own-game import unchanged.
+- `backend/tierdb/impact.py`: per game z(damage/min) + z(heal+shield/min) against
+  the champion's own baseline, summed, no role labels (owner refinement: full-AP
+  Sona counts by damage). Shrunk by n, bounded to [-1, 1].
+- `context_adjust` gains an `impact` vote with weight 0 (off). Gate:
+  `scripts/validate_impact_holdout.py` must return `enable` on real local history.
+- The LCU list returns at most 20 games per sync; ~1000 games at once would need
+  Riot SGP (owner decision pending). Doc: `docs/plans/TIERDB_IMPACT_METRIC_2026-11-23.md`.
