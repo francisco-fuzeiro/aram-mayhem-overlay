@@ -1383,3 +1383,62 @@ test("F3: full-build boot swap stays before conservative Anvil stat guidance", (
     h.api.renderBuild({...state, full_build: ids.slice(0, 5), boot_replacement: null});
     assert.equal(h.element("build-alternatives").children.length, 0);
 });
+
+test("TDB-UI2: offered augments show tier, rank, tie span and source level", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({
+        left: "great", centre: "weak", right: "nodata",
+    }),
+        recommendations: [
+            {augment_id: "great", augment_name: "Great", score: 7.2, label: [],
+                core_items_names: [], explanation: "Modelled", sample_size: 0},
+            {augment_id: "weak", augment_name: "Weak", score: 3.1, label: [],
+                core_items_names: [], explanation: "Modelled", sample_size: 0},
+        ],
+        suggest_reroll: false, tiers_enabled: true,
+        augment_tiers: {
+            great: {tier: "S", rank: 3, rank_total: 70, tie_group: 3, tie_end: 7,
+                level: "champion", confidence: "high", rarity: "gold"},
+            weak: {tier: "C", rank: 50, rank_total: 70, tie_group: 50, tie_end: 50,
+                level: "global", confidence: "low", rarity: "gold"},
+            nodata: {tier: null, rank: null, rank_total: 70, tie_group: null,
+                tie_end: null, level: "none", confidence: "none", rarity: "gold"},
+        },
+    });
+    const cards = h.element("augment-list").children;
+    const text = (card) => card.children.map((c) => c.textContent).join(" | ");
+    assert.match(text(cards[0]), /Tier S · #3\/70 \(tied #3–#7\) · champion data/);
+    assert.match(text(cards[1]), /Tier C · #50\/70 · global data/);
+    assert.match(text(cards[2]), /No tier data/);
+    assert.doesNotMatch(cards.map(text).join(" "), /win rate|%/i);
+});
+
+test("TDB-UI2: tiers switched off show nothing extra", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({left: "great"}),
+        recommendations: [{augment_id: "great", augment_name: "Great", score: 7.2,
+            label: [], core_items_names: [], explanation: "Modelled", sample_size: 0}],
+        suggest_reroll: false, tiers_enabled: false, augment_tiers: {}});
+    const card = h.element("augment-list").children[0];
+    assert.equal(card.children.some((c) => /Tier/.test(c.textContent)), false);
+});
+
+test("TDB-UI3: champion select shows Mayhem strength and potential side by side", () => {
+    const h = harness();
+    const base = {current: false, score: 6.0, tier: "B", role: "mage", reasons: [],
+        sample_size: 0};
+    h.api.handleMessage({
+        type: "champ_select", current_status: "unresolved",
+        candidates: [
+            {...base, id: "ahri", name: "Ahri", mayhem: {strength: "S",
+                potential: "very_high", rank: 4, rank_total: 172, tie_group: 3,
+                tie_end: 5, confidence: "high"}},
+            {...base, id: "lux", name: "Lux", mayhem: null},
+        ],
+    });
+    const cards = h.element("champ-select-list").children;
+    assert.equal(cards[0].children[0].textContent, "Ahri");
+    assert.equal(cards[0].children[3].textContent,
+        "Mayhem strength: S · #4/172 (tied #3–#5) · Potential: very high");
+    assert.equal(cards[1].children.length, 3);
+});
