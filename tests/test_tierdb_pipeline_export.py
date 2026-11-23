@@ -128,3 +128,22 @@ def test_tier_switch_defaults_on_and_is_separate_from_overlay_prefs(tmp_path):
         save_empirical_tiers_enabled("yes", tier_path)
     tier_path.write_text("not json", encoding="utf-8")
     assert load_empirical_tiers_enabled(tier_path) is True  # corrupt -> decided default
+
+
+def test_cli_ingest_build_export_offline(tmp_path):
+    from backend.tierdb.__main__ import main
+    from tests.test_tierdb_aramhex import _write_dataset
+
+    dataset = _write_dataset(tmp_path / "ds")
+    aliases = tmp_path / "aliases.json"
+    aliases.write_text(json.dumps({"1": "annie", "10": "kayle"}))
+    db, out = tmp_path / "t.sqlite", tmp_path / "out.json"
+    assert main(["--db", str(db), "ingest-aramhex", "--dir", str(dataset),
+                 "--aliases", str(aliases)]) == 0
+    s = TierStore(db)
+    run_id = run_build(s, "16.23", {"annie": "mage", "kayle": "fighter"}, **FAST)
+    s.close()
+    assert main(["--db", str(db), "export", "--run", str(run_id), "--out", str(out)]) == 0
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert doc["sources"][0]["name"] == "aramhex"
+    assert "CC BY-NC 4.0" in doc["sources"][0]["attribution"]

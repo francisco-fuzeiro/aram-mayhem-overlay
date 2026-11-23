@@ -45,3 +45,19 @@ THE SOFTWARE.
 No code or assets from either restricted/unconfirmed project were copied.
 Riot game data and intellectual property may have separate terms; this
 attribution does not imply Riot approval.
+
+## Third-party data (downloaded at runtime, not redistributed in this repository)
+
+### AramHex — ARAM: Mayhem statistics (CN server)
+
+Source: https://github.com/czgreat/aramhex-data — licensed under
+Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0).
+Attribution: "海克斯大乱斗统计数据（github.com/czgreat/aramhex-data），CC BY-NC 4.0".
+Not affiliated with Riot Games or Tencent.
+
+ARAM Oracle uses these statistics only while it is a non-commercial
+application (owner decision, 2026-11-23). The tier DB (`backend/tierdb/`)
+downloads them to the user's machine, verifies their SHA-256 checksums and
+derives tiers and ranks; win rates and sample sizes are never displayed. If
+the application becomes commercial, this source must be removed or
+authorised in writing; `ingest_aramhex(app_mode="commercial")` refuses it.
