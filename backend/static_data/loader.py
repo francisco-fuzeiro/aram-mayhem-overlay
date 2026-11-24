@@ -700,8 +700,30 @@ def _load_augments() -> dict[str, AugmentData]:
     # allowed to recover without a forced manual cache deletion.
     if cache_data:
         cache_file.write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
+    elif not result:
+        stale = _stale_augment_cache()
+        if stale:
+            _loader_logger.warning("CommunityDragon unavailable: using an older augment cache")
+            return stale
 
     return result
+
+
+def _stale_augment_cache() -> dict:
+    """Newest readable augment cache of any schema (offline fallback, 24/11)."""
+    try:
+        files = sorted(CACHE_DIR.glob("augments_v*_*.json"),
+                       key=lambda f: f.stat().st_mtime, reverse=True)
+    except OSError:
+        return {}
+    for f in files:
+        try:
+            parsed = _parse_augment_cache(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            continue
+        if parsed:
+            return parsed
+    return {}
 
 
 CURATED_EFFECTS_FILE = _APP_ROOT / "data" / "augments" / "curated_effects.json"

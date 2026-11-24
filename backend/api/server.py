@@ -443,6 +443,19 @@ def should_open_augment_scan(
     return (new_threshold and (due or not first_snapshot)) or (due and just_respawned)
 
 
+STATIC_LOAD_BUDGET_S = 40.0
+
+
+def _load_static_data() -> None:
+    started = time.monotonic()
+    try:
+        static_data.load()
+    except Exception:
+        logger.exception("Game data load failed")
+    else:
+        logger.warning("Game data ready after %.1f s", time.monotonic() - started)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
@@ -455,10 +468,24 @@ async def lifespan(app: FastAPI):
     game_state.overlay_preferences = saved_preferences["overlay"]
     # The first start after a catalog/cache schema change downloads Data
     # Dragon and CommunityDragon files again (field 24/11: > 15 s on the PC).
+    # Field 24/11: a hung download blocked the start for minutes. The load
+    # now runs in a thread with a budget; past it the API starts anyway and
+    # the data appears when the load finishes. A stack dump of every thread
+    # is printed at 25 s so the culprit is visible in the terminal.
+    import faulthandler
+    import threading
     logger.warning("Loading game data (the first start after an update can take a minute)…")
     started = time.monotonic()
-    static_data.load()
-    logger.warning("Game data loaded in %.1f s", time.monotonic() - started)
+    loader = threading.Thread(target=_load_static_data, name="static-data-load", daemon=True)
+    faulthandler.dump_traceback_later(25, repeat=False)
+    loader.start()
+    await asyncio.to_thread(loader.join, STATIC_LOAD_BUDGET_S)
+    faulthandler.cancel_dump_traceback_later()
+    if loader.is_alive():
+        logger.warning("Game data still loading after %.0f s: starting now, data will "
+                       "appear when the download finishes", STATIC_LOAD_BUDGET_S)
+    else:
+        logger.warning("Game data loaded in %.1f s", time.monotonic() - started)
     game_state.pipeline = Pipeline(static_data)
     feature_diagnostics.record("tierdb.switch", "ok",
                                "enabled" if tier_service.enabled() else "disabled")

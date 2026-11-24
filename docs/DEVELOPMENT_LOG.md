@@ -1383,3 +1383,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   match by pick or by order. Diagnostics `augment.postgame_reconcile`
   report agreed / corrected / unmatched counts only. The finished game is
   then imported and the impact holdout re-run.
+
+## 2026-11-24 — First start after an update took minutes
+
+- Field: the first start of 1202913 spent several minutes downloading the
+  catalogs again (cache schema change) and the desktop gave up at 15 s, so
+  the download never finished. Now the game data loads in a thread with a
+  40 s budget: past it the API starts anyway and the data appears when the
+  download ends; a stack dump of all threads prints at 25 s to show what is
+  slow. Without CommunityDragon the newest older augment cache is used.
+- Measured in the container: tiers + ±1 adjustment + synergies for 4 cards
+  take ~1.3 ms per refresh, far inside the 5 s budget for augments.
