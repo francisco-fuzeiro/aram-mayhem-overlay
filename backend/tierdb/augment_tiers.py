@@ -62,6 +62,9 @@ class AugmentTierRow:
     level: str
     confidence: str
     n_eff: float
+    # Owner 24/11: one list per champion across ALL rarities (like the public
+    # sites), ordered by the blended ΔWR effect. None = no empirical data.
+    rank_all: int | None = None
 
 
 def combine_components(z: dict, weights: dict):
@@ -184,10 +187,12 @@ def build_augment_tiers(
         return combine_components({"win": z}, config.weights), float(n)
 
     raw: dict[tuple[str, str], tuple] = {}
+    effect: dict[tuple[str, str], float] = {}
     for c in champs:
         for a in sorted(rarity):
             r = rarity[a]
             levels = []
+            deltas = []
             for name, stats, ref, key, k in (
                 ("champion", champ, ref_champ, (c, a), k1),
                 ("role", role, ref_role, (roles.get(c, ""), a), k2),
@@ -196,6 +201,7 @@ def build_augment_tiers(
                 s, n = level_score(stats, ref, key, r)
                 if s is not None:
                     levels.append((name, s, n, n / (n + k)))
+                    deltas.append((stats[key][1], n / (n + k)))
             h = heuristic.get((c, a))
             if h is not None:
                 levels.append(("curated", np.full(D, float(h)), 0.0, 1.0))
@@ -214,6 +220,11 @@ def build_augment_tiers(
                 remaining -= share
             _, level, n_eff = max(eff, key=lambda t: t[0])
             raw[(c, a)] = (acc, level, n_eff)
+            if deltas:  # same nested blend on the posterior-median ΔWR
+                d = None
+                for med_, w_ in reversed(deltas):
+                    d = med_ if d is None else w_ * med_ + (1 - w_) * d
+                effect[(c, a)] = d
 
     # Frozen thresholds per rarity from the empirical (levels 1-2) reference.
     thresholds: dict[str, dict[str, float]] = {}
@@ -255,4 +266,14 @@ def build_augment_tiers(
                         score_p20=None, score_p80=None, rank=None, tie_group=None,
                         tier=None, level="none", confidence="none", n_eff=0.0,
                     ))
+    # One ranking per champion across every rarity (owner decision 24/11).
+    from dataclasses import replace as _replace
+    by_champ: dict[str, list[int]] = {}
+    for idx, row in enumerate(rows):
+        if row.rank is not None and (row.champion_id, row.augment_id) in effect:
+            by_champ.setdefault(row.champion_id, []).append(idx)
+    for c, idxs in by_champ.items():
+        idxs.sort(key=lambda i_: (-effect[(c, rows[i_].augment_id)], rows[i_].augment_id))
+        for pos, idx in enumerate(idxs, start=1):
+            rows[idx] = _replace(rows[idx], rank_all=pos)
     return rows, thresholds

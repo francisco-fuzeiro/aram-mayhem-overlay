@@ -104,14 +104,33 @@ class TierListProvider:
             cols = doc["augment_columns"]
             augments = {}
             for champ, by_rarity in doc["augments"].items():
+                every = []
                 for rarity, rows in by_rarity.items():
                     entries = [dict(zip(cols, row)) for row in rows]
-                    _add_spans(entries)
-                    _apply_rank_tiers(entries)
                     for entry in entries:
-                        aid = entry.pop("augment_id")
                         entry["rarity"] = rarity
-                        augments[(champ, aid)] = entry
+                    every.extend(entries)
+                    if not any(isinstance(e.get("rank_all"), int) for e in entries):
+                        # Older export: ranks within each rarity.
+                        _add_spans(entries)
+                        _apply_rank_tiers(entries)
+                        entry_scope = "rarity"
+                        for entry in entries:
+                            entry["rank_scope"] = entry_scope
+                combined = [e for e in every if isinstance(e.get("rank_all"), int)]
+                if combined:
+                    # Owner 24/11: one list across all rarities; the tier is
+                    # the position in it (OP 1-5, S 6-15, ...).
+                    for e in every:
+                        e["rank"] = e.get("rank_all")
+                        e["tie_group"] = e["rank"]
+                        e["rank_scope"] = "all"
+                    _add_spans(every)
+                    _apply_rank_tiers(every)
+                for entry in every:
+                    entry.pop("rank_all", None)
+                    aid = entry.pop("augment_id")
+                    augments[(champ, aid)] = entry
             ccols = doc["champion_columns"]
             entries = [dict(zip(ccols, row)) for row in doc["champions"]]
             _add_spans(entries)

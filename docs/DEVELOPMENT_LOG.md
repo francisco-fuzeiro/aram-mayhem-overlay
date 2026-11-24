@@ -1419,3 +1419,13 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Champion select: the strength line names the tier and rank explicitly.
 - The badges above the cards with "x/222" are not ARAM Oracle's (another
   app); ours is the side panel.
+
+## 2026-11-24 — One augment list per champion across all rarities
+
+- Owner decision: a reroll can bring a card of another rarity, so augments
+  are ranked in ONE list per champion (all rarities), ordered by the blended
+  posterior-median ΔWR (same champion/role/global nesting as the score).
+  `augment_tier.rank_all` (additive migration), exported as `rank_all`; the
+  provider uses it as the rank and the tier is the position (OP 1–5, S 6–15,
+  ...). Older exports keep the per-rarity ranks until the next update.
+- Overlay label: "#n/N" of all augments; per-rarity exports say the rarity.

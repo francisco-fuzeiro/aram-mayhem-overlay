@@ -619,7 +619,8 @@
         if (!t || !t.tier || t.level === "none") return "No tier data for this champion";
         return "Tier " + t.tier + " · " +
             tierRankText(t.rank, t.rank_total, t.tie_group, t.tie_end) +
-            (rarityLabel(t.rarity) ? " of " + rarityLabel(t.rarity) + " augments" : "") + " · " +
+            (t.rank_scope !== "all" && rarityLabel(t.rarity)
+                ? " of " + rarityLabel(t.rarity) + " augments" : " of all augments") + " · " +
             (TIER_LEVEL_TEXT[t.level] || "estimate");
     }
 
@@ -1104,7 +1105,7 @@
             const arrow = t && t.adjust > 0 ? " ↑" : t && t.adjust < 0 ? " ↓" : "";
             const row = document.createElement("div");
             row.className = "augment-card" + (t && t === best ? " top-pick" : "");
-            const right = t ? tierPill(shown(t), arrow) + rankPill(t.rank, t.rank_total, t.rarity)
+            const right = t ? tierPill(shown(t), arrow) + rankPill(t.rank, t.rank_total, t.rank_scope === "all" ? null : t.rarity)
                 : '<span class="aug-score muted">' + esc(id ? "No tier data" : "Title unverified") + "</span>";
             row.innerHTML = '<div class="aug-row"><span class="aug-rank">' + (index + 1) +
                 '</span><span class="aug-name">' + esc(name) + "</span>" + right + "</div>";
@@ -1221,7 +1222,7 @@
                 : rec.modelled === false ? "No model"
                 : "Rating unavailable";
             const arrow = tier && tier.adjust > 0 ? " ↑" : tier && tier.adjust < 0 ? " ↓" : "";
-            const right = tier ? tierPill(shownTier(tier), arrow) + rankPill(tier.rank, tier.rank_total, tier.rarity)
+            const right = tier ? tierPill(shownTier(tier), arrow) + rankPill(tier.rank, tier.rank_total, tier.rank_scope === "all" ? null : tier.rarity)
                 : '<span class="aug-score' + (rated ? "" : " muted") + '">' + esc(score) + "</span>";
             row.innerHTML = '<div class="aug-row"><span class="aug-rank">' +
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
