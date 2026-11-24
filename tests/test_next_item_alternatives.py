@@ -41,37 +41,38 @@ def _alts(enemy, finals, plan=("ap1",), owned=(), context=None, follows=None):
 HEALERS = {"enemies_analyzed": 5, "sustain_pressure": 0.5}
 
 
-def test_grievous_wounds_leads_when_enemies_heal_a_lot():
-    out = _alts(HEALERS, ["ap2", "gw_ap", "ap3"])
-    assert out[0] == {"id": "gw_ap", "name": "GW_AP",
-                      "reason": "enemies heal a lot: Grievous Wounds"}
-    assert all(o["reason"] for o in out)
+def test_always_three_strongest_first_then_one_item_per_reason():
+    # Owner 24/11: strongest + 2 alternatives, never the same reason twice.
+    out = _alts(HEALERS, ["ap2", "gw_ap", "ap3", "mr"])
+    assert len(out) == 3
+    assert out[0] == {"id": "ap2", "name": "AP2", "reason": "strongest option left (#1)"}
+    assert out[1]["id"] == "gw_ap" and out[1]["reason"] == "enemies heal a lot: Grievous Wounds"
+    assert len({o["reason"] for o in out}) == 3
     assert "gw_ad" not in [o["id"] for o in out]  # archetype filter
 
 
 def test_grievous_wounds_falls_back_to_the_shop_pool():
     out = _alts(HEALERS, ["ap2", "ap3"])
-    assert out[0]["id"] == "gw_ap"
+    assert "gw_ap" in [o["id"] for o in out]
 
 
 def test_no_grievous_wounds_when_already_planned_or_enemies_do_not_heal():
     assert "gw_ap" not in [o["id"] for o in _alts(HEALERS, ["ap2"], plan=("ap1", "gw_ap"))]
     calm = {"enemies_analyzed": 5, "sustain_pressure": 0.1, "healing_items": 1}
     assert not server._enemy_heals_a_lot(calm)
-    assert _alts(calm, ["ap2"])[0]["id"] == "ap2"
+    assert "gw_ap" not in [o["id"] for o in _alts(calm, ["ap2", "ap3"])]
 
 
 def test_context_reason_and_no_boots_or_owned_items():
     ctx = lambda i: (1.5, "enemies deal mostly magic damage") if i == "mr" else (0.0, None)
     out = _alts({}, ["ap2", "mr", "boots", "ap3"], owned=("ap3",), context=ctx)
-    assert out[0] == {"id": "mr", "name": "MR", "reason": "enemies deal mostly magic damage"}
+    assert out[1] == {"id": "mr", "name": "MR", "reason": "enemies deal mostly magic damage"}
     ids = [o["id"] for o in out]
     assert "boots" not in ids and "ap3" not in ids and "ap1" not in ids
-    assert out[1]["reason"] == "strong on this champion (#1)"
 
 
 def test_own_sustain_rewards_heal_and_shield_power():
     amp = _item("amp", heal=0.1)
     assert server._item_context(amp, None, {}, {}, set(), own_sustain=0.5) == (
-        1.0, "amplifies your healing and shields")
+        1.5, "amplifies your healing and shields")
     assert server._item_context(amp, None, {}, {}, set(), own_sustain=0.1) == (0.0, None)

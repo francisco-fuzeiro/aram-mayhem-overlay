@@ -27,6 +27,7 @@ THRESHOLDS = {
     "assassins": 2,          # BU1
     "fed_margin": 3,         # kills >= deaths + margin
     "crit_enemies": 2,       # AR3
+    "skillshot_cc": 2,       # SS1: enemies with hooks / long-range engage
     "on_hit_enemies": 2,     # AR4
     "max_situational": 2,    # conflict rule 1
 }
@@ -45,9 +46,9 @@ def _names(*names) -> frozenset[str]:
 STRONG_HEALERS = _names(
     "Soraka", "Yuumi", "Sona", "Nami", "Vladimir", "Aatrox", "Sylas", "Swain",
     "Fiddlesticks", "Warwick", "Dr. Mundo", "Illaoi", "Briar", "Seraphine",
-    "Milio", "Senna")
+    "Milio", "Senna", "Maokai", "Zac")  # owner 24/11: Maokai/Zac passives
 MEDIUM_HEALERS = _names(
-    "Olaf", "Darius", "Nasus", "Trundle", "Volibear", "Maokai", "Zac", "Kayn",
+    "Olaf", "Darius", "Nasus", "Trundle", "Volibear", "Kayn",
     "Gwen", "Udyr", "Fiora", "Irelia", "Samira", "Ekko", "Kindred", "Naafiri",
     "Ahri", "Taric", "Renekton", "Tryndamere", "Yorick", "Bel'Veth")
 SHIELDERS = _names(
@@ -67,12 +68,26 @@ ON_HIT = _names(
     "Kai'Sa", "Jax", "Gwen", "Teemo", "Shaco", "Irelia", "Viego", "Ashe",
     "Jinx", "Tristana", "Zeri", "Warwick")
 SUPPRESSORS = _names("Malzahar", "Skarner", "Tahm Kench", "Urgot", "Warwick")
+# Owner 24/11: long-range engage / hooks / thrown CC -> spell shield.
+SKILLSHOT_CC = _names(
+    "Blitzcrank", "Thresh", "Nautilus", "Pyke", "Morgana", "Lux", "Ashe", "Leona",
+    "Amumu", "Sejuani", "Varus", "Zyra", "Rell", "Neeko", "Bard", "Xerath",
+    "Elise", "Zoe", "Jhin", "Karma", "Rakan", "Alistar", "Malphite", "Galio")
 RANGED_ROLES = frozenset({"marksman", "mage"})
 
 GW_ITEMS = _names("Mortal Reminder", "Chempunk Chainsword", "Morellonomicon",
                   "Thornmail", "Executioner's Calling", "Oblivion Orb", "Bramble Vest")
 SHIELD_ITEMS = _names("Sterak's Gage", "Immortal Shieldbow", "Maw of Malmortius",
                       "Locket of the Iron Solari", "Seraph's Embrace", "Archangel's Staff")
+
+
+def own_healing(champion) -> float:
+    """1.0 strong self-healer, 0.5 medium, 0 otherwise (curated lists)."""
+    name = _norm(getattr(champion, "name", ""))
+    return 1.0 if name in STRONG_HEALERS else 0.5 if name in MEDIUM_HEALERS else 0.0
+
+
+HEAL_AMP_ITEMS = _names("Spirit Visage")
 
 
 @dataclass(frozen=True)
@@ -103,6 +118,7 @@ class Facts:
     on_hit_enemies: int = 0
     magic_burst: int = 0
     magic_poke: int = 0
+    skillshot_cc: int = 0
     cc_pressure: float = 0.0
     has_gw: bool = False
     enemy_gw: bool = False
@@ -153,6 +169,7 @@ def gather_facts(champion, enemy_states, enemy_profile, owned_items, augment_nam
         f.suppressors += name in SUPPRESSORS
         f.magic_burst += name in MAGIC_BURST
         f.magic_poke += name in MAGIC_POKE
+        f.skillshot_cc += name in SKILLSHOT_CC
         attack_speed = sum("AttackSpeed" in _tags(i) for i in finals)
         f.on_hit_enemies += name in ON_HIT or attack_speed >= 1
         if role == "assassin":
@@ -205,6 +222,9 @@ def fire_rules(f: Facts) -> list[Rule]:
                  else ("Edge of Night",) if role == "assassin"
                  else ("Sterak's Gage", "Maw of Malmortius"))
         add("BU1", 1 if f.fed_assassin else 3, items, "enemy assassins: anti-burst item")
+    if f.skillshot_cc >= THRESHOLDS["skillshot_cc"] and carry and not aegis:
+        add("SS1", 3, ("Banshee's Veil",) if ap else ("Edge of Night",),
+            "hooks and long-range crowd control: spell shield")
     if f.magic_share >= t["magic_heavy"]:
         if role in ("tank", "fighter") and f.own_heals:
             add("MR1", 4, ("Spirit Visage",), "heavy magic damage and amplifies your healing")
@@ -238,12 +258,13 @@ def fire_rules(f: Facts) -> list[Rule]:
             "many enemy shields: Serpent's Fang")  # SH2: weaker when ranged
     if f.tanks >= t["tanks"] or f.armor_items >= t["armor_items"]:
         if ap:
-            add("PEN2", 6, ("Void Staff", "Liandry's Torment", "Cryptbloom"),
-                "enemy tanks: magic penetration")
+            add("PEN2", 6, ("Liandry's Torment", "Void Staff", "Cryptbloom"),
+                "kills tanks")
         elif ad:
-            add("PEN1", 6, ("Lord Dominik's Regards",) if role == "marksman"
-                else ("Black Cleaver", "Serylda's Grudge"),
-                "enemy tanks: armor penetration")
+            add("PEN1", 6, ("Blade of The Ruined King", "Lord Dominik's Regards")
+                if role == "marksman"
+                else ("Black Cleaver", "Blade of The Ruined King", "Serylda's Grudge"),
+                "kills tanks")
     if f.cc_pressure >= 0.55 and role == "fighter" and not aegis:
         add("CC2", 6, ("Sterak's Gage", "Wit's End", "Mercurial Scimitar"),
             "heavy crowd control: tenacity")

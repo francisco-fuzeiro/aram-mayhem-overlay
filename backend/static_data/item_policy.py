@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-ITEM_POLICY_VERSION = "item_pool_v5"  # v5: DD omits "from" on base components
+ITEM_POLICY_VERSION = "item_pool_v6"  # v6: Tear items with unbuyable transforms are final
 ARAM_MAP_ID = "12"
 _SHOP_ID_PATTERN = re.compile(r"(?:\d{4}|12\d{4})")
 _REWARD_ID_PATTERN = re.compile(r"22\d{4}")
@@ -93,7 +93,26 @@ def load_item_overrides(path: Path | None = None) -> dict:
     return data
 
 
-def classify_item(item_id: str, dd: dict, cd: dict | None, overrides: dict) -> ItemClass:
+def _upgrades_only_by_transform(dd: dict, catalog: dict | None) -> bool:
+    """Field 24/11: Tear items (Manamune, Archangel's, Winter's Approach)
+    list their stacked transform (Muramana, Seraph's, Fimbulwinter) under
+    "into", but nobody can BUY that transform: they are terminal purchases.
+    Unknown targets keep the conservative component reading."""
+    into = dd.get("into") or []
+    if not into or not isinstance(catalog, dict):
+        return False
+    for target in into:
+        t = catalog.get(str(target))
+        if not isinstance(t, dict):
+            return False
+        gold = t.get("gold") or {}
+        if gold.get("purchasable") is True and t.get("inStore", True) is not False:
+            return False
+    return True
+
+
+def classify_item(item_id: str, dd: dict, cd: dict | None, overrides: dict,
+                  catalog: dict | None = None) -> ItemClass:
     """Classify using explicit precedence; never infer access from a price.
 
     Source recipe consistency is checked by the loader on full raw records.
@@ -155,7 +174,8 @@ def classify_item(item_id: str, dd: dict, cd: dict | None, overrides: dict) -> I
         if total >= TIER2_BOOTS_MIN_COST and dd.get("from"):
             return "boots_tier2"
         return "component"
-    if not dd.get("into") and total >= FINAL_ITEM_MIN_COST:
+    if ((not dd.get("into") or _upgrades_only_by_transform(dd, catalog))
+            and total >= FINAL_ITEM_MIN_COST):
         return "final"
     return "component"
 

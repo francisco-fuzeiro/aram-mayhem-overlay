@@ -36,4 +36,4 @@ def test_missing_dd_from_never_matches_a_real_cd_recipe():
 
 def test_item_cache_policy_is_bumped_so_old_unknown_classes_rebuild():
     from backend.static_data.item_policy import ITEM_POLICY_VERSION
-    assert ITEM_POLICY_VERSION == "item_pool_v5"
+    assert ITEM_POLICY_VERSION == "item_pool_v6"

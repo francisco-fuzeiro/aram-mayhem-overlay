@@ -26,8 +26,10 @@ class AdjustConfig:
     personal_min_games: int = 5
     # "impact" (local 10-player history, backend.tierdb.impact) stays at 0 =
     # off until scripts/validate_impact_holdout.py shows it improves the holdout.
+    # Owner 24/11: healing/shield augments on champions that heal themselves
+    # (Swain, Maokai, Zac...) make them much harder to kill.
     weights: tuple = (("build", 0.40), ("synergy", 0.25), ("enemy", 0.20),
-                      ("personal", 0.15), ("impact", 0.0))
+                      ("sustain", 0.35), ("personal", 0.15), ("impact", 0.0))
 
 
 def _cos(a: dict, b: dict) -> float | None:
@@ -53,6 +55,7 @@ def context_adjust(
     personal: tuple[int, int] | None = None,
     personal_base: float | None = None,
     impact: float | None = None,
+    own_healing: float = 0.0,
     config: AdjustConfig = AdjustConfig(),
 ) -> tuple[int, str | None]:
     """(step in -1..1, reason) for one offered augment; (0, None) without context."""
@@ -80,9 +83,15 @@ def context_adjust(
             vote = (1.0, "cuts through enemy tanks")
         elif aug.get("hp", 0) + aug.get("shield", 0) >= 0.5 and e.get("burst_pressure", 0) >= 0.5:
             vote = (1.0, "survives enemy burst")
-        elif aug.get("heal_power", 0) >= 0.5 and e.get("healing_items", 0) >= 3:
+        elif aug.get("heal_power", 0) >= 0.5 and e.get("anti_heal_items", 0) >= 2:
+            # Fix 24/11: enemy HEALING items never cut our healing; their
+            # Grievous Wounds items do.
             vote = (-1.0, "enemies cut healing")
         votes["enemy"] = vote
+    if aug and own_healing > 0 and aug.get("heal_power", 0) + aug.get("shield", 0) >= 0.5:
+        cut = e.get("anti_heal_items", 0) >= 2
+        votes["sustain"] = ((0.0, None) if cut else
+                            (min(1.0, own_healing), "amplifies your healing"))
     if personal and personal_base is not None:
         wins, games = personal
         if games >= config.personal_min_games:

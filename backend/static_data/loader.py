@@ -914,7 +914,7 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
         if not isinstance(data, dict):
             continue
         cd = cd_index.get(ident) if cd_index is not None else None
-        category = classify_item(ident, data, cd, overrides)
+        category = classify_item(ident, data, cd, overrides, catalog=items_raw)
         # Validate price and recipe on every prospective shop item. Non-shop
         # exclusions retain their reason even if their source recipes differ.
         if category in POOL_CLASSES and cd is not None and not sources_agree(data, cd):

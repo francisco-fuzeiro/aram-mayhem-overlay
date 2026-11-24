@@ -88,7 +88,7 @@ def test_item_loader_emits_diagnostic_from_verified_catalog(monkeypatch, tmp_pat
     offline_loader(monkeypatch, tmp_path)
     catalog = _load_items()
     assert catalog.meta.availability == "verified_two_source"
-    assert ("build.item_pool", "ok", "final_items", 104) in observed
+    assert ("build.item_pool", "ok", "final_items", 105) in observed
 
 def test_old_v3_cache_invalidated_after_semantic_fix(monkeypatch, tmp_path):
     import json
@@ -96,15 +96,15 @@ def test_old_v3_cache_invalidated_after_semantic_fix(monkeypatch, tmp_path):
 
     offline_loader(monkeypatch, tmp_path)
     first = _load_items()
-    assert first.meta.policy_version == "item_pool_v5"
+    assert first.meta.policy_version == "item_pool_v6"
     cache = tmp_path / "items_v5_16.23.1.json"
     payload = json.loads(cache.read_text(encoding="utf-8"))
     payload["meta"]["policy_version"] = "item_pool_v3"
     cache.write_text(json.dumps(payload), encoding="utf-8")
     rebuilt = loader._load_items()
     assert rebuilt.data_source == "network"
-    assert rebuilt.meta.policy_version == "item_pool_v5"
-    assert sum(x == "final" for x in rebuilt.classes.values()) == 104
+    assert rebuilt.meta.policy_version == "item_pool_v6"
+    assert sum(x == "final" for x in rebuilt.classes.values()) == 105
 
 
 def test_unverified_source_has_feature_skip_reason(monkeypatch, tmp_path):

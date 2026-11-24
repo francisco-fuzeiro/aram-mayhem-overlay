@@ -100,7 +100,7 @@ def test_exclusive_groups_loaded_from_verified_dd_and_survive_cache(monkeypatch,
         "Spellblade": {"2510", "3078", "3100", "3508", "6662"},
         "Lifeline": {"2525", "3053", "3156", "6673"},
         "Cleave": {"3074", "3748", "6631", "6698"},
-        "Manaflow": {"3003", "3004", "3119"},
+        "Manaflow": {"2526", "3003", "3004", "3119"},  # 24/11: Whispering Circlet is final
         "Immolate": {"3068", "6664"},
         "Annul": {"3102", "3814"},
     }.items():

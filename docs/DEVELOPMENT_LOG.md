@@ -1295,3 +1295,22 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   not), ~55 ms per look, once per second, in memory only.
 - Debounced (open on one sighting, closed after two misses), pushed to the
   overlay as `shop_state`; dead / first minute / Alt+B still show it too.
+
+## 2026-11-24 — Alternatives always three, healing as a context axis, Tear
+
+- Owner: always three options beside the plan (strongest item left + two
+  alternatives), one item per reason (anti-heal, kills tanks, anti-burst,
+  spell shield vs hooks/long-range CC, resistances, healing amp), with
+  distinct fallbacks ("more survivability", "more damage") so the three
+  reasons never repeat. New situational rule SS1 (Banshee's / Edge of Night
+  vs >= 2 hook/engage champions); PEN rules now prefer BotRK / Liandry's.
+- Healing: curated self-healers (Maokai and Zac moved to strong) or a build
+  with lifesteal/omnivamp feed the augment ±1 adjustment ("sustain" vote,
+  base tier untouched) and favour Spirit Visage (by name: its healing amp is
+  passive text, not a Data Dragon stat). Two or more visible enemy Grievous
+  Wounds items cancel/halve it. Fix: the "enemies cut healing" vote looked at
+  enemy HEALING items; it now counts their anti-heal items
+  (EnemyThreatProfile.anti_heal_items).
+- Mana-stacking items: Tear of the Goddess becomes Next early while a Tear
+  item is planned. Whispering Circlet (transform not buyable) is now a final
+  item (policy item_pool_v6); Manamune/Archangel's/Winter's were already final.

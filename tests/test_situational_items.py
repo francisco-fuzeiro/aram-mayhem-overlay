@@ -123,3 +123,36 @@ def test_server_wiring_uses_visible_enemies_and_fails_closed():
     broken = NS(**{**vars(sd), "get_champion": lambda _c: 1 / 0})
     assert server._situational_alternatives(
         CHAMPS["lux"], [], [], [], {}, states, "ap", lambda a, b: False, broken) == []
+
+
+def test_tear_is_next_early_when_a_mana_stacking_item_is_planned():
+    items = {"3070": NS(id="3070", name="Tear", from_ids=(), final=False, boots=False, cost=400),
+             "3004": NS(id="3004", name="Manamune", from_ids=("3070", "1036"), final=True,
+                        boots=False, cost=2900),
+             "a": NS(id="a", name="A", from_ids=(), final=True, boots=False, cost=3000)}
+    sd = NS(get_item=items.get, canonical_item_id=str)
+    mayhem = {"adapted": [{"id": "a"}, {"id": "3004"}], "boots": None, "alternatives": []}
+    out = server._align_next_with_mayhem_build(
+        {"next_item_id": "a", "purchased_items": []}, mayhem, 0, sd)
+    assert out["next_item_id"] == "3070" and out["next_reason"] == "start stacking mana early"
+    out = server._align_next_with_mayhem_build(
+        {"next_item_id": "a", "purchased_items": ["3070"]}, mayhem, 0, sd)
+    assert out["next_item_id"] == "a"
+
+
+def test_spell_shield_against_hooks_and_healing_level():
+    CHAMPS["blitz"] = champ("blitz", "Blitzcrank", "tank", ad=0.3)
+    CHAMPS["thresh"] = champ("thresh", "Thresh", "support", ap=0.3)
+    assert "SS1" in rules(facts("jinx", [("blitz", 0, 0), ("thresh", 0, 0)], kind="ad"))
+    assert si.own_healing(champ("m", "Maokai", "tank")) == 1.0
+    assert si.own_healing(champ("d", "Darius", "fighter")) == 0.5
+    assert si.own_healing(CHAMPS["jinx"]) == 0.0
+
+
+def test_healing_augments_move_up_only_for_healers_and_not_against_gw():
+    from backend.tierdb.context_adjust import context_adjust
+    heal = {"heal_power": 1.0}
+    assert context_adjust(heal, demand=None, own_healing=1.0) == (1, "amplifies your healing")
+    assert context_adjust(heal, demand=None, own_healing=0.0) == (0, None)
+    enemy = {"enemies_analyzed": 5, "anti_heal_items": 2}
+    assert context_adjust(heal, demand=None, enemy=enemy, own_healing=1.0)[0] <= 0

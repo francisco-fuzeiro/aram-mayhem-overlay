@@ -561,10 +561,17 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd):
         personal, record_ = {}, None
     base = (record_[0] / record_[1]) if record_ and record_[1] >= 10 else 0.5
 
+    from backend.engine.situational_items import own_healing
+    healer = own_healing(champion)
+    if not healer and any(
+            getattr(sd.get_item(i), "properties", frozenset()) & {"lifesteal", "omnivamp"}
+            for i in items if i):
+        healer = 0.5  # owner 24/11: builds lifesteal / omnivamp
+
     def adjust(aid):
         return context_adjust(vec(get_aug(str(aid))), demand=demand, chosen=chosen,
                               enemy=enemy or {}, personal=personal.get(str(aid)),
-                              personal_base=base)
+                              personal_base=base, own_healing=healer)
     return adjust
 
 
@@ -671,9 +678,15 @@ def _item_context(item, champion, enemy: dict, allies: dict, fate: set,
     # Owner 24/11: amplify the player's own healing and shields (abilities
     # + confirmed augments) with heal/shield power items.
     stats = getattr(item, "stats", None)
-    if own_sustain >= 0.4 and stats is not None and float(stats.heal_power or 0) > 0:
-        reasons.append((1.0, "amplifies your healing and shields"))
     e = enemy or {}
+    from backend.engine.situational_items import HEAL_AMP_ITEMS, _norm
+    amp = (stats is not None and float(stats.heal_power or 0) > 0) or (
+        item is not None and _norm(getattr(item, "name", "")) in HEAL_AMP_ITEMS)
+    if own_sustain >= 0.4 and amp:
+        # Owner 24/11: Swain/Maokai/Zac -> Spirit Visage beats another MR item.
+        # Visible enemy Grievous Wounds halve that value.
+        cut = int(e.get("anti_heal_items") or 0) >= 2
+        reasons.append((0.75 if cut else 1.5, "amplifies your healing and shields"))
     if e.get("enemies_analyzed", 0) > 0 and props:
         ap = champion is not None and (champion.role.lower() == "mage"
                                        or champion.stats.ap > champion.stats.ad)
@@ -776,9 +789,11 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     for aug in chosen:
         fate |= set((data.get("fate") or {}).get(aug, []))
 
+    from backend.engine.situational_items import own_healing
     own_sustain = 0.0
     if champion is not None:
-        own_sustain = float(champion.stats.heal_power or 0) + float(champion.stats.shield or 0)
+        own_sustain = (float(champion.stats.heal_power or 0) + float(champion.stats.shield or 0)
+                       + own_healing(champion))
     for aug in chosen:
         vec_ = _stat_vector_of(sd.get_augment(aug) if hasattr(sd, "get_augment") else None)
         if vec_ is not None:
@@ -881,12 +896,18 @@ def _situational_alternatives(champion, chosen, owned_ids, plan, enemy, enemy_st
         return []
 
 
+ANTI_TANK_ITEMS = ("Blade of The Ruined King", "Liandry's Torment", "Lord Dominik's Regards",
+                   "Void Staff", "Black Cleaver", "Serylda's Grudge", "Kraken Slayer")
+
+
 def _next_item_alternatives(plan, owned, finals, strength, context, conflicts,
                             enemy, follows, sd, name, limit: int = 3,
                             situational=None) -> list[dict]:
-    """Owner 24/11: with the shop open, options to the next item, each with
-    its reason. Grievous Wounds leads when the enemies heal a lot and the
-    plan has none. Heuristic context over the measured item ranks."""
+    """Owner 24/11: ALWAYS three options beside the plan (also in the
+    pre-build): the strongest item left, then alternatives with ONE item per
+    reason (anti-heal, anti-tank, anti-burst, spell shield, resistances...).
+    Heuristic reasons over the measured item ranks; never win rates."""
+    from backend.engine.situational_items import _norm
     from backend.tierdb.build_adapt import item_archetype
 
     def item(iid):
@@ -899,44 +920,87 @@ def _next_item_alternatives(plan, owned, finals, strength, context, conflicts,
     kinds = [item_archetype(item(i)) for i in plan]
     kind = follows or ("ap" if kinds.count("ap") > kinds.count("ad") else
                        "ad" if kinds.count("ad") > kinds.count("ap") else None)
+    chosen: list[dict] = []
 
     def fits(iid):
         it = item(iid)
         if it is None or getattr(it, "boots", False) or iid in taken:
             return False
-        if any(conflicts(iid, o) for o in taken):
+        if any(o["id"] == iid for o in chosen):
+            return False
+        if any(conflicts(iid, o) for o in taken | {o["id"] for o in chosen}):
             return False
         k = item_archetype(it)
         return k is None or kind is None or k == kind
 
-    out: list[dict] = [dict(s) for s in (situational or [])
-                       if s.get("id") and s["id"] not in taken][:limit]
-    if any("anti_heal" in props(o["id"]) for o in out):
-        taken = taken | {o["id"] for o in out}
-    if (not out and _enemy_heals_a_lot(enemy)
-            and not any("anti_heal" in props(i) for i in taken)):
+    def add(iid, reason, **extra):
+        if (len(chosen) >= limit or not reason or not fits(iid)
+                or any(o["reason"] == reason for o in chosen)):
+            return False
+        if "anti_heal" in props(iid) and any("anti_heal" in props(o["id"]) for o in chosen):
+            return False  # Grievous Wounds never stacks
+        chosen.append({"id": iid, "name": name(iid), "reason": reason, **extra})
+        return True
+
+    ranked = sorted((i for i in finals if fits(i)),
+                    key=lambda i: (-strength.get(i, 0.0), i))
+    if ranked:
+        rank = (finals.get(ranked[0]) or {}).get("rank")
+        add(ranked[0], f"strongest option left (#{rank})" if rank else "strongest option left")
+    for s in situational or []:
+        if s.get("id"):
+            add(s["id"], s.get("reason"),
+                **{k: s[k] for k in ("rule", "urgent") if k in s})
+    if (_enemy_heals_a_lot(enemy) and not any("anti_heal" in props(i) for i in taken)
+            and not any("anti_heal" in props(o["id"]) for o in chosen)):
         pool = [i for i in finals if "anti_heal" in props(i) and fits(i)]
         if not pool and hasattr(sd, "recommendable_items"):
             pool = [it.id for it in sd.recommendable_items()
                     if "anti_heal" in (it.properties or ()) and fits(it.id)]
         if pool:
-            best = max(pool, key=lambda i: (strength.get(i, 0.0), i))
-            out.append({"id": best, "name": name(best),
-                        "reason": "enemies heal a lot: Grievous Wounds"})
-    scored = []
-    for iid in finals:
-        if not fits(iid) or any(o["id"] == iid for o in out):
-            continue
-        bonus, reason = context(iid)
-        rank = (finals.get(iid) or {}).get("rank")
-        scored.append((strength.get(iid, 0.0) + bonus, iid,
-                       reason or (f"strong on this champion (#{rank})" if rank else None)))
-    for _value, iid, reason in sorted(scored, key=lambda t: (-t[0], t[1])):
-        if len(out) >= limit:
+            add(max(pool, key=lambda i: (strength.get(i, 0.0), i)),
+                "enemies heal a lot: Grievous Wounds")
+    scored = sorted(((strength.get(i, 0.0) + context(i)[0], i) for i in ranked),
+                    key=lambda t: (-t[0], t[1]))
+    for _value, iid in scored:
+        add(iid, context(iid)[1])
+    e = enemy or {}
+    names = {_norm(getattr(item(i), "name", "")): i for i in ranked}
+    if int(e.get("tanks") or 0) >= 2:
+        for wanted in ANTI_TANK_ITEMS:
+            if _norm(wanted) in names and add(names[_norm(wanted)], "kills tanks"):
+                break
+    # Distinct fallbacks so there are always three different reasons.
+    defensive = [i for i in ranked if props(i) & {"armor", "magic_resist", "health"}]
+    offensive = [i for i in ranked if item_archetype(item(i)) is not None]
+    for pool, reason in ((defensive, "more survivability"), (offensive, "more damage"),
+                         (ranked, "solid alternative")):
+        for iid in pool:
+            if add(iid, reason):
+                break
+    for iid in ranked:  # last resort: still three items
+        if len(chosen) >= limit:
             break
-        if reason:
-            out.append({"id": iid, "name": name(iid), "reason": reason})
-    return out[:limit]
+        rank = (finals.get(iid) or {}).get("rank")
+        add(iid, f"also strong on this champion (#{rank})" if rank else "another option")
+    return chosen[:limit]
+
+
+TEAR_ID = "3070"
+
+
+def _early_tear(plan, owned, sd) -> str | None:
+    """Tear of the Goddess as Next while a Tear item is planned and no Tear
+    (or Tear item) is owned yet, and at most one other item is finished."""
+    tear = sd.get_item(TEAR_ID)
+    if tear is None or TEAR_ID in owned:
+        return None
+    family = [i for i in plan if TEAR_ID in (getattr(sd.get_item(i), "from_ids", ()) or ())]
+    if not family or any(i in owned for i in family):
+        return None
+    finished = [i for i in owned if getattr(sd.get_item(i), "final", False)
+                and not getattr(sd.get_item(i), "boots", False)]
+    return TEAR_ID if len(finished) <= 1 else None
 
 
 def _align_next_with_mayhem_build(build_state: dict, mayhem: dict | None,
@@ -986,6 +1050,11 @@ def _align_next_with_mayhem_build(build_state: dict, mayhem: dict | None,
         # (heavy healing, suppression, fed assassin) replace Next.
         candidate = urgent["id"]
         out["next_reason"] = urgent.get("reason")
+    elif (tear := _early_tear(plan, owned, sd)) is not None:
+        # Owner 24/11: mana-stacking items (Manamune, Archangel's, Winter's
+        # Approach...) are never worth it late; buy the Tear first.
+        candidate = tear
+        out["next_reason"] = "start stacking mana early"
     else:
         # Boots timing is the engine's: they are Next only when it says so.
         candidate = next((i for i in plan if i not in owned and not is_boots(i)), None)
