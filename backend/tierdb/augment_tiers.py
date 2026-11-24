@@ -26,9 +26,12 @@ from dataclasses import dataclass, field
 import numpy as np
 
 TIER_ORDER = ("OP", "S", "A", "B", "C", "D", "E")
-LEVELS = ("champion", "role", "global", "curated")
-LEVEL_CAP = {"champion": "OP", "role": "S", "global": "S", "curated": "A"}
-LEVEL_CONFIDENCE = {"champion": "high", "role": "medium", "global": "low",
+LEVELS = ("champion", "role", "global", "curated", "borrowed")
+# "borrowed": no game of this augment on this champion; the score only comes
+# from the class/global/curated levels. Owner decision 24/11 (OP.GG check):
+# such augments rank after every augment with champion games, tier E.
+LEVEL_CAP = {"champion": "OP", "role": "S", "global": "S", "curated": "A", "borrowed": "E"}
+LEVEL_CONFIDENCE = {"champion": "high", "role": "medium", "global": "low", "borrowed": "low",
                     "curated": "heuristic"}
 
 
@@ -219,6 +222,8 @@ def build_augment_tiers(
                 eff.append((share, name, n))
                 remaining -= share
             _, level, n_eff = max(eff, key=lambda t: t[0])
+            if (c, a) not in champ:
+                level = "borrowed"
             raw[(c, a)] = (acc, level, n_eff)
             if deltas:  # same nested blend on the posterior-median ΔWR
                 d = None
@@ -241,15 +246,17 @@ def build_augment_tiers(
         for r in sorted(set(rarity.values())):
             augs = [a for a in sorted(rarity) if rarity[a] == r]
             scored = [(a, raw[(c, a)]) for a in augs if raw.get((c, a)) is not None]
-            scored.sort(key=lambda t: (-float(np.median(t[1][0])), t[0]))
+            scored.sort(key=lambda t: (t[1][1] == "borrowed",
+                                       -float(np.median(t[1][0])), t[0]))
             group = 0
-            leader = None
+            leader, leader_level = None, None
             for rank, (a, (draws, level, n_eff)) in enumerate(scored, start=1):
                 # Tied = not distinguishable from the group's first augment
                 # (comparing neighbours only chained whole lists together).
-                if leader is None or float(np.mean(leader > draws)) >= config.tie_probability:
+                if (leader is None or level == "borrowed" and leader_level != "borrowed"
+                        or float(np.mean(leader > draws)) >= config.tie_probability):
                     group = rank
-                    leader = draws
+                    leader, leader_level = draws, level
                 med = float(np.median(draws))
                 p20, p80 = (float(x) for x in np.percentile(draws, [20, 80]))
                 rows.append(AugmentTierRow(
@@ -273,7 +280,8 @@ def build_augment_tiers(
         if row.rank is not None and (row.champion_id, row.augment_id) in effect:
             by_champ.setdefault(row.champion_id, []).append(idx)
     for c, idxs in by_champ.items():
-        idxs.sort(key=lambda i_: (-effect[(c, rows[i_].augment_id)], rows[i_].augment_id))
+        idxs.sort(key=lambda i_: (rows[i_].level == "borrowed",
+                                  -effect[(c, rows[i_].augment_id)], rows[i_].augment_id))
         for pos, idx in enumerate(idxs, start=1):
             rows[idx] = _replace(rows[idx], rank_all=pos)
     return rows, thresholds

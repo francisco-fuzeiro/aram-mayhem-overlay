@@ -74,21 +74,37 @@ def test_pair_without_data_falls_back_to_role_level():
     pairs = {("lux", "burn"): (6000, 10000), ("garen", "burn"): (500, 1000)}
     rows, _ = _world(pairs, champions=champions, roles=roles)
     row = _by(rows, "ahri", "burn")
-    assert row.level == "role"
-    assert row.confidence == "medium"
-    assert row.tier in {"S", "A", "B", "C", "D", "E"}  # never OP
+    # Owner 24/11: no game on the champion -> borrowed score, always tier E.
+    assert row.level == "borrowed"
+    assert row.confidence == "low"
+    assert row.tier == "E"
 
 
-def test_heuristic_only_is_capped_at_a():
+def test_augments_without_champion_games_rank_after_those_with_games():
+    """OP.GG check 24/11: role/global fallbacks (Draw Your Sword on melee,
+    Blue Barrier on manaless champions) were topping champion lists."""
+    champions = {"rengar": (5000, 10000), "yi": (50000, 100000)}
+    roles = {"rengar": "assassin", "yi": "assassin"}
+    pairs = {("yi", "great"): (70000, 100000), ("rengar", "weak"): (900, 2000),
+             ("yi", "weak"): (900, 2000)}
+    rows, _ = _world(pairs, champions=champions, roles=roles)
+    great, weak = _by(rows, "rengar", "great"), _by(rows, "rengar", "weak")
+    assert great.level == "borrowed" and great.tier == "E"
+    assert weak.rank < great.rank
+    assert weak.rank_all < great.rank_all
+    assert great.tie_group != weak.tie_group
+
+
+def test_heuristic_only_without_games_is_borrowed_tier_e():
     rarity = {"curated": "gold", "other": "gold"}
     rows, _ = build_augment_tiers(
         {"ahri": (5000, 10000)}, {}, rarity, {"ahri": "mage"},
         {("ahri", "curated"): 10.0, ("ahri", "other"): 1.0}, CFG,
     )
     row = _by(rows, "ahri", "curated")
-    assert row.level == "curated"
-    assert row.confidence == "heuristic"
-    assert row.tier == "A"
+    # Owner 24/11: no game of the augment on the champion -> tier E, last.
+    assert row.level == "borrowed"
+    assert row.tier == "E"
 
 
 def test_no_data_and_no_model_is_explicit_not_zero():

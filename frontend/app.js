@@ -575,7 +575,7 @@
 
     const TIER_ORDER = ["OP", "S", "A", "B", "C", "D", "E"];
     const TIER_LEVEL_TEXT = {champion: "champion data", role: "class data",
-        global: "global data", curated: "estimate"};
+        global: "global data", curated: "estimate", borrowed: "no games on this champion"};
     const POTENTIAL_TEXT = {very_low: "very low", low: "low", medium: "medium",
         high: "high", very_high: "very high"};
 

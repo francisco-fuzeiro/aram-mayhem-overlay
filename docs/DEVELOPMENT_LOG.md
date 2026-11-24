@@ -1429,3 +1429,9 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   provider uses it as the rank and the tier is the position (OP 1–5, S 6–15,
   ...). Older exports keep the per-rarity ranks until the next update.
 - Overlay label: "#n/N" of all augments; per-rarity exports say the rarity.
+
+## 2026-11-24 — Augments without champion games rank last (tier E)
+
+- A validation check against an external Mayhem tier list (analysis only, nothing imported) showed ~40% of each champion's top 30 augments had zero games on that champion: their score came from the class/global levels (Draw Your Sword on melee champions, Blue Barrier on manaless Rengar, enchanter augments on Akali).
+- Owner decision 24/11: such augments rank after every augment with champion games, with tier E, and stay visible. New level `borrowed` (cap E, confidence low) in `backend/tierdb/augment_tiers.py`; applies to the per-rarity ranks and `rank_all`; overlay text "no games on this champion".
+- Re-export needed on the PC: Settings › Tier lists › Update now.
