@@ -614,6 +614,18 @@ def _annotate_champion_candidates(result: dict) -> dict:
             "confidence": entry.get("confidence"),
         }
     annotated = sum(1 for c in candidates if c.get("mayhem"))
+    if annotated:
+        # Owner 24/11 ("champion recommendation not reliable"): our list matches
+        # AramHex 16.23 (Spearman 0.997), but candidates were ORDERED by the
+        # legacy team-fit composite. Order by the tier list rank; team fit only
+        # breaks ties and orders champions without tier data (last).
+        def key(c):
+            m = c.get("mayhem") or {}
+            rank = m.get("rank") if isinstance(m.get("rank"), int) else 10**6
+            return (rank, -float(c.get("score") or 0.0), str(c.get("name") or ""))
+        ordered = sorted(candidates, key=key)
+        result["candidates"] = ordered + [c for c in (result.get("candidates") or [])
+                                          if not isinstance(c, dict)]
     if not candidates:
         record("tierdb.champselect_tiers", "skipped", "no_candidates")
     elif annotated:

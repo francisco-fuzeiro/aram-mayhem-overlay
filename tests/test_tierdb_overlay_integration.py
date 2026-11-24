@@ -141,3 +141,16 @@ def test_needs_update_when_missing_or_old(tmp_path):
         export_path=tmp_path / "missing.json", preferences_path=tmp_path / "p.json",
         db_path=tmp_path / "t.sqlite")
     assert svc.needs_update(max_age_hours=72) is True
+
+
+def test_owner_2411_champion_select_is_ordered_by_tier_list(tmp_path, monkeypatch):
+    export = tmp_path / "tierlist.json"
+    export.write_text(json.dumps(EXPORT), encoding="utf-8")
+    svc = tier_service.TierListService(export_path=export,
+                                       preferences_path=tmp_path / "p.json",
+                                       db_path=tmp_path / "t.sqlite")
+    monkeypatch.setattr(server, "tier_service", svc)
+    result = {"candidates": [{"id": "zzz", "name": "NoData", "score": 9.9},
+                             {"id": "ahri", "name": "Ahri", "score": 1.0}]}
+    server._annotate_champion_candidates(result)
+    assert [c["name"] for c in result["candidates"]] == ["Ahri", "NoData"]
