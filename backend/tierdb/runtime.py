@@ -56,7 +56,7 @@ def _add_spans(entries: list[dict]) -> None:
 
 
 # Owner decision 24/11: the tier IS the position in the list ("top 5 OP, S up
-# to 15"). Bands below S are a proposal: A 16-30, B 31-50, C 51-75, D 76-100,
+# to 15"). Bands below S approved 24/11: A 16-30, B 31-50, C 51-75, D 76-100,
 # E after. Ranking order is unchanged; evidence caps (e.g. curated-only
 # augments at most A) still apply so a guess is never shown as OP.
 RANK_BANDS = (("OP", 5), ("S", 15), ("A", 30), ("B", 50), ("C", 75), ("D", 100))
