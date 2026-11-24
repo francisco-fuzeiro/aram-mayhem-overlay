@@ -244,3 +244,18 @@ def test_stale_frame_detail_is_reported(monkeypatch):
         assert wc.last_invalid_detail() == "stale_frame"
     finally:
         wc.reset_capture_state()
+
+
+def test_four_card_row_is_told_apart_from_three_cards():
+    from backend.collectors.card_title_geometry import (
+        card_count_from_fractions, layout_probe_strips,
+    )
+    # Measured on the owner's 2550x1363 four-card screenshot (not stored).
+    four = {-1.0: 0.10, -0.5: 0.86, 0.0: 0.08, 0.5: 0.84, 1.0: 0.0}
+    three = {-1.0: 0.9, -0.5: 0.1, 0.0: 0.9, 0.5: 0.05, 1.0: 0.88}
+    assert card_count_from_fractions(four) == 4
+    assert card_count_from_fractions(three) == 3
+    assert card_count_from_fractions({k: 0.0 for k in four}) is None
+    strips = layout_probe_strips((0, 0, 2550, 1363))
+    assert strips[0.0][0] < 1275 < strips[0.0][0] + strips[0.0][2]
+    assert abs(strips[0.5][0] - strips[0.0][0] - 229) <= 2

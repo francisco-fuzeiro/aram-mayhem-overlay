@@ -658,3 +658,13 @@ async def test_field_2411_no_window_without_cards_or_with_all_picks_done():
     assert not state.scan_window_open
     from backend.api import server
     assert not server._cards_probe_due(state, SimpleNamespace(probe_cards=None), 1)
+
+
+@pytest.mark.asyncio
+async def test_field_2411_pending_confirmation_or_full_count_never_blocks_cards():
+    state, deps, _events = make_harness([{"tick": 1}], [make_snapshot(level=12)], ocr=True)
+    state.last_known_level = 12
+    state.confirmation_pending = True  # an earlier offer vanished unconfirmed
+    deps.probe_cards = lambda now: SimpleNamespace(cue="present", slot=None)
+    await poll_tick(state, deps, 10.0)
+    assert state.scan_window_open and state.confirmation_pending is False

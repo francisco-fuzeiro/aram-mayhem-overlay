@@ -64,3 +64,41 @@ def title_bands_from_client_rect(
             return None
         result[slot] = scaled
     return result
+
+
+# Field 24/11 (owner screenshot, 2550x1363 client): Mayhem can offer FOUR
+# cards. Card pitch is the same as the three-card layout (457/2544 of the
+# width); a four-card row is centred, so its cards sit at +-0.5 and +-1.5
+# pitches and its gaps at 0 and +-1 pitch, the opposite of three cards.
+_PITCH = 457 / _OBSERVED_WIDTH
+_STRIP = 20 / _OBSERVED_WIDTH
+
+
+def layout_probe_strips(
+    client_rect: tuple[int, int, int, int],
+) -> dict[float, tuple[int, int, int, int]] | None:
+    """Narrow client-relative strips (x,y,w,h) at the title height, keyed by
+    the offset from the centre in pitches (-1, -0.5, 0, 0.5, 1)."""
+    bands = title_bands_from_client_rect(client_rect)
+    if bands is None:
+        return None
+    left, top, right, bottom = client_rect
+    width = right - left
+    _, y, _, h = bands["centre"]
+    half = max(2, round(_STRIP * width / 2))
+    out = {}
+    for k in (-1.0, -0.5, 0.0, 0.5, 1.0):
+        x = round(width / 2 + k * _PITCH * width)
+        out[k] = (x - half, y, 2 * half, h)
+    return out
+
+
+def card_count_from_fractions(teal: dict[float, float]) -> int | None:
+    """3 or 4 cards from card-background fractions in the probe strips."""
+    on = lambda k: teal.get(k, 0.0) >= 0.5   # noqa: E731
+    off = lambda k: teal.get(k, 1.0) < 0.3   # noqa: E731
+    if on(-0.5) and on(0.5) and off(0.0) and off(-1.0) and off(1.0):
+        return 4
+    if on(0.0) and on(-1.0) and on(1.0) and off(-0.5) and off(0.5):
+        return 3
+    return None

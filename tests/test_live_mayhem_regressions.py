@@ -116,7 +116,10 @@ def test_passive_poll_does_not_reopen_scan_or_override_chosen_state():
     assert not should_open_augment_scan(4, 4, 0, False)
     assert not should_open_augment_scan(4, 0, 1, False)
     assert not should_open_augment_scan(2, 0, 0, False)
-    assert not should_open_augment_scan(3, 2, 1, False)
+    # Spec change 24/11: a new pick level always opens the scan, even if the
+    # confirmed count (which showed 4/4 with picks still due) says done.
+    assert should_open_augment_scan(3, 2, 1, False)
+    assert should_open_augment_scan(7, 6, 4, False)
 
 
 def test_respawn_can_open_scan_for_unconfirmed_pick():

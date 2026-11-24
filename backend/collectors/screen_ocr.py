@@ -395,6 +395,30 @@ class ScreenWatcher:
             offer_epoch=offer_epoch if type(offer_epoch) is int else -1,
         )
 
+    @staticmethod
+    def _four_cards(img, client_rect, width: int, height: int) -> bool:
+        """Cheap colour test of the gaps between cards (no OCR)."""
+        from backend.collectors.card_title_geometry import (
+            card_count_from_fractions, layout_probe_strips,
+        )
+        from backend.collectors.offer_visibility import card_teal_fraction
+        strips = layout_probe_strips(client_rect)
+        size = getattr(img, "size", None)
+        if strips is None or not isinstance(size, tuple) or len(size) != 2:
+            return False
+        a, b, _c, _d = get_augment_region(width, height)
+        rx, ry = int(width * a), int(height * b)
+        fractions = {}
+        for k, (x, y, w, h) in strips.items():
+            box = (x - rx, y - ry, x - rx + w, y - ry + h)
+            if box[0] < 0 or box[1] < 0 or box[2] > size[0] or box[3] > size[1]:
+                return False
+            try:
+                fractions[k] = card_teal_fraction(img.crop(box))
+            except (AttributeError, TypeError, ValueError):
+                return False
+        return card_count_from_fractions(fractions) == 4
+
     def _layout_abstain(self, verdict: str) -> tuple[str, None]:
         """Never use previously accepted three-slot names across layout doubt."""
         self._capture_stale = True
@@ -493,6 +517,11 @@ class ScreenWatcher:
                 self._transition_open = False
                 self._set_scan_stage("geometry_unsupported")
                 return ("unavailable", None)
+
+            if self._emit_diagnostics and self._four_cards(img, game.rect, width, height):
+                # Field 24/11: a four-card offer read through three-card bands
+                # mixes two titles per crop. Fail closed until it is supported.
+                return self._layout_abstain("four_unsupported")
 
             if self._skip_ocr_without_cards:
                 from backend.collectors.card_presence import downsample

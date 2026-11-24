@@ -421,7 +421,13 @@ def should_open_augment_scan(
         expected_augments_for_level(level)
         > expected_augments_for_level(previous_level)
     )
-    return due and (new_threshold or just_respawned)
+    # Field 24/11: the overlay said 4/4 while picks were still due and then
+    # never opened another window. A new pick level always opens a scan; the
+    # chosen count (which can be wrong) only gates the respawn re-open.
+    # The very first snapshot (previous level 0, e.g. the app started
+    # mid-game) still respects picks already confirmed.
+    first_snapshot = previous_level <= 0
+    return (new_threshold and (due or not first_snapshot)) or (due and just_respawned)
 
 
 @asynccontextmanager
@@ -2483,6 +2489,8 @@ def _open_augment_scan(state: GameState, deps, snapshot, now: float, level: int,
     state.scan_opened_at = now
     state.scan_first_read_done = False
     state.scan_open_reason = reason
+    # An unconfirmed earlier offer must never block the next one (field 24/11).
+    state.confirmation_pending = False
     if len(state.offer_ledger.offers) == prior_count:
         state.offer_epoch += 1
         if state.offer_ledger.offers:
@@ -2514,12 +2522,13 @@ def _open_augment_scan(state: GameState, deps, snapshot, now: float, level: int,
 def _cards_probe_due(state: GameState, deps, level: int) -> bool:
     """A pick may be pending but no window is open (state lock held)."""
     if (state.scan_window_open or state.awaiting_stat_delta
-            or state.confirmation_pending or state.anvil_offer is not None
+            or state.anvil_offer is not None
             or not state.ocr_enabled or getattr(deps, "probe_cards", None) is None):
         return False
-    have = len(_confirmed_augment_ids(state))
-    # The first pick can show before the Live Client reports level 3.
-    return have < expected_augments_for_level(max(level, AUGMENT_PICK_LEVELS_SORTED[0]))
+    # Field 24/11: cards on screen open a window whatever the confirmed
+    # count says (it showed 4/4 with picks still due and blocked detection;
+    # Mayhem can also offer more picks than the level schedule).
+    return True
 
 
 async def _open_scan_on_visible_cards(state: GameState, deps, snapshot, now: float,
@@ -2709,7 +2718,6 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     )
                     and not state.scan_window_open
                     and not state.awaiting_stat_delta
-                    and not state.confirmation_pending
                 ):
                     _open_augment_scan(state, deps, snapshot, now, current_level,
                                        prior_count, have, expected, "level_due")
