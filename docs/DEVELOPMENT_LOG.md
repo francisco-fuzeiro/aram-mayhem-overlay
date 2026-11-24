@@ -1,5 +1,13 @@
 # Overlay LoL — Development Log
 
+## 2026-11-24 — Situational augment score (continuous, capped)
+
+- Owner decisions 24/11: (1) continuous situational score capped at about two tiers (±3 pp of win rate); (2) hand weights first, recalibrated with the owner's own games; (3) recalibration only with ≥200 own games AND a better temporal holdout (latest 30%) than the hand weights.
+- The export now keeps `effect_pp` per champion/augment (blended posterior ΔWR, logit ×25, in pp). It is used locally to place a situationally adjusted augment inside the champion's own list; it is never shown and never leaves the provider (the offer payload keys stay an explicit list).
+- `context_adjust.context_votes()` returns the per-signal votes (-1..1) with reasons; `backend/tierdb/situational_score.py` turns them into a capped pp delta with `data/augments/situational_weights.json` (status Proposta), finds the new list position and maps it to the tier bands. Blocking signals still force E; borrowed (no champion games) rows keep the legacy shift.
+- Synergy rules that depend on allies feed the "allies" weight; the rest feed "synergy". Impact weight is 0 until calibrated.
+- The overlay's best-pick ordering uses `adjusted_rank` when present.
+
 ## 2026-11-24 — Owner test session (before 433b92a): window opened ~1 min late, builds incoherent
 
 - Owner requirement: augments readable in under 5 s or the overlay is not used. The console showed the window OPENING over a minute after the cards were on screen at game start. The scan no longer depends only on the Live Client level: while a pick may be pending and no window is open, a colour probe of the card title bands (no OCR) opens it as soon as the cards are seen (`ocr_window` reason `cards_seen`, feature `augment.window_open`). When the level threshold arrives later, the reads already made are attached to that offer instead of being reset.

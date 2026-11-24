@@ -105,7 +105,7 @@ def test_provider_kill_switch_is_live(store, tmp_path):
     provider = TierListProvider(path, enabled=lambda: enabled["value"])
     row = provider.augment_tier("ahri", "1002")
     assert set(row) == {"rank", "tie_group", "tier", "level", "confidence", "rarity",
-                        "rank_total", "tie_end", "score_tier", "rank_scope"}
+                        "rank_total", "tie_end", "score_tier", "rank_scope", "effect_pp"}
     assert row["rank_scope"] == "all"   # owner 24/11: one list across rarities
     totals = {provider.augment_tier("ahri", a)["rank_total"]
               for (c, a) in provider._augments if c == "ahri"

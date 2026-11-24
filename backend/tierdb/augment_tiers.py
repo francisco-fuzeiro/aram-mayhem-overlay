@@ -68,6 +68,10 @@ class AugmentTierRow:
     # Owner 24/11: one list per champion across ALL rarities (like the public
     # sites), ordered by the blended ΔWR effect. None = no empirical data.
     rank_all: int | None = None
+    # Blended posterior-median ΔWR in percentage points (logit x 25). Local
+    # only: the situational score (owner 24/11) adds context to it; the
+    # overlay never shows it.
+    effect_pp: float | None = None
 
 
 def combine_components(z: dict, weights: dict):
@@ -283,5 +287,6 @@ def build_augment_tiers(
         idxs.sort(key=lambda i_: (rows[i_].level == "borrowed",
                                   -effect[(c, rows[i_].augment_id)], rows[i_].augment_id))
         for pos, idx in enumerate(idxs, start=1):
-            rows[idx] = _replace(rows[idx], rank_all=pos)
+            rows[idx] = _replace(rows[idx], rank_all=pos, effect_pp=round(
+                25.0 * float(effect[(c, rows[idx].augment_id)]), 3))
     return rows, thresholds

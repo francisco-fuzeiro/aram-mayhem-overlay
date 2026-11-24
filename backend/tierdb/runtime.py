@@ -85,6 +85,7 @@ class TierListProvider:
         self._enabled = enabled or load_empirical_tiers_enabled
         self._mtime = None
         self._augments: dict = {}
+        self._effects: dict = {}
         self._champions: dict = {}
         self._items: dict = {}
         self.patch: str | None = None
@@ -95,6 +96,7 @@ class TierListProvider:
             mtime = self.export_path.stat().st_mtime_ns
         except OSError:
             self._augments, self._champions, self._mtime, self._items = {}, {}, None, {}
+            self._effects = {}
             diag.record("tierdb.load", "failed", "export_missing")
             return
         if mtime == self._mtime:
@@ -103,6 +105,7 @@ class TierListProvider:
             doc = json.loads(self.export_path.read_text(encoding="utf-8"))
             cols = doc["augment_columns"]
             augments = {}
+            effects: dict[str, list[float]] = {}
             for champ, by_rarity in doc["augments"].items():
                 every = []
                 for rarity, rows in by_rarity.items():
@@ -127,6 +130,12 @@ class TierListProvider:
                         e["rank_scope"] = "all"
                     _add_spans(every)
                     _apply_rank_tiers(every)
+                # Situational score (owner 24/11): effects of the augments with
+                # champion games, best first, to place a re-scored augment.
+                effects[champ] = sorted(
+                    (float(e["effect_pp"]) for e in every
+                     if isinstance(e.get("effect_pp"), (int, float))
+                     and e.get("level") != "borrowed"), reverse=True)
                 for entry in every:
                     entry.pop("rank_all", None)
                     aid = entry.pop("augment_id")
@@ -156,6 +165,7 @@ class TierListProvider:
             diag.record("tierdb.load", "failed", "export_invalid")
             return
         self._augments, self._champions, self._mtime = augments, champions, mtime
+        self._effects = effects
         self._items = items
         self.patch, self.sources = doc.get("patch"), doc.get("sources", [])
         diag.record("tierdb.load", "ok", "loaded", min(len(champions), 1000))
@@ -170,6 +180,13 @@ class TierListProvider:
         self._load()
         entry = self._augments.get((champion_id, str(augment_id)))
         return dict(entry) if entry else None
+
+    def augment_effects(self, champion_id: str) -> list[float]:
+        """Effects (pp) of the champion's augments with champion games, best first."""
+        if not self._enabled():
+            return []
+        self._load()
+        return list(self._effects.get(champion_id, ()))
 
     def items(self, champion_id: str) -> dict | None:
         """Item/boots tiers, reference build, stat demand and Weapon of Fate items."""

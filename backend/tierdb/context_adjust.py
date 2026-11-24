@@ -46,7 +46,7 @@ def _clean(vec: dict | None) -> dict:
             if isinstance(v, (int, float)) and v > 0}
 
 
-def context_adjust(
+def context_votes(
     augment: dict | None,
     *,
     demand: dict | None,
@@ -57,10 +57,10 @@ def context_adjust(
     impact: float | None = None,
     own_healing: float = 0.0,
     config: AdjustConfig = AdjustConfig(),
-) -> tuple[int, str | None]:
-    """(step in -1..1, reason) for one offered augment; (0, None) without context."""
+) -> dict[str, tuple[float, str | None]]:
+    """Per-signal votes in -1..1 with a short reason; {} without context."""
     if augment is None:
-        return 0, None
+        return {}
     aug = _clean(augment)
     votes: dict[str, tuple[float, str | None]] = {}
     if aug and _clean(demand):
@@ -103,6 +103,17 @@ def context_adjust(
         v = max(-1.0, min(1.0, float(impact)))
         votes["impact"] = (v, "does more in your local games" if v > 0
                            else "does less in your local games" if v < 0 else None)
+    return votes
+
+
+def context_adjust(augment: dict | None, *, config: AdjustConfig = AdjustConfig(),
+                   **signals) -> tuple[int, str | None]:
+    """(step in -1..1, reason) for one offered augment; (0, None) without context.
+
+    Legacy ±1 tier rule of 23/11; offers now use the continuous situational
+    score (backend.tierdb.situational_score, owner 24/11) on the same votes.
+    """
+    votes = context_votes(augment, config=config, **signals)
     weights = dict(config.weights)
     votes = {k: v for k, v in votes.items() if weights.get(k, 0.0) > 0}
     if not votes:

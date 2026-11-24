@@ -80,6 +80,15 @@ class SynergyTable:
             for aug in rule.get("augments") or []:
                 self.by_augment.setdefault(_norm(aug), []).append(rule)
 
+    def uses_allies(self, rule_id) -> bool:
+        """True when the rule depends on the allied team (allies signal)."""
+        for rules in self.by_augment.values():
+            for rule in rules:
+                if rule.get("id") == rule_id:
+                    blocks = [rule.get("when") or {}] + list(rule.get("any_of") or [])
+                    return any("allies_any" in (b or {}) for b in blocks)
+        return False
+
     def _champs(self, ref) -> frozenset[str]:
         if isinstance(ref, str) and ref.startswith("@"):
             return self.lists.get(ref[1:], frozenset())

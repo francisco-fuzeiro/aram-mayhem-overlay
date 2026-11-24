@@ -18,7 +18,7 @@ FORBIDDEN_KEYS = frozenset({
     "score_p20", "score_p80", "lift", "delta", "components",
 })
 AUGMENT_COLUMNS = ("augment_id", "rank", "tie_group", "tier", "level", "confidence",
-                   "rank_all")
+                   "rank_all", "effect_pp")
 ITEM_COLUMNS = ("item_id", "rank", "tie_group", "tier", "level", "confidence")
 CHAMPION_COLUMNS = ("champion_id", "rank", "tie_group", "tier", "confidence",
                     "potential")
@@ -40,7 +40,7 @@ def export_run(store: TierStore, run_id: int, path: Path | str) -> dict:
     augments: dict[str, dict[str, list]] = {}
     for row in con.execute(
         """SELECT champion_id, rarity, augment_id, rank, tie_group, tier, level, confidence,
-                  rank_all
+                  rank_all, effect_pp
            FROM augment_tier WHERE run_id=?
            ORDER BY champion_id, rarity, rank IS NULL, rank, augment_id""", (run_id,)):
         augments.setdefault(row[0], {}).setdefault(row[1], []).append(list(row[2:]))

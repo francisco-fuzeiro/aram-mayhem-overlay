@@ -676,12 +676,34 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, liv
         spells=getattr(live, "summoner_spells", None),
         resource=getattr(live, "resource_type", None))
 
+    from backend.tierdb.context_adjust import context_votes
+
+    def signals(aid):
+        return dict(augment=vec(get_aug(str(aid))), demand=demand, chosen=chosen,
+                    enemy=enemy or {}, personal=personal.get(str(aid)),
+                    personal_base=base, own_healing=healer,
+                    impact=impact_gate.lookup(champion_id, aid), config=cfg)
+
+    def situational(aid):
+        """Votes for the continuous situational score (owner 24/11)."""
+        votes = context_votes(**signals(aid))
+        name = getattr(get_aug(str(aid)), "name", None)
+        if name:
+            s_step, s_reason, rule_id = synergies.evaluate(
+                name, syn_ctx, history=personal.get(str(aid)), base=base)
+            if s_step == BLOCK:
+                return {"block": s_reason, "votes": {}}
+            if s_step:
+                channel = "allies" if synergies.uses_allies(rule_id) else "synergy"
+                prev = votes.get(channel, (0.0, None))[0]
+                # The kit/build/augment rule and the stat-cosine vote share
+                # one channel: the stronger one counts, not both.
+                if abs(float(s_step)) >= abs(prev):
+                    votes[channel] = (float(s_step), s_reason)
+        return {"block": None, "votes": votes}
+
     def adjust(aid):
-        step, reason = context_adjust(
-            vec(get_aug(str(aid))), demand=demand, chosen=chosen,
-            enemy=enemy or {}, personal=personal.get(str(aid)),
-            personal_base=base, own_healing=healer,
-            impact=impact_gate.lookup(champion_id, aid), config=cfg)
+        step, reason = context_adjust(**signals(aid))
         name = getattr(get_aug(str(aid)), "name", None)
         if not name:
             return step, reason
@@ -693,7 +715,35 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, liv
             total = max(-1, min(1, step + s_step))
             return total, (s_reason if total == s_step else reason) if total else None
         return step, reason
+    adjust.situational = situational
     return adjust
+
+
+def _situational_entry(out: dict, entry: dict, champion_id, result: dict) -> bool:
+    """Continuous situational score (owner 24/11) into ``out``; False = not applied."""
+    from backend.tierdb.runtime import rank_tier
+    from backend.tierdb.situational_score import load_weights, position_of, situational_delta
+
+    if result.get("block"):
+        out["adjusted_tier"] = "E"
+        out["adjust"] = -1 if entry.get("tier") != "E" else 0
+        out["adjust_reason"] = result["block"] if out["adjust"] else None
+        out["adjusted_rank"] = None
+        return True
+    effects = tier_service.provider.augment_effects(champion_id)
+    if not effects:
+        return False
+    base = float(entry["effect_pp"])
+    delta, reason, _parts = situational_delta(result.get("votes") or {}, load_weights())
+    position = position_of(base + delta, base, effects)
+    adjusted = rank_tier(position, entry.get("level"), entry.get("tier"))
+    out["adjusted_tier"] = adjusted
+    out["adjusted_rank"] = position
+    rank = entry.get("rank")
+    moved = adjusted != entry.get("tier")
+    out["adjust"] = (0 if not moved else 1 if isinstance(rank, int) and position < rank else -1)
+    out["adjust_reason"] = reason if moved else None
+    return True
 
 
 def _augment_tier_payload(champion_id, augment_ids, adjust=None) -> dict:
@@ -718,6 +768,12 @@ def _augment_tier_payload(champion_id, augment_ids, adjust=None) -> dict:
             tiers[aid] = {k: entry.get(k) for k in (
                 "tier", "rank", "rank_total", "tie_group", "tie_end",
                 "level", "confidence", "rarity")}
+            if (adjust is not None and entry.get("tier")
+                    and getattr(adjust, "situational", None) is not None
+                    and isinstance(entry.get("effect_pp"), (int, float))
+                    and entry.get("level") != "borrowed"):
+                if _situational_entry(tiers[aid], entry, champion_id, adjust.situational(aid)):
+                    continue
             step, reason = (0, None)
             if adjust is not None and entry.get("tier"):
                 step, reason = adjust(aid)

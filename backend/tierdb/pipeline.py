@@ -132,12 +132,13 @@ def run_build(
         con.executemany(
             """INSERT INTO augment_tier (run_id, champion_id, rarity, augment_id, score,
                    score_p20, score_p80, rank, tie_group, tier, level, confidence,
-                   n_eff, sources_json, rank_all) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   n_eff, sources_json, rank_all, effect_pp)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             [
                 (run_id, r.champion_id, r.rarity, r.augment_id, r.score, r.score_p20,
                  r.score_p80, r.rank, r.tie_group, r.tier, r.level, r.confidence, r.n_eff,
                  json.dumps(curated if r.level == "curated" else [] if r.level == "none"
-                            else empirical), r.rank_all)
+                            else empirical), r.rank_all, r.effect_pp)
                 for r in aug_rows
             ],
         )

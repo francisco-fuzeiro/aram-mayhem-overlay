@@ -175,6 +175,7 @@ CREATE TABLE IF NOT EXISTS augment_tier (
     n_eff       REAL NOT NULL DEFAULT 0,
     sources_json TEXT NOT NULL,
     rank_all    INTEGER,
+    effect_pp   REAL,
     PRIMARY KEY (run_id, champion_id, augment_id)
 );
 
@@ -355,6 +356,9 @@ class TierStore:
         if "rank_all" not in cols:
             with self.connection:
                 self.connection.execute("ALTER TABLE augment_tier ADD COLUMN rank_all INTEGER")
+        if "effect_pp" not in cols:
+            with self.connection:
+                self.connection.execute("ALTER TABLE augment_tier ADD COLUMN effect_pp REAL")
         sql = (self.connection.execute(
             "SELECT sql FROM sqlite_master WHERE name='reference_build'").fetchone() or [""])[0]
         if "'stat'" not in sql:

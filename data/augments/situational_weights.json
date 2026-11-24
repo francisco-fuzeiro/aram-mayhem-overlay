@@ -1,0 +1,14 @@
+{
+  "status": "Proposta 24/11 — hand-set starting weights (owner decision 24/11). Recalibrated from the player's own games only with >= 200 games AND a better temporal holdout (latest 30%).",
+  "unit": "percentage points of win rate per full vote (-1..1)",
+  "pp_per_vote": {
+    "build": 1.5,
+    "synergy": 1.5,
+    "enemy": 1.0,
+    "sustain": 1.0,
+    "allies": 0.5,
+    "personal": 0.5,
+    "impact": 0.0
+  },
+  "total_cap_pp": 3.0
+}

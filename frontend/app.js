@@ -1088,12 +1088,13 @@
         const tierOf = (id) => tiers && id && Object.prototype.hasOwnProperty.call(tiers, id)
             && tiers[id] && tiers[id].tier && tiers[id].level !== "none" ? tiers[id] : null;
         const shown = (t) => (TIER_ORDER.includes(t.adjusted_tier) ? t.adjusted_tier : t.tier);
+        const shownRank = (t) => Number(t.adjusted_rank) || Number(t.rank) || 1e6;
         let best = null;
         for (const card of four) {
             const t = tierOf(card && card.id);
             if (t && TIER_ORDER.includes(shown(t)) && (!best ||
                     TIER_ORDER.indexOf(shown(t)) < TIER_ORDER.indexOf(shown(best)) ||
-                    (shown(t) === shown(best) && (Number(t.rank) || 1e6) < (Number(best.rank) || 1e6))))
+                    (shown(t) === shown(best) && shownRank(t) < shownRank(best))))
                 best = t;
         }
         let tierLines = 0;
@@ -1185,7 +1186,7 @@
             tierTable[id] && tierTable[id].tier && tierTable[id].level !== "none"
             ? tierTable[id] : null;
         const shownTier = (t) => (TIER_ORDER.includes(t.adjusted_tier) ? t.adjusted_tier : t.tier);
-        const tierKey = (t) => [TIER_ORDER.indexOf(shownTier(t)), Number(t.rank) || 1e6];
+        const tierKey = (t) => [TIER_ORDER.indexOf(shownTier(t)), Number(t.adjusted_rank) || Number(t.rank) || 1e6];
         let bestTier = null;
         for (const slot of OFFER_SLOTS) {
             const t = tierOf((offer.slots[slot] || {}).augment_id);
