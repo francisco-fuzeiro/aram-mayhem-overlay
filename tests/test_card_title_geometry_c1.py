@@ -46,11 +46,15 @@ def test_borderless_1440p_and_synthetic_1080p_scale_without_slot_overlap():
         assert bands["left"][0] + bands["left"][2] < bands["centre"][0]
         assert bands["centre"][0] + bands["centre"][2] < bands["right"][0]
     # 1080p boxes here are *extrapolations*, pending a real 1080p playtest.
+    # League's UI scales with the height (audit P1-10): offsets from the
+    # centre and the box size follow 1080/1353, not 1920/2544.
     assert title_bands_from_client_rect((0, 0, 1920, 1080)) == {
-        "left": (485, 391, 257, 72),
-        "centre": (830, 391, 257, 72),
-        "right": (1183, 391, 257, 72),
+        "left": (458, 391, 271, 72),
+        "centre": (823, 391, 271, 72),
+        "right": (1195, 391, 271, 72),
     }
+    centre = title_bands_from_client_rect((0, 0, 1920, 1080))["centre"]
+    assert abs(centre[0] + centre[2] / 2 - 960) <= 3  # observed box is 2 px off-centre
 
 
 @pytest.mark.parametrize("rect", [

@@ -15,6 +15,9 @@
     const refreshOcrButton = $("refresh-ocr");
     const ocrAutoCheckbox = $("ocr-auto");
     const tierEnabled = $("tier-enabled");
+    const historyEnabled = $("history-enabled");
+    const historyStatus = $("history-status");
+    const historyImport = $("history-import");
     const tierStatus = $("tier-status");
     const tierSources = $("tier-sources");
     const tierUpdate = $("tier-update");
@@ -384,6 +387,64 @@
         }
     }
 
+    const IMPACT_TEXT = {
+        enable: "damage and healing now feed the tier nudge",
+        keep_off: "checked: not helping yet, kept off",
+        insufficient_data: "not enough games yet for the check",
+        not_evaluated: "not checked yet",
+        failed: "check failed",
+    };
+
+    function historyText(status) {
+        if (!status.enabled) return "Off.";
+        const games = Number.isFinite(status.games) ? status.games + " games stored · " : "";
+        return "On · " + games + (IMPACT_TEXT[status.impact_verdict] || "not checked yet");
+    }
+
+    async function loadHistory() {
+        try {
+            const status = await requestJson("/api/history");
+            historyEnabled.checked = status.enabled === true;
+            historyEnabled.disabled = false;
+            historyImport.disabled = status.enabled !== true;
+            message(historyStatus, historyText(status));
+        } catch (error) {
+            message(historyStatus, "History status unavailable: " + error.message, "error");
+        }
+    }
+
+    async function changeHistoryEnabled() {
+        const requested = historyEnabled.checked;
+        historyEnabled.disabled = true;
+        try {
+            await requestJson("/api/history", {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({enabled: requested}),
+            });
+        } catch (error) {
+            message(historyStatus, "Not saved: " + error.message, "error");
+        }
+        await loadHistory();
+    }
+
+    async function importHistory() {
+        historyImport.disabled = true;
+        message(historyStatus, "Importing your recent games… (the League client must be open)");
+        try {
+            const result = await requestJson("/api/history/import?max_games=200", {method: "POST"});
+            const imported = Number(result.imported) || 0;
+            message(historyStatus, result.status === "ok"
+                ? "Imported " + imported + " new games · " + (IMPACT_TEXT[result.impact_verdict] || "")
+                : "Not imported: League client not available.",
+                result.status === "ok" ? "success" : "error");
+        } catch (error) {
+            message(historyStatus, "Not imported: " + error.message, "error");
+        } finally {
+            historyImport.disabled = !historyEnabled.checked;
+        }
+    }
+
     async function updateTierList() {
         tierUpdate.disabled = true;
         try {
@@ -531,10 +592,13 @@
     scanNowButton.addEventListener("click", scanAugmentsNow);
     feedbackButton.addEventListener("click", submitFeedback);
     tierEnabled.addEventListener("change", changeTierEnabled);
+    historyEnabled.addEventListener("change", changeHistoryEnabled);
+    historyImport.addEventListener("click", importHistory);
     tierUpdate.addEventListener("click", updateTierList);
 
     activateTab("panel-general");
     loadSettings();
     loadOcrStatus();
     loadTierList();
+    loadHistory();
 })();

@@ -189,6 +189,24 @@
                             </div>
                         </div>
                     </div>
+                    <div class="info-card">
+                        <h2>Your match history (local)</h2>
+                        <p class="small">Reads your own recent ARAM Mayhem games from the League
+                           client on this PC and keeps them only on this PC. Once enough games
+                           are stored and a check on your newest games shows it helps, damage
+                           and healing per minute also nudge the ±1 tier of offered augments.
+                           Nothing is uploaded and no win rates are shown.</p>
+                        <label class="small">
+                            <input type="checkbox" id="history-enabled" disabled>
+                            Allow reading my match history from the League client
+                        </label>
+                        <div class="setting-footer">
+                            <span id="history-status" role="status" aria-live="polite" class="form-status">Loading…</span>
+                            <div class="button-group">
+                                <button id="history-import" type="button" class="button-secondary" disabled>Import recent games</button>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="panel-ocr" class="tab-panel hidden" role="tabpanel"

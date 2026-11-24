@@ -87,6 +87,7 @@ def test_http_history_import_denied_without_explicit_opt_in(monkeypatch):
     monkeypatch.setattr(server.config, "_data", {
         **server.config._data, "lcu_history_enabled": False,
     })
+    monkeypatch.setattr(server, "load_history_enabled", lambda: False)
     with TestClient(server.app) as client:
         response = client.post("/api/history/import")
     assert response.status_code == 403

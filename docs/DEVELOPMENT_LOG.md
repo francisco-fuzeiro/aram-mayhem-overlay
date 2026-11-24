@@ -1328,3 +1328,18 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   over the parser and marks provenance "curated". Cache schema 7.
 - PP-OCRv4 / RapidOCR Apache-2.0 notice in THIRD_PARTY_NOTICES.md; the
   settings About card credits AramHex (CC BY-NC 4.0) and PP-OCRv4.
+
+## 2026-11-24 — Impact metric gated by the holdout; history import in Settings; title geometry by height
+
+- `backend/tierdb/impact_gate.ImpactGate` re-runs the temporal holdout
+  (`backend/tierdb/impact_holdout.evaluate`, moved out of the script) at
+  startup and after every import. Only when the verdict is `enable` does the
+  server pass `impact=` to `context_adjust`, with vote weight 0.20; otherwise
+  nothing changes. Counts and verdict only, never champions or players.
+- Settings > Tier lists: "Your match history (local)" switch (stored in
+  ~/.aram-oracle/history_preferences.json, off by default) and an
+  "Import recent games" button (200 games). `/api/history` GET/PUT; the
+  import endpoint accepts the switch or the old config flag.
+- Card title bands, layout strips and four-card bands scale with the client
+  HEIGHT (offset from the centre in height units), as League's centred UI
+  does. Unchanged at 2544x1353; 1080p boxes move a few pixels.

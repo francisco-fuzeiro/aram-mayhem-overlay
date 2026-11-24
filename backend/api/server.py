@@ -26,6 +26,7 @@ from backend.engine.stat_anvil_offer import resolve_offer as resolve_anvil_offer
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
 from backend.tierdb.service import TierListService
+from backend.tierdb.impact_gate import ImpactGate, load_history_enabled, save_history_enabled
 from backend.collectors import screen_ocr as ocr_capture
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
@@ -464,6 +465,7 @@ async def lifespan(app: FastAPI):
     else:
         feature_diagnostics.record("tierdb.update", "skipped", "fresh")
 
+    asyncio.create_task(_refresh_impact_gate())
     poll_task = asyncio.create_task(_poll_game_loop())
     presence_task = asyncio.create_task(_presence_loop())
     shop_task = asyncio.create_task(_shop_loop())
@@ -482,6 +484,17 @@ app = FastAPI(lifespan=lifespan)
 # Empirical Mayhem tier lists (backend/tierdb). Shown now by owner decision
 # 2026-11-23, behind a live switch; never exposes win rates or sample sizes.
 tier_service = TierListService()
+# Impact (damage + heal/shield per minute) joins the ±1 adjustment only when
+# the holdout on the player's own imported games says "enable" (23/11).
+impact_gate = ImpactGate()
+
+
+async def _refresh_impact_gate() -> None:
+    verdict = await asyncio.to_thread(impact_gate.refresh)
+    status, reason = {"enable": ("ok", "enable"), "keep_off": ("ok", "keep_off"),
+                      "insufficient_data": ("skipped", "insufficient_data")
+                      }.get(verdict, ("failed", "error"))
+    feature_diagnostics.record("tierdb.impact_holdout", status, reason)
 
 
 def _visible_augment_ids(recommendations, offers) -> list[str]:
@@ -568,10 +581,18 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd):
             for i in items if i):
         healer = 0.5  # owner 24/11: builds lifesteal / omnivamp
 
+    from backend.tierdb.context_adjust import AdjustConfig
+    from backend.tierdb.impact_gate import IMPACT_WEIGHT
+    cfg = AdjustConfig()
+    if impact_gate.enabled:
+        cfg = AdjustConfig(weights=tuple((k, IMPACT_WEIGHT if k == "impact" else w)
+                                         for k, w in cfg.weights))
+
     def adjust(aid):
         return context_adjust(vec(get_aug(str(aid))), demand=demand, chosen=chosen,
                               enemy=enemy or {}, personal=personal.get(str(aid)),
-                              personal_base=base, own_healing=healer)
+                              personal_base=base, own_healing=healer,
+                              impact=impact_gate.lookup(champion_id, aid), config=cfg)
     return adjust
 
 
@@ -1344,20 +1365,49 @@ def _read_champ_select_payload() -> dict | None:
     return _annotate_champion_candidates(result)
 
 
+def _history_import_allowed() -> bool:
+    return (config.get("lcu_history_enabled", False) is True
+            or load_history_enabled())
+
+
+class HistorySwitchRequest(BaseModel):
+    enabled: StrictBool
+
+
+@app.get("/api/history")
+def history_status():
+    """Opt-in state and the impact holdout verdict (counts only)."""
+    return {"enabled": _history_import_allowed(), **impact_gate.status()}
+
+
+@app.put("/api/history")
+def update_history_switch(req: HistorySwitchRequest):
+    try:
+        save_history_enabled(req.enabled)
+    except OSError:
+        logger.exception("Could not persist history switch")
+        raise HTTPException(status_code=500, detail="Could not save preference") from None
+    return {"enabled": _history_import_allowed()}
+
+
 @app.post("/api/history/import")
 async def import_personal_history(max_games: int = 40):
     """Explicit, local-only sync of own ARAM Mayhem matches.
 
-    Called on user action only. Never returns raw match or player data.
+    Called on user action only (Settings switch + button, or the config
+    flag). Never returns raw match or player data.
     """
-    if config.get("lcu_history_enabled", False) is not True:
+    if not _history_import_allowed():
         raise HTTPException(
             status_code=403,
-            detail="LCU history import disabled pending policy review and explicit opt-in",
+            detail="LCU history import is off: switch it on in Settings first",
         )
     from backend.storage.history_import import sync_recent_mayhem_games
+    max_games = max(1, min(int(max_games), 1000))
     # max_games up to 1000 pages the local client's list back in time (one-off backfill).
-    return await asyncio.to_thread(sync_recent_mayhem_games, max_games)
+    result = await asyncio.to_thread(sync_recent_mayhem_games, max_games)
+    await _refresh_impact_gate()
+    return {**result, **impact_gate.status()}
 
 
 @app.get("/api/champ-select/status")
