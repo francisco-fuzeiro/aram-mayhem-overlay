@@ -137,3 +137,29 @@ def test_impact_vote_is_off_by_default_and_works_when_weighted():
     cfg = AdjustConfig(weights=(("build", 0.4), ("impact", 0.3)))
     step, reason = context_adjust({"ad": 1.0}, demand=None, impact=0.9, config=cfg)
     assert step == 1 and reason == "does more in your local games"
+
+
+def test_audit_2411_adjuster_reads_real_augment_contribution(monkeypatch):
+    # Audit 24/11: real AugmentData has ``contribution``, not ``stats``; the
+    # adjustment never ran with real augments.
+    from types import SimpleNamespace
+    from backend.models import AugmentData, AugmentTier, StatVector
+
+    real = {
+        "crit_aug": AugmentData("crit_aug", "Crit", list(AugmentTier)[0], "",
+                                StatVector(crit=1.0, ad=0.5)),
+        "ap_aug": AugmentData("ap_aug", "AP", list(AugmentTier)[0], "", StatVector(ap=1.0)),
+    }
+    assert not hasattr(real["crit_aug"], "stats")
+    sd = SimpleNamespace(
+        get_augment=lambda a: real.get(a),
+        get_champion=lambda c: SimpleNamespace(stats=StatVector(ad=0.8, crit=0.6)),
+        get_item=lambda i: SimpleNamespace(stats=StatVector(ad=1.0, crit=0.8)),
+    )
+    monkeypatch.setattr(server, "get_all_personal_winrates", lambda champ: {})
+    monkeypatch.setattr(server, "get_champion_record", lambda champ: None)
+    adjust = server._offer_context_adjuster("fiora", [], {"adapted": [{"id": "x"}]},
+                                            {"enemies_analyzed": 0}, sd)
+    assert adjust("crit_aug") == (1, "fits your build")
+    assert adjust("ap_aug")[0] == -1
+    assert server._stat_vector_of(real["ap_aug"]).ap == 1.0

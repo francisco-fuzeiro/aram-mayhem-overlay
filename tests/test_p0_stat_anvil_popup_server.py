@@ -287,3 +287,25 @@ def test_anvil_watcher_waits_while_augment_titles_are_being_confirmed(got):
     deps.screen_watcher.verifying_named = False
     _tick(state, deps, now=104.5)
     assert len(calls) == 1
+
+
+def test_audit_2411_popup_shows_tier_estimate_not_old_score(monkeypatch):
+    from backend.engine.stat_anvil_offer import resolve_offer
+    ids = _ids("Omnivamp Shard", "Tenacity Shard", "Move Speed Shard")
+    offer = resolve_offer(ids, CATALOG)
+    assert offer.status == "ok"
+    state = _state()
+    state.anvil_offer = offer
+    monkeypatch.setattr(server, "tier_service", SimpleNamespace(
+        enabled=lambda: True,
+        provider=SimpleNamespace(items=lambda c: {"stat_demand": {"ms": 1.0, "omnivamp": 0.5}})))
+    monkeypatch.setattr(server, "static_data", SimpleNamespace(
+        get_augment=lambda a: None, stat_anvil_catalog=lambda: dict(CATALOG)))
+    result = SimpleNamespace(
+        build_state=SimpleNamespace(champion_id="11", chosen_augments=[]),
+        enemy_analysis={}, ally_analysis={},
+        anvil_offer_ratings=[{"anvil_id": ids[0], "score": 9.9}])
+    payload = server._anvil_offer_payload(state, result)
+    cards = payload["cards"]
+    assert len(cards) == 3 and all(c["est_tier"] in ("A", "B", "C", "D", "E") for c in cards)
+    assert cards[0]["anvil_name"] == "Move Speed Shard"

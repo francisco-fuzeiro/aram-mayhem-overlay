@@ -488,6 +488,29 @@ def _visible_augment_ids(recommendations, offers) -> list[str]:
     return ids
 
 
+def _augment_anvil_boost(chosen, sd) -> dict[str, float]:
+    """Anvil stats the confirmed augments already lean on (0-1)."""
+    boost: dict[str, float] = {}
+    for aug in chosen or []:
+        augment = sd.get_augment(str(aug)) if hasattr(sd, "get_augment") else None
+        stats = _stat_vector_of(augment)  # audit 24/11: real augments use contribution
+        for field_name, stat in _AUGMENT_TO_ANVIL.items():
+            value = float(getattr(stats, field_name, 0.0) or 0.0) if stats else 0.0
+            if value > 0:
+                boost[stat] = max(boost.get(stat, 0.0), min(value, 1.0))
+    return boost
+
+
+def _stat_vector_of(obj):
+    """Champions and items expose ``stats``; augments expose ``contribution``."""
+    if obj is None:
+        return None
+    stats = getattr(obj, "stats", None)
+    if stats is None:
+        stats = getattr(obj, "contribution", None)
+    return stats
+
+
 def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd):
     """adjust(aid) -> (step, reason) for the in-match context adjustment.
 
@@ -498,7 +521,9 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd):
     from backend.tierdb.context_adjust import context_adjust
 
     def vec(obj):
-        stats = getattr(obj, "stats", None)
+        # Audit 24/11: real augments carry ``contribution``, not ``stats``;
+        # reading only ``stats`` made the ±1 tier adjustment never run.
+        stats = _stat_vector_of(obj)
         return {f: float(getattr(stats, f, 0.0) or 0.0) for f in StatVector.fields()} \
             if stats is not None else None
 
@@ -757,14 +782,7 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     if not demand:
         record("anvil.stat_estimate", "skipped", "no_demand")
         return payload
-    boost: dict[str, float] = {}
-    for aug in chosen:
-        augment = sd.get_augment(aug) if hasattr(sd, "get_augment") else None
-        stats = getattr(augment, "stats", None)
-        for field_name, stat in _AUGMENT_TO_ANVIL.items():
-            value = float(getattr(stats, field_name, 0.0) or 0.0) if stats else 0.0
-            if value > 0:
-                boost[stat] = max(boost.get(stat, 0.0), min(value, 1.0))
+    boost = _augment_anvil_boost(chosen, sd)
     ranked = rank_anvil_options([{"id": s, "stat": s} for s in ANVIL_STATS], demand,
                                 enemy=enemy, allies=allies, augment_stats=boost)
     payload["anvil_stats"] = [{"stat": r["stat"], "tier": r["tier"], "level": r["level"],
@@ -2152,12 +2170,55 @@ def _anvil_offer_payload(state: GameState, result) -> dict | None:
     ratings = list(getattr(result, "anvil_offer_ratings", None) or [])
     if offer is None:
         return None
+    estimated = _anvil_offer_estimates(offer, result)
+    if estimated:
+        # Audit 24/11: the popup shows the tier-list estimate (tier capped at
+        # A, labelled estimate), not the old model's x/10.
+        ratings = estimated
     return {"epoch": state.anvil_epoch, "tier": offer.tier,
             "tier_source": offer.tier_source, "count": len(offer.shards),
             "cards": ratings if ratings else [
                 {"anvil_id": s.id, "anvil_name": s.title, "tier": s.tier,
                  "stats": dict(s.stats), "score": None, "modelled": False}
                 for s in offer.shards]}
+
+
+def _anvil_offer_estimates(offer, result) -> list[dict]:
+    """Rate the popup's shards with the tier list demand; [] when unavailable."""
+    from backend.tierdb.anvil_stats import rank_anvil_options
+    build_state = getattr(result, "build_state", None)
+    champion_id = getattr(build_state, "champion_id", None)
+    if not champion_id or not tier_service.enabled():
+        return []
+    try:
+        data = tier_service.provider.items(str(champion_id)) or {}
+    except Exception:
+        return []
+    demand = data.get("stat_demand") or {}
+    if not demand:
+        return []
+    sd = static_data
+    shards = [{"id": s.id, "tier": s.tier, "stats": dict(s.stats)} for s in offer.shards]
+    catalog_fn = getattr(sd, "stat_anvil_catalog", None)
+    reference = ([{"id": s.id, "tier": s.tier, "stats": dict(s.stats)}
+                  for s in (catalog_fn() or {}).values()] if callable(catalog_fn) else None)
+    ranked = rank_anvil_options(
+        shards, demand, enemy=getattr(result, "enemy_analysis", None) or {},
+        allies=getattr(result, "ally_analysis", None) or {},
+        augment_stats=_augment_anvil_boost(getattr(build_state, "chosen_augments", None), sd),
+        reference=reference)
+    by_id = {s.id: s for s in offer.shards}
+    cards = []
+    for row in ranked:
+        shard = by_id.get(row.get("id"))
+        if shard is None:
+            continue
+        cards.append({"anvil_id": shard.id, "anvil_name": shard.title, "tier": shard.tier,
+                      "stats": dict(shard.stats), "score": row.get("score"),
+                      "est_tier": row.get("tier"), "level": row.get("level"),
+                      "reason": row.get("reason"),
+                      "modelled": row.get("score") is not None})
+    return cards
 
 
 def _augment_cards_verified(state: GameState) -> bool:

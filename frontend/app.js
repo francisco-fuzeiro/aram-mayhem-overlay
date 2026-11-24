@@ -701,8 +701,10 @@
         $("anvil-title").textContent = "STAT ANVIL" + (tier ? " · " + tier.toUpperCase() : "");
         const scored = cards.filter(c => typeof c.score === "number" &&
             Number.isFinite(c.score) && c.modelled !== false);
+        // Audit 24/11: tier-list estimate (capped at A), never the old x/10.
         const fmt = c => (c.anvil_name || c.anvil_id) +
-            (typeof c.score === "number" ? " · " + c.score.toFixed(1) + "/10" : " · No model");
+            (typeof c.est_tier === "string" ? " · " + c.est_tier + " (estimate)"
+                : typeof c.score === "number" ? " · " + c.score.toFixed(1) + "/10" : " · No model");
         if (scored.length) {
             top.textContent = "Best fit: " + fmt(scored[0]);
             if (typeof scored[0].reason === "string") {

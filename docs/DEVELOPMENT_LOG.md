@@ -6,6 +6,7 @@
 - PP-OCRv4 (in-process, ~16 ms per crop) is now used automatically when its verified model is installed (`python scripts/setup_ppocr_v4.py`, which also installs onnxruntime 1.20.1); Tesseract remains the fallback and `ARAM_ORACLE_OCR_ENGINE=tesseract` forces it. `ocr_tick` and the report show the engine in use.
 - Build: the list with Owned / BUY NEXT / Planned is now the tier list plan (adapted build + context boots), so "Next" is always an item of the list shown. The plan follows purchases: owned finals first, and physical/crit purchases on a magic plan (or the reverse) refill the remaining slots with the best-ranked items of the player's archetype, preferring what owned components build into (AD crit Shaco was shown only AP items). Boots timing stays the engine's; which boots follows the enemy comp.
 - Stat Anvil: Silver/Gold popups whose titles are all shared (no voucher edge) now show the Best fit without a tier instead of abstaining.
+- Audit 24/11 fixes: real augments carry `contribution`, not `stats`, so the ±1 tier context adjustment and the augment boost of the Anvil estimate never ran with real data (tests used fake augments with `stats`); both now read either. The Anvil popup shows the tier-list estimate (tier capped at A, labelled estimate) instead of the old model's x/10. Four-card offers still map to three slots: the four-card geometry needs one real screenshot.
 
 ## 2026-11-24 — Augment read latency (field report on 2ecd870: 13-17 s, one window never read)
 
