@@ -1372,3 +1372,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - S70: Swindler's Orb / Chemtech Putrifier also suppress the Grievous
   Wounds rules, like Grievous Venom. The "Build:" parts of the research
   (raise specific items in the shop list) are not wired yet.
+
+## 2026-11-24 — Post-game reconciliation of the chosen augments
+
+- When a match ends and the history switch is on, the server waits for the
+  client to publish the game (20/40/60 s), reads our own `playerAugmentN`
+  from the local LCU match history and reconciles the match's offers:
+  each offer whose titles include a taken augment becomes `reconciled`
+  (pick source `postgame`); four-card offers, which keep no slot titles,
+  match by pick or by order. Diagnostics `augment.postgame_reconcile`
+  report agreed / corrected / unmatched counts only. The finished game is
+  then imported and the impact holdout re-run.

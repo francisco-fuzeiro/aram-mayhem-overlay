@@ -335,6 +335,38 @@ class OfferLedger:
         return self.confirm(target.offer_id, target.epoch,
                             target.slots[slot].augment_id)
 
+    def reconcile(self, final_ids) -> dict:
+        """Post-game truth (LCU ``playerAugmentN``) over the live picks.
+
+        Every offer whose visible titles include one of the augments the
+        match history says were taken becomes ``reconciled`` with that pick
+        (source ``postgame``). Returns counts only: agreed (live pick was
+        right), corrected (live pick wrong or missing), unmatched (no
+        title of that offer is in the final list).
+        """
+        final = [str(a) for a in final_ids or () if a]
+        counts = {"agreed": 0, "corrected": 0, "unmatched": 0}
+        used: set[str] = set()
+        for index, offer in enumerate(self.offers):
+            seen = [i.augment_id for i in offer.slots.values() if i.augment_id]
+            if offer.picked_id:
+                seen.append(offer.picked_id)
+            hit = next((a for a in final if a in seen and a not in used), None)
+            if (hit is None and not any(i.augment_id for i in offer.slots.values())
+                    and index < len(final) and final[index] not in used):
+                # Four-card offers keep no slot titles: the history lists
+                # picks in order, so the n-th offer took the n-th augment.
+                hit = final[index]
+            if hit is None:
+                counts["unmatched"] += 1
+                continue
+            used.add(hit)
+            counts["agreed" if offer.picked_id == hit else "corrected"] += 1
+            offer.picked_id = hit
+            offer.pick_source = "postgame"
+            offer.state = "reconciled"
+        return counts
+
     def active_augment_ids(self) -> list[str]:
         return [
             offer.picked_id

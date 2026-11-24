@@ -489,6 +489,46 @@ tier_service = TierListService()
 impact_gate = ImpactGate()
 
 
+POSTGAME_RECONCILE_DELAYS_S = (20.0, 40.0, 60.0)
+
+
+async def _postgame_reconcile(ledger, champion_id, delays=POSTGAME_RECONCILE_DELAYS_S) -> None:
+    """Plan v2 layer 3: check the live picks against the match history.
+
+    Only with the history switch on (local LCU, own games). Retries while the
+    client has not published the game yet; then imports the finished game so
+    personal records and the impact holdout include it.
+    """
+    record = feature_diagnostics.record
+    if not _history_import_allowed():
+        record("augment.postgame_reconcile", "skipped", "history_off")
+        return
+    from backend.storage import history_import
+    final = None
+    for delay in delays:
+        await asyncio.sleep(delay)
+        try:
+            final = await asyncio.to_thread(history_import.fetch_latest_own_augments,
+                                            champion_id)
+        except Exception:  # optional, never breaks the server
+            logger.exception("Post-game reconciliation failed")
+            final = None
+        if final:
+            break
+    if not final:
+        record("augment.postgame_reconcile", "skipped", "history_unavailable")
+        return
+    counts = ledger.reconcile(final)
+    reason = "corrected" if counts["corrected"] else "agreed" if counts["agreed"] else "unmatched"
+    record("augment.postgame_reconcile", "ok", reason,
+           counts["corrected"] or counts["agreed"] or None)
+    try:
+        await asyncio.to_thread(history_import.sync_recent_mayhem_games, 5)
+        await _refresh_impact_gate()
+    except Exception:
+        logger.exception("Post-game history import failed")
+
+
 async def _refresh_impact_gate() -> None:
     verdict = await asyncio.to_thread(impact_gate.refresh)
     status, reason = {"enable": ("ok", "enable"), "keep_off": ("ok", "keep_off"),
@@ -2312,6 +2352,13 @@ def _status_message(state: GameState, status: str) -> str:
 
 def _finish_match(state: GameState, now: float) -> None:
     """Called under the state lock; one end transition, no 300s timeout."""
+    ended_ledger, ended_champion = state.offer_ledger, state._last_champion_id
+    if ended_ledger.offers:
+        try:
+            asyncio.get_running_loop().create_task(
+                _postgame_reconcile(ended_ledger, ended_champion))
+        except RuntimeError:  # no loop (sync tests): nothing to reconcile with
+            pass
     state.reset()
     state.match_id = None
     state._last_game_time = None

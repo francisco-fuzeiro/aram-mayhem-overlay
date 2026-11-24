@@ -32,6 +32,7 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "items.reference_build": (True, "Server attached reference + adapted build"),
     "items.build_render": (True, "Overlay drew reference/adapted build and Anvil estimates"),
     "tierdb.context_adjust": (False, "In-match ±1 tier context adjustment of offered augments"),
+    "augment.postgame_reconcile": (False, "Live augment picks checked against the match history"),
     "tierdb.impact_holdout": (False, "Local-history holdout verdict for the impact metric"),
     "anvil.stat_estimate": (True, "Heuristic Stat Anvil stat priorities attached"),
     "anvil.offer_rating": (False, "Own 0-10 heuristic scores for the visible shards"),
@@ -124,6 +125,10 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     "items.build_render": frozenset((("ok", "rendered"), ("skipped", "no_build"))),
     "tierdb.context_adjust": frozenset((
         ("ok", "adjusted"), ("ok", "unchanged"), ("skipped", "no_context"),
+    )),
+    "augment.postgame_reconcile": frozenset((
+        ("ok", "agreed"), ("ok", "corrected"), ("ok", "unmatched"),
+        ("skipped", "history_off"), ("skipped", "history_unavailable"),
     )),
     "tierdb.impact_holdout": frozenset((
         ("ok", "enable"), ("ok", "keep_off"), ("skipped", "insufficient_data"),

@@ -223,3 +223,39 @@ def sync_recent_mayhem_games(max_games: int = 40, pause: float = PAGE_PAUSE_SECS
 
     return {"status": "ok", "imported": imported, "inspected": inspected,
             "listed": listed}
+
+
+def fetch_latest_own_augments(champion_id: str | None = None,
+                              pause: float = PAGE_PAUSE_SECS) -> list[str] | None:
+    """Augment ids of our most recent Mayhem game, from the local LCU only.
+
+    For post-game reconciliation. None when the client, the identity or the
+    game is unavailable, or when that game was on another champion (the
+    history may not have the match that just ended yet). Never returns ids
+    of players or games.
+    """
+    session = get_lcu_session()
+    if session is None:
+        return None
+    with session:
+        summoner = _get_json(session, "/lol-summoner/v1/current-summoner")
+        puuid = summoner.get("puuid") if summoner else None
+        if not isinstance(puuid, str) or not puuid:
+            return None
+        matches = _list_matches(session, 5, pause) or []
+        latest = next((m for m in matches if isinstance(m, dict) and (
+            m.get("queueId") == MAYHEM_QUEUE_ID
+            or str(m.get("gameMode", "")).upper() == "MAYHEM")), None)
+        game_id = latest.get("gameId") if latest else None
+        if not isinstance(game_id, int) or game_id <= 0:
+            return None
+        detail = _get_json(session, f"/lol-match-history/v1/games/{game_id}")
+        participant = _own_participant(detail, puuid) if detail else None
+        if participant is None:
+            return None
+        if champion_id:
+            aliases = get_champion_id_map(session)
+            played = aliases.get(str(participant.get("championId", 0)))
+            if played and played.lower() != str(champion_id).lower():
+                return None
+        return extract_augments(participant.get("stats") or {})
