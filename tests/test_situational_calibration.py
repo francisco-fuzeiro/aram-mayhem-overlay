@@ -83,9 +83,10 @@ def test_samples_skip_borrowed_rows_and_unknown_results():
     assert all(len(s.augments) == 1 and s.augments[0].effect_pp == 1.0 for s in samples)
 
 
-def test_refresh_writes_counts_only(tmp_path):
+def test_refresh_without_samples_keeps_the_earlier_verdict(tmp_path):
     out = tmp_path / "cal.json"
     db = tmp_path / "local.db"
+    out.write_text(json.dumps({"accepted": True, "pp_per_vote": {"build": 2.0}}))
     assert refresh(_Provider(), _SD(), db_path=db, out_path=out) == "insufficient_data"
-    saved = json.loads(out.read_text())
-    assert saved["games"] == 0 and saved["accepted"] is False
+    # Nothing to fit (e.g. tier list not loaded yet): the earlier verdict stays.
+    assert json.loads(out.read_text())["accepted"] is True

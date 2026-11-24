@@ -213,7 +213,12 @@ def refresh(provider, sd, *, db_path: Path | None = None,
     """Rebuild samples, calibrate and write the local file; returns the reason."""
     from backend.storage.db import get_participants
     rows = get_participants(db_path=db_path) if db_path else get_participants()
-    report = calibrate(samples_from_participants(rows, provider, sd))
+    samples = samples_from_participants(rows, provider, sd)
+    if not samples:
+        # Tier list not loaded yet (or no history): keep any earlier verdict
+        # instead of overwriting an accepted calibration with an empty one.
+        return "insufficient_data"
+    report = calibrate(samples)
     target = out_path or CALIBRATION_FILE
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
