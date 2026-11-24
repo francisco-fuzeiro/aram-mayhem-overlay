@@ -1240,3 +1240,16 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   code version: a launch with different code asks the old instance to quit and
   takes over, and an API running other code is refused with a clear message.
   (Instances older than this change cannot be asked to quit: close them by hand once.)
+
+## 2026-11-24 — Next-item alternatives, Grievous Wounds, own sustain
+
+- Owner request: with the shop open, show up to 3 alternatives to the next
+  item, each with a reason (e.g. heavy enemy magic damage → magic resist).
+- Grievous Wounds leads the alternatives when the enemy team heals a lot
+  (sustain_pressure ≥ 0.35 or ≥ 3 healing items) and nothing anti-heal is
+  planned or owned; pool = tier-list finals, else the recommendable shop pool.
+- Own sustain (champion heal/shield power plus confirmed augment
+  contributions) adds a bounded bonus to heal/shield power items.
+- Alternatives respect the build archetype (AD/AP), skip boots, owned and
+  conflicting items. Heuristic context over measured item ranks.
+- Shop-open visual detection still pending a full-window screenshot.

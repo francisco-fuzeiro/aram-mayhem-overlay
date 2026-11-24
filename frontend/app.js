@@ -1243,6 +1243,14 @@
             line("Following your items (" + (mb.follows === "ad" ? "physical/crit" : "magic") +
                 ")", "aug-explain aug-tier");
         }
+        const alts = Array.isArray(mb.alternatives) ? mb.alternatives : [];
+        if (alts.length) {
+            // Owner 24/11: options to the next item, each with its reason.
+            line("Alternatives:", "aug-explain aug-tier");
+            for (const a of alts) {
+                line((a.name || a.id) + (a.reason ? " — " + a.reason : ""));
+            }
+        }
         const swaps = Array.isArray(mb.swaps) ? mb.swaps : [];
         if (swaps.length && Array.isArray(mb.adapted)) {
             line("Adapted: " + names(mb.adapted), "aug-explain aug-tier");

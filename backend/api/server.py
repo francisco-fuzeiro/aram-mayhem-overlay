@@ -647,13 +647,19 @@ _AUGMENT_TO_ANVIL = {"ap": "ap", "ad": "ad", "attack_speed": "as", "hp": "hp",
                      "lethality": "lethality", "pen": "mpen", "crit": "crit", "cdr": "ah"}
 
 
-def _item_context(item, champion, enemy: dict, allies: dict, fate: set):
+def _item_context(item, champion, enemy: dict, allies: dict, fate: set,
+                  own_sustain: float = 0.0):
     """Bounded 0-3 match bonus for an item and the first reason (heuristic,
     except Weapon of Fate picks which AramHex measures)."""
     props = getattr(item, "properties", frozenset()) or frozenset()
     reasons: list[tuple[float, str]] = []
     if item is not None and item.id in fate:
         reasons.append((1.5, "Weapon of Fate pick (measured)"))
+    # Owner 24/11: amplify the player's own healing and shields (abilities
+    # + confirmed augments) with heal/shield power items.
+    stats = getattr(item, "stats", None)
+    if own_sustain >= 0.4 and stats is not None and float(stats.heal_power or 0) > 0:
+        reasons.append((1.0, "amplifies your healing and shields"))
     e = enemy or {}
     if e.get("enemies_analyzed", 0) > 0 and props:
         ap = champion is not None and (champion.role.lower() == "mage"
@@ -756,8 +762,16 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     for aug in chosen:
         fate |= set((data.get("fate") or {}).get(aug, []))
 
+    own_sustain = 0.0
+    if champion is not None:
+        own_sustain = float(champion.stats.heal_power or 0) + float(champion.stats.shield or 0)
+    for aug in chosen:
+        vec_ = _stat_vector_of(sd.get_augment(aug) if hasattr(sd, "get_augment") else None)
+        if vec_ is not None:
+            own_sustain += float(vec_.heal_power or 0) + float(vec_.shield or 0)
+
     def context(iid):
-        return _item_context(sd.get_item(iid), champion, enemy, allies, fate)
+        return _item_context(sd.get_item(iid), champion, enemy, allies, fate, own_sustain)
 
     canonical = getattr(sd, "canonical_item_id", lambda x: str(x))
     owned = {canonical(i) for i in (owned_ids or [])}
@@ -791,6 +805,8 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
              "reason": s["reason"]} for s in adapted.swaps if s["in"] in plan],
         "anvil_stats": [],
     }
+    payload["alternatives"] = _next_item_alternatives(
+        plan, owned, finals, strength, context, conflicts, enemy, follows, sd, name)
     boots_ids = {str(b) for b in (data.get("boots") or {})}
     boots_id, boots_reason = _context_boots(data.get("boots_reference"), boots_ids, enemy)
     if boots_id:
@@ -807,6 +823,66 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
                                "reason": r["reason"]} for r in ranked[:3]]
     record("anvil.stat_estimate", "ok", "estimated", len(payload["anvil_stats"]))
     return payload
+
+
+def _enemy_heals_a_lot(enemy: dict | None) -> bool:
+    e = enemy or {}
+    return (e.get("enemies_analyzed", 0) > 0
+            and (float(e.get("sustain_pressure") or 0) >= 0.35
+                 or int(e.get("healing_items") or 0) >= 3))
+
+
+def _next_item_alternatives(plan, owned, finals, strength, context, conflicts,
+                            enemy, follows, sd, name, limit: int = 3) -> list[dict]:
+    """Owner 24/11: with the shop open, options to the next item, each with
+    its reason. Grievous Wounds leads when the enemies heal a lot and the
+    plan has none. Heuristic context over the measured item ranks."""
+    from backend.tierdb.build_adapt import item_archetype
+
+    def item(iid):
+        return sd.get_item(iid)
+
+    def props(iid):
+        return getattr(item(iid), "properties", frozenset()) or frozenset()
+
+    taken = set(plan) | set(owned)
+    kinds = [item_archetype(item(i)) for i in plan]
+    kind = follows or ("ap" if kinds.count("ap") > kinds.count("ad") else
+                       "ad" if kinds.count("ad") > kinds.count("ap") else None)
+
+    def fits(iid):
+        it = item(iid)
+        if it is None or getattr(it, "boots", False) or iid in taken:
+            return False
+        if any(conflicts(iid, o) for o in taken):
+            return False
+        k = item_archetype(it)
+        return k is None or kind is None or k == kind
+
+    out: list[dict] = []
+    if _enemy_heals_a_lot(enemy) and not any("anti_heal" in props(i) for i in taken):
+        pool = [i for i in finals if "anti_heal" in props(i) and fits(i)]
+        if not pool and hasattr(sd, "recommendable_items"):
+            pool = [it.id for it in sd.recommendable_items()
+                    if "anti_heal" in (it.properties or ()) and fits(it.id)]
+        if pool:
+            best = max(pool, key=lambda i: (strength.get(i, 0.0), i))
+            out.append({"id": best, "name": name(best),
+                        "reason": "enemies heal a lot: Grievous Wounds"})
+    scored = []
+    for iid in finals:
+        if not fits(iid) or any(o["id"] == iid for o in out):
+            continue
+        bonus, reason = context(iid)
+        rank = (finals.get(iid) or {}).get("rank")
+        scored.append((strength.get(iid, 0.0) + bonus, iid,
+                       reason or (f"strong on this champion (#{rank})" if rank else None)))
+    for _value, iid, reason in sorted(scored, key=lambda t: (-t[0], t[1])):
+        if len(out) >= limit:
+            break
+        if reason:
+            out.append({"id": iid, "name": name(iid), "reason": reason})
+    return out[:limit]
 
 
 def _align_next_with_mayhem_build(build_state: dict, mayhem: dict | None,
