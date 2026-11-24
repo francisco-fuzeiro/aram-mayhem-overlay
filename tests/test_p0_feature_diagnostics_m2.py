@@ -49,7 +49,7 @@ def test_current_augment_cache_emits_exact_verdict(monkeypatch, tmp_path):
     got = _capture(monkeypatch)
     monkeypatch.setattr(loader, "_get_dd_version", lambda: "16.23.1")
     monkeypatch.setattr(loader, "CACHE_DIR", tmp_path)
-    cache = tmp_path / "augments_v6_16.23.1.json"
+    cache = tmp_path / "augments_v7_16.23.1.json"
     cache.write_text(json.dumps({"fixture": {"id": "fixture"}}), encoding="utf-8")
     monkeypatch.setattr(loader, "_parse_augment_cache", lambda _: {"fixture": object()})
     assert loader._load_augments()

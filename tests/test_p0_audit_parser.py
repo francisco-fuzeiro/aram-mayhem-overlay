@@ -60,3 +60,11 @@ def test_audit_2411_armor_true_damage_inflections_and_magnitude():
     assert many > once
     assert loader._parse_description_to_stats("Upgrade your ADS.", "S").ad == 0
     assert loader._clean_description("Gain <b>@Value@</b> AP") == "Gain AP"
+
+
+def test_curated_effects_table_is_valid_and_wins_over_the_parser():
+    from backend.collectors.slot_title_ocr import _normalize
+    table = loader._curated_effects()
+    assert len(table) >= 40
+    assert table[_normalize("Tank Engine")]["hp"] > 0
+    assert table[_normalize("First-Aid Kit")]["heal_power"] > 0

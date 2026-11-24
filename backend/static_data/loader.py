@@ -171,7 +171,7 @@ _ITEM_CACHE_SCHEMA = 5
 # v5: defensive MR and mobility words must not inherit misleading v4 vectors.
 # The scoring StatVector has no dedicated MR or movement-speed dimensions.
 # Their effects remain unmodelled unless another proven stat is present.
-_AUGMENT_CACHE_SCHEMA = 6  # 24/11: armor unmodelled, true damage->pen, inflections, magnitude
+_AUGMENT_CACHE_SCHEMA = 7  # 24/11: armor unmodelled, true damage->pen, inflections, magnitude
 MAYHEM_MIN_AUGMENT_ID = 1000
 _MAYHEM_ICON_MARKER = "/Kiwi/"
 MIN_NORMALIZED_NAME_LEN = 4
@@ -673,6 +673,12 @@ def _load_augments() -> dict[str, AugmentData]:
 
         # Compute contribution from description + name hints
         contribution, provenance = _parse_description_to_stats_with_provenance(desc, name)
+        # S1 (decided 23/11): the reviewed curated table beats the parser.
+        curated = _curated_effects().get(_normalize(name))
+        if curated:
+            contribution = StatVector(**{f: float(curated.get(f, 0.0))
+                                         for f in StatVector.fields()})
+            provenance = "curated"
 
         result[aug_id] = AugmentData(
             id=aug_id,
@@ -700,6 +706,28 @@ def _load_augments() -> dict[str, AugmentData]:
         cache_file.write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
 
     return result
+
+
+CURATED_EFFECTS_FILE = _APP_ROOT / "data" / "augments" / "curated_effects.json"
+_curated_cache: dict | None = None
+
+
+def _curated_effects() -> dict[str, dict[str, float]]:
+    """Reviewed per-augment stat weights by normalized title (S1)."""
+    global _curated_cache
+    if _curated_cache is None:
+        table = {}
+        try:
+            raw = json.loads(CURATED_EFFECTS_FILE.read_text(encoding="utf-8"))
+            for name, vec in (raw.get("augments") or {}).items():
+                if isinstance(vec, dict) and all(
+                        k in StatVector.fields() and isinstance(v, (int, float))
+                        and 0 <= v <= 1 for k, v in vec.items()):
+                    table[_normalize(name)] = dict(vec)
+        except (OSError, ValueError, AttributeError):
+            table = {}
+        _curated_cache = table
+    return _curated_cache
 
 
 def _keyword_pattern(keyword: str) -> str:

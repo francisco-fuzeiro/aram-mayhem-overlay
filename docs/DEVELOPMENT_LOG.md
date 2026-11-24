@@ -1314,3 +1314,17 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Mana-stacking items: Tear of the Goddess becomes Next early while a Tear
   item is planned. Whispering Circlet (transform not buyable) is now a final
   item (policy item_pool_v6); Manamune/Archangel's/Winter's were already final.
+
+## 2026-11-24 — Augment parser audit fixes and curated effects table
+
+- Parser (fallback for augments without curated data): "armor" no longer
+  maps to shield (armor stays unmodelled, like MR); "true damage" maps to
+  penetration, not lethality; keywords match inflections (heal/heals/
+  healing/healed; two-letter keywords stay exact); magnitude counts repeats
+  (+0.3, then +0.1 per repeat, up to 3); when the Arena description is
+  missing the CommunityDragon description/tooltip is cleaned and parsed.
+- Curated effects table `data/augments/curated_effects.json` (~53 common
+  Mayhem augments, 0–1 weights, hand-written from the in-game text). It wins
+  over the parser and marks provenance "curated". Cache schema 7.
+- PP-OCRv4 / RapidOCR Apache-2.0 notice in THIRD_PARTY_NOTICES.md; the
+  settings About card credits AramHex (CC BY-NC 4.0) and PP-OCRv4.
