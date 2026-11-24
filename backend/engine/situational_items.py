@@ -87,6 +87,32 @@ def own_healing(champion) -> float:
     return 1.0 if name in STRONG_HEALERS else 0.5 if name in MEDIUM_HEALERS else 0.0
 
 
+# Owner 24/11: champions whose usual build already has life steal or
+# omnivamp (Akali with Gunblade, Fiora...) gain from more vamp and healing,
+# not only champions with healing abilities. Proposta: list to review.
+VAMP_BUILDERS = _names(
+    "Akali", "Fiora", "Irelia", "Yasuo", "Yone", "Master Yi", "Tryndamere",
+    "Aatrox", "Riven", "Gwen", "Kayn", "Viego", "Bel'Veth", "Samira", "Draven",
+    "Olaf", "Darius", "Warwick", "Vladimir", "Briar", "Kindred", "Kha'Zix",
+    "Rengar", "Jax", "Sett", "Volibear", "Nilah", "Lillia", "Sylas", "Diana")
+
+
+def builds_vamp(champion, item_ids=(), get_item=None) -> bool:
+    """Curated vamp builders, or a planned build with life steal / omnivamp."""
+    if _norm(getattr(champion, "name", "")) in VAMP_BUILDERS:
+        return True
+    if get_item is None:
+        return False
+    return any(getattr(get_item(i), "properties", frozenset()) & {"lifesteal", "omnivamp"}
+               for i in item_ids if i)
+
+
+def sustain_level(champion, item_ids=(), get_item=None) -> float:
+    """own_healing, raised to 1.0 for champions that build vamp (owner 24/11)."""
+    return max(own_healing(champion),
+               1.0 if builds_vamp(champion, item_ids, get_item) else 0.0)
+
+
 HEAL_AMP_ITEMS = _names("Spirit Visage")
 
 

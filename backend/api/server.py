@@ -646,12 +646,15 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, liv
         personal, record_ = {}, None
     base = (record_[0] / record_[1]) if record_ and record_[1] >= 10 else 0.5
 
-    from backend.engine.situational_items import own_healing
-    healer = own_healing(champion)
-    if not healer and any(
-            getattr(sd.get_item(i), "properties", frozenset()) & {"lifesteal", "omnivamp"}
-            for i in items if i):
-        healer = 0.5  # owner 24/11: builds lifesteal / omnivamp
+    from backend.engine.situational_items import sustain_level
+    # Owner 24/11: self-healers AND champions whose build has vamp (Akali
+    # with Gunblade, Fiora) gain from vamp / healing augments.
+    healer = sustain_level(champion, items, sd.get_item)
+    if healer:
+        # Sustain is part of what this champion's build wants, so vamp /
+        # healing augments fit the build instead of reading as off-profile.
+        peak = max(demand.values(), default=1.0) or 1.0
+        demand["heal_power"] = demand.get("heal_power", 0.0) + healer * peak
 
     from backend.tierdb.context_adjust import AdjustConfig
     from backend.tierdb.impact_gate import IMPACT_WEIGHT
@@ -805,6 +808,10 @@ def _item_context(item, champion, enemy: dict, allies: dict, fate: set,
     from backend.engine.situational_items import HEAL_AMP_ITEMS, _norm
     amp = (stats is not None and float(stats.heal_power or 0) > 0) or (
         item is not None and _norm(getattr(item, "name", "")) in HEAL_AMP_ITEMS)
+    if own_sustain >= 0.4 and props & {"lifesteal", "omnivamp"}:
+        # Owner 24/11: more vamp for champions that heal or already build vamp.
+        cut = int(e.get("anti_heal_items") or 0) >= 2
+        reasons.append((0.5 if cut else 1.0, "more vamp for your sustain"))
     if own_sustain >= 0.4 and amp:
         # Owner 24/11: Swain/Maokai/Zac -> Spirit Visage beats another MR item.
         # Visible enemy Grievous Wounds halve that value.
@@ -924,11 +931,12 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     for aug in chosen:
         fate |= set((data.get("fate") or {}).get(aug, []))
 
-    from backend.engine.situational_items import own_healing
+    from backend.engine.situational_items import sustain_level
     own_sustain = 0.0
     if champion is not None:
         own_sustain = (float(champion.stats.heal_power or 0) + float(champion.stats.shield or 0)
-                       + own_healing(champion))
+                       + sustain_level(champion, list(data.get("reference") or []),
+                                       getattr(sd, "get_item", None)))
     for aug in chosen:
         vec_ = _stat_vector_of(sd.get_augment(aug) if hasattr(sd, "get_augment") else None)
         if vec_ is not None:

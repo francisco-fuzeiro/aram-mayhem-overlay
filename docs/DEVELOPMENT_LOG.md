@@ -1405,3 +1405,17 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   "we were not found among the players" (`player_unidentified`), which is
   what hides the enemy team. `augment.postgame_reconcile` records
   `no_offers` when a match ends with nothing to reconcile.
+
+## 2026-11-24 — Match feedback: Anvil options, vamp builders, champion strength label
+
+- Stat Anvil: all shards are always listed (the "Other options" dropdown
+  could not be opened in game: the overlay is click-through).
+- Owner rule: champions whose usual build has life steal / omnivamp (Akali
+  with Gunblade, Fiora...) gain from more vamp and healing, not only
+  champions with healing abilities. `situational_items.VAMP_BUILDERS`
+  (Proposta) or a planned vamp item raise the sustain level to 1.0; sustain
+  joins the build demand, so Goredrink / Warlock Juicebox (curated) fit the
+  build; vamp items get "more vamp for your sustain".
+- Champion select: the strength line names the tier and rank explicitly.
+- The badges above the cards with "x/222" are not ARAM Oracle's (another
+  app); ours is the side panel.

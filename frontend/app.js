@@ -664,7 +664,7 @@
                     m.tie_end > m.tie_group ? " · tied #" + m.tie_group + "–#" + m.tie_end : "";
                 mayhem.innerHTML = tierPill(m.strength, "") +
                     rankPill(m.rank, m.rank_total) +
-                    '<span class="mayhem-sub">' + esc("Mayhem strength" + tied +
+                    '<span class="mayhem-sub">' + esc("Mayhem strength " + m.strength + " (#" + m.rank + " of " + m.rank_total + ")" + tied +
                         " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown")) +
                     "</span>";
                 card.appendChild(mayhem);
@@ -689,7 +689,8 @@
 
     // -- Render update --
 
-    // Shows only the best-fit shard; the others stay behind "Other options".
+    // Best-fit shard first, then every other shard (always visible: the
+    // overlay is click-through, a dropdown could not be opened in game).
     function renderAnvilOffer(data) {
         const section = $("section-anvil");
         const top = $("anvil-top");
