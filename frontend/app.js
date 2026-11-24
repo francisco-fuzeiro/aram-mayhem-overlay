@@ -491,6 +491,13 @@
         }
 
         if (msg.type === "preferences_updated") return;
+        if (msg.type === "shop_state") {
+            if (lastResult && !stale) {
+                lastResult.shop_open = msg.open === true;
+                autoExpandSections(lastResult);
+            }
+            return;
+        }
         if (msg.type === "toggle_build") {
             if (lastResult && !stale) {
                 buildPinnedByHotkey = !buildPinnedByHotkey;
@@ -1504,7 +1511,8 @@
         // the shop can be open (dead, game start) or pinned with Alt+B;
         // otherwise just the next item.
         const shopTime = typeof data.game_time === "number" && data.game_time < 60;
-        const details = data.is_dead === true || shopTime || buildPinnedByHotkey;
+        const details = data.shop_open === true || data.is_dead === true || shopTime ||
+            buildPinnedByHotkey;
         buildList.classList.toggle("hidden", !details);
         if (mayhemBuild) mayhemBuild.classList.toggle("hidden", !details);
         buildFooter.classList.toggle("hidden", !details);

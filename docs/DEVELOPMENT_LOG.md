@@ -1284,3 +1284,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Anvils: after a popup closes (and while vouchers are held) the Anvil
   watcher is not throttled for 15 s and the 0.3 s presence probe triggers
   it as soon as cards show, so chained popups picked in 1-2 s are read.
+
+## 2026-11-24 — Shop-open detection (draggable shop)
+
+- Owner: full build only while the shop is open; the shop can be dragged
+  and keeps its position. `shop_detect.shop_frame_found` looks for the shop
+  frame anywhere in the client: a gold top border >= 0.45 x client height
+  with gold side borders at both ends (cards are 0.29 x height). Checked on
+  the owner's screenshots (shop found; augment, four-card and Anvil screens
+  not), ~55 ms per look, once per second, in memory only.
+- Debounced (open on one sighting, closed after two misses), pushed to the
+  overlay as `shop_state`; dead / first minute / Alt+B still show it too.

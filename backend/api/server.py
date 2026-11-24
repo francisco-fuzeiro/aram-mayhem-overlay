@@ -174,6 +174,9 @@ class GameState:
         self.ocr_slot_choices: dict[str, str | None] | None = None
         # Field 24/11: verified FOUR-card offer (ids c1..c4, None = unread).
         self.four_offer: list[str | None] | None = None
+        # Field 24/11: full build only while the shop is open (OCR-free probe).
+        self.shop_open: bool = False
+        self.shop_misses: int = 0
         # Complete prior offer identity, never proof that a NEW offer is visible.
         self._prior_due_triple: tuple[str, str, str] | None = None
         self.ocr_stale: bool = False
@@ -254,6 +257,8 @@ class GameState:
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
         self.four_offer = None
+        self.shop_open = False
+        self.shop_misses = 0
         self._prior_due_triple = None
         self.ocr_stale = False
         self.ocr_stale_since_epoch = None
@@ -461,8 +466,9 @@ async def lifespan(app: FastAPI):
 
     poll_task = asyncio.create_task(_poll_game_loop())
     presence_task = asyncio.create_task(_presence_loop())
+    shop_task = asyncio.create_task(_shop_loop())
     yield
-    for task in (poll_task, presence_task):
+    for task in (poll_task, presence_task, shop_task):
         task.cancel()
         try:
             await task
@@ -2631,6 +2637,41 @@ def _augment_cards_gone(state: GameState, slot: str | None) -> str:
     })
 
 
+SHOP_PROBE_INTERVAL_S = 1.0
+SHOP_MISSES_TO_CLOSE = 2
+
+
+async def _shop_step(state: GameState, seen: bool | None) -> bool:
+    """Debounced shop state; returns True when it changed. Lock inside."""
+    async with state.lock:
+        before = state.shop_open
+        if seen is True:
+            state.shop_open, state.shop_misses = True, 0
+        elif seen is False:
+            state.shop_misses += 1
+            if state.shop_misses >= SHOP_MISSES_TO_CLOSE:
+                state.shop_open = False
+        if state.shop_open != before:
+            feature_diagnostics.record("build.shop_open", "ok",
+                                       "opened" if state.shop_open else "closed")
+        return state.shop_open != before
+
+
+async def _shop_loop() -> None:
+    """Field 24/11: is the (draggable) shop open? Position-independent look."""
+    from backend.collectors.shop_detect import probe_shop
+    while True:
+        try:
+            if game_state.match_id and game_state.ocr_enabled:
+                seen = await asyncio.to_thread(probe_shop)
+                if await _shop_step(game_state, seen):
+                    await _broadcast(json.dumps(
+                        {"type": "shop_state", "open": game_state.shop_open}))
+        except Exception as exc:  # never kill the loop
+            logger.warning("Shop probe failed: %s", type(exc).__name__)
+        await asyncio.sleep(SHOP_PROBE_INTERVAL_S)
+
+
 async def _presence_loop() -> None:
     """Fast OCR-free probe, active only while a verified offer is shown."""
     loop = asyncio.get_running_loop()
@@ -2979,7 +3020,12 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         if action != "superseded":
                             four = getattr(deps.screen_watcher, "four_offer", None)
                             if isinstance(four, list) and any(four):
-                                state.four_offer = [m[0] if m else None for m in four]
+                                ids4 = [m[0] if m else None for m in four]
+                                if ids4 != state.four_offer:
+                                    feature_diagnostics.record(
+                                        "augment.four_cards", "ok", "verified",
+                                        sum(1 for i in ids4 if i))
+                                state.four_offer = ids4
                         if (action == "detected" and detected
                                 and state._prior_due_triple is not None):
                             candidate_slots = _slots_from_detected(detected)
@@ -3606,6 +3652,7 @@ def _serialize_result(
         out["current_gold"] = snapshot.current_gold
         out["level"] = snapshot.level
         out["scan_window_open"] = game_state.scan_window_open
+        out["shop_open"] = game_state.shop_open
         out["augment_state"] = game_state.get_augment_state()
         out["offers"] = game_state.offer_ledger.payload()
         out["enemies"] = [

@@ -17,6 +17,8 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "anvil.offer_render": (False, "Overlay rendered verified Stat Anvil cards"),
     "enemy.detection": (True, "Enemy champions listed by live data and analysed"),
     "augment.window_open": (False, "Augment window opened because the cards were seen on screen"),
+    "build.shop_open": (False, "Shop frame seen on screen (full build shown)"),
+    "augment.four_cards": (False, "Four-card augment offer read"),
     "augment.read_latency": (False, "Seconds from augment window opening to first verified read"),
     "anvil.popup_watch": (True, "Stat Anvil popup watcher ran during the match"),
     # Tier list DB (PR #106)
@@ -77,6 +79,8 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
         ("skipped", "no_enemies_listed"),
     )),
     "augment.window_open": frozenset((("ok", "cards_seen"),)),
+    "build.shop_open": frozenset((("ok", "opened"), ("ok", "closed"))),
+    "augment.four_cards": frozenset((("ok", "verified"),)),
     "augment.read_latency": frozenset((
         ("ok", "under_3s"), ("ok", "3_to_10s"), ("ok", "10_to_30s"), ("ok", "over_30s"),
     )),

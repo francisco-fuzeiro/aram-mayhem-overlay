@@ -108,3 +108,32 @@ def test_server_infers_the_four_card_pick_from_the_cursor(monkeypatch):
         asyncio.run(_presence_step(state, cp.Probe(t, cue, slot), t))
     assert state.chosen_augments == ["c"]
     assert state.four_offer is None and state.scan_window_open is False
+
+
+def test_shop_frame_is_found_wherever_the_shop_was_dragged():
+    from backend.collectors.shop_detect import shop_frame_found
+    gold = (200, 160, 90)
+
+    def frame(x0, y0, w, h, size=(1280, 680)):
+        img = Image.new("RGB", size, (10, 20, 30))
+        px = img.load()
+        for x in range(x0, x0 + w):
+            px[x, y0] = gold
+        for y in range(y0, y0 + h):
+            px[x0, y] = px[x0 + w - 1, y] = gold
+        return img
+
+    assert shop_frame_found(frame(300, 60, 650, 440))
+    assert shop_frame_found(frame(600, 200, 650, 440))     # dragged right/down
+    assert not shop_frame_found(frame(500, 130, 200, 330))  # an augment card
+    assert not shop_frame_found(frame(300, 60, 650, 100))   # a long bar, no sides
+    assert not shop_frame_found(Image.new("RGB", (1280, 680), (0, 0, 0)))
+
+
+def test_shop_state_is_debounced():
+    from backend.api.server import GameState, _shop_step
+    state = GameState()
+    assert asyncio.run(_shop_step(state, True)) is True and state.shop_open
+    assert asyncio.run(_shop_step(state, False)) is False and state.shop_open
+    assert asyncio.run(_shop_step(state, None)) is False and state.shop_open
+    assert asyncio.run(_shop_step(state, False)) is True and not state.shop_open
