@@ -1407,8 +1407,8 @@ test("TDB-UI2: offered augments show tier, rank, tie span and source level", () 
     });
     const cards = h.element("augment-list").children;
     const text = (card) => card.children.map((c) => c.textContent).join(" | ");
-    assert.match(text(cards[0]), /Tier S · #3\/70 \(tied #3–#7\) · champion data/);
-    assert.match(text(cards[1]), /Tier C · #50\/70 · global data/);
+    assert.match(text(cards[0]), /Tier S · #3\/70 \(tied #3–#7\) of Gold augments · champion data/);
+    assert.match(text(cards[1]), /Tier C · #50\/70 of Gold augments · global data/);
     assert.match(text(cards[2]), /No tier data/);
     assert.doesNotMatch(cards.map(text).join(" "), /win rate|%/i);
 });
@@ -1441,7 +1441,7 @@ test("TDB-UI3: champion select shows Mayhem strength and potential side by side"
     assert.match(cards[0].children[1].innerHTML,
         /<span class="tier-pill tier-S">S<\/span><span class="rank-pill">#4\/172<\/span>/);
     assert.match(cards[0].children[1].innerHTML,
-        /Mayhem strength · tied #3–#5 · Potential: very high/);
+        /Mayhem strength S \(#4 of 172\) · tied #3–#5 · Potential: very high/);
     assert.equal(cards[1].children.length, 3);
 });
 
@@ -1596,9 +1596,9 @@ test("TDB-FIX1: offer badge shows the tier, unrated labels are muted, best tier 
     });
     const cards = h.element("augment-list").children;
     assert.match(cards[0].innerHTML,
-        /<span class="tier-pill tier-A">A<\/span><span class="rank-pill">#9\/96<\/span>/);
+        /<span class="tier-pill tier-A">A<\/span><span class="rank-pill">#9\/96 Gold<\/span>/);
     assert.match(cards[1].innerHTML,
-        /<span class="tier-pill tier-C">C<\/span><span class="rank-pill">#53\/70<\/span>/);
+        /<span class="tier-pill tier-C">C<\/span><span class="rank-pill">#53\/70 Prismatic<\/span>/);
     assert.match(cards[2].innerHTML, /class="aug-score muted"/);
     assert.equal(cards[0].className.includes("top-pick"), true);
     assert.equal(cards[1].className.includes("top-pick"), false);
@@ -1618,7 +1618,7 @@ test("TDB-FIX2: champion select leads with Mayhem strength; composite is labelle
     const card = h.element("champ-select-list").children[0];
     assert.match(card.children[1].innerHTML,
         /^<span class="tier-pill tier-OP">OP<\/span><span class="rank-pill">#2\/173<\/span>/);
-    assert.match(card.children[1].innerHTML, /Mayhem strength · Potential: high/);
+    assert.match(card.children[1].innerHTML, /Mayhem strength OP \(#2 of 173\) · Potential: high/);
     assert.equal(card.children[1].className.includes("mayhem-main"), true);
     assert.match(card.children[2].textContent, /^Team fit: B · 6\.6\/10 · fighter/);
 });
@@ -1648,7 +1648,7 @@ test("TDB-CTX: offer badge shows the adjusted tier with arrow and reason, base k
     });
     const cards = h.element("augment-list").children;
     assert.match(cards[0].innerHTML,
-        /<span class="tier-pill tier-A">A ↑<\/span><span class="rank-pill">#30\/96<\/span>/);
+        /<span class="tier-pill tier-A">A ↑<\/span><span class="rank-pill">#30\/96 Gold<\/span>/);
     const text = cards[0].children.map((c) => c.textContent).join(" | ");
     assert.match(text, /↑ fits your build \(base B\)/);
     assert.match(text, /Tier B · #30\/96/);
