@@ -84,7 +84,7 @@ def test_unreachable_owner_is_not_impersonated(tmp_path):
 
 def test_activation_rejects_unlisted_action(tmp_path):
     with pytest.raises(ValueError, match="Unsupported"):
-        InstanceGate(tmp_path).forward("quit")
+        InstanceGate(tmp_path).forward("shutdown")
 
 
 def test_activation_listener_cannot_start_without_lock(tmp_path):
@@ -104,6 +104,8 @@ def test_instance_cleanup_is_idempotent(tmp_path):
 
 
 def test_second_launch_forwards_without_starting_api_or_qt(monkeypatch):
+    from backend import feature_diagnostics
+    monkeypatch.setattr(feature_diagnostics, "code_version", lambda: None)
     events = []
 
     class FakeGate:
@@ -133,6 +135,8 @@ def test_second_launch_forwards_without_starting_api_or_qt(monkeypatch):
 
 
 def test_unresponsive_primary_reports_clear_error(monkeypatch):
+    from backend import feature_diagnostics
+    monkeypatch.setattr(feature_diagnostics, "code_version", lambda: None)
     class Busy:
         def __init__(self, _directory):
             pass
@@ -246,6 +250,9 @@ def test_bad_view_rejected_before_ownership():
 
 
 def test_managed_api_reuses_companion_without_binding(monkeypatch):
+    from backend import feature_diagnostics
+    monkeypatch.setattr(feature_diagnostics, "code_version", lambda: "abc1234")
+    monkeypatch.setattr(service, "companion_code", lambda: "abc1234")
     monkeypatch.setattr(service, "probe_companion", lambda: True)
     monkeypatch.setattr(
         service, "port_in_use", lambda: pytest.fail("Must not bind reused API")
@@ -347,3 +354,60 @@ def test_uvicorn_binding_failure_releases_owned_thread(monkeypatch):
     with pytest.raises(DesktopStartupError, match="simulated port race"):
         api.start(timeout=2)
     assert api._thread is None
+
+
+def test_managed_api_refuses_an_api_running_other_code(monkeypatch):
+    # Field 23/11: reports kept coming from an old process after updates.
+    from backend import feature_diagnostics
+    monkeypatch.setattr(feature_diagnostics, "code_version", lambda: "2ecd870")
+    monkeypatch.setattr(service, "companion_code", lambda: None)
+    monkeypatch.setattr(service, "probe_companion", lambda: True)
+    with pytest.raises(DesktopStartupError, match="older ARAM Oracle"):
+        service.ManagedApi().start()
+
+
+def test_new_version_asks_old_instance_to_quit_and_takes_over(monkeypatch):
+    from backend import feature_diagnostics
+    monkeypatch.setattr(feature_diagnostics, "code_version", lambda: "2ecd870")
+    events = []
+
+    class Old:
+        def __init__(self, _directory):
+            self.tries = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            events.append("close")
+
+        def acquire(self):
+            self.tries += 1
+            return self.tries > 2  # lock frees after the old one quits
+
+        def owner_code(self):
+            return "892f379"
+
+        def forward(self, action, timeout=20.0):
+            events.append(action)
+            return True
+
+        def listen(self):
+            events.append("listen")
+
+        def close(self):
+            pass
+
+    class Api:
+        def start(self):
+            events.append("api")
+
+        def stop(self):
+            events.append("stop")
+
+    monkeypatch.setattr(lifecycle, "InstanceGate", Old)
+    monkeypatch.setattr(lifecycle, "ManagedApi", Api)
+    from backend.desktop import window
+    monkeypatch.setattr(window, "run_managed_ui", lambda *a: events.append("ui") or 0)
+    assert run_application("overlay") == 0
+    assert events[:4] == ["quit", "api", "listen", "ui"]

@@ -18,7 +18,7 @@ import threading
 import time
 
 logger = logging.getLogger("aram-oracle.desktop")
-ACTIONS = frozenset({"settings", "overlay"})
+ACTIONS = frozenset({"settings", "overlay", "quit"})
 
 
 def _lock(handle) -> None:
@@ -86,8 +86,9 @@ class InstanceGate:
                 target=self._serve, name="aram-oracle-activation", daemon=True
             )
             self._thread.start()
+            from backend.feature_diagnostics import code_version
             descriptor = {"port": sock.getsockname()[1], "token": self._token,
-                          "pid": os.getpid()}
+                          "pid": os.getpid(), "code": code_version()}
             temporary = self.info_path.with_suffix(".tmp")
             try:
                 with temporary.open("w", encoding="utf-8") as output:
@@ -151,6 +152,14 @@ class InstanceGate:
                 pass
             time.sleep(0.1)
         return False
+
+    def owner_code(self) -> str | None:
+        """Code version advertised by the running owner (None for older builds)."""
+        try:
+            code = json.loads(self.info_path.read_text(encoding="utf-8")).get("code")
+        except (OSError, ValueError, AttributeError):
+            return None
+        return code if isinstance(code, str) else None
 
     def drain(self) -> list[str]:
         actions = []

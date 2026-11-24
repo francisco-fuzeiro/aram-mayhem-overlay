@@ -1213,3 +1213,9 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   more fresh attempt in the same tick. Report adds "OCR after cards shown".
 - Anvil watcher saw "no_cards" 30x: the augment card-background cue may not match
   the Stat Anvil popup. Every 4 s it now OCRs the titles regardless of the cue.
+- Three reports in a row still came from 892f379 after "update and reopen": a new
+  launch only re-activated the running instance, and the desktop host reuses any
+  compatible API on port 8765. Now the instance descriptor and /health carry the
+  code version: a launch with different code asks the old instance to quit and
+  takes over, and an API running other code is refused with a clear message.
+  (Instances older than this change cannot be asked to quit: close them by hand once.)

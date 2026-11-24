@@ -162,6 +162,8 @@ if PYQT_AVAILABLE:
                     self.show_settings()
                 elif action == "overlay":
                     self.show_overlay()
+                elif action == "quit":
+                    self.quit()
 
         def _check_api(self) -> None:
             if self._quitting:

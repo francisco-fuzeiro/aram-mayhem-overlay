@@ -20,6 +20,15 @@ class DesktopStartupError(RuntimeError):
     """The desktop UI cannot safely connect to the local companion API."""
 
 
+def companion_code() -> str | None:
+    """Code version reported by the running API (None for older builds)."""
+    try:
+        code = requests.get(f"{API_BASE}/health", timeout=0.5).json().get("code")
+    except (requests.RequestException, ValueError, AttributeError):
+        return None
+    return code if isinstance(code, str) else None
+
+
 def probe_companion() -> bool:
     """Recognize our API, rather than treating any HTTP 200 as our server.
 

@@ -995,6 +995,7 @@ def health():
         "champions_loaded": len(static_data._champions),
         "augments_loaded": len(static_data._augments),
         "items_loaded": len(static_data._items),
+        "code": feature_diagnostics.code_version(),
     }
 
 

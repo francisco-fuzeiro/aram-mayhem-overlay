@@ -39,8 +39,18 @@ def record(feature: str, status: str, reason: str, count: int | None = None) -> 
         return False
 
 
+_CODE: list = []
+
+
 def code_version() -> str | None:
     """Short git commit of the running code, or None (packaged build, no git)."""
+    if _CODE:
+        return _CODE[0]
+    _CODE.append(_git_sha())
+    return _CODE[0]
+
+
+def _git_sha() -> str | None:
     import subprocess
     root = Path(__file__).resolve().parents[1]
     try:
