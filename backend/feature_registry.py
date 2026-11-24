@@ -34,6 +34,7 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "tierdb.context_adjust": (False, "In-match ±1 tier context adjustment of offered augments"),
     "augment.postgame_reconcile": (False, "Live augment picks checked against the match history"),
     "tierdb.impact_holdout": (False, "Local-history holdout verdict for the impact metric"),
+    "tierdb.situational_calibration": (False, "Own-games recalibration of the situational augment weights"),
     "anvil.stat_estimate": (True, "Heuristic Stat Anvil stat priorities attached"),
     "anvil.offer_rating": (False, "Own 0-10 heuristic scores for the visible shards"),
     "augment.pick_inferred": (False, "Cards vanished; pick read from the card under the cursor"),
@@ -135,6 +136,10 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     "tierdb.impact_holdout": frozenset((
         ("ok", "enable"), ("ok", "keep_off"), ("skipped", "insufficient_data"),
         ("failed", "error"),
+    )),
+    "tierdb.situational_calibration": frozenset((
+        ("ok", "better_holdout"), ("ok", "no_holdout_gain"),
+        ("skipped", "insufficient_data"), ("failed", "error"),
     )),
     "anvil.stat_estimate": frozenset((
         ("ok", "estimated"), ("skipped", "tiers_off"), ("skipped", "no_demand"),

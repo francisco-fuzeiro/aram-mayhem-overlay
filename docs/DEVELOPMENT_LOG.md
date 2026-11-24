@@ -7,6 +7,8 @@
 - `context_adjust.context_votes()` returns the per-signal votes (-1..1) with reasons; `backend/tierdb/situational_score.py` turns them into a capped pp delta with `data/augments/situational_weights.json` (status Proposta), finds the new list position and maps it to the tier bands. Blocking signals still force E; borrowed (no champion games) rows keep the legacy shift.
 - Synergy rules that depend on allies feed the "allies" weight; the rest feed "synergy". Impact weight is 0 until calibrated.
 - The overlay's best-pick ordering uses `adjusted_rank` when present.
+- Recalibration (`backend/tierdb/situational_calibration.py`): rebuilds each stored player's votes from end-of-game data (champion + final items, other augments, enemy champions + final items, own healing, synergy rules with the allied champions; personal and impact left out), fits pp per vote by logistic regression around the hand weights (L2, 0-5 pp, per-augment ±3 pp cap) on the oldest 70% of games and compares log-loss with the hand weights on the newest 30%. Written to `~/.aram-oracle/situational_calibration.json` (counts and weights only); used only when games ≥ 200 and the holdout improves. Runs after each history sync; diagnostics feature `tierdb.situational_calibration`.
+- Known limit: end-of-game items overstate what was known when the augment was picked, so build/enemy votes are slightly optimistic in the fit.
 
 ## 2026-11-24 — Owner test session (before 433b92a): window opened ~1 min late, builds incoherent
 

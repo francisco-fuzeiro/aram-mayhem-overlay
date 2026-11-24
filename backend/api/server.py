@@ -567,6 +567,19 @@ async def _refresh_impact_gate() -> None:
                       "insufficient_data": ("skipped", "insufficient_data")
                       }.get(verdict, ("failed", "error"))
     feature_diagnostics.record("tierdb.impact_holdout", status, reason)
+    # Owner 24/11: the situational weights recalibrate from the same games,
+    # used only with >= 200 games and a better temporal holdout.
+    try:
+        from backend.tierdb import situational_calibration
+        verdict = await asyncio.to_thread(situational_calibration.refresh,
+                                          tier_service.provider, static_data)
+    except Exception:  # optional, never breaks the server
+        logger.exception("Situational calibration failed")
+        verdict = "error"
+    feature_diagnostics.record(
+        "tierdb.situational_calibration",
+        "ok" if verdict in ("better_holdout", "no_holdout_gain") else
+        "skipped" if verdict == "insufficient_data" else "failed", verdict)
 
 
 def _visible_augment_ids(recommendations, offers) -> list[str]:
