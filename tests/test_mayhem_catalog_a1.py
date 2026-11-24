@@ -111,7 +111,7 @@ def test_strict_match_same_normalized_title_prefers_lowest_mayhem_id():
 
 
 def test_cache_schema_is_incremented_to_prevent_reusing_arena_data():
-    assert loader._AUGMENT_CACHE_SCHEMA == 5
+    assert loader._AUGMENT_CACHE_SCHEMA == 6
 
 
 def test_shared_server_title_catalog_is_augments_only(monkeypatch):
@@ -165,7 +165,7 @@ def test_loader_persists_only_the_328_selected_mayhem_source_rows(
     monkeypatch.setattr(loader.requests, "get", fake_get)
     loaded = loader._load_augments()
     cache = json.loads(
-        (tmp_path / "augments_v5_a1-fixture.json").read_text(encoding="utf-8")
+        (tmp_path / "augments_v6_a1-fixture.json").read_text(encoding="utf-8")
     )
     expected = json.loads(
         (FIXTURES / "expected_mayhem_catalog_2026-11-20.json").read_text(encoding="utf-8")

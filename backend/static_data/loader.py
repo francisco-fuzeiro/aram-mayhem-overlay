@@ -86,10 +86,12 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "damage reduction": "shield",
     "invulnerable": "shield",
     "invulnerability": "shield",
-    "armor": "shield",
+    # Audit 24/11 (P0-03): armor is not a shield; like magic resist it has no
+    # StatVector field, so it stays unmodelled instead of being misread.
     "adaptive force": "ap",
     "on-hit": "attack_speed",
-    "true damage": "lethality",
+    # Audit 24/11: true damage ignores resistances, closest to penetration.
+    "true damage": "pen",
     "burn": "ap",
 }
 
@@ -169,7 +171,7 @@ _ITEM_CACHE_SCHEMA = 5
 # v5: defensive MR and mobility words must not inherit misleading v4 vectors.
 # The scoring StatVector has no dedicated MR or movement-speed dimensions.
 # Their effects remain unmodelled unless another proven stat is present.
-_AUGMENT_CACHE_SCHEMA = 5
+_AUGMENT_CACHE_SCHEMA = 6  # 24/11: armor unmodelled, true damage->pen, inflections, magnitude
 MAYHEM_MIN_AUGMENT_ID = 1000
 _MAYHEM_ICON_MARKER = "/Kiwi/"
 MIN_NORMALIZED_NAME_LEN = 4
@@ -663,8 +665,11 @@ def _load_augments() -> dict[str, AugmentData]:
         tier_val = RARITY_MAP.get(rarity_str, 1)
         tier = AugmentTier(tier_val)
 
-        # Try to get description from Arena data (match by name)
-        desc = desc_by_name.get(name.lower(), "")
+        # Try to get description from Arena data (match by name). Audit 24/11:
+        # ~65% had none; fall back to the Mayhem record's own text if present.
+        desc = desc_by_name.get(name.lower(), "") or _clean_description(
+            aug.get("descriptionTRA") or aug.get("tooltipTRA")
+            or aug.get("description") or aug.get("desc"))
 
         # Compute contribution from description + name hints
         contribution, provenance = _parse_description_to_stats_with_provenance(desc, name)
@@ -697,9 +702,31 @@ def _load_augments() -> dict[str, AugmentData]:
     return result
 
 
+def _keyword_pattern(keyword: str) -> str:
+    """Complete terms plus plain inflections (heal -> heals/healing/healed).
+    Two-letter abbreviations (AD/AP) stay exact: AD cannot match Upgrade/ADS."""
+    word = re.escape(keyword.lower())
+    suffix = "" if len(keyword) <= 2 else "(?:s|es|ed|ing)?"
+    return rf"(?<!\w){word}{suffix}(?!\w)"
+
+
 def _contains_catalog_keyword(text: str, keyword: str) -> bool:
     """Match complete terms only (e.g. AD cannot match Upgrade)."""
-    return re.search(rf"(?<!\w){re.escape(keyword.lower())}(?!\w)", text) is not None
+    return re.search(_keyword_pattern(keyword), text) is not None
+
+
+def _keyword_count(text: str, keyword: str) -> int:
+    return len(re.findall(_keyword_pattern(keyword), text))
+
+
+_TEMPLATE_RE = re.compile(r"@[^@]*@|<[^>]*>|\{\{[^}]*\}\}")
+
+
+def _clean_description(text) -> str:
+    """Strip tooltip markup and @variables@ (never stored beyond the cache)."""
+    if not isinstance(text, str):
+        return ""
+    return " ".join(_TEMPLATE_RE.sub(" ", text).split())
 
 
 def _parse_description_to_stats(description: str, name: str = "") -> StatVector:
@@ -725,8 +752,11 @@ def _parse_description_to_stats_with_provenance(
     if description:
         desc_lower = description.lower()
         for keyword, stat in DESCRIPTION_KEYWORDS.items():
-            if _contains_catalog_keyword(desc_lower, keyword):
-                stats[stat] = min(stats[stat] + 0.3, 1.0)
+            hits = _keyword_count(desc_lower, keyword)
+            if hits:
+                # Audit 24/11: magnitude. A stat the text keeps returning to
+                # matters more than a passing mention (+0.3, +0.1 per repeat).
+                stats[stat] = min(stats[stat] + 0.3 + 0.1 * min(hits - 1, 3), 1.0)
                 if provenance == "none":
                     provenance = "description_keywords"
 

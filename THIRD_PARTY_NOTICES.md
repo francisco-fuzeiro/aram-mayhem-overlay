@@ -70,3 +70,14 @@ downloads them to the user's machine, verifies their SHA-256 checksums and
 derives tiers and ranks; win rates and sample sizes are never displayed. If
 the application becomes commercial, this source must be removed or
 authorised in writing; `ingest_aramhex(app_mode="commercial")` refuses it.
+
+### PP-OCRv4 text recognition model (PaddleOCR / RapidOCR)
+
+The optional OCR engine uses the PP-OCRv4 recognition model
+(`ch_PP-OCRv4_rec_infer.onnx`) from PaddleOCR (https://github.com/PaddlePaddle/PaddleOCR),
+licensed under the Apache License 2.0, as packaged by RapidOCR
+(`rapidocr-onnxruntime`, https://github.com/RapidAI/RapidOCR, Apache License 2.0).
+`scripts/setup_ppocr_v4.py` downloads it to the user's machine only when the
+user runs that script, and verifies its SHA-256. The model binary is not
+redistributed in this repository. A copy of the Apache License 2.0 is
+available at https://www.apache.org/licenses/LICENSE-2.0.

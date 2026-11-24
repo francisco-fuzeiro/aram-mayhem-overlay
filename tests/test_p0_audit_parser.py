@@ -47,3 +47,16 @@ def test_homeguard_name_hint_does_not_reintroduce_speed_as_health():
         "Gain 30% Movement Speed after respawning.", "Homeguard"
     )
     assert vector.hp == 0
+
+
+def test_audit_2411_armor_true_damage_inflections_and_magnitude():
+    v = loader._parse_description_to_stats("Gain 30 Armor.", "Synthetic Armor")
+    assert v.shield == 0 and v.hp == 0
+    v = loader._parse_description_to_stats("Deal bonus true damage.", "Synthetic True")
+    assert v.lethality == 0 and v.pen > 0
+    assert loader._parse_description_to_stats("Healing received increased.", "S").heal_power > 0
+    once = loader._parse_description_to_stats("Heal 50.", "S").heal_power
+    many = loader._parse_description_to_stats("Heal 50. Heals again. Healing doubled.", "S").heal_power
+    assert many > once
+    assert loader._parse_description_to_stats("Upgrade your ADS.", "S").ad == 0
+    assert loader._clean_description("Gain <b>@Value@</b> AP") == "Gain AP"
