@@ -78,7 +78,8 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     "anvil.offer_render": frozenset((("ok", "rendered"),)),
     "enemy.detection": frozenset((
         ("ok", "all_resolved"), ("ok", "partial"), ("failed", "none_resolved"),
-        ("skipped", "no_enemies_listed"),
+        ("skipped", "no_enemies_listed"), ("failed", "player_unidentified"),
+        ("skipped", "no_players_listed"),
     )),
     "augment.window_open": frozenset((("ok", "cards_seen"),)),
     "build.shop_open": frozenset((("ok", "opened"), ("ok", "closed"))),
@@ -129,6 +130,7 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     "augment.postgame_reconcile": frozenset((
         ("ok", "agreed"), ("ok", "corrected"), ("ok", "unmatched"),
         ("skipped", "history_off"), ("skipped", "history_unavailable"),
+        ("skipped", "no_offers"),
     )),
     "tierdb.impact_holdout": frozenset((
         ("ok", "enable"), ("ok", "keep_off"), ("skipped", "insufficient_data"),

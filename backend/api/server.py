@@ -863,10 +863,22 @@ def _context_boots(base: str | None, eligible: set, enemy: dict | None):
     return (base, None) if iid == base else (iid, reason)
 
 
-def _record_enemy_detection(enemy: dict | None) -> None:
+def _record_enemy_detection(enemy: dict | None, snapshot=None) -> None:
     """How many enemy champions the live data listed and the model analysed."""
     e = enemy or {}
     visible, analysed = int(e.get("enemies_visible") or 0), int(e.get("enemies_analyzed") or 0)
+    if visible == 0 and snapshot is not None and hasattr(snapshot, "player_identified"):
+        # Field 24/11: tell "Live Client listed nobody" (Practice Tool,
+        # loading) apart from "we could not find ourselves among the players".
+        if not getattr(snapshot, "players_listed", 0):
+            feature_diagnostics.record("enemy.detection", "skipped", "no_players_listed")
+        elif not snapshot.player_identified:
+            feature_diagnostics.record("enemy.detection", "failed", "player_unidentified",
+                                       min(int(snapshot.players_listed), 1000))
+        else:
+            feature_diagnostics.record("enemy.detection", "skipped", "no_enemies_listed",
+                                       min(int(snapshot.players_listed), 1000))
+        return
     if visible == 0:
         feature_diagnostics.record("enemy.detection", "skipped", "no_enemies_listed")
     elif analysed == 0:
@@ -2385,7 +2397,9 @@ def _status_message(state: GameState, status: str) -> str:
 def _finish_match(state: GameState, now: float) -> None:
     """Called under the state lock; one end transition, no 300s timeout."""
     ended_ledger, ended_champion = state.offer_ledger, state._last_champion_id
-    if ended_ledger.offers:
+    if not ended_ledger.offers:
+        feature_diagnostics.record("augment.postgame_reconcile", "skipped", "no_offers")
+    else:
         try:
             asyncio.get_running_loop().create_task(
                 _postgame_reconcile(ended_ledger, ended_champion))
@@ -3892,7 +3906,7 @@ def _serialize_result(
             for eid in snapshot.enemy_champion_ids
         ]
 
-    _record_enemy_detection(result.enemy_analysis)
+    _record_enemy_detection(result.enemy_analysis, snapshot)
     out["mayhem_build"] = _mayhem_build_payload(
         result.build_state.champion_id, result.build_state.chosen_augments,
         result.build_state.purchased_items, result.enemy_analysis or {},

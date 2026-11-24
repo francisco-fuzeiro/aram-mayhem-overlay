@@ -226,6 +226,9 @@ class GameSnapshot:
     # Live Client: own summoner spell names and resource type (synergy rules).
     summoner_spells: list[str] = field(default_factory=list)
     resource_type: str | None = None
+    # Diagnostics only: players the Live Client listed / whether we found us.
+    players_listed: int = 0
+    player_identified: bool = False
 
 
 @dataclass

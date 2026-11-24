@@ -1394,3 +1394,14 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   slow. Without CommunityDragon the newest older augment cache is used.
 - Measured in the container: tiers + ±1 adjustment + synergies for 4 cards
   take ~1.3 ms per refresh, far inside the 5 s budget for augments.
+
+## 2026-11-24 — Report of the acc6577 match: diagnostics for enemies and post-game
+
+- Augments: OCR took 0.4–0.5 s after the cards were on screen; the rest of
+  "first read" (4.4 s at level 3, 8.2 s at level 7) was `cards_absent`, i.e.
+  the title bands showed no card background. Either the cards were not open
+  yet or the presence cue missed them: asked the owner.
+- `enemy.detection` now tells "Live Client listed no players" apart from
+  "we were not found among the players" (`player_unidentified`), which is
+  what hides the enemy team. `augment.postgame_reconcile` records
+  `no_offers` when a match ends with nothing to reconcile.

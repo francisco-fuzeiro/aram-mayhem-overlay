@@ -237,6 +237,8 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
     resource = raw_stats.get("resourceType") if isinstance(raw_stats, dict) else None
 
     return GameSnapshot(
+        players_listed=len(all_players) if isinstance(all_players, list) else 0,
+        player_identified=bool(active_player),
         summoner_spells=summoner_spells,
         resource_type=str(resource) if isinstance(resource, str) and resource else None,
         game_id=game_id,
