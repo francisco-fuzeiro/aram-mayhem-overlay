@@ -1253,3 +1253,17 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Alternatives respect the build archetype (AD/AP), skip boots, owned and
   conflicting items. Heuristic context over measured item ranks.
 - Shop-open visual detection still pending a full-window screenshot.
+
+## 2026-11-24 — Situational item rules from the itemization research
+
+- New `backend/engine/situational_items.py`: rule table from
+  REGRAS_ITEMIZACAO_SITUACIONAL (GW1-3, CC1-2, BU1, MR1-5, AR1-6, SH1-2,
+  PEN1-2, HP1-2, OH1) over visible enemy champions, items and scores, our
+  champion, items and confirmed augments (Grievous Venom, Fallen Aegis).
+- Curated champion lists (healers, shielders, enchanters, burst, poke,
+  on-hit, suppression) because repo `heal_power` is a stat weight.
+- Items resolve by name against the available shop pool (fail closed).
+  Never two Grievous Wounds; at most 2 situational alternatives.
+- Priority-1 rules (heavy healing, suppression, fed assassin) replace Next,
+  shown with its reason. All thresholds live in THRESHOLDS: proposals.
+- Assumes normal ARAM; Mayhem item differences not verified.

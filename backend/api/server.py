@@ -728,7 +728,8 @@ def _record_enemy_detection(enemy: dict | None) -> None:
         feature_diagnostics.record("enemy.detection", "ok", "all_resolved", analysed)
 
 
-def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies, sd):
+def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies, sd,
+                          enemy_states=None):
     """Reference build (measured), adapted build (max 3 swaps, >= 0.5) and
     heuristic Stat Anvil priorities for the overlay. No win rates."""
     from backend.tierdb.anvil_stats import ANVIL_STATS, rank_anvil_options
@@ -805,8 +806,11 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
              "reason": s["reason"]} for s in adapted.swaps if s["in"] in plan],
         "anvil_stats": [],
     }
+    situational = _situational_alternatives(
+        champion, chosen, owned_ids, plan, enemy, enemy_states, follows, conflicts, sd)
     payload["alternatives"] = _next_item_alternatives(
-        plan, owned, finals, strength, context, conflicts, enemy, follows, sd, name)
+        plan, owned, finals, strength, context, conflicts, enemy, follows, sd, name,
+        situational=situational)
     boots_ids = {str(b) for b in (data.get("boots") or {})}
     boots_id, boots_reason = _context_boots(data.get("boots_reference"), boots_ids, enemy)
     if boots_id:
@@ -832,8 +836,41 @@ def _enemy_heals_a_lot(enemy: dict | None) -> bool:
                  or int(e.get("healing_items") or 0) >= 3))
 
 
+def _situational_alternatives(champion, chosen, owned_ids, plan, enemy, enemy_states,
+                              follows, conflicts, sd) -> list[dict]:
+    """Research 24/11 rule table (thresholds are proposals). Empty without
+    visible enemies or a catalog of available items."""
+    from backend.engine import situational_items as si
+    from backend.tierdb.build_adapt import item_archetype
+
+    if not enemy_states or not hasattr(sd, "recommendable_items"):
+        return []
+    try:
+        get_augment = getattr(sd, "get_augment", lambda _a: None)
+        augments = [getattr(get_augment(a), "name", None) or a for a in chosen]
+        owned_items = [i for i in (sd.get_item(x) for x in owned_ids or []) if i]
+        facts = si.gather_facts(champion, enemy_states, enemy, owned_items, augments,
+                                sd.get_champion, sd.get_item, own_kind=follows)
+        taken = set(plan) | {getattr(i, "id", None) for i in owned_items}
+
+        def fits(iid):
+            item = sd.get_item(iid)
+            if item is None or getattr(item, "boots", False):
+                return False
+            if any(conflicts(iid, o) for o in taken if o):
+                return False
+            kind = item_archetype(item)
+            return kind is None or follows is None or kind == follows
+
+        return si.suggestions(facts, sd.recommendable_items(), taken, fits)
+    except Exception as exc:  # never break the overlay over a heuristic
+        logger.warning("situational items failed: %s", type(exc).__name__)
+        return []
+
+
 def _next_item_alternatives(plan, owned, finals, strength, context, conflicts,
-                            enemy, follows, sd, name, limit: int = 3) -> list[dict]:
+                            enemy, follows, sd, name, limit: int = 3,
+                            situational=None) -> list[dict]:
     """Owner 24/11: with the shop open, options to the next item, each with
     its reason. Grievous Wounds leads when the enemies heal a lot and the
     plan has none. Heuristic context over the measured item ranks."""
@@ -859,8 +896,12 @@ def _next_item_alternatives(plan, owned, finals, strength, context, conflicts,
         k = item_archetype(it)
         return k is None or kind is None or k == kind
 
-    out: list[dict] = []
-    if _enemy_heals_a_lot(enemy) and not any("anti_heal" in props(i) for i in taken):
+    out: list[dict] = [dict(s) for s in (situational or [])
+                       if s.get("id") and s["id"] not in taken][:limit]
+    if any("anti_heal" in props(o["id"]) for o in out):
+        taken = taken | {o["id"] for o in out}
+    if (not out and _enemy_heals_a_lot(enemy)
+            and not any("anti_heal" in props(i) for i in taken)):
         pool = [i for i in finals if "anti_heal" in props(i) and fits(i)]
         if not pool and hasattr(sd, "recommendable_items"):
             pool = [it.id for it in sd.recommendable_items()
@@ -922,9 +963,16 @@ def _align_next_with_mayhem_build(build_state: dict, mayhem: dict | None,
     out["full_build_names"] = [
         (getattr(sd.get_item(i), "name", None) or i) for i in plan]
     out["next_source"] = "tierlist"
+    urgent = next((a for a in mayhem.get("alternatives") or []
+                   if a.get("urgent") and a.get("id") not in owned), None)
     if engine_next and is_boots(engine_next) and boots and not owned_boots:
         # Boots timing stays the engine's, the boots themselves follow the enemy comp.
         candidate = boots
+    elif urgent:
+        # Research 24/11 conflict rule 1 (proposal): only priority-1 rules
+        # (heavy healing, suppression, fed assassin) replace Next.
+        candidate = urgent["id"]
+        out["next_reason"] = urgent.get("reason")
     else:
         # Boots timing is the engine's: they are Next only when it says so.
         candidate = next((i for i in plan if i not in owned and not is_boots(i)), None)
@@ -3514,7 +3562,8 @@ def _serialize_result(
     out["mayhem_build"] = _mayhem_build_payload(
         result.build_state.champion_id, result.build_state.chosen_augments,
         result.build_state.purchased_items, result.enemy_analysis or {},
-        result.ally_analysis or {}, sd)
+        result.ally_analysis or {}, sd,
+        enemy_states=getattr(snapshot, "enemy_states", None) if snapshot else None)
     out["build_state"] = _align_next_with_mayhem_build(
         out["build_state"], out["mayhem_build"], out.get("current_gold"), sd)
     out.update(_augment_tier_payload(

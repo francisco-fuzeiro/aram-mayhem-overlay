@@ -1351,7 +1351,8 @@
             buildFooter.className = "build-footer";
         } else if (bs.next_item_id && bs.next_item_name) {
             const goldHint = bs.gold_to_next > 0 ? ` (${bs.gold_to_next}g)` : "";
-            buildFooter.textContent = `Next: ${bs.next_item_name}${goldHint}`;
+            const why = bs.next_reason ? ` (${bs.next_reason})` : "";
+            buildFooter.textContent = `Next: ${bs.next_item_name}${goldHint}${why}`;
             buildFooter.className = "build-footer";
         } else if (bs.gold_to_next != null && bs.gold_to_next > 0) {
             buildFooter.textContent = `Need ${bs.gold_to_next}g for next item`;
