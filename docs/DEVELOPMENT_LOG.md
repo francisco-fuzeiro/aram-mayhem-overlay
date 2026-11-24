@@ -1435,3 +1435,8 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - A validation check against an external Mayhem tier list (analysis only, nothing imported) showed ~40% of each champion's top 30 augments had zero games on that champion: their score came from the class/global levels (Draw Your Sword on melee champions, Blue Barrier on manaless Rengar, enchanter augments on Akali).
 - Owner decision 24/11: such augments rank after every augment with champion games, with tier E, and stay visible. New level `borrowed` (cap E, confidence low) in `backend/tierdb/augment_tiers.py`; applies to the per-rarity ranks and `rank_all`; overlay text "no games on this champion".
 - Re-export needed on the PC: Settings › Tier lists › Update now.
+
+## 2026-11-24 — Mayhem augment catalog from the League of Legends Wiki
+
+- `data/augments/mayhem_catalog_wiki.json`: 244 names + rarities from wiki.leagueoflegends.com (CC BY-SA 3.0, confirmed via the wiki's siteinfo API), attribution in THIRD_PARTY_NOTICES. Validation reference only.
+- Cross-check: AramHex 16.23 lists 237 augments; 4 rarity disagreements (Terror, BONK!, Pin Cushion, Flow of Spirit). 10 entries of `curated_effects.json` are not Mayhem augments on the wiki (Arena-only or removed): Fallen Aegis, Grievous Venom, Holy Fire, Lightning Strikes, Quantum Computing, Slow Cooker, Tormentor, Twice Thrice, Warmup Routine, Vampirism.

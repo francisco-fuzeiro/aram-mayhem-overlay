@@ -81,3 +81,17 @@ licensed under the Apache License 2.0, as packaged by RapidOCR
 user runs that script, and verifies its SHA-256. The model binary is not
 redistributed in this repository. A copy of the Apache License 2.0 is
 available at https://www.apache.org/licenses/LICENSE-2.0.
+
+### League of Legends Wiki — ARAM: Mayhem augment list
+
+Source: https://wiki.leagueoflegends.com/en-us/ARAM:_Mayhem/Augments —
+text licensed under Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0,
+https://creativecommons.org/licenses/by-sa/3.0/), as stated by the wiki's
+site information. Attribution: League of Legends Wiki contributors.
+
+`data/augments/mayhem_catalog_wiki.json` holds the augment names and rarities
+taken from that page (retrieved 2026-11-24). It is a derivative of the wiki
+content and is therefore shared under CC BY-SA 3.0, separately from the rest of
+this repository. It is used only to validate the augment catalog, never as a
+tier or win-rate source. League of Legends and its augment names are
+trademarks of Riot Games, Inc.

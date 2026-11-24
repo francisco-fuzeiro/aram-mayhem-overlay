@@ -1,0 +1,986 @@
+{
+ "source": "https://wiki.leagueoflegends.com/en-us/ARAM:_Mayhem/Augments",
+ "license": "CC BY-SA 3.0",
+ "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+ "attribution": "League of Legends Wiki contributors, 'ARAM: Mayhem/Augments' (retrieved 2026-11-24), CC BY-SA 3.0. This file is a derivative list (names and rarities only) and is shared under the same licence.",
+ "retrieved": "2026-11-24",
+ "note": "Reference catalog for validation; not a tier source. Rarity disagreements with match data (AramHex 16.23): Terror, BONK!, Pin Cushion, Flow of Spirit.",
+ "augments": [
+  {
+   "name": "ADAPt",
+   "rarity": "silver"
+  },
+  {
+   "name": "Adaptive Ward",
+   "rarity": "silver"
+  },
+  {
+   "name": "All For You",
+   "rarity": "gold"
+  },
+  {
+   "name": "Apex Inventor",
+   "rarity": "gold"
+  },
+  {
+   "name": "Arcane Axiom",
+   "rarity": "gold"
+  },
+  {
+   "name": "Archmage",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Armored Impact",
+   "rarity": "gold"
+  },
+  {
+   "name": "BEES!!!",
+   "rarity": "gold"
+  },
+  {
+   "name": "BONK!",
+   "rarity": "silver"
+  },
+  {
+   "name": "Back to Basics",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Big Brain",
+   "rarity": "gold"
+  },
+  {
+   "name": "Big Shot",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Biggest Snowball Ever",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Blade Waltz",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Blue Barrier",
+   "rarity": "silver"
+  },
+  {
+   "name": "Blunt Force",
+   "rarity": "silver"
+  },
+  {
+   "name": "Bolstered",
+   "rarity": "silver"
+  },
+  {
+   "name": "Bouncing Bees",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Brass Blast",
+   "rarity": "gold"
+  },
+  {
+   "name": "Bread And Butter",
+   "rarity": "gold"
+  },
+  {
+   "name": "Bread And Cheese",
+   "rarity": "gold"
+  },
+  {
+   "name": "Bread And Jam",
+   "rarity": "gold"
+  },
+  {
+   "name": "CRIMSON COBALT",
+   "rarity": "gold"
+  },
+  {
+   "name": "Can't Touch This",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Celestial Body",
+   "rarity": "gold"
+  },
+  {
+   "name": "Chain Reaction",
+   "rarity": "gold"
+  },
+  {
+   "name": "Circle of Death",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Clown College",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Courage of the Colossus",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Critical Healing",
+   "rarity": "gold"
+  },
+  {
+   "name": "Critical Rhythm",
+   "rarity": "gold"
+  },
+  {
+   "name": "Cruelty",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Dashing",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Dawnbringer's Resolve",
+   "rarity": "gold"
+  },
+  {
+   "name": "Deft",
+   "rarity": "silver"
+  },
+  {
+   "name": "Dive Bomber",
+   "rarity": "silver"
+  },
+  {
+   "name": "Divine Intervention",
+   "rarity": "gold"
+  },
+  {
+   "name": "Don't Blink",
+   "rarity": "silver"
+  },
+  {
+   "name": "Don't Change the Channel",
+   "rarity": "silver"
+  },
+  {
+   "name": "Donation",
+   "rarity": "gold"
+  },
+  {
+   "name": "Double Tap",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Double Time",
+   "rarity": "gold"
+  },
+  {
+   "name": "Draw Your Sword",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Dual Wield",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Earthwake",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Echo Cast",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Empowered By The Faithful",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Empyrean Promise",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "En Passant",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Enchanting Butterflies",
+   "rarity": "gold"
+  },
+  {
+   "name": "Endless Decimation",
+   "rarity": "gold"
+  },
+  {
+   "name": "Erosion",
+   "rarity": "silver"
+  },
+  {
+   "name": "EscAPADe",
+   "rarity": "silver"
+  },
+  {
+   "name": "Escape Plan",
+   "rarity": "silver"
+  },
+  {
+   "name": "Ethereal Weapon",
+   "rarity": "gold"
+  },
+  {
+   "name": "Eureka",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Fey Magic",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Final Form",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Firebrand",
+   "rarity": "gold"
+  },
+  {
+   "name": "Firefox",
+   "rarity": "silver"
+  },
+  {
+   "name": "First-Aid Kit",
+   "rarity": "silver"
+  },
+  {
+   "name": "Flash 2",
+   "rarity": "silver"
+  },
+  {
+   "name": "Flashbang",
+   "rarity": "silver"
+  },
+  {
+   "name": "Flashy",
+   "rarity": "gold"
+  },
+  {
+   "name": "Flow of Spirit",
+   "rarity": "gold"
+  },
+  {
+   "name": "Forged By The Master",
+   "rarity": "silver"
+  },
+  {
+   "name": "Fortified",
+   "rarity": "silver"
+  },
+  {
+   "name": "From Beginning to End",
+   "rarity": "gold"
+  },
+  {
+   "name": "From Downtown",
+   "rarity": "gold"
+  },
+  {
+   "name": "Fruitify",
+   "rarity": "silver"
+  },
+  {
+   "name": "Get Excited",
+   "rarity": "gold"
+  },
+  {
+   "name": "Get Jinxed",
+   "rarity": "gold"
+  },
+  {
+   "name": "Giant Slayer",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Gift of the Drowned",
+   "rarity": "silver"
+  },
+  {
+   "name": "Glass Cannon",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Goldrend",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Goliath",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Goredrink",
+   "rarity": "silver"
+  },
+  {
+   "name": "Group Hug",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Growth Spurt",
+   "rarity": "gold"
+  },
+  {
+   "name": "Guilty Pleasure",
+   "rarity": "silver"
+  },
+  {
+   "name": "Hand of Baron",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Hands off the Talent",
+   "rarity": "silver"
+  },
+  {
+   "name": "Heavy Hitter",
+   "rarity": "silver"
+  },
+  {
+   "name": "Heavy Is The Crown",
+   "rarity": "gold"
+  },
+  {
+   "name": "Hellbent",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Hextech Soul",
+   "rarity": "silver"
+  },
+  {
+   "name": "Holy Snowball",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Homeguard",
+   "rarity": "silver"
+  },
+  {
+   "name": "Ice Cold",
+   "rarity": "silver"
+  },
+  {
+   "name": "Impassable",
+   "rarity": "gold"
+  },
+  {
+   "name": "Infernal Conduit",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Infernal Soul",
+   "rarity": "silver"
+  },
+  {
+   "name": "Infinite Recursion",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "It's Critical",
+   "rarity": "gold"
+  },
+  {
+   "name": "It's Go Time",
+   "rarity": "silver"
+  },
+  {
+   "name": "It's Killing Time",
+   "rarity": "gold"
+  },
+  {
+   "name": "Jeweled Bracelet",
+   "rarity": "gold"
+  },
+  {
+   "name": "Jeweled Gauntlet",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Juiced",
+   "rarity": "silver"
+  },
+  {
+   "name": "Kill Secured",
+   "rarity": "silver"
+  },
+  {
+   "name": "King Me",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Leg Day",
+   "rarity": "silver"
+  },
+  {
+   "name": "Lich Brain",
+   "rarity": "silver"
+  },
+  {
+   "name": "Light 'em Up!",
+   "rarity": "silver"
+  },
+  {
+   "name": "Lil' Extra Help",
+   "rarity": "gold"
+  },
+  {
+   "name": "Lonely Warrior",
+   "rarity": "silver"
+  },
+  {
+   "name": "Mad Scientist",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Magic Missile",
+   "rarity": "gold"
+  },
+  {
+   "name": "Marksmage",
+   "rarity": "gold"
+  },
+  {
+   "name": "Master of Duality",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Mercy's Strike",
+   "rarity": "gold"
+  },
+  {
+   "name": "Mighty Shield",
+   "rarity": "silver"
+  },
+  {
+   "name": "Mind to Matter",
+   "rarity": "silver"
+  },
+  {
+   "name": "Minionmancer",
+   "rarity": "gold"
+  },
+  {
+   "name": "Mosh Monster",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Mountain Soul",
+   "rarity": "silver"
+  },
+  {
+   "name": "Multishot",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Mystic Guard",
+   "rarity": "silver"
+  },
+  {
+   "name": "Mystic Punch",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Nature is Healing",
+   "rarity": "gold"
+  },
+  {
+   "name": "Nightstalking",
+   "rarity": "gold"
+  },
+  {
+   "name": "No Mana, No Problem",
+   "rarity": "silver"
+  },
+  {
+   "name": "OK Boomerang",
+   "rarity": "gold"
+  },
+  {
+   "name": "Ocean Soul",
+   "rarity": "silver"
+  },
+  {
+   "name": "Ominous Pact",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Omni Soul",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "One Hit Wonder",
+   "rarity": "gold"
+  },
+  {
+   "name": "Outlaw's Grit",
+   "rarity": "gold"
+  },
+  {
+   "name": "Overextender",
+   "rarity": "gold"
+  },
+  {
+   "name": "Overflow",
+   "rarity": "gold"
+  },
+  {
+   "name": "Overloaded",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Pandora's Box",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Pentakill: DOOM",
+   "rarity": "gold"
+  },
+  {
+   "name": "Pentakill: HEAVY",
+   "rarity": "gold"
+  },
+  {
+   "name": "Pentakill: POWER",
+   "rarity": "gold"
+  },
+  {
+   "name": "Pentakill: THRASH",
+   "rarity": "gold"
+  },
+  {
+   "name": "Phenomenal Evil",
+   "rarity": "gold"
+  },
+  {
+   "name": "Pin Cushion",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Pinball",
+   "rarity": "gold"
+  },
+  {
+   "name": "Poltergeist",
+   "rarity": "silver"
+  },
+  {
+   "name": "Porcupine",
+   "rarity": "gold"
+  },
+  {
+   "name": "Pressure Cooker",
+   "rarity": "gold"
+  },
+  {
+   "name": "Prom Queen",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Protein Shake",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Purist - Caster",
+   "rarity": "silver"
+  },
+  {
+   "name": "Pursuit of Haste",
+   "rarity": "gold"
+  },
+  {
+   "name": "Pursuit of Power",
+   "rarity": "gold"
+  },
+  {
+   "name": "Quest: Icathia's Fall",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Quest: Sneakerhead",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Quest: Steel Your Heart",
+   "rarity": "gold"
+  },
+  {
+   "name": "Quest: Urf's Champion",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Quest: Wooglet's Witchcap",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Quickstep",
+   "rarity": "gold"
+  },
+  {
+   "name": "RISE",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Ravenous Bind",
+   "rarity": "gold"
+  },
+  {
+   "name": "Recoil",
+   "rarity": "gold"
+  },
+  {
+   "name": "Recursion",
+   "rarity": "gold"
+  },
+  {
+   "name": "Rejuvenation",
+   "rarity": "gold"
+  },
+  {
+   "name": "Reload",
+   "rarity": "gold"
+  },
+  {
+   "name": "Rite of Ascension",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Salvation",
+   "rarity": "gold"
+  },
+  {
+   "name": "Sap Magic",
+   "rarity": "gold"
+  },
+  {
+   "name": "Scoped Weapons",
+   "rarity": "silver"
+  },
+  {
+   "name": "Scopier Weapons",
+   "rarity": "gold"
+  },
+  {
+   "name": "Scopiest Weapons",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Searing Dawn",
+   "rarity": "gold"
+  },
+  {
+   "name": "Shadow Runner",
+   "rarity": "silver"
+  },
+  {
+   "name": "Shark Bait",
+   "rarity": "gold"
+  },
+  {
+   "name": "Shrink Engine",
+   "rarity": "gold"
+  },
+  {
+   "name": "Shrink Ray",
+   "rarity": "gold"
+  },
+  {
+   "name": "Siphon",
+   "rarity": "silver"
+  },
+  {
+   "name": "Skilled Sniper",
+   "rarity": "gold"
+  },
+  {
+   "name": "Slap Around",
+   "rarity": "silver"
+  },
+  {
+   "name": "Slime Time",
+   "rarity": "silver"
+  },
+  {
+   "name": "Snap Back",
+   "rarity": "gold"
+  },
+  {
+   "name": "Snowblast",
+   "rarity": "gold"
+  },
+  {
+   "name": "Snowday",
+   "rarity": "silver"
+  },
+  {
+   "name": "Sonata",
+   "rarity": "gold"
+  },
+  {
+   "name": "Sonic Boom",
+   "rarity": "silver"
+  },
+  {
+   "name": "Soul Eater",
+   "rarity": "gold"
+  },
+  {
+   "name": "Soul Siphon",
+   "rarity": "gold"
+  },
+  {
+   "name": "Sound Barrier",
+   "rarity": "silver"
+  },
+  {
+   "name": "Spell Split",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Spin Me Right Round",
+   "rarity": "silver"
+  },
+  {
+   "name": "Spin To Win",
+   "rarity": "silver"
+  },
+  {
+   "name": "Spirit Bomb",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Squishy Slappy Grab",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Stackosaurus Rex",
+   "rarity": "silver"
+  },
+  {
+   "name": "Stats on Stats on Stats!",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Stats on Stats!",
+   "rarity": "gold"
+  },
+  {
+   "name": "Stats!",
+   "rarity": "silver"
+  },
+  {
+   "name": "Stay Resolute",
+   "rarity": "silver"
+  },
+  {
+   "name": "Steadfaster Presence",
+   "rarity": "gold"
+  },
+  {
+   "name": "Still Here",
+   "rarity": "gold"
+  },
+  {
+   "name": "Stuck in Here With Me",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Swift and Safe",
+   "rarity": "silver"
+  },
+  {
+   "name": "Symphony of War",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Take'em Down Down Down",
+   "rarity": "gold"
+  },
+  {
+   "name": "Tank Engine",
+   "rarity": "gold"
+  },
+  {
+   "name": "Tank It Or Leave It",
+   "rarity": "silver"
+  },
+  {
+   "name": "Tap Dancer",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Terrain'd",
+   "rarity": "gold"
+  },
+  {
+   "name": "Terror",
+   "rarity": "silver"
+  },
+  {
+   "name": "The Boom and the Bass",
+   "rarity": "gold"
+  },
+  {
+   "name": "Third Times the Harm",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Thread the Needle",
+   "rarity": "gold"
+  },
+  {
+   "name": "Tickle Monster",
+   "rarity": "gold"
+  },
+  {
+   "name": "Titan's Resolve",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Tooth Fairy",
+   "rarity": "gold"
+  },
+  {
+   "name": "Totentanz",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Transmute: Chaos",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Transmute: Gold",
+   "rarity": "silver"
+  },
+  {
+   "name": "Transmute: Prismatic",
+   "rarity": "gold"
+  },
+  {
+   "name": "Triggered Inferno",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Tripleshot",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Trusty Weapon",
+   "rarity": "silver"
+  },
+  {
+   "name": "Twin Fire",
+   "rarity": "silver"
+  },
+  {
+   "name": "Typhoon",
+   "rarity": "silver"
+  },
+  {
+   "name": "Ultimate Awakening",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Ultimate Recursion",
+   "rarity": "silver"
+  },
+  {
+   "name": "Ultimate Revolution",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Ultimate Unstoppable",
+   "rarity": "silver"
+  },
+  {
+   "name": "Ultra Hydra",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Upgrade Collector",
+   "rarity": "silver"
+  },
+  {
+   "name": "Upgrade Death's Dance",
+   "rarity": "silver"
+  },
+  {
+   "name": "Upgrade Immolate",
+   "rarity": "silver"
+  },
+  {
+   "name": "Upgrade Infinity Edge",
+   "rarity": "gold"
+  },
+  {
+   "name": "Upgrade Ravenous Hydra",
+   "rarity": "gold"
+  },
+  {
+   "name": "Upgrade Sheen",
+   "rarity": "gold"
+  },
+  {
+   "name": "Upgrade Stormsurge",
+   "rarity": "gold"
+  },
+  {
+   "name": "Upgrade Sundered Sky",
+   "rarity": "gold"
+  },
+  {
+   "name": "Upgrade Sword of Blossoming Dawn",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Upgrade Zhonya's",
+   "rarity": "silver"
+  },
+  {
+   "name": "Veil of Warding",
+   "rarity": "silver"
+  },
+  {
+   "name": "Vulnerability",
+   "rarity": "gold"
+  },
+  {
+   "name": "Warlock Juicebox",
+   "rarity": "gold"
+  },
+  {
+   "name": "Weapon of Destiny",
+   "rarity": "gold"
+  },
+  {
+   "name": "Wee Woo Wee Woo",
+   "rarity": "gold"
+  },
+  {
+   "name": "Windspeaker's Blessing",
+   "rarity": "prismatic"
+  },
+  {
+   "name": "Witchful Thinking",
+   "rarity": "silver"
+  },
+  {
+   "name": "With Haste",
+   "rarity": "gold"
+  },
+  {
+   "name": "Yowch, My Coins!",
+   "rarity": "gold"
+  },
+  {
+   "name": "Zealot",
+   "rarity": "silver"
+  }
+ ]
+}
