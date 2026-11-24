@@ -32,6 +32,7 @@ from backend.collectors.screen_ocr import (
 )
 from backend.collectors.offer_lifecycle import OfferLifecycle
 from backend.workflow.offer_ledger import LedgerError, OfferLedger, SLOTS
+from backend.collectors.card_title_geometry import FOUR_SLOTS
 from backend.workflow.picked_augment import PickedAugmentEvidence
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
@@ -151,6 +152,8 @@ class GameState:
         self.anvil_window_until: float | None = None
         self.anvil_last_check: float = float("-inf")
         self.anvil_last_forced: float = float("-inf")
+        # Field 24/11: three Anvils opened back to back, only the first shown.
+        self.anvil_followup_until: float | None = None
         self.scan_opened_at: float | None = None
         self.scan_open_reason: str | None = None
         self.scan_first_read_done: bool = False
@@ -169,6 +172,8 @@ class GameState:
         self.ocr_enabled: bool = True
         self.ocr_last_detected: list[str] = []
         self.ocr_slot_choices: dict[str, str | None] | None = None
+        # Field 24/11: verified FOUR-card offer (ids c1..c4, None = unread).
+        self.four_offer: list[str | None] | None = None
         # Complete prior offer identity, never proof that a NEW offer is visible.
         self._prior_due_triple: tuple[str, str, str] | None = None
         self.ocr_stale: bool = False
@@ -248,6 +253,7 @@ class GameState:
             event_log.emit("ocr_window", state="closed", reason="reset", level=self.scan_window_level)
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
+        self.four_offer = None
         self._prior_due_triple = None
         self.ocr_stale = False
         self.ocr_stale_since_epoch = None
@@ -266,6 +272,7 @@ class GameState:
         self.anvil_window_until = None
         self.anvil_last_check = float("-inf")
         self.anvil_last_forced = float("-inf")
+        self.anvil_followup_until = None
         self.anvil_voucher_tier = None
         self.anvil_offer = None
         self.anvil_absent_ticks = 0
@@ -1592,8 +1599,16 @@ async def confirm_offer(req: OfferConfirmRequest):
 @app.post("/api/offers/confirm-slot")
 async def confirm_offer_slot(req: OfferSlotRequest):
     async with game_state.lock:
+        four = game_state.four_offer
+        order = ("left", "centre", "right", "fourth")
         try:
-            offer = game_state.offer_ledger.confirm_slot(req.slot)
+            if four and req.slot in order:
+                # Alt+1..4 on a four-card offer (field 24/11).
+                offer = game_state.offer_ledger.confirm_four(
+                    four[order.index(req.slot)], four, inferred=False)
+                game_state.four_offer = None
+            else:
+                offer = game_state.offer_ledger.confirm_slot(req.slot)
         except LedgerError as exc:
             raise _offer_http_error(exc) from None
         _sync_confirmed_augments(game_state, offer)
@@ -2383,6 +2398,16 @@ def _augment_titles_blank(state: GameState) -> bool:
 
 
 ANVIL_CHECK_IN_AUGMENT_WINDOW_S = 3.0
+# Field 24/11: after one Anvil the next popup can follow at once and is picked
+# in 1-2 s. For a while after a popup closes, and while vouchers are held, the
+# Anvil watcher is not throttled and the fast presence probe triggers it.
+ANVIL_FOLLOWUP_S = 15.0
+
+
+def _anvil_attention(state: GameState, now: float) -> bool:
+    return bool(state.match_id) and any(
+        until is not None and now <= until
+        for until in (state.anvil_window_until, state.anvil_followup_until))
 # Field 23/11: 30 "no_cards" ticks and no popup read. Every few seconds the
 # Anvil titles are OCR'd even when the augment card cue says no cards.
 ANVIL_FORCED_OCR_INTERVAL_S = 4.0
@@ -2445,6 +2470,7 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
         feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_verifying")
         return
     if (state.scan_window_open and state.anvil_offer is None
+            and not _anvil_attention(state, now)
             and now - state.anvil_last_check < ANVIL_CHECK_IN_AUGMENT_WINDOW_S):
         # Field 23/11: an unread augment window may last minutes, so the Anvil
         # watcher must look then too, but it runs in the same tick as the
@@ -2496,6 +2522,7 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
                     # Popup gone (choice made or closed): end this window.
                     state.anvil_offer = None
                     state.anvil_window_until = None
+                    state.anvil_followup_until = now + ANVIL_FOLLOWUP_S
                     state.anvil_voucher_tier = None
                     state.anvil_absent_ticks = 0
 
@@ -2509,9 +2536,13 @@ def _presence_armed(state: GameState) -> str | None:
     # Field 24/11: an offer with one unreadable card was never guarded, so
     # its pick was never inferred. One verified title is enough to guard it;
     # a pick on the unknown card still abstains (ledger has no id for it).
-    if _augment_titles_read(state):
+    if _augment_titles_read(state) or _four_offer_read(state):
         return "augment"
     return None
+
+
+def _four_offer_read(state: GameState) -> bool:
+    return bool(state.scan_window_open and state.four_offer and any(state.four_offer))
 
 
 async def _presence_step(state: GameState, probe, now: float) -> str | None:
@@ -2545,6 +2576,7 @@ async def _presence_step(state: GameState, probe, now: float) -> str | None:
                 feature_diagnostics.record("anvil.pick_inferred", "skipped", "cursor_ambiguous")
             state.anvil_offer = None
             state.anvil_window_until = None
+            state.anvil_followup_until = now + ANVIL_FOLLOWUP_S
             state.anvil_voucher_tier = None
             state.anvil_absent_ticks = 0
             event_log.emit("ocr_window", state="closed", reason="anvil_cards_gone",
@@ -2567,7 +2599,15 @@ def _augment_cards_gone(state: GameState, slot: str | None) -> str:
     state.awaiting_stat_delta = True
     state.delta_wait_ticks = 0
     inferred = None
-    if slot is not None:
+    four = state.four_offer
+    state.four_offer = None
+    if four and slot in FOUR_SLOTS:
+        try:
+            inferred = state.offer_ledger.confirm_four(
+                four[FOUR_SLOTS.index(slot)], four, inferred=True)
+        except LedgerError:
+            inferred = None
+    elif slot is not None and slot in SLOTS:
         try:
             inferred = state.offer_ledger.confirm_inferred(slot)
         except LedgerError:
@@ -2598,10 +2638,19 @@ async def _presence_loop() -> None:
         try:
             if _presence_armed(game_state) is not None:
                 now = loop.time()
-                probe = await asyncio.to_thread(card_presence.probe_cards, now)
+                four = _four_offer_read(game_state) and game_state.anvil_offer is None
+                probe = await asyncio.to_thread(
+                    lambda: card_presence.probe_cards(now, four=four))
                 await _presence_step(game_state, probe, now)
-            elif game_state.presence_trail:
-                game_state.presence_trail.clear()
+            else:
+                if game_state.presence_trail:
+                    game_state.presence_trail.clear()
+                now = loop.time()
+                if _anvil_attention(game_state, now) and game_state.anvil_offer is None:
+                    # A chained Anvil popup: read it as soon as cards show.
+                    probe = await asyncio.to_thread(card_presence.probe_cards, now)
+                    if probe.cue == "present":
+                        await _anvil_popup_tick(game_state, _poll_dependencies(), now)
         except Exception as exc:  # never kill the loop; IDs only in logs
             logger.warning("Card presence probe failed: %s", type(exc).__name__)
         await asyncio.sleep(card_presence.PROBE_INTERVAL_S)
@@ -2821,6 +2870,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         state.augment_choices.clear()
                         state.ocr_last_detected.clear()
                         state.ocr_slot_choices = None
+                        state.four_offer = None
                         state.ocr_unreadable_ticks = 0
                         state.ocr_stale = False
                         state.ocr_stale_since_epoch = None
@@ -2926,6 +2976,10 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             emit_f0_trace("augment", "epoch", "stale",
                                           "epoch_superseded", source="ledger",
                                           epoch=state.offer_epoch)
+                        if action != "superseded":
+                            four = getattr(deps.screen_watcher, "four_offer", None)
+                            if isinstance(four, list) and any(four):
+                                state.four_offer = [m[0] if m else None for m in four]
                         if (action == "detected" and detected
                                 and state._prior_due_triple is not None):
                             candidate_slots = _slots_from_detected(detected)
@@ -3430,6 +3484,11 @@ def _resolve_item_name(item_id: str, sd: StaticData) -> str:
     return sd.get_item_name(item_id)
 
 
+def _augment_name(augment_id: str, sd) -> str:
+    aug = sd.get_augment(augment_id) if hasattr(sd, "get_augment") else None
+    return aug.name if aug is not None and aug.name else augment_id
+
+
 def _resolve_champion_name(champ_id: str, sd: StaticData) -> str:
     champ = sd.get_champion(champ_id)
     return champ.name if champ else champ_id
@@ -3566,9 +3625,14 @@ def _serialize_result(
         enemy_states=getattr(snapshot, "enemy_states", None) if snapshot else None)
     out["build_state"] = _align_next_with_mayhem_build(
         out["build_state"], out["mayhem_build"], out.get("current_gold"), sd)
+    four = game_state.four_offer if game_state.scan_window_open else None
+    out["four_offer"] = [
+        {"slot": slot, "id": aid, "name": _augment_name(aid, sd) if aid else None}
+        for slot, aid in zip(FOUR_SLOTS, four)] if four else None
     out.update(_augment_tier_payload(
         result.build_state.champion_id,
-        _visible_augment_ids(out["recommendations"], out.get("offers")),
+        _visible_augment_ids(out["recommendations"], out.get("offers"))
+        + [aid for aid in (four or []) if aid],
         adjust=(_offer_context_adjuster(
             result.build_state.champion_id, result.build_state.chosen_augments,
             out["mayhem_build"], result.enemy_analysis or {}, sd)

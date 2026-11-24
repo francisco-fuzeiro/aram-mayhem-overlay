@@ -35,21 +35,43 @@ class Probe:
     slot: str | None   # card under the cursor at that instant
 
 
-def slot_at(point, client_rect) -> str | None:
-    """Card body (client-anchored) containing a desktop point, if any."""
+def slot_at(point, client_rect, four: bool = False) -> str | None:
+    """Card body (client-anchored) containing a desktop point, if any.
+
+    four=True uses the four-card layout (slots c1..c4, field 24/11)."""
     if point is None or client_rect is None:
         return None
-    bands = title_bands_from_client_rect(tuple(client_rect))
+    if four:
+        from backend.collectors.card_title_geometry import FOUR_SLOTS, four_title_bands
+        bands, slots = four_title_bands(tuple(client_rect)), FOUR_SLOTS
+    else:
+        bands, slots = title_bands_from_client_rect(tuple(client_rect)), SLOTS
     if bands is None:
         return None
     left, top, right, bottom = client_rect
-    rects = card_body_rects((left, top, right - left, bottom - top), bands)
+    rects = card_body_rects((left, top, right - left, bottom - top), bands, slots)
     x, y = point
-    for slot in SLOTS:
+    for slot in slots:
         r = rects[slot]
         if r[0] <= x < r[2] and r[1] <= y < r[3]:
             return slot
     return None
+
+
+def four_card_cue(crops: dict) -> str:
+    """present / absent / mixed over the four title bands (same thresholds)."""
+    from backend.collectors.offer_visibility import (
+        CARD_BG_ABSENT_MAX, CARD_BG_PRESENT_MIN, card_teal_fraction,
+    )
+    try:
+        fractions = [card_teal_fraction(c) for c in crops.values()]
+    except (AttributeError, TypeError, ValueError):
+        return "mixed"
+    if len(fractions) == 4 and all(f >= CARD_BG_PRESENT_MIN for f in fractions):
+        return "present"
+    if fractions and all(f <= CARD_BG_ABSENT_MAX for f in fractions):
+        return "absent"
+    return "mixed"
 
 
 def _absent_tail(trail: Sequence[Probe]) -> int:
@@ -114,7 +136,8 @@ def read_cursor() -> tuple[int, int] | None:
         return None
 
 
-def probe_cards(now: float, cursor: Callable[[], tuple[int, int] | None] = read_cursor) -> Probe:
+def probe_cards(now: float, cursor: Callable[[], tuple[int, int] | None] = read_cursor,
+                four: bool = False) -> Probe:
     """One synchronous OCR-free observation (call through asyncio.to_thread)."""
     from backend.collectors.screen_ocr import (
         capture_augment_region, find_league_window, get_augment_region,
@@ -127,7 +150,28 @@ def probe_cards(now: float, cursor: Callable[[], tuple[int, int] | None] = read_
     if region.reason != "ok" or region.image is None:
         return Probe(now, "unavailable", None)
     width, height = game.right - game.left, game.bottom - game.top
+    if four:
+        from backend.collectors.card_title_geometry import four_title_bands
+        bands = four_title_bands(game.rect)
+        a, b, _c, _d = get_augment_region(width, height)
+        rx, ry = int(width * a), int(height * b)
+        if bands is None:
+            return Probe(now, "unavailable", None)
+        try:
+            crops = {s: region.image.crop((x - rx, y - ry, x - rx + w, y - ry + h))
+                     for s, (x, y, w, h) in bands.items()}
+        except (AttributeError, ValueError):
+            return Probe(now, "unavailable", None)
+        return Probe(now, four_card_cue(downsample(crops)),
+                     slot_at(cursor(), game.rect, four=True))
     crops = crop_title_slots(region.image, game.rect, get_augment_region(width, height))
     if crops is None:
         return Probe(now, "unavailable", None)
-    return Probe(now, card_background_cue(downsample(crops)), slot_at(cursor(), game.rect))
+    cue = card_background_cue(downsample(crops))
+    if cue == "mixed":
+        # Field 24/11: four cards read "mixed" through the three bands; their
+        # own four bands still open the augment window at once.
+        four = probe_cards(now, cursor, four=True)
+        if four.cue == "present":
+            return Probe(now, "present", None)
+    return Probe(now, cue, slot_at(cursor(), game.rect))

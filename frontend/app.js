@@ -1056,11 +1056,73 @@
         row.appendChild(resultsHost);
     }
 
+    // Field 24/11: Mayhem matches with FOUR-card offers (whole match).
+    function fourOffer(data) {
+        const four = data && data.four_offer;
+        return Array.isArray(four) && four.length === 4 &&
+            four.some(c => c && typeof c.id === "string") ? four : null;
+    }
+
+    function renderFourOffer(data, four) {
+        const tiers = data.tiers_enabled === true && data.augment_tiers &&
+            typeof data.augment_tiers === "object" ? data.augment_tiers : null;
+        const tierOf = (id) => tiers && id && Object.prototype.hasOwnProperty.call(tiers, id)
+            && tiers[id] && tiers[id].tier && tiers[id].level !== "none" ? tiers[id] : null;
+        const shown = (t) => (TIER_ORDER.includes(t.adjusted_tier) ? t.adjusted_tier : t.tier);
+        let best = null;
+        for (const card of four) {
+            const t = tierOf(card && card.id);
+            if (t && TIER_ORDER.includes(shown(t)) && (!best ||
+                    TIER_ORDER.indexOf(shown(t)) < TIER_ORDER.indexOf(shown(best)) ||
+                    (shown(t) === shown(best) && (Number(t.rank) || 1e6) < (Number(best.rank) || 1e6))))
+                best = t;
+        }
+        let tierLines = 0;
+        four.forEach((card, index) => {
+            const id = card && typeof card.id === "string" ? card.id : null;
+            const name = id ? (card.name || (staticNames.augments[id] &&
+                staticNames.augments[id].name) || id) : "Unknown — title not verified";
+            const t = tierOf(id);
+            const arrow = t && t.adjust > 0 ? " ↑" : t && t.adjust < 0 ? " ↓" : "";
+            const row = document.createElement("div");
+            row.className = "augment-card" + (t && t === best ? " top-pick" : "");
+            const right = t ? tierPill(shown(t), arrow) + rankPill(t.rank, t.rank_total)
+                : '<span class="aug-score muted">' + esc(id ? "No tier data" : "Title unverified") + "</span>";
+            row.innerHTML = '<div class="aug-row"><span class="aug-rank">' + (index + 1) +
+                '</span><span class="aug-name">' + esc(name) + "</span>" + right + "</div>";
+            if (t) {
+                const note = document.createElement("div");
+                note.className = "aug-explain aug-tier";
+                note.textContent = augmentTierText(t);
+                row.appendChild(note);
+                tierLines += 1;
+                if (arrow && typeof t.adjust_reason === "string") {
+                    const why = document.createElement("div");
+                    why.className = "aug-explain aug-adjust";
+                    why.textContent = arrow.trim() + " " + t.adjust_reason + " (base " + t.tier + ")";
+                    row.appendChild(why);
+                }
+            }
+            augmentList.appendChild(row);
+        });
+        reportRender("tierdb.offer_render", tierLines,
+            data.tiers_enabled === true ? "no_tier_data" : "tiers_off");
+        const hint = document.createElement("div");
+        hint.className = "aug-explain";
+        hint.textContent = "4 cards · pick is detected automatically, or Alt+1 / 2 / 3 / 4";
+        augmentList.appendChild(hint);
+    }
+
     function renderRecommendations(data) {
         augmentList.replaceChildren();
         rerollBadge.classList.add("hidden");
         rerollBanner.classList.add("hidden");
         offerPanelTitle.textContent = "AUGMENTS";
+        const four = fourOffer(data);
+        if (four) {
+            renderFourOffer(data, four);
+            return;
+        }
         const offer = activeOffer();
         if (!offer || !offerCanOpen(offer, data)) return;
         const interactive = Boolean(document.body && document.body.classList &&
@@ -1428,7 +1490,7 @@
         const augSection = $("section-augments");
         const enemySection = $("section-enemies");
         const offer = activeOffer();
-        const offerOpen = offerCanOpen(offer, data);
+        const offerOpen = offerCanOpen(offer, data) || Boolean(fourOffer(data));
         augSection.classList.toggle("collapsed", !offerOpen);
         const due = currentOffers.filter((entry) => entry && entry.state === "due")
             .sort((a, b) => b.offer_id - a.offer_id)[0];

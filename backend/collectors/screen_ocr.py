@@ -202,6 +202,10 @@ class ScreenWatcher:
         self._tick_started: float | None = None
         self._tick_capture_s = 0.0
         self._tick_attempts = 0
+        # Field 24/11: Mayhem matches with FOUR-card offers keep four cards
+        # the whole game. Separate two-read state for that layout only.
+        self._four_last: tuple | None = None
+        self._four_offer: tuple | None = None
 
     @property
     def last_scan_stage(self) -> str:
@@ -302,6 +306,8 @@ class ScreenWatcher:
             self._refocus_pending = False
             self._transition_open = False
             self._last_detected = []
+            self._four_last = None
+            self._four_offer = None
             self._set_scan_stage("not_scanned")
             self._last_foreground = "other"
             self._last_capture_backend = None
@@ -419,7 +425,63 @@ class ScreenWatcher:
                 return False
         return card_count_from_fractions(fractions) == 4
 
-    def _layout_abstain(self, verdict: str) -> tuple[str, None]:
+    def _read_four_titles(self, img, client_rect, width, height, augment_names):
+        """One read of the four title bands: tuple of match-or-None (dups None)."""
+        from backend.collectors.card_title_geometry import FOUR_SLOTS, four_title_bands
+        from backend.collectors.slot_title_ocr import recognize_title_crop
+        bands = four_title_bands(client_rect)
+        size = getattr(img, "size", None)
+        if bands is None or not isinstance(size, tuple):
+            return None
+        a, b, _c, _d = get_augment_region(width, height)
+        rx, ry = int(width * a), int(height * b)
+        reads = []
+        for slot in FOUR_SLOTS:
+            x, y, w, h = bands[slot]
+            box = (x - rx, y - ry, x - rx + w, y - ry + h)
+            if box[0] < 0 or box[1] < 0 or box[2] > size[0] or box[3] > size[1]:
+                return None
+            reads.append(recognize_title_crop(img.crop(box), augment_names))
+        ids = [r[0] for r in reads if r is not None]
+        return tuple(None if r is not None and ids.count(r[0]) > 1 else r for r in reads)
+
+    def _check_four(self, img, capture, game, monitor_index, width, height,
+                    augment_names) -> tuple[str, None]:
+        """Two identical reads (second one a fresh capture) verify a 4-card
+        offer. The three-slot pipeline stays closed (transition) meanwhile."""
+        def key(reads):
+            return None if reads is None else tuple(r[0] if r else None for r in reads)
+
+        reads = self._read_four_titles(img, game.rect, width, height, augment_names)
+        if reads is not None and key(reads) != key(self._four_last):
+            self._four_last = reads
+            try:
+                self._sleep(BURST_SECOND_READ_DELAY_S)
+            except (OSError, RuntimeError):
+                reads = None
+            else:
+                second = self._capture(monitor_index, game, after=capture.proof.captured_at)
+                if (self._verified_region(second, game)
+                        and self._four_cards(second.image, game.rect, width, height)):
+                    reads = self._read_four_titles(
+                        second.image, game.rect, width, height, augment_names)
+                else:
+                    reads = None
+        if reads is not None and key(reads) == key(self._four_last) and any(reads):
+            self._four_offer = reads
+        else:
+            self._four_last = reads
+        return self._layout_abstain("four_unsupported", stage=(
+            "four_titles_detected" if self._four_offer is not None
+            and key(self._four_offer) == key(reads) else "four_titles_verifying"))
+
+    @property
+    def four_offer(self) -> list[tuple[str, str, int] | None] | None:
+        """Verified four-card offer (slot order c1..c4), or None."""
+        with self._lock:
+            return list(self._four_offer) if self._four_offer is not None else None
+
+    def _layout_abstain(self, verdict: str, stage: str | None = None) -> tuple[str, None]:
         """Never use previously accepted three-slot names across layout doubt."""
         self._capture_stale = True
         # A four-card or unknown panel must not leave a prior three-card
@@ -432,10 +494,10 @@ class ScreenWatcher:
         self._transition_open = False
         self._last_detected = []
         self._last_background_observation = None
-        self._set_scan_stage(
+        self._set_scan_stage(stage or (
             "layout_four_unsupported"
             if verdict == "four_unsupported" else "layout_unverified"
-        )
+        ))
         return ("transition", None)
 
     def check(
@@ -520,8 +582,11 @@ class ScreenWatcher:
 
             if self._emit_diagnostics and self._four_cards(img, game.rect, width, height):
                 # Field 24/11: a four-card offer read through three-card bands
-                # mixes two titles per crop. Fail closed until it is supported.
-                return self._layout_abstain("four_unsupported")
+                # mixes two titles per crop. Its own four bands are read here.
+                return self._check_four(img, capture, game, monitor_index,
+                                        width, height, augment_names)
+            self._four_last = None
+            self._four_offer = None
 
             if self._skip_ocr_without_cards:
                 from backend.collectors.card_presence import downsample
@@ -741,7 +806,7 @@ SCAN_STAGES = frozenset((
     "titles_verifying", "titles_unidentified",
     "titles_detected", "titles_unchanged", "titles_transition",
     "layout_unverified", "layout_four_unsupported", "verified_absence",
-    "cards_absent",
+    "cards_absent", "four_titles_verifying", "four_titles_detected",
 ))
 
 

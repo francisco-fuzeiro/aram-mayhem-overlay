@@ -48,7 +48,9 @@ SCHEMA: dict[str, dict[str, object]] = {
             "capture_unavailable", "geometry_unsupported",
             "titles_verifying", "titles_unidentified",
             "titles_detected", "titles_unchanged", "titles_transition",
-            "verified_absence", "cards_absent",
+            "verified_absence", "cards_absent", "layout_unverified",
+            "layout_four_unsupported", "four_titles_verifying",
+            "four_titles_detected",
         )),
     },
     "ocr_recognition": {

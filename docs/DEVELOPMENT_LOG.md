@@ -1267,3 +1267,20 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Priority-1 rules (heavy healing, suppression, fed assassin) replace Next,
   shown with its reason. All thresholds live in THRESHOLDS: proposals.
 - Assumes normal ARAM; Mayhem item differences not verified.
+
+## 2026-11-24 — Four-card augment offers; chained Stat Anvils
+
+- Field report (7ddf862): a match with four-card offers (the whole match)
+  read no augment for 3 minutes; of three Stat Anvils opened back to back
+  only the first was shown.
+- Four cards: `four_title_bands` (centres at +-0.5/+-1.5 pitch, checked on
+  the owner's screenshots, not stored). The augment watcher reads the four
+  titles with the same strict matcher, verifies with two reads (second a
+  fresh capture) and exposes `four_offer`; the three-slot ledger path stays
+  closed. Server keeps `state.four_offer`, shows it with tiers, infers the
+  pick from the cursor over four card bodies (`four_card_cue`), Alt+1..4
+  confirm (`OfferLedger.confirm_four`). A four-card row also opens the
+  augment window through the OCR-free probe.
+- Anvils: after a popup closes (and while vouchers are held) the Anvil
+  watcher is not throttled for 15 s and the 0.3 s presence probe triggers
+  it as soon as cards show, so chained popups picked in 1-2 s are read.

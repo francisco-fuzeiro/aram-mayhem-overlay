@@ -299,6 +299,31 @@ class OfferLedger:
         offer.pick_source = "cursor_inferred"
         return offer
 
+    def confirm_four(self, augment_id: str, four_ids, *, inferred: bool) -> Offer:
+        """Field 24/11: a FOUR-card offer is read outside the three slots.
+
+        The pick must be one of the four verified titles. It closes the
+        newest open offer (due, visible or awaiting); an inferred pick never
+        overrides a user/provider one and the user can correct it (Alt+N).
+        """
+        ids = [i for i in (four_ids or ()) if isinstance(i, str) and i]
+        if not isinstance(augment_id, str) or augment_id not in ids:
+            raise LedgerError("not_in_offer")
+        target = next((o for o in reversed(self.offers)
+                       if o.state in ("due", "visible", "awaiting_confirm")), None)
+        if target is None and self.offers and self.offers[-1].pick_source == "cursor_inferred":
+            target = self.offers[-1]
+        if target is None:
+            raise LedgerError("offer_closed")
+        if target.state == "confirmed" and inferred:
+            raise LedgerError("offer_closed")
+        target.picked_id = augment_id
+        target.pick_source = "cursor_inferred" if inferred else "user_confirm"
+        target.candidate_id = None
+        target.candidate_source = None
+        target.state = "confirmed"
+        return target
+
     def confirm_slot(self, slot: str) -> Offer:
         self._slot(slot)
         target = self._slot_target()

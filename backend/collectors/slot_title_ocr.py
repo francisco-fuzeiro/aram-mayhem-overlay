@@ -136,6 +136,13 @@ def recognize_title_slot(
     """Read one physical title with the same C2 strict matching contract."""
     if slot not in SLOTS:
         raise ValueError("invalid physical card slot")
+    return recognize_title_crop(crop, augment_names, trace_slot=slot)
+
+
+def recognize_title_crop(
+    crop: Image.Image, augment_names: dict[str, str], *, trace_slot: str | None = None,
+) -> tuple[str, str, int] | None:
+    """Same strict recognition for any title crop (four-card layout too)."""
     # Experimental V1.2: change the recognizer only, not physical position,
     # offer proof, strict matching, epochs or temporal double reads.
     # Field 24/11 (latency, owner: augments in < 5 s): PP-OCRv4 (~16 ms per
@@ -148,7 +155,7 @@ def recognize_title_slot(
         if raw is not None:
             # A working but uncertain v4 must abstain, not seek a more
             # permissive answer from another recognizer.
-            return strict_match_title(raw, augment_names, trace_slot=slot)
+            return strict_match_title(raw, augment_names, trace_slot=trace_slot)
         # Invalid/missing v4 runtime: preserve the installed Tesseract path.
     from backend.collectors.screen_ocr import preprocess_for_ocr
 
@@ -160,7 +167,7 @@ def recognize_title_slot(
             )
         except (OSError, RuntimeError):
             raw = ""
-        match = strict_match_title(raw, augment_names, trace_slot=slot)
+        match = strict_match_title(raw, augment_names, trace_slot=trace_slot)
         if match is not None:
             return match
     return None

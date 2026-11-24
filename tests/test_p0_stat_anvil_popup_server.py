@@ -236,10 +236,26 @@ def test_anvil_watcher_is_throttled_while_an_augment_window_is_open(got):
     state = _state()
     state.scan_window_open = True
     state.ocr_slot_choices = None
+    state.anvil_window_until = None  # no voucher attention
     for t in (101.0, 101.5, 102.0, 102.5, 104.5):
         _tick(state, deps, now=t)
     assert len(calls) == 2
     assert ("anvil.popup_watch", "skipped", "throttled", None) in got
+
+
+def test_anvil_attention_lifts_the_throttle_for_chained_popups(got):
+    # Field 24/11: three Anvils in a row, picked in 1-2 s; only one was read.
+    deps, calls = _deps([("no_augments", None)] * 4)
+    state = _state()
+    state.scan_window_open = True
+    state.ocr_slot_choices = None
+    state.anvil_window_until = None
+    state.anvil_followup_until = 110.0
+    for t in (101.0, 101.5, 102.0):
+        _tick(state, deps, now=t)
+    assert len(calls) == 3
+    assert server._anvil_attention(state, 109.0)
+    assert not server._anvil_attention(state, 111.0)
 
 
 def test_poll_is_faster_only_while_an_unread_augment_window_is_open():

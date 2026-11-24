@@ -102,3 +102,31 @@ def card_count_from_fractions(teal: dict[float, float]) -> int | None:
     if on(0.0) and on(-1.0) and on(1.0) and off(-0.5) and off(0.5):
         return 3
     return None
+
+
+FOUR_SLOTS = ("c1", "c2", "c3", "c4")
+_FOUR_OFFSETS = (-1.5, -0.5, 0.5, 1.5)
+
+
+def four_title_bands(
+    client_rect: tuple[int, int, int, int],
+) -> dict[str, tuple[int, int, int, int]] | None:
+    """Title rectangles (client-relative x,y,w,h) of a FOUR-card offer.
+
+    Same title height and band size as the three-card layout; the centres sit
+    at +-0.5 and +-1.5 pitches (measured on the owner's 2546x1385 window
+    screenshots, 24/11). Fails closed like the three-card bands.
+    """
+    bands = title_bands_from_client_rect(client_rect)
+    if bands is None:
+        return None
+    left, top, right, bottom = client_rect
+    width = right - left
+    _, y, w, h = bands["centre"]
+    out = {}
+    for slot, k in zip(FOUR_SLOTS, _FOUR_OFFSETS):
+        x = round(width / 2 + k * _PITCH * width - w / 2)
+        if x < 0 or x + w > width:
+            return None
+        out[slot] = (x, y, w, h)
+    return out
