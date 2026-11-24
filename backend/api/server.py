@@ -2382,7 +2382,10 @@ def _presence_armed(state: GameState) -> str | None:
         return None
     if state.anvil_offer is not None:
         return "anvil"
-    if _augment_cards_verified(state):
+    # Field 24/11: an offer with one unreadable card was never guarded, so
+    # its pick was never inferred. One verified title is enough to guard it;
+    # a pick on the unknown card still abstains (ledger has no id for it).
+    if _augment_titles_read(state):
         return "augment"
     return None
 

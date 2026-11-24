@@ -77,9 +77,15 @@ def infer_pick(trail: Sequence[Probe]) -> str | None:
     start = _absent_tail(trail)
     if start == 0 or start == len(trail):
         return None
-    gone_at = trail[start].t
+    # Field 24/11 ("automatic pick never works"): the pick animation keeps
+    # the cards half-visible ("mixed") for a while, so the cursor sample at
+    # the click was older than the window counted from the FIRST absent
+    # probe. Anchor the window on the last probe where all cards were still
+    # fully present (the moment of the click).
+    present = [p for p in trail[:start] if p.cue == "present"]
+    anchor = present[-1].t if present else trail[start].t
     recent = [p for p in trail[:start]
-              if p.cue != "absent" and gone_at - p.t <= PICK_WINDOW_S]
+              if p.cue != "absent" and anchor - PICK_WINDOW_S <= p.t]
     for probe in reversed(recent):
         if probe.slot is not None:
             return probe.slot

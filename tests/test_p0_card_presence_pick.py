@@ -167,5 +167,19 @@ def test_probe_is_idle_without_a_verified_offer():
     assert _presence_armed(state) is None
     state.match_id = "m"
     state.scan_window_open = True
-    state.ocr_slot_choices = {"left": "2083", "centre": None, "right": "3129"}
+    state.ocr_slot_choices = {"left": None, "centre": None, "right": None}
     assert _presence_armed(state) is None
+    # Spec change 24/11: one verified title is enough to guard the offer.
+    state.ocr_slot_choices = {"left": "2083", "centre": None, "right": "3129"}
+    assert _presence_armed(state) == "augment"
+
+
+
+def test_field_2411_pick_animation_does_not_hide_the_click():
+    from backend.collectors.card_presence import Probe, infer_pick
+    # Click on the right card at t=1.0, then 1.5 s of "mixed" animation
+    # frames while the cursor moves away, then the cards are gone.
+    trail = [Probe(0.4, "present", "left"), Probe(1.0, "present", "right")]
+    trail += [Probe(1.0 + 0.3 * i, "mixed", None) for i in range(1, 6)]
+    trail += [Probe(2.8, "absent", None), Probe(3.1, "absent", None)]
+    assert infer_pick(trail) == "right"
