@@ -106,13 +106,13 @@ def run_build(
     # Owner decision 23/11: relative gain = tie-breaker + visible "potential".
     relative_gain = {c: augment_leverage(by_r, champ_config.rarity_frequency)
                      for c, by_r in relative.items()}
-    # Owner decision 24/11: the champion list pools the previous patch's
-    # champion games with this patch (OP.GG order: 0.854 pooled vs 0.838);
+    # Owner decisions 24/11: the champion list pools the previous patch's
+    # champion games with this patch, the current patch weighing >= 50%;
     # augments, leverage and potential stay on this patch only.
     pool_patches = (tuple(champion_pool_patches) if champion_pool_patches is not None
                     else _previous_patches(store, patch, source_name))
-    pooled, pooled_from = _pooled_champions(store, champions, pool_patches, source_name,
-                                            commercial_only)
+    pooled, pooled_from, pool_scale = _pooled_champions(
+        store, champions, pool_patches, source_name, commercial_only)
     champ_rows, champ_thresholds = build_champion_tiers(
         pooled, pair_deltas, champ_config, relative_gain=relative_gain)
 
@@ -135,7 +135,8 @@ def run_build(
                             "item_config": asdict(item_config),
                             "champion_config": asdict(champ_config),
                             "champion_pool": [{"patch": p_, "snapshot_id": i_}
-                                              for p_, i_ in pooled_from]}, sort_keys=True),
+                                              for p_, i_ in pooled_from],
+                            "champion_pool_scale": pool_scale}, sort_keys=True),
                 json.dumps([snap_id] + [i_ for _p, i_ in pooled_from]), aug_config.seed,
             ),
         )
@@ -222,9 +223,14 @@ def _previous_patches(store: TierStore, patch: str, source_name: str) -> tuple[s
     return (max(older, key=_patch_key),) if older else ()
 
 
-def _pooled_champions(store, champions, patches, source_name, commercial_only):
-    """Champion (wins, games) summed over this patch and ``patches``."""
-    pooled = dict(champions)
+CURRENT_PATCH_MIN_SHARE = 0.5   # owner 24/11: the current patch weighs at least half
+
+
+def _pooled_champions(store, champions, patches, source_name, commercial_only,
+                      min_share: float = CURRENT_PATCH_MIN_SHARE):
+    """Champion (wins, games) of this patch plus ``patches``, the older games
+    scaled down so this patch keeps at least ``min_share`` of the total."""
+    older: dict[str, list[float]] = {}
     used = []
     for prev in patches:
         obs = [o for o in store.observations(patch=prev, metric="win", scope="champion",
@@ -234,11 +240,20 @@ def _pooled_champions(store, champions, patches, source_name, commercial_only):
             continue
         snap = max(o.snapshot_id for o in obs)
         for o in obs:
-            if o.snapshot_id == snap and o.champion_id in pooled:
-                w, g = pooled[o.champion_id]
-                pooled[o.champion_id] = (w + o.wins, g + o.n)
+            if o.snapshot_id == snap and o.champion_id in champions:
+                acc = older.setdefault(o.champion_id, [0.0, 0.0])
+                acc[0] += o.wins
+                acc[1] += o.n
         used.append((prev, snap))
-    return pooled, used
+    current_games = sum(g for _w, g in champions.values())
+    older_games = sum(g for _w, g in older.values())
+    scale = 1.0
+    if older_games and min_share < 1:
+        scale = min(1.0, current_games * (1 - min_share) / (min_share * older_games))
+    pooled = {c: (int(round(w + scale * older.get(c, (0, 0))[0])),
+                  int(round(g + scale * older.get(c, (0, 0))[1])))
+              for c, (w, g) in champions.items()}
+    return pooled, used, round(scale, 6)
 
 
 def _build_items(store, patch, snap_id, roles, inputs: ItemInputs, config: ItemTierConfig):

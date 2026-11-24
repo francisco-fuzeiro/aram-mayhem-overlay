@@ -3,6 +3,7 @@
 ## 2026-11-24 — Champion tiers pool the previous patch
 
 - Owner decision 24/11 ("16.22 nos campeões, augments iguais"): the champion tier list sums the champion games of the newest older patch from the same source with the current patch. Measured against OP.GG's champion order (analysis only, nothing copied): Spearman 0.838 → 0.855 over 173 champions. Augment tiers, leverage and potential stay on the current patch only (export identical).
+- Owner follow-up 24/11: the current patch keeps at least 50% of the champion games (older games scaled down; 16.22 has ~12x the games of 16.23). OP.GG Spearman 0.851 instead of 0.855 at plain sums: we do not chase OP.GG. The scale is recorded as `champion_pool_scale`.
 - `update` and `ingest-aramhex` also ingest the previous normal-rules AramHex patch once (best effort; event, pre-hotfix and PBE datasets skipped). The run records the pooled snapshots in `thresholds_json.champion_pool`.
 
 ## 2026-11-24 — Situational augment score (continuous, capped)

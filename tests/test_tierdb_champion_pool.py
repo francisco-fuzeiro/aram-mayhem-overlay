@@ -76,3 +76,19 @@ def test_previous_dataset_picks_the_newest_older_normal_patch():
     assert previous_dataset("x", "16.23", fetch_index=lambda: index) == "patches/16.22/normal"
     assert previous_dataset("x", "16.22", fetch_index=lambda: index) == "patches/16.21/normal"
     assert previous_dataset("x", "16.19", fetch_index=lambda: index) is None
+
+
+def test_current_patch_keeps_at_least_half_of_the_weight(tmp_path):
+    store = TierStore(tmp_path / "t.sqlite")
+    _ingest(store, "16.23", [5000, 5050, 5100, 5150], "a" * 64)
+    # Previous patch with 10x the games: scaled to 1x.
+    obs = [Observation(scope="champion", metric="win", champion_id=c, wins=w, n=100000)
+           for c, w in zip(CHAMPS, [90000, 60000, 40000, 10000])]
+    store.ingest(SRC, SnapshotMeta(patch="16.22", region="test", sha256="b" * 64), obs,
+                 augments={a: (a, r) for a, r in AUGS.items()})
+    from backend.tierdb.pipeline import _pooled_champions
+    champions = {c: (w, 10000) for c, w in zip(CHAMPS, [5000, 5050, 5100, 5150])}
+    pooled, used, scale = _pooled_champions(store, champions, ("16.22",), "aramhex", False)
+    assert scale == 0.1 and [p for p, _ in used] == ["16.22"]
+    assert pooled["ahri"] == (5000 + 9000, 20000)
+    store.close()
