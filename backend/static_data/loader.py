@@ -171,7 +171,7 @@ _ITEM_CACHE_SCHEMA = 5
 # v5: defensive MR and mobility words must not inherit misleading v4 vectors.
 # The scoring StatVector has no dedicated MR or movement-speed dimensions.
 # Their effects remain unmodelled unless another proven stat is present.
-_AUGMENT_CACHE_SCHEMA = 7  # 24/11: armor unmodelled, true damage->pen, inflections, magnitude
+_AUGMENT_CACHE_SCHEMA = 8  # 24/11: Arena descriptions matched by api name / id / name
 MAYHEM_MIN_AUGMENT_ID = 1000
 _MAYHEM_ICON_MARKER = "/Kiwi/"
 MIN_NORMALIZED_NAME_LEN = 4
@@ -636,18 +636,14 @@ def _load_augments() -> dict[str, AugmentData]:
         augments_raw = []
 
     # Fetch Arena descriptions as supplementary source (match by name)
-    desc_by_name: dict[str, str] = {}
+    arena_rows: list = []
     try:
         r2 = requests.get(CD_ARENA_DESC_URL, timeout=15)
         r2.raise_for_status()
-        arena_data = r2.json()
-        for arena_aug in arena_data.get("augments", []):
-            aname = arena_aug.get("name", "")
-            adesc = arena_aug.get("desc", "")
-            if aname and adesc:
-                desc_by_name[aname.lower()] = adesc
-    except (requests.RequestException, ValueError, KeyError):
+        arena_rows = r2.json().get("augments", [])
+    except (requests.RequestException, ValueError, KeyError, AttributeError):
         pass
+    arena_desc = _arena_description_index(arena_rows)
 
     RARITY_MAP = {"ksilver": 1, "kgold": 2, "kprismatic": 3, "kbronze": 0}
 
@@ -667,7 +663,7 @@ def _load_augments() -> dict[str, AugmentData]:
 
         # Try to get description from Arena data (match by name). Audit 24/11:
         # ~65% had none; fall back to the Mayhem record's own text if present.
-        desc = desc_by_name.get(name.lower(), "") or _clean_description(
+        desc = arena_desc(aug, name) or _clean_description(
             aug.get("descriptionTRA") or aug.get("tooltipTRA")
             or aug.get("description") or aug.get("desc"))
 
@@ -745,6 +741,50 @@ def _contains_catalog_keyword(text: str, keyword: str) -> bool:
 
 def _keyword_count(text: str, keyword: str) -> int:
     return len(re.findall(_keyword_pattern(keyword), text))
+
+
+def _arena_description_index(arena_rows):
+    """desc(mayhem_row, name) -> text, from CommunityDragon's Arena strings.
+
+    Field 24/11: matching by display name alone left 258 of 480 Mayhem
+    augments without text (Mayhem renames many, e.g. "Snowball Fight!").
+    Mayhem rows carry ``augmentNameId`` ("ARAM_ADAPt"), the Arena rows
+    ``apiName`` ("ADAPt") and often the same numeric id: try the api name
+    (with and without the ARAM_ prefix), then the id, then the name; use
+    ``tooltip`` when ``desc`` is empty.
+    """
+    by_api, by_id, by_name = {}, {}, {}
+    for row in arena_rows if isinstance(arena_rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        text = row.get("desc") or row.get("tooltip") or ""
+        if not isinstance(text, str) or not text.strip():
+            continue
+        api = row.get("apiName")
+        if isinstance(api, str) and api:
+            by_api.setdefault(api.lower(), text)
+        if row.get("id") is not None:
+            by_id.setdefault(str(row.get("id")), text)
+        if isinstance(row.get("name"), str) and row["name"]:
+            by_name.setdefault(_normalize(row["name"]), text)
+
+    def lookup(aug: dict, name: str) -> str:
+        api = aug.get("augmentNameId") or aug.get("apiName") or ""
+        keys = []
+        if isinstance(api, str) and api:
+            low = api.lower()
+            keys = [low, low[5:] if low.startswith("aram_") else "aram_" + low]
+        for key in keys:
+            if key in by_api:
+                return by_api[key]
+        try:
+            arena_range = int(aug.get("id")) < MAYHEM_MIN_AUGMENT_ID
+        except (TypeError, ValueError):
+            arena_range = False
+        if arena_range and by_id.get(str(aug.get("id"))):
+            return by_id[str(aug.get("id"))]   # Kiwi row reusing the Arena id
+        return by_name.get(_normalize(name), "")
+    return lookup
 
 
 _TEMPLATE_RE = re.compile(r"@[^@]*@|<[^>]*>|\{\{[^}]*\}\}")

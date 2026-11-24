@@ -1343,3 +1343,13 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Card title bands, layout strips and four-card bands scale with the client
   HEIGHT (offset from the centre in height units), as League's centred UI
   does. Unchanged at 2544x1353; 1080p boxes move a few pixels.
+
+## 2026-11-24 — Augment descriptions: 258 of 480 were empty
+
+- The loader matched CommunityDragon's Arena strings by display name only;
+  Mayhem renames many augments, so 258 of 480 had no text and the parser
+  had nothing to read. Now matched by `augmentNameId` (with/without the
+  `ARAM_` prefix) against the Arena `apiName`, then by id (Arena-range ids
+  only), then by name; `tooltip` is used when `desc` is empty. Cache
+  schema 8. Not measured on live data from here (CommunityDragon is not
+  reachable from the build container); check the count on the PC.

@@ -68,3 +68,23 @@ def test_curated_effects_table_is_valid_and_wins_over_the_parser():
     assert len(table) >= 40
     assert table[_normalize("Tank Engine")]["hp"] > 0
     assert table[_normalize("First-Aid Kit")]["heal_power"] > 0
+
+
+def test_arena_descriptions_match_by_api_name_id_and_name():
+    from backend.static_data.loader import _arena_description_index
+    arena = [
+        {"apiName": "ADAPt", "id": 1, "name": "ADAPt", "desc": "Gain adaptive force"},
+        {"apiName": "SnowballFight", "id": 2, "name": "Snowball Fight", "desc": "",
+         "tooltip": "Heal on hit"},
+        {"apiName": "Other", "id": 3, "name": "Rice and Fish", "desc": "Gain health"},
+        {"apiName": "Clash", "id": 1205, "name": "Clash", "desc": "Unrelated"},
+    ]
+    lookup = _arena_description_index(arena)
+    # Mayhem renames: matched by augmentNameId without the ARAM_ prefix.
+    assert lookup({"id": 1205, "augmentNameId": "ARAM_ADAPt"}, "ADAPt!") == "Gain adaptive force"
+    assert lookup({"id": 1300, "augmentNameId": "ARAM_SnowballFight"},
+                  "Snowball Fight!") == "Heal on hit"
+    assert lookup({"id": 1301, "augmentNameId": "x"}, "Rice and Fish") == "Gain health"
+    # A Mayhem-range id never borrows an unrelated Arena row with that id.
+    assert lookup({"id": 1205, "augmentNameId": "y"}, "Something") == ""
+    assert lookup({"id": 3, "augmentNameId": "z"}, "Renamed") == "Gain health"
