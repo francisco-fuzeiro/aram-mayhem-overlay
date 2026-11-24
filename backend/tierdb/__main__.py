@@ -73,6 +73,11 @@ def main(argv: list[str] | None = None) -> int:
             snap_id = aramhex.ingest_aramhex(store, directory, aliases)
             patch = store.snapshot(snap_id).patch
             print(f"ingested snapshot {snap_id} (patch {patch})")
+            if not getattr(args, "dir", None):
+                from backend.tierdb.service import ingest_previous_patch
+                prev = ingest_previous_patch(store, ref, patch, aliases)
+                if prev:
+                    print(f"ingested previous patch snapshot {prev} (champion pool)")
             if args.cmd == "update":
                 roles, heuristic = _static_inputs(not args.no_heuristic)
                 run_id = run_build(store, patch, roles, heuristic)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Callable
 from datetime import datetime, timezone
@@ -63,6 +64,7 @@ def run_build(
     leverage_mode: str = "absolute",
     items: ItemInputs | None = None,
     item_config: ItemTierConfig = ItemTierConfig(),
+    champion_pool_patches: tuple[str, ...] | None = None,
 ) -> int:
     """``leverage_mode``: "absolute" (default) feeds the champion leverage
     component with shrunk logit win rates of each champion+augment pair, i.e.
@@ -104,8 +106,15 @@ def run_build(
     # Owner decision 23/11: relative gain = tie-breaker + visible "potential".
     relative_gain = {c: augment_leverage(by_r, champ_config.rarity_frequency)
                      for c, by_r in relative.items()}
+    # Owner decision 24/11: the champion list pools the previous patch's
+    # champion games with this patch (OP.GG order: 0.854 pooled vs 0.838);
+    # augments, leverage and potential stay on this patch only.
+    pool_patches = (tuple(champion_pool_patches) if champion_pool_patches is not None
+                    else _previous_patches(store, patch, source_name))
+    pooled, pooled_from = _pooled_champions(store, champions, pool_patches, source_name,
+                                            commercial_only)
     champ_rows, champ_thresholds = build_champion_tiers(
-        champions, pair_deltas, champ_config, relative_gain=relative_gain)
+        pooled, pair_deltas, champ_config, relative_gain=relative_gain)
 
     item_rows, references, demands = _build_items(
         store, patch, snap_id, roles, items, item_config) if items else ([], {}, {})
@@ -124,8 +133,10 @@ def run_build(
                             "leverage_mode": leverage_mode,
                             "augment_config": asdict(aug_config),
                             "item_config": asdict(item_config),
-                            "champion_config": asdict(champ_config)}, sort_keys=True),
-                json.dumps([snap_id]), aug_config.seed,
+                            "champion_config": asdict(champ_config),
+                            "champion_pool": [{"patch": p_, "snapshot_id": i_}
+                                              for p_, i_ in pooled_from]}, sort_keys=True),
+                json.dumps([snap_id] + [i_ for _p, i_ in pooled_from]), aug_config.seed,
             ),
         )
         run_id = cur.lastrowid
@@ -193,6 +204,41 @@ def required_stats(finals: dict, champion_games: int, types: dict, *,
         if givers and games / champion_games >= REQUIRED_STAT_COVERAGE:
             out[stat] = givers
     return out
+
+
+def _patch_key(patch: str) -> tuple:
+    return tuple(int(x) if x.isdigit() else x for x in re.split(r"[.\-]", patch))
+
+
+def _previous_patches(store: TierStore, patch: str, source_name: str) -> tuple[str, ...]:
+    """The newest stored patch older than ``patch`` from the same source."""
+    rows = store.connection.execute(
+        """SELECT DISTINCT s.patch FROM snapshot s JOIN source src ON src.id = s.source_id
+           WHERE src.name = ?""", (source_name,)).fetchall()
+    try:
+        older = [p for (p,) in rows if _patch_key(p) < _patch_key(patch)]
+    except TypeError:
+        return ()
+    return (max(older, key=_patch_key),) if older else ()
+
+
+def _pooled_champions(store, champions, patches, source_name, commercial_only):
+    """Champion (wins, games) summed over this patch and ``patches``."""
+    pooled = dict(champions)
+    used = []
+    for prev in patches:
+        obs = [o for o in store.observations(patch=prev, metric="win", scope="champion",
+                                             commercial_only=commercial_only)
+               if o.source_name == source_name]
+        if not obs:
+            continue
+        snap = max(o.snapshot_id for o in obs)
+        for o in obs:
+            if o.snapshot_id == snap and o.champion_id in pooled:
+                w, g = pooled[o.champion_id]
+                pooled[o.champion_id] = (w + o.wins, g + o.n)
+        used.append((prev, snap))
+    return pooled, used
 
 
 def _build_items(store, patch, snap_id, roles, inputs: ItemInputs, config: ItemTierConfig):

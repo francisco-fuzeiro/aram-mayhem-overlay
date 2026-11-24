@@ -1,5 +1,10 @@
 # Overlay LoL — Development Log
 
+## 2026-11-24 — Champion tiers pool the previous patch
+
+- Owner decision 24/11 ("16.22 nos campeões, augments iguais"): the champion tier list sums the champion games of the newest older patch from the same source with the current patch. Measured against OP.GG's champion order (analysis only, nothing copied): Spearman 0.838 → 0.855 over 173 champions. Augment tiers, leverage and potential stay on the current patch only (export identical).
+- `update` and `ingest-aramhex` also ingest the previous normal-rules AramHex patch once (best effort; event, pre-hotfix and PBE datasets skipped). The run records the pooled snapshots in `thresholds_json.champion_pool`.
+
 ## 2026-11-24 — Situational augment score (continuous, capped)
 
 - Owner decisions 24/11: (1) continuous situational score capped at about two tiers (±3 pp of win rate); (2) hand weights first, recalibrated with the owner's own games; (3) recalibration only with ≥200 own games AND a better temporal holdout (latest 30%) than the hand weights.

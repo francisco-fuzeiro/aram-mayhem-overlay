@@ -55,6 +55,52 @@ def latest_dataset(ref: str = "main") -> tuple[str, str]:
     return (f"data-v{seq}" if seq else ref), latest["path"]
 
 
+def previous_dataset(ref: str, patch: str, fetch_index=None) -> str | None:
+    """Path of the newest normal-rules AramHex dataset older than ``patch``.
+
+    Owner decision 24/11: champion tiers pool the previous patch's games.
+    """
+    if fetch_index is None:
+        import requests
+
+        def fetch_index():
+            r = requests.get(aramhex.RAW_URL.format(ref=ref, path="index.json"), timeout=15)
+            r.raise_for_status()
+            return r.json()
+    from backend.tierdb.pipeline import _patch_key
+    best = None
+    for d in (fetch_index() or {}).get("datasets", []):
+        p_, path = str(d.get("patch") or ""), d.get("path")
+        if (d.get("mode") != "normal" or not path or d.get("provisional")
+                or "prehotfix" in path or "pbe" in path):
+            continue
+        try:
+            if _patch_key(p_) >= _patch_key(patch):
+                continue
+        except TypeError:
+            continue
+        if best is None or _patch_key(p_) > _patch_key(best[0]):
+            best = (p_, path)
+    return best[1] if best else None
+
+
+def ingest_previous_patch(store, ref: str, patch: str, aliases: dict) -> int | None:
+    """Best effort: store the previous patch once; None when absent or failing."""
+    try:
+        path = previous_dataset(ref, patch)
+        if not path:
+            return None
+        prev = path.split("/")[1] if path.count("/") >= 2 else None
+        if prev and store.snapshot_ids(prev):
+            return None
+        directory = aramhex.download_dataset(
+            ref, path, Path(tempfile.mkdtemp(prefix="aramhex-prev-")))
+        return aramhex.ingest_aramhex(store, directory, aliases)
+    except Exception as exc:  # the current patch alone still builds
+        logger.warning("Previous AramHex patch not ingested: %s", exc)
+        return None
+
+
 def static_inputs(static_data, with_heuristic: bool = True):
     """Roles and curated 0-10 fit scores from the app's loaded static data."""
     champions = list(getattr(static_data, "_champions", {}).values()) if static_data else []
@@ -108,6 +154,7 @@ def update_tierlist(*, db_path: Path, export_path: Path, roles: dict, heuristic:
                     aliases: dict | None = None, dataset_dir: Path | None = None,
                     items=None) -> dict:
     aliases = aliases if aliases is not None else riot_champion_aliases()
+    ref = None
     if dataset_dir is None:
         ref, dataset = latest_dataset()
         dataset_dir = aramhex.download_dataset(
@@ -116,6 +163,8 @@ def update_tierlist(*, db_path: Path, export_path: Path, roles: dict, heuristic:
     try:
         snap_id = aramhex.ingest_aramhex(store, dataset_dir, aliases)
         patch = store.snapshot(snap_id).patch
+        if ref is not None:
+            ingest_previous_patch(store, ref, patch, aliases)
         run_id = run_build(store, patch, roles, heuristic, items=items)
         export_run(store, run_id, export_path)
     finally:
