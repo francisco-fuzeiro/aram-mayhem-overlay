@@ -2195,6 +2195,14 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
         # no longer blocks this watcher; it used to, so no Anvil was seen.
         feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_cards_read")
         return
+    watcher = getattr(deps, "screen_watcher", None)
+    if (state.scan_window_open and state.anvil_offer is None
+            and getattr(watcher, "verifying_named", False) is True):
+        # Field 24/11 (latency): the augment watcher is confirming augment
+        # titles on these very cards; an Anvil OCR now would only delay that
+        # read (and the recommendation drawn after this tick).
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_verifying")
+        return
     if (state.scan_window_open and state.anvil_offer is None
             and now - state.anvil_last_check < ANVIL_CHECK_IN_AUGMENT_WINDOW_S):
         # Field 23/11: an unread augment window may last minutes, so the Anvil

@@ -60,6 +60,21 @@ SCHEMA: dict[str, dict[str, object]] = {
         "count": "int",
         "confidence": "confidence100",
     },
+    # Field 24/11 (latency): per augment-watcher tick, bounded timings only.
+    "ocr_tick": {
+        "stage": "scan_stage",
+        "total_ms": "ms",
+        "capture_ms": "ms",
+        "attempts": "int",
+        "reason": frozenset((
+            "no_window", "minimized", "occluded", "backend_unavailable",
+            "invalid_frame", "window_changed", "unsupported_platform", "other",
+        )),
+        "detail": frozenset((
+            "none", "no_frame", "stale_frame", "frame_geometry", "flat_frame",
+            "degraded", "source_start",
+        )),
+    },
     "capture_backend": {"backend": frozenset(("wgc", "mss_zorder", "none"))},
     "ocr_occlusion": {"owner": frozenset(("self", "other"))},
     "ocr_foreground": {"owner": frozenset(("league", "self", "other"))},
@@ -181,6 +196,13 @@ def _clean(event: str, fields: dict) -> dict | None:
         elif constraint == "git_sha":
             if (isinstance(value, str) and value.isascii() and 7 <= len(value) <= 12
                     and all(c in "0123456789abcdef" for c in value)):
+                safe[key] = value
+        elif constraint == "ms":
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 600_000:
+                safe[key] = value
+        elif constraint == "scan_stage":
+            stages = SCHEMA["ocr_scan_stage"]["stage"]
+            if isinstance(value, str) and value in stages:
                 safe[key] = value
         elif constraint == "int":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000:

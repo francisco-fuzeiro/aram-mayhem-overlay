@@ -1,5 +1,13 @@
 # Overlay LoL — Development Log
 
+## 2026-11-24 — Augment read latency (field report on 2ecd870: 13-17 s, one window never read)
+
+- Cause 1: one animated card whose title reads as unknown kept a moving crop hash, so it never settled and the watcher withheld the whole snapshot (one window: 217 s in titles_verifying). Two unknown reads now settle a slot that has no accepted title as unknown (fail-closed); an accepted title still needs a stable image to be downgraded.
+- Cause 2: every WGC miss (no fresh frame yet, a repeated callback) cost a poll cycle and suspended the C3 tracker, forcing all three slots to be read twice again (capture_invalid ~7 s per window). Transient misses (`invalid_frame`, `backend_unavailable`) are now retried in-tick (4 × 80 ms; the burst second frame waits for a newer callback) and then only skip the tick, keeping baselines and pending reads. Window change, minimise, occlusion and proof failures keep the full suspension.
+- Cause 3: the Anvil watcher OCR'd the same cards in the same tick while augment titles were being confirmed, delaying the read and the recommendation drawn after it; it now waits while a pending read names an augment. Its scan stages no longer mix into the augment window timings.
+- A degraded WGC session is retried after 5 s instead of staying dead until the offer ends.
+- Diagnostics: new bounded `ocr_tick` event (stage, total/capture ms, attempts, miss reason and WGC sub-reason); the feature report shows ticks, median tick time and capture misses per augment window.
+
 ## 2026-11-23 — In-match context adjustment, patch recency, visible tier/rank
 
 - Owner decision: in-match "context adjustment" (`backend/tierdb/context_adjust.py`). Base tier (measured ΔWR, list rank unchanged) moves at most one tier within its level cap, from fit with champion + adapted build stats (40), synergy with chosen augments (25), enemy comp (20) and the player's own synced games (15; k=30 shrinkage, ≥5 games). The overlay shows the adjusted tier with ↑/↓ and the reason, base tier kept. Diagnostic `tierdb.context_adjust`.

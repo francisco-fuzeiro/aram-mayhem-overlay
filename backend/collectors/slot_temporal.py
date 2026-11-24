@@ -74,6 +74,11 @@ class SlotTemporalTracker:
         return bool(self._pending)
 
     @property
+    def has_named_pending(self) -> bool:
+        """A pending read names an augment (it is not an unknown title)."""
+        return any(p.match is not None for p in self._pending.values())
+
+    @property
     def has_unverified_changes(self) -> bool:
         """Some title slot is still awaiting a second C3 verification read.
 
@@ -145,9 +150,20 @@ class SlotTemporalTracker:
             # and verification took 10-30 s. Two identical named reads now
             # verify; an unknown (None) read still needs a stable image.
             same_name = signature is not None and signature == previous_signature
+            # Field 24/11 (latency): one animated card whose title reads as
+            # unknown kept its hash moving, stayed pending forever and held
+            # back the two readable cards (one window: 217 s, never shown).
+            # Two unknown reads now settle a slot that has NO accepted
+            # identity as unknown (fail-closed: nothing is claimed for it);
+            # a slot with an accepted title still needs a stable image to
+            # be downgraded, so an animation never erases a verified title.
+            unknown_settles = (
+                signature is None and previous_signature is None
+                and self._accepted.get(slot) is None
+            )
             if (
                 previous is not None
-                and (same_name or (
+                and (same_name or unknown_settles or (
                     hash_distance(image_hash, previous.hash_value) <= STABLE_THRESHOLD
                     and signature == previous_signature))
             ):

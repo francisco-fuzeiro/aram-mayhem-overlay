@@ -141,13 +141,21 @@ def _ocr_windows(session: list[dict]) -> list[dict]:
         ev = rec.get("event")
         if ev == "ocr_window" and rec.get("state") == "opened":
             close_stage(t)
-            cur = {"level": rec.get("level"), "opened": t, "first_read_s": None, "stages": {}}
+            cur = {"level": rec.get("level"), "opened": t, "first_read_s": None, "stages": {},
+                   "ticks": [], "misses": {}}
             windows.append(cur)
             stage, since = None, t
         elif ev == "ocr_window" and rec.get("state") == "closed" and cur is not None:
             close_stage(t)
             cur["closed_reason"] = rec.get("reason")
             cur, stage, since = None, None, None
+        elif ev == "ocr_tick" and cur is not None:
+            # Field 24/11: how long each watcher tick took, and why captures missed.
+            if isinstance(rec.get("total_ms"), int):
+                cur["ticks"].append(rec["total_ms"])
+            if rec.get("reason"):
+                key = f"{rec['reason']}/{rec.get('detail') or 'none'}"
+                cur["misses"][key] = cur["misses"].get(key, 0) + 1
         elif ev == "ocr_scan_stage" and cur is not None:
             close_stage(t)
             stage, since = rec.get("stage"), t
@@ -160,6 +168,10 @@ def _ocr_windows(session: list[dict]) -> list[dict]:
     return [{"level": w["level"], "first_read_s": w["first_read_s"],
              "ocr_s": w.get("ocr_s"),
              "closed_reason": w.get("closed_reason"),
+             "ticks": len(w["ticks"]),
+             "tick_ms_median": (sorted(w["ticks"])[len(w["ticks"]) // 2]
+                                if w["ticks"] else None),
+             "capture_misses": dict(sorted(w["misses"].items())),
              "stages": {k: round(v, 1) for k, v in sorted(
                  w["stages"].items(), key=lambda kv: -kv[1])}} for w in windows]
 
@@ -182,12 +194,16 @@ def render_markdown(report: dict) -> str:
                      f"| {reasons} |")
     if report.get("ocr_windows"):
         lines += ["", "| Augment window (level) | First read | OCR after cards shown | "
-                  "Time per scan stage (s) | Closed |", "| --- | --- | --- | --- | --- |"]
+                  "Time per scan stage (s) | Ticks (median ms) | Capture misses | Closed |",
+                  "| --- | --- | --- | --- | --- | --- | --- |"]
         for w in report["ocr_windows"]:
             first = "-" if w["first_read_s"] is None else f"{w['first_read_s']} s"
             stages = ", ".join(f"{k}: {v}" for k, v in list(w["stages"].items())[:4]) or "-"
             ocr = "-" if w.get("ocr_s") is None else f"{w['ocr_s']} s"
-            lines.append(f"| {w['level']} | {first} | {ocr} | {stages} | "
+            ticks = (f"{w.get('ticks', 0)} ({w['tick_ms_median']})"
+                     if w.get("tick_ms_median") is not None else "-")
+            misses = ", ".join(f"{k}: {v}" for k, v in (w.get("capture_misses") or {}).items()) or "-"
+            lines.append(f"| {w['level']} | {first} | {ocr} | {stages} | {ticks} | {misses} | "
                          f"{w.get('closed_reason') or '-'} |")
     lines += ["", "Only enumerated ids and counts are logged: safe to paste in a chat or issue."]
     return "\n".join(lines) + "\n"

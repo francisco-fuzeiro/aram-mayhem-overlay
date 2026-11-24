@@ -23,7 +23,7 @@ def anvil_watcher():
     global _watcher
     if _watcher is None:
         from backend.collectors.screen_ocr import ScreenWatcher
-        _watcher = ScreenWatcher(skip_ocr_without_cards=True)
+        _watcher = ScreenWatcher(skip_ocr_without_cards=True, emit_diagnostics=False)
     return _watcher
 
 

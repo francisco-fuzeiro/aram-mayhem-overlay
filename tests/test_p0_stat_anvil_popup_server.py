@@ -271,3 +271,19 @@ def test_anvil_titles_are_forced_through_ocr_every_few_seconds(got):
     for t in (101.0, 103.0, 105.5, 106.0):
         _tick(state, deps, now=t)
     assert forced == [True, False, True, False]
+
+
+def test_anvil_watcher_waits_while_augment_titles_are_being_confirmed(got):
+    # Field 24/11 (latency): the augment watcher is confirming augment names
+    # on the cards on screen; an Anvil OCR in the same tick only delays it.
+    deps, calls = _deps([("no_augments", None)] * 3)
+    deps.screen_watcher = SimpleNamespace(verifying_named=True)
+    state = _state()
+    state.scan_window_open = True
+    state.ocr_slot_choices = None
+    _tick(state, deps, now=101.0)
+    assert calls == []
+    assert ("anvil.popup_watch", "skipped", "augment_verifying", None) in got
+    deps.screen_watcher.verifying_named = False
+    _tick(state, deps, now=104.5)
+    assert len(calls) == 1

@@ -139,16 +139,33 @@ def test_no_pending_after_first_read_means_no_second_capture_or_sleep(monkeypatc
 
 
 def test_invalid_second_capture_fails_closed_no_old_snapshot(monkeypatch):
+    # Spec change 24/11 (latency): a transient WGC miss is retried in-tick and
+    # then only skips the tick. Nothing is published, but the first proven
+    # read is kept so the next fresh frame can confirm it.
+    misses = [verified(reason="invalid_frame")] * screen_ocr.CAPTURE_RETRY_ATTEMPTS
     watcher, captures, delays, reads = setup(
-        monkeypatch, [verified(timestamp=10.0), verified(reason="invalid_frame")]
+        monkeypatch, [verified(timestamp=10.0), *misses]
     )
     assert watcher.check({}) == ("capture_unavailable", None)
     assert watcher.last_scan_stage == "capture_invalid"
-    assert not watcher._temporal.has_pending
+    assert watcher._temporal.has_pending
     assert watcher.current_slots is None
     assert reads == Counter({"left": 1, "centre": 1, "right": 1})
-    assert captures == [1, 2]
-    assert delays == [0.5]
+    assert captures == list(range(1, 2 + screen_ocr.CAPTURE_RETRY_ATTEMPTS))
+    assert delays == [0.5] + [screen_ocr.CAPTURE_RETRY_DELAY_S] * (
+        screen_ocr.CAPTURE_RETRY_ATTEMPTS - 1)
+
+
+def test_transient_second_capture_miss_is_retried_in_the_same_tick(monkeypatch):
+    watcher, captures, delays, reads = setup(
+        monkeypatch, [verified(timestamp=10.0), verified(reason="invalid_frame"),
+                      verified(timestamp=10.6)]
+    )
+    action, matches = watcher.check({})
+    assert action == "detected"
+    assert ids(matches) == ["a", "c", "d"]
+    assert captures == [1, 2, 3]
+    assert delays == [0.5, screen_ocr.CAPTURE_RETRY_DELAY_S]
 
 
 def test_second_capture_without_proof_is_rejected_before_any_ocr(monkeypatch):
@@ -162,14 +179,25 @@ def test_second_capture_without_proof_is_rejected_before_any_ocr(monkeypatch):
 
 
 def test_reused_capture_timestamp_is_not_a_fresh_second_frame(monkeypatch):
-    # Field 23/11: one extra fresh-frame attempt before giving up the tick.
+    # Field 23/11-24/11: a repeated WGC callback never counts as the second
+    # read; fresh frames are awaited in-tick, then the tick is skipped.
+    repeats = [verified(timestamp=10.0)] * screen_ocr.CAPTURE_RETRY_ATTEMPTS
     watcher, captures, _delays, reads = setup(
-        monkeypatch, [verified(timestamp=10.0), verified(timestamp=10.0),
-                      verified(timestamp=10.0)]
+        monkeypatch, [verified(timestamp=10.0), *repeats]
     )
     assert watcher.check({}) == ("capture_unavailable", None)
-    assert not watcher._temporal.has_pending
+    assert watcher.current_slots is None
     assert reads == Counter({"left": 1, "centre": 1, "right": 1})
+    assert captures == list(range(1, 2 + screen_ocr.CAPTURE_RETRY_ATTEMPTS))
+
+
+def test_reused_timestamp_then_fresh_frame_confirms_in_the_same_tick(monkeypatch):
+    watcher, captures, _delays, _reads = setup(
+        monkeypatch, [verified(timestamp=10.0), verified(timestamp=10.0),
+                      verified(timestamp=10.7)]
+    )
+    action, matches = watcher.check({})
+    assert action == "detected" and ids(matches) == ["a", "c", "d"]
     assert captures == [1, 2, 3]
 
 

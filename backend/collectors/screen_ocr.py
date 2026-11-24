@@ -82,6 +82,13 @@ MAX_SCREENSHOT_AGE_SECONDS = 3 * 24 * 3600
 # Perceptual hash size (NxN grid). Higher = more sensitive to small changes.
 HASH_SIZE = 32
 BURST_SECOND_READ_DELAY_S = 0.5  # A4: one fresh, proven second capture in the same tick
+# Field 24/11 (latency): capture_invalid cost 6-8 s in every augment window.
+# A transient WGC miss (no fresh frame yet, a repeated callback) is retried a
+# few times inside the same tick instead of costing a whole poll cycle and a
+# full three-slot re-verification.
+CAPTURE_RETRY_ATTEMPTS = 4
+CAPTURE_RETRY_DELAY_S = 0.08
+TRANSIENT_CAPTURE_REASONS = frozenset(("invalid_frame", "backend_unavailable"))
 
 
 
@@ -159,6 +166,7 @@ class ScreenWatcher:
         sleep_fn=None, card_count_observer=None,
         approved_card_count_calibration: str | None = None,
         skip_ocr_without_cards: bool = False,
+        emit_diagnostics: bool = True,
     ) -> None:
         import threading
         from backend.collectors.slot_temporal import SlotTemporalTracker
@@ -188,6 +196,12 @@ class ScreenWatcher:
         # there is nothing to read, so skip Tesseract. Never proves absence of
         # an offer to the ledger; presence/disappearance stay elsewhere.
         self._skip_ocr_without_cards = skip_ocr_without_cards
+        # The Anvil popup watcher shares no state with the augment watcher; its
+        # stages must not be mixed into the augment window timings either.
+        self._emit_diagnostics = emit_diagnostics
+        self._tick_started: float | None = None
+        self._tick_capture_s = 0.0
+        self._tick_attempts = 0
 
     @property
     def last_scan_stage(self) -> str:
@@ -205,7 +219,58 @@ class ScreenWatcher:
         if stage not in SCAN_STAGES:
             stage = "not_scanned"
         self._last_scan_stage = stage
-        events.transition("ocr_scan_stage", stage=stage)
+        if self._emit_diagnostics:
+            events.transition("ocr_scan_stage", stage=stage)
+            self._emit_tick(stage)
+
+    def _emit_tick(self, stage: str, reason: str | None = None) -> None:
+        """Bounded per-tick timings (field 24/11: where do the seconds go?)."""
+        if self._tick_started is None:
+            return
+        from backend.diagnostic_events import events
+        from backend.collectors.window_capture import last_invalid_detail
+        total = time.monotonic() - self._tick_started
+        self._tick_started = None
+        fields = {
+            "stage": stage,
+            "total_ms": int(round(total * 1000)),
+            "capture_ms": int(round(self._tick_capture_s * 1000)),
+            "attempts": self._tick_attempts,
+        }
+        if reason is not None:
+            fields["reason"] = reason if reason in CAPTURE_REASONS else "other"
+            fields["detail"] = last_invalid_detail()
+        events.emit("ocr_tick", **fields)
+
+    def _capture(self, monitor_index: int, game: LeagueWindow,
+                 after: float | None = None) -> "RegionCapture":
+        """Capture with a bounded in-tick retry of transient WGC misses.
+
+        Every returned image still carries the full A3 proof; ``after``
+        additionally requires a newer WGC callback than the first frame.
+        """
+        result = None
+        for attempt in range(CAPTURE_RETRY_ATTEMPTS):
+            if attempt:
+                try:
+                    self._sleep(CAPTURE_RETRY_DELAY_S)
+                except (OSError, RuntimeError):
+                    break
+            started = time.monotonic()
+            result = capture_augment_region(monitor_index, league_window=game)
+            self._tick_capture_s += time.monotonic() - started
+            self._tick_attempts += 1
+            if self._verified_region(result, game):
+                if after is None or result.proof.captured_at > after:
+                    return result
+                continue  # A repeated callback is not a second read.
+            reason = result.reason if isinstance(result, RegionCapture) else "invalid_frame"
+            if reason not in TRANSIENT_CAPTURE_REASONS:
+                return result
+        if (after is not None and isinstance(result, RegionCapture)
+                and self._verified_region(result, game)):
+            return RegionCapture(None, None, "invalid_frame")
+        return result
 
     def _record_shadow_cue(
         self, crops: dict[str, "Image.Image"], *, ocr_titles: bool = False,
@@ -256,7 +321,23 @@ class ScreenWatcher:
         )
 
     def _capture_failure(self, reason: str) -> tuple[str, None]:
-        """Discard pending OCR and preserve A3's conservative failure mapping."""
+        """Discard pending OCR and preserve A3's conservative failure mapping.
+
+        Field 24/11: a transient frame miss (no fresh WGC frame after the
+        in-tick retries) is NOT a focus/occlusion loss. It skips this tick but
+        keeps the C3 baselines and pending reads, so it no longer forces all
+        three slots to be read twice again. Window loss, minimise and
+        occlusion keep the full conservative suspension.
+        """
+        if reason in TRANSIENT_CAPTURE_REASONS:
+            self._last_capture_backend = None
+            self._last_background_observation = None
+            self._transition_open = False
+            self._set_failure_stage("capture_invalid", reason)
+            if self._emit_diagnostics:
+                from backend.diagnostic_events import events
+                events.transition("ocr_recognition", outcome="capture_unavailable")
+            return ("capture_unavailable", None)
         self._card_count_gate.reset()
         self._capture_stale = True
         self._last_foreground = "other"
@@ -272,10 +353,16 @@ class ScreenWatcher:
             stage, action = "game_occluded", "occluded"
         else:
             stage, action = "capture_invalid", "capture_unavailable"
-        self._set_scan_stage(stage)
-        from backend.diagnostic_events import events
-        events.transition("ocr_recognition", outcome=action)
+        self._set_failure_stage(stage, reason)
+        if self._emit_diagnostics:
+            from backend.diagnostic_events import events
+            events.transition("ocr_recognition", outcome=action)
         return (action, None)
+
+    def _set_failure_stage(self, stage: str, reason: str) -> None:
+        if self._emit_diagnostics:
+            self._emit_tick(stage, reason)
+        self._set_scan_stage(stage)
 
     def _independent_card_layout(
         self, capture: "RegionCapture", game: LeagueWindow,
@@ -340,6 +427,9 @@ class ScreenWatcher:
         from backend.collectors.slot_title_ocr import recognize_title_slot
 
         with self._lock:
+            self._tick_started = time.monotonic()
+            self._tick_capture_s = 0.0
+            self._tick_attempts = 0
             if not is_available():
                 self._card_count_gate.reset()
                 self._last_background_observation = None
@@ -362,11 +452,11 @@ class ScreenWatcher:
                 self._transition_open = False
                 self._set_scan_stage("game_window_unavailable")
                 return ("unavailable", None)
-            result = capture_augment_region(monitor_index, league_window=game)
+            result = self._capture(monitor_index, game)
             if not self._verified_region(result, game):
                 reason = (
                     result.reason if isinstance(result, RegionCapture) and result.reason != "ok"
-                    else "invalid_frame"
+                    else "proof_invalid"  # never a transient miss: full suspension
                 )
                 return self._capture_failure(reason)
             capture = result
@@ -456,27 +546,18 @@ class ScreenWatcher:
                     self._sleep(BURST_SECOND_READ_DELAY_S)
                 except (OSError, RuntimeError):
                     return self._capture_failure("invalid_frame")
-                second = capture_augment_region(monitor_index, league_window=game)
+                # A3 can return the latest WGC callback more than once. A
+                # previously observed callback must never count as a new read;
+                # field 23/11-24/11: wait briefly for a newer one in-tick.
+                second = self._capture(
+                    monitor_index, game, after=capture.proof.captured_at,
+                )
                 if not self._verified_region(second, game):
                     reason = (
                         second.reason if isinstance(second, RegionCapture) and second.reason != "ok"
-                        else "invalid_frame"
+                        else "proof_invalid"  # never a transient miss: full suspension
                     )
                     return self._capture_failure(reason)
-                # A3 can return the latest WGC callback more than once. A
-                # previously observed callback must never count as a new read.
-                if second.proof.captured_at <= capture.proof.captured_at:
-                    # Field 23/11: repeated frames cost whole ticks
-                    # (capture_invalid 5-8 s per window). Try one more fresh
-                    # frame before giving up the tick.
-                    try:
-                        self._sleep(BURST_SECOND_READ_DELAY_S / 2)
-                    except (OSError, RuntimeError):
-                        return self._capture_failure("invalid_frame")
-                    second = capture_augment_region(monitor_index, league_window=game)
-                    if (not self._verified_region(second, game)
-                            or second.proof.captured_at <= capture.proof.captured_at):
-                        return self._capture_failure("invalid_frame")
                 # A four-card transition during the second C3 read invalidates
                 # the provisional first-frame OCR before any accepted result.
                 second_layout = self._independent_card_layout(
@@ -592,6 +673,12 @@ class ScreenWatcher:
             return ("unchanged" if current is not None else "no_augments", None)
 
     @property
+    def verifying_named(self) -> bool:
+        """Some slot has a pending read naming an augment (cards are augments)."""
+        with self._lock:
+            return self._temporal.has_named_pending
+
+    @property
     def current_slots(self) -> SlotMatches | None:
         with self._lock:
             return self._temporal.snapshot()
@@ -609,6 +696,10 @@ class ScreenWatcher:
 
 # Fixed codes for safe, bounded OCR diagnostics. Never record captured pixels,
 # raw OCR strings, player data or local filesystem paths.
+CAPTURE_REASONS = frozenset((
+    "no_window", "minimized", "occluded", "backend_unavailable",
+    "invalid_frame", "window_changed", "unsupported_platform",
+))
 SCAN_STAGES = frozenset((
     "not_scanned", "ocr_unavailable", "game_window_unavailable",
     "game_not_focused", "game_occluded", "capture_invalid",
