@@ -55,6 +55,30 @@ def _add_spans(entries: list[dict]) -> None:
         e["tie_end"] = ends.get(e.get("tie_group")) if e.get("rank") is not None else None
 
 
+# Owner decision 24/11: the tier IS the position in the list ("top 5 OP, S up
+# to 15"). Bands below S are a proposal: A 16-30, B 31-50, C 51-75, D 76-100,
+# E after. Ranking order is unchanged; evidence caps (e.g. curated-only
+# augments at most A) still apply so a guess is never shown as OP.
+RANK_BANDS = (("OP", 5), ("S", 15), ("A", 30), ("B", 50), ("C", 75), ("D", 100))
+
+
+def rank_tier(rank, level: str | None = None, fallback: str | None = None) -> str | None:
+    if not isinstance(rank, int) or rank < 1:
+        return fallback
+    tier = next((name for name, last in RANK_BANDS if rank <= last), "E")
+    from backend.tierdb.augment_tiers import LEVEL_CAP, TIER_ORDER
+    cap = LEVEL_CAP.get(level or "")
+    if cap is not None:
+        tier = TIER_ORDER[max(TIER_ORDER.index(tier), TIER_ORDER.index(cap))]
+    return tier
+
+
+def _apply_rank_tiers(entries: list[dict]) -> None:
+    for e in entries:
+        e["score_tier"] = e.get("tier")
+        e["tier"] = rank_tier(e.get("rank"), e.get("level"), e.get("tier"))
+
+
 class TierListProvider:
     def __init__(self, export_path: Path | None = None, enabled=None):
         self.export_path = Path(export_path) if export_path else DEFAULT_EXPORT_FILE
@@ -83,6 +107,7 @@ class TierListProvider:
                 for rarity, rows in by_rarity.items():
                     entries = [dict(zip(cols, row)) for row in rows]
                     _add_spans(entries)
+                    _apply_rank_tiers(entries)
                     for entry in entries:
                         aid = entry.pop("augment_id")
                         entry["rarity"] = rarity
@@ -90,6 +115,7 @@ class TierListProvider:
             ccols = doc["champion_columns"]
             entries = [dict(zip(ccols, row)) for row in doc["champions"]]
             _add_spans(entries)
+            _apply_rank_tiers(entries)
             champions = {e.pop("champion_id"): e for e in entries}
             icols = doc.get("item_columns") or []
             items = {}

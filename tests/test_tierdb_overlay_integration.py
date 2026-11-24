@@ -80,7 +80,8 @@ def test_champion_select_candidates_get_strength_and_potential(tiers):
               "candidates": [{"id": "ahri", "name": "Ahri"}, {"id": "lux", "name": "Lux"}]}
     server._annotate_champion_candidates(result)
     ahri, lux = result["candidates"]
-    assert ahri["mayhem"] == {"strength": "S", "potential": "very_high", "rank": 1,
+    # Owner decision 24/11: rank 1 of the list is OP (top 5).
+    assert ahri["mayhem"] == {"strength": "OP", "potential": "very_high", "rank": 1,
                               "rank_total": 2, "tie_group": 1, "tie_end": 1,
                               "confidence": "high"}
     assert lux["mayhem"] is None

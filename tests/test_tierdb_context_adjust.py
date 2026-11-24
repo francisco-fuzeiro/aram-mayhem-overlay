@@ -77,7 +77,14 @@ from tests.test_tierdb_overlay_integration import EXPORT  # noqa: E402
 
 def _svc(tmp_path, monkeypatch):
     export = tmp_path / "tierlist.json"
-    export.write_text(json.dumps(EXPORT), encoding="utf-8")
+    # Owner decision 24/11: tier = list position (OP 1-5, S 6-15, A 16-30,
+    # B 31-50). Ranks chosen so the expected tiers stay S / A / B.
+    doc = json.loads(json.dumps(EXPORT))
+    ranks = {"1001": 12, "1002": 20, "1003": 40}
+    for row in doc["augments"]["ahri"]["gold"]:
+        if row[0] in ranks:
+            row[1] = row[2] = ranks[row[0]]
+    export.write_text(json.dumps(doc), encoding="utf-8")
     svc = tier_service.TierListService(export_path=export,
                                        preferences_path=tmp_path / "p.json",
                                        db_path=tmp_path / "t.sqlite")
@@ -94,7 +101,7 @@ def test_offer_payload_adds_adjusted_tier_without_touching_rank(tmp_path, monkey
     t = payload["augment_tiers"]
     assert (t["1002"]["tier"], t["1002"]["adjusted_tier"], t["1002"]["adjust"]) == ("A", "S", 1)
     assert t["1002"]["adjust_reason"] == "fits your build"
-    assert t["1002"]["rank"] == 2                         # list rank unchanged
+    assert t["1002"]["rank"] == 20                        # list rank unchanged
     assert (t["1003"]["adjusted_tier"], t["1003"]["adjust"]) == ("C", -1)
     assert (t["1001"]["adjusted_tier"], t["1001"]["adjust"]) == ("S", 0)
     assert ("tierdb.context_adjust", "ok", "adjusted", 2) in calls
@@ -163,3 +170,11 @@ def test_audit_2411_adjuster_reads_real_augment_contribution(monkeypatch):
     assert adjust("crit_aug") == (1, "fits your build")
     assert adjust("ap_aug")[0] == -1
     assert server._stat_vector_of(real["ap_aug"]).ap == 1.0
+
+
+def test_owner_2411_tier_is_the_list_position():
+    from backend.tierdb.runtime import rank_tier
+    assert [rank_tier(r) for r in (1, 5, 6, 15, 16, 30, 31, 50, 51, 75, 76, 100, 101)] == [
+        "OP", "OP", "S", "S", "A", "A", "B", "B", "C", "C", "D", "D", "E"]
+    assert rank_tier(1, "curated") == "A"   # a guess is never shown as OP
+    assert rank_tier(None, "champion", "B") == "B"

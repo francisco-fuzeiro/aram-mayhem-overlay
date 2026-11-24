@@ -105,7 +105,7 @@ def test_provider_kill_switch_is_live(store, tmp_path):
     provider = TierListProvider(path, enabled=lambda: enabled["value"])
     row = provider.augment_tier("ahri", "1002")
     assert set(row) == {"rank", "tie_group", "tier", "level", "confidence", "rarity",
-                        "rank_total", "tie_end"}
+                        "rank_total", "tie_end", "score_tier"}
     assert provider.champion_tier("ahri")["tier"] in {"OP", "S", "A", "B", "C", "D", "E"}
     enabled["value"] = False  # no reload, no restart
     assert provider.augment_tier("ahri", "1002") is None
