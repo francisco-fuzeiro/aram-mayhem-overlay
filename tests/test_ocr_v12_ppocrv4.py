@@ -101,11 +101,27 @@ def test_v4_slot_identity_and_duplicate_fail_closed(monkeypatch):
 
 
 def test_tesseract_remains_default(monkeypatch):
-    monkeypatch.delenv("ARAM_ORACLE_OCR_ENGINE", raising=False)
+    # Spec change 24/11 (owner: augments in < 5 s): v4 is used automatically
+    # when installed; Tesseract stays the fallback and can be forced.
+    monkeypatch.setenv("ARAM_ORACLE_OCR_ENGINE", "tesseract")
     monkeypatch.setattr(slot_title_ocr.pytesseract, "image_to_string",
                         lambda *_a, **_k: "En Passant")
     monkeypatch.setattr(ppocr_v4, "recognize_text",
-                        lambda _im: pytest.fail("v4 must be opt-in"))
+                        lambda _im: pytest.fail("forced Tesseract"))
     assert slot_title_ocr.recognize_title_slot(
         "left", Image.new("RGB", (340, 90)), CATALOG
     )[0] == "1001"
+
+
+def test_v4_is_used_automatically_and_falls_back_when_missing(monkeypatch):
+    monkeypatch.delenv("ARAM_ORACLE_OCR_ENGINE", raising=False)
+    monkeypatch.setattr(ppocr_v4, "recognize_text", lambda _im: "En Passant")
+    monkeypatch.setattr(slot_title_ocr.pytesseract, "image_to_string",
+                        lambda *_a, **_k: pytest.fail("v4 installed: no Tesseract"))
+    assert slot_title_ocr.recognize_title_slot(
+        "left", Image.new("RGB", (340, 90)), CATALOG)[0] == "1001"
+    monkeypatch.setattr(ppocr_v4, "recognize_text", lambda _im: None)
+    monkeypatch.setattr(slot_title_ocr.pytesseract, "image_to_string",
+                        lambda *_a, **_k: "En Passant")
+    assert slot_title_ocr.recognize_title_slot(
+        "left", Image.new("RGB", (340, 90)), CATALOG)[0] == "1001"

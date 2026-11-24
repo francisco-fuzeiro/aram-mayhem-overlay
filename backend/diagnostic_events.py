@@ -38,7 +38,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
-        "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "offer_disappeared", "anvil_cards_gone", "cursor_pick", "reset", "unknown")),
+        "reason": frozenset(("level_due", "cards_seen", "damage", "manual_choice", "confirmed", "offer_disappeared", "anvil_cards_gone", "cursor_pick", "reset", "unknown")),
         "level": "int",
     },
     "ocr_scan_stage": {
@@ -66,6 +66,7 @@ SCHEMA: dict[str, dict[str, object]] = {
         "total_ms": "ms",
         "capture_ms": "ms",
         "attempts": "int",
+        "engine": frozenset(("ppocrv4", "tesseract", "unknown")),
         "reason": frozenset((
             "no_window", "minimized", "occluded", "backend_unavailable",
             "invalid_frame", "window_changed", "unsupported_platform", "other",

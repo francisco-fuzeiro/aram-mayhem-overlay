@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 from backend.api.server import _align_next_with_mayhem_build
 
-ITEMS = {"hydra": ("Ravenous Hydra", 3300), "dd": ("Death's Dance", 3300),
+ITEMS = {"steelcaps": ("Plated Steelcaps", 1200), "hydra": ("Ravenous Hydra", 3300), "dd": ("Death's Dance", 3300),
          "bt": ("Bloodthirster", 3400), "greaves": ("Gluttonous Greaves", 1000)}
 
 
@@ -17,7 +17,7 @@ class FakeSD:
         if iid not in ITEMS:
             return None
         name, cost = ITEMS[iid]
-        return SimpleNamespace(name=name, cost=cost)
+        return SimpleNamespace(name=name, cost=cost, boots=iid in ("greaves", "steelcaps"))
 
     def canonical_item_id(self, iid):
         return str(iid)
@@ -57,3 +57,14 @@ def test_unchanged_without_tierlist_build_or_when_blocked_or_boots():
 def test_whole_adapted_build_owned_keeps_engine_choice():
     out = _align_next_with_mayhem_build(_state(owned=["hydra", "dd"]), MAYHEM, 0, FakeSD())
     assert out["next_item_id"] == "bt"
+
+
+def test_field_2411_listed_build_is_the_plan_and_boots_follow_enemy_comp():
+    # "Says the plan and recommends a different item": one list, one Next.
+    mayhem = {"adapted": [{"id": "hydra"}, {"id": "dd"}], "boots": {"id": "steelcaps"}}
+    out = _align_next_with_mayhem_build(_state(owned=["hydra"]), mayhem, 0, FakeSD())
+    assert out["full_build"] == ["hydra", "steelcaps", "dd"]
+    assert out["next_item_id"] == "dd" and out["next_item_id"] in out["full_build"]
+    boots_time = _state(next_id="greaves", owned=["hydra"])
+    out = _align_next_with_mayhem_build(boots_time, mayhem, 0, FakeSD())
+    assert out["next_item_id"] == "steelcaps"

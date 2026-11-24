@@ -138,7 +138,11 @@ def recognize_title_slot(
         raise ValueError("invalid physical card slot")
     # Experimental V1.2: change the recognizer only, not physical position,
     # offer proof, strict matching, epochs or temporal double reads.
-    if os.environ.get("ARAM_ORACLE_OCR_ENGINE", "tesseract").strip().lower() == "ppocrv4":
+    # Field 24/11 (latency, owner: augments in < 5 s): PP-OCRv4 (~16 ms per
+    # crop, in-process) is used whenever its verified model is installed;
+    # Tesseract (3-6 process launches per read) stays the fallback.
+    # ARAM_ORACLE_OCR_ENGINE=tesseract forces the old engine.
+    if os.environ.get("ARAM_ORACLE_OCR_ENGINE", "auto").strip().lower() != "tesseract":
         from backend.collectors.ppocr_v4 import recognize_text
         raw = recognize_text(crop)
         if raw is not None:

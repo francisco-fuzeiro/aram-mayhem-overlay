@@ -153,6 +153,8 @@ def _ocr_windows(session: list[dict]) -> list[dict]:
             # Field 24/11: how long each watcher tick took, and why captures missed.
             if isinstance(rec.get("total_ms"), int):
                 cur["ticks"].append(rec["total_ms"])
+            if rec.get("engine") in ("ppocrv4", "tesseract"):
+                cur["engine"] = rec["engine"]
             if rec.get("reason"):
                 key = f"{rec['reason']}/{rec.get('detail') or 'none'}"
                 cur["misses"][key] = cur["misses"].get(key, 0) + 1
@@ -168,6 +170,7 @@ def _ocr_windows(session: list[dict]) -> list[dict]:
     return [{"level": w["level"], "first_read_s": w["first_read_s"],
              "ocr_s": w.get("ocr_s"),
              "closed_reason": w.get("closed_reason"),
+             "engine": w.get("engine"),
              "ticks": len(w["ticks"]),
              "tick_ms_median": (sorted(w["ticks"])[len(w["ticks"]) // 2]
                                 if w["ticks"] else None),
@@ -200,7 +203,7 @@ def render_markdown(report: dict) -> str:
             first = "-" if w["first_read_s"] is None else f"{w['first_read_s']} s"
             stages = ", ".join(f"{k}: {v}" for k, v in list(w["stages"].items())[:4]) or "-"
             ocr = "-" if w.get("ocr_s") is None else f"{w['ocr_s']} s"
-            ticks = (f"{w.get('ticks', 0)} ({w['tick_ms_median']})"
+            ticks = (f"{w.get('ticks', 0)} ({w['tick_ms_median']}, {w.get('engine') or '?'})"
                      if w.get("tick_ms_median") is not None else "-")
             misses = ", ".join(f"{k}: {v}" for k, v in (w.get("capture_misses") or {}).items()) or "-"
             lines.append(f"| {w['level']} | {first} | {ocr} | {stages} | {ticks} | {misses} | "

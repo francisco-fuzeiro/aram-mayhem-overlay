@@ -90,8 +90,17 @@ def resolve_offer(
         tiers, source = narrowed, "values"
     if len(tiers) > 1 and voucher_tier in tiers:
         tiers, source = {voucher_tier}, "voucher"
+    tier: str | None
     if len(tiers) != 1:
-        return AnvilOfferResolution("skipped", "tier_ambiguous")
+        # Field 24/11: Silver and Gold popups share every title and no voucher
+        # edge was seen (4 offers lost in one session). The same stats rank
+        # the same way in either tier, so show the Best fit without claiming a
+        # tier: values come from the lowest candidate tier, tier stays None.
+        representative = min(tiers, key=TIER_ORDER.index)
+        shards = tuple(by_title[t][representative] for t in titles)
+        if not all(_values_match(s, v) for s, v in zip(shards, values)):
+            return AnvilOfferResolution("skipped", "tier_ambiguous")
+        return AnvilOfferResolution("ok", "verified_offer", None, shards, "unknown")
     tier = next(iter(tiers))
     shards = tuple(by_title[t][tier] for t in titles)
     if not all(_values_match(s, v) for s, v in zip(shards, values)):

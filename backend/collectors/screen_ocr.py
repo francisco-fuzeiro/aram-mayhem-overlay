@@ -237,6 +237,11 @@ class ScreenWatcher:
             "capture_ms": int(round(self._tick_capture_s * 1000)),
             "attempts": self._tick_attempts,
         }
+        try:
+            from backend.collectors.ppocr_v4 import engine_in_use
+            fields["engine"] = engine_in_use()
+        except Exception:  # diagnostics only
+            pass
         if reason is not None:
             fields["reason"] = reason if reason in CAPTURE_REASONS else "other"
             fields["detail"] = last_invalid_detail()

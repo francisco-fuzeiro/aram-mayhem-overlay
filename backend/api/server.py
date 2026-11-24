@@ -152,6 +152,7 @@ class GameState:
         self.anvil_last_check: float = float("-inf")
         self.anvil_last_forced: float = float("-inf")
         self.scan_opened_at: float | None = None
+        self.scan_open_reason: str | None = None
         self.scan_first_read_done: bool = False
         self.anvil_voucher_tier: str | None = None
         self.anvil_epoch: int = 0
@@ -276,6 +277,7 @@ class GameState:
         self.last_known_level = 0
         self.scan_window_open = False
         self.scan_opened_at = None
+        self.scan_open_reason = None
         self.scan_first_read_done = False
         self.scan_window_level = 0
         self.was_dead = False
@@ -681,7 +683,7 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     """Reference build (measured), adapted build (max 3 swaps, >= 0.5) and
     heuristic Stat Anvil priorities for the overlay. No win rates."""
     from backend.tierdb.anvil_stats import ANVIL_STATS, rank_anvil_options
-    from backend.tierdb.build_adapt import adapt_build, strength_from_rank
+    from backend.tierdb.build_adapt import adapt_build, follow_owned, strength_from_rank
 
     record = feature_diagnostics.record
     if not tier_service.enabled():
@@ -719,6 +721,17 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
     reference = list(data["reference"])
     adapted = adapt_build(reference, strength, context=context, owned=owned,
                           conflicts=conflicts)
+    # Field 24/11: the plan follows what the player actually bought (owned
+    # finals first; physical vs magic purchases switch the remaining slots).
+    owned_order = []
+    for i in owned_ids or []:
+        cid = canonical(i)
+        if cid not in owned_order:
+            owned_order.append(cid)
+    ranked = sorted(finals, key=lambda i: (finals[i].get("rank") or 10**6, i))
+    plan, follows = follow_owned(
+        list(adapted.items), owned_order, get_item=sd.get_item, ranked=ranked,
+        conflicts=conflicts, size=len(adapted.items) or 6)
 
     def name(iid):
         item = sd.get_item(iid)
@@ -726,11 +739,13 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
 
     payload = {
         "reference": [{"id": i, "name": name(i)} for i in reference],
-        "adapted": [{"id": i, "name": name(i)} for i in adapted.items],
+        "adapted": [{"id": i, "name": name(i)} for i in plan],
+        "follows": follows,
         "boots": None,
-        "swaps": [{"slot": s["slot"], "out": s["out"], "in": s["in"],
-                   "out_name": name(s["out"]), "in_name": name(s["in"]),
-                   "reason": s["reason"]} for s in adapted.swaps],
+        "swaps": [] if follows else [
+            {"slot": s["slot"], "out": s["out"], "in": s["in"],
+             "out_name": name(s["out"]), "in_name": name(s["in"]),
+             "reason": s["reason"]} for s in adapted.swaps if s["in"] in plan],
         "anvil_stats": [],
     }
     boots_ids = {str(b) for b in (data.get("boots") or {})}
@@ -772,15 +787,37 @@ def _align_next_with_mayhem_build(build_state: dict, mayhem: dict | None,
     canonical = getattr(sd, "canonical_item_id", lambda x: str(x))
     engine_next = build_state.get("next_item_id")
     boots = (mayhem.get("boots") or {}).get("id")
-    if engine_next and boots and canonical(engine_next) == boots:
-        return build_state
     owned = {canonical(i) for i in (build_state.get("purchased_items") or [])}
     owned |= {canonical(i) for i in (build_state.get("owned_build_ids") or [])}
-    candidate = next((e["id"] for e in mayhem["adapted"] if e.get("id") not in owned), None)
-    if candidate is None:
-        return build_state
+
+    def is_boots(iid):
+        item = sd.get_item(iid) if iid else None
+        return bool(getattr(item, "boots", False))
+
+    # Field 24/11 ("says the plan and recommends a different item"): the list
+    # shown with Owned / BUY NEXT / Planned IS the tier list plan.
+    plan = [e["id"] for e in mayhem["adapted"] if e.get("id")]
+    mine = sorted(i for i in owned if is_boots(i) and i != "1001")
+    owned_boots = bool(mine)
+    if not any(is_boots(i) for i in plan):
+        if owned_boots:
+            plan.insert(min(1, len(plan)), mine[0])
+        elif boots:
+            plan.insert(min(1, len(plan)), boots)
+    plan = plan[:6]
     out = dict(build_state)
+    out["full_build"] = plan
+    out["full_build_names"] = [
+        (getattr(sd.get_item(i), "name", None) or i) for i in plan]
     out["next_source"] = "tierlist"
+    if engine_next and is_boots(engine_next) and boots and not owned_boots:
+        # Boots timing stays the engine's, the boots themselves follow the enemy comp.
+        candidate = boots
+    else:
+        # Boots timing is the engine's: they are Next only when it says so.
+        candidate = next((i for i in plan if i not in owned and not is_boots(i)), None)
+    if candidate is None:
+        return out
     if engine_next and canonical(engine_next) == candidate:
         return out
     item = sd.get_item(candidate)
@@ -2098,6 +2135,7 @@ def _poll_dependencies() -> SimpleNamespace:
         ocr_available=ocr_available,
         run_watcher_check=_run_watcher_check,
         run_anvil_check=anvil_popup.run_anvil_check,
+        probe_cards=card_presence.probe_cards,
         screen_watcher=screen_watcher,
         to_thread=asyncio.to_thread,
         broadcast=_broadcast,
@@ -2363,6 +2401,76 @@ async def _presence_loop() -> None:
         await asyncio.sleep(card_presence.PROBE_INTERVAL_S)
 
 
+
+def _open_augment_scan(state: GameState, deps, snapshot, now: float, level: int,
+                       prior_count: int, have: int, expected: int, reason: str) -> None:
+    """Open the augment scan window (state lock held by the caller)."""
+    state.scan_window_open = True
+    state.scan_window_level = level
+    state.scan_opened_at = now
+    state.scan_first_read_done = False
+    state.scan_open_reason = reason
+    if len(state.offer_ledger.offers) == prior_count:
+        state.offer_epoch += 1
+        if state.offer_ledger.offers:
+            state.offer_ledger.set_current_epoch(state.offer_epoch)
+    # Log the *final* epoch after any respawn-generation bump.
+    emit_f0_trace("augment", "offer", "unknown",
+                  "scan_level_due", source="lcda",
+                  epoch=state.offer_epoch)
+    state.offer_lifecycle.open()
+    event_log.emit("ocr_window", state="opened", reason=reason, level=level)
+    state.awaiting_stat_delta = False
+    state.delta_wait_ticks = 0
+    state.stat_snapshot_before = dict(snapshot.champion_stats)
+    state.stat_snapshot_level_before = level
+    observed_items = getattr(snapshot, "purchased_items", None)
+    state.stat_snapshot_items_before = (
+        tuple(str(item) for item in observed_items)
+        if isinstance(observed_items, (list, tuple))
+        else None
+    )
+    deps.screen_watcher.reset()
+    logger.info(
+        "Augment pick window OPENED (%s, level %d, have %d/%d augments)",
+        "cards on screen" if reason == "cards_seen" else "eligible level",
+        level, have, expected,
+    )
+
+
+def _cards_probe_due(state: GameState, deps, level: int) -> bool:
+    """A pick may be pending but no window is open (state lock held)."""
+    if (state.scan_window_open or state.awaiting_stat_delta
+            or state.confirmation_pending or state.anvil_offer is not None
+            or not state.ocr_enabled or getattr(deps, "probe_cards", None) is None):
+        return False
+    have = len(_confirmed_augment_ids(state))
+    # The first pick can show before the Live Client reports level 3.
+    return have < expected_augments_for_level(max(level, AUGMENT_PICK_LEVELS_SORTED[0]))
+
+
+async def _open_scan_on_visible_cards(state: GameState, deps, snapshot, now: float,
+                                      level: int) -> bool:
+    try:
+        if not deps.ocr_available():
+            return False
+        probe = await deps.to_thread(lambda: deps.probe_cards(now))
+    except Exception as exc:  # never break the poll; class name only
+        logger.warning("Card probe failed: %s", type(exc).__name__)
+        return False
+    if getattr(probe, "cue", None) != "present":
+        return False
+    async with state.lock:
+        if not _cards_probe_due(state, deps, level):
+            return False
+        have = len(_confirmed_augment_ids(state))
+        _open_augment_scan(state, deps, snapshot, now, level,
+                           len(state.offer_ledger.offers), have,
+                           expected_augments_for_level(max(level, AUGMENT_PICK_LEVELS_SORTED[0])),
+                           "cards_seen")
+    feature_diagnostics.record("augment.window_open", "ok", "cards_seen")
+    return True
+
 async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
     """Serialize individual polling transactions without locking out sockets."""
     async with state.poll_lock:
@@ -2398,6 +2506,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
             current_level = snapshot.level
 
             match_confirmation_due = False
+            cards_probe_due = False
             async with state.lock:
                 _begin_or_continue_match(state, snapshot, raw, flow)
                 # Two observed inventories, same game: detect actual voucher
@@ -2466,9 +2575,21 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     emit_f0_trace("augment", "offer", "unknown",
                                   "new_offer_due", source="lcda",
                                   epoch=state.offer_epoch)
+                    if (not prior_count and state.scan_window_open
+                            and state.scan_open_reason == "cards_seen"):
+                        # Field 24/11: the cards were on screen (window opened
+                        # by them) before the level threshold. The same cards
+                        # are this offer: keep their reads, attach them to it.
+                        slots = state.ocr_slot_choices
+                        if isinstance(slots, dict) and any(slots.values()):
+                            try:
+                                _ledger_verified_titles(
+                                    state.offer_ledger, slots, state.offer_epoch)
+                            except LedgerError:
+                                pass
                     # A later offer must not inherit OCR candidates from its
                     # predecessor. Do not change first-offer recovery semantics.
-                    if prior_count:
+                    elif prior_count:
                         # Retain only the previous *complete* identity. It
                         # can be re-read after a temporal reset while the old
                         # offer is still physically visible.
@@ -2517,41 +2638,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     and not state.awaiting_stat_delta
                     and not state.confirmation_pending
                 ):
-                    state.scan_window_open = True
-                    state.scan_window_level = current_level
-                    state.scan_opened_at = now
-                    state.scan_first_read_done = False
-                    if len(state.offer_ledger.offers) == prior_count:
-                        state.offer_epoch += 1
-                        if state.offer_ledger.offers:
-                            state.offer_ledger.set_current_epoch(state.offer_epoch)
-                    # Log the *final* epoch after any respawn-generation bump.
-                    emit_f0_trace("augment", "offer", "unknown",
-                                  "scan_level_due", source="lcda",
-                                  epoch=state.offer_epoch)
-                    state.offer_lifecycle.open()
-                    event_log.emit(
-                        "ocr_window", state="opened", reason="level_due",
-                        level=current_level,
-                    )
-                    state.awaiting_stat_delta = False
-                    state.delta_wait_ticks = 0
-                    state.stat_snapshot_before = dict(
-                        snapshot.champion_stats
-                    )
-                    state.stat_snapshot_level_before = current_level
-                    observed_items = getattr(snapshot, "purchased_items", None)
-                    state.stat_snapshot_items_before = (
-                        tuple(str(item) for item in observed_items)
-                        if isinstance(observed_items, (list, tuple))
-                        else None
-                    )
-                    deps.screen_watcher.reset()
-                    logger.info(
-                        "Augment pick window OPENED at eligible level "
-                        "(level %d, have %d/%d augments)",
-                        current_level, have, expected,
-                    )
+                    _open_augment_scan(state, deps, snapshot, now, current_level,
+                                       prior_count, have, expected, "level_due")
 
                 # -- Stat delta detection --
                 # Stat matching only follows an OCR disappearance signal.
@@ -2563,6 +2651,13 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         match_confirmation_due = True
                         state.awaiting_stat_delta = False
                         state.delta_wait_ticks = 0
+                cards_probe_due = _cards_probe_due(state, deps, current_level)
+
+            # Field 24/11: the cards were on screen for over a minute before
+            # the level trigger opened the window. A cheap colour probe (no
+            # OCR) opens it as soon as the cards are visible.
+            if cards_probe_due:
+                await _open_scan_on_visible_cards(state, deps, snapshot, now, current_level)
 
             # Confirmation acquires its own short lock for a consistent offer
             # snapshot. The injected matcher and its transport run unlocked.

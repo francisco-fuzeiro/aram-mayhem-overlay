@@ -1236,6 +1236,11 @@
             (mb.boots && mb.boots.name ? " · Boots: " + mb.boots.name +
                 (mb.boots.reason ? " (" + mb.boots.reason + ")" : "") : ""),
             "aug-explain aug-tier");
+        if (mb.follows === "ad" || mb.follows === "ap") {
+            // Field 24/11: the build list follows what the player bought.
+            line("Following your items (" + (mb.follows === "ad" ? "physical/crit" : "magic") +
+                ")", "aug-explain aug-tier");
+        }
         const swaps = Array.isArray(mb.swaps) ? mb.swaps : [];
         if (swaps.length && Array.isArray(mb.adapted)) {
             line("Adapted: " + names(mb.adapted), "aug-explain aug-tier");

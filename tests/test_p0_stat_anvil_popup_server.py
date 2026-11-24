@@ -96,8 +96,8 @@ def test_ambiguous_silver_gold_titles_abstain_unless_voucher_tier(got):
     deps, _ = _deps([("detected", ids)])
     state = _state()
     _tick(state, deps)
-    assert state.anvil_offer is None
-    assert ("anvil.offer_detected", "skipped", "tier_ambiguous", None) in got
+    # Spec change 24/11: shown without a tier instead of abstaining.
+    assert state.anvil_offer is not None and state.anvil_offer.tier is None
     deps, _ = _deps([("detected", ids)])
     state = _state(voucher_tier="gold")
     _tick(state, deps)

@@ -54,7 +54,9 @@ def test_unique_prismatic_titles_resolve_without_voucher(catalog):
 def test_silver_gold_shared_titles_are_ambiguous_without_more_evidence(catalog):
     ids = _ocr_ids(catalog, "Attack Speed Shard", "Armor Shard", "Might Shard")
     res = resolve_offer(ids, catalog)
-    assert (res.status, res.reason) == ("skipped", "tier_ambiguous")
+    # Spec change 24/11: Best fit is shown without claiming Silver or Gold.
+    assert (res.status, res.tier, res.tier_source) == ("ok", None, "unknown")
+    assert [s.tier for s in res.shards] == ["silver"] * 3
 
 
 def test_one_tier_specific_title_resolves_the_whole_offer(catalog):

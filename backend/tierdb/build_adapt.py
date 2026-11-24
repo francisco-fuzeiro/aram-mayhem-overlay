@@ -81,3 +81,90 @@ def strength_from_rank(rank: int | None, total: int | None) -> float:
     if not rank or not total:
         return 0.0
     return round(10.0 * (total - rank + 0.5) / total, 3)
+
+
+def item_archetype(item) -> str | None:
+    """'ad' (physical/crit), 'ap' (magic) or None (tank, utility, hybrid)."""
+    if item is None:
+        return None
+    tags = set(getattr(item, "tags", None) or ())
+    stats = getattr(item, "stats", None)
+    physical = magic = 0.0
+    if stats is not None:
+        physical = (float(stats.ad or 0) + float(stats.crit or 0)
+                    + float(stats.lethality or 0) + 0.5 * float(stats.attack_speed or 0))
+        magic = float(stats.ap or 0)
+    physical += 1.0 * bool(tags & {"Damage", "CriticalStrike", "ArmorPenetration"})
+    magic += 1.0 * bool(tags & {"SpellDamage", "MagicPenetration"})
+    if physical > 1.2 * magic and physical > 0:
+        return "ad"
+    if magic > 1.2 * physical and magic > 0:
+        return "ap"
+    return None
+
+
+def owned_archetype(owned_items, min_gold: int = 1000) -> str | None:
+    """What the player is actually building, weighted by gold spent."""
+    gold = {"ad": 0, "ap": 0}
+    for item in owned_items:
+        kind = item_archetype(item)
+        if kind and not getattr(item, "boots", False):
+            gold[kind] += int(getattr(item, "cost", 0) or 0)
+    best = max(gold, key=gold.get)
+    other = "ap" if best == "ad" else "ad"
+    if gold[best] >= min_gold and gold[best] > 1.5 * gold[other]:
+        return best
+    return None
+
+
+def follow_owned(
+    plan: list[str] | tuple[str, ...],
+    owned_order: list[str],
+    *,
+    get_item: Callable[[str], object],
+    ranked: list[str],
+    conflicts: Callable[[str, str], bool] | None = None,
+    size: int = 6,
+) -> tuple[list[str], str | None]:
+    """Field 24/11 (AD crit Shaco shown AP items): the plan follows the
+    player's purchases. Owned finals come first; if what they bought is
+    physical while the plan is magic (or the reverse), the remaining slots are
+    refilled with the best-ranked finals of the player's archetype, preferring
+    items their owned components build into. Returns (plan, archetype or None
+    when the plan was kept)."""
+    conflicts = conflicts or (lambda a, b: False)
+    items = {iid: get_item(iid) for iid in set(plan) | set(owned_order) | set(ranked)}
+    owned_finals = [i for i in owned_order
+                    if getattr(items.get(i), "final", False) and i not in ("",)]
+    mine = owned_archetype([items.get(i) for i in owned_order])
+    plan_kinds = [item_archetype(items.get(i)) for i in plan]
+    plan_kind = None
+    if plan_kinds.count("ap") > plan_kinds.count("ad"):
+        plan_kind = "ap"
+    elif plan_kinds.count("ad") > plan_kinds.count("ap"):
+        plan_kind = "ad"
+    out: list[str] = []
+
+    def add(iid: str) -> None:
+        if iid not in out and len(out) < size and not any(conflicts(iid, o) for o in out):
+            out.append(iid)
+
+    for iid in owned_finals:
+        add(iid)
+    switch = mine is not None and plan_kind is not None and mine != plan_kind
+    if not switch:
+        for iid in plan:
+            add(iid)
+        return out, None
+    builds_into = set()
+    for iid in owned_order:
+        builds_into |= set(getattr(items.get(iid), "into_ids", ()) or ())
+    for iid in plan:  # boots and archetype-neutral plan items keep their place
+        item = items.get(iid)
+        if getattr(item, "boots", False):
+            add(iid)
+    pool = [i for i in ranked if item_archetype(items.get(i)) == mine
+            and not getattr(items.get(i), "boots", False)]
+    for iid in sorted(pool, key=lambda i: (i not in builds_into, ranked.index(i))):
+        add(iid)
+    return out, mine

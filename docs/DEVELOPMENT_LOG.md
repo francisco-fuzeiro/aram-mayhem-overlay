@@ -1,5 +1,12 @@
 # Overlay LoL — Development Log
 
+## 2026-11-24 — Owner test session (before 433b92a): window opened ~1 min late, builds incoherent
+
+- Owner requirement: augments readable in under 5 s or the overlay is not used. The console showed the window OPENING over a minute after the cards were on screen at game start. The scan no longer depends only on the Live Client level: while a pick may be pending and no window is open, a colour probe of the card title bands (no OCR) opens it as soon as the cards are seen (`ocr_window` reason `cards_seen`, feature `augment.window_open`). When the level threshold arrives later, the reads already made are attached to that offer instead of being reset.
+- PP-OCRv4 (in-process, ~16 ms per crop) is now used automatically when its verified model is installed (`python scripts/setup_ppocr_v4.py`, which also installs onnxruntime 1.20.1); Tesseract remains the fallback and `ARAM_ORACLE_OCR_ENGINE=tesseract` forces it. `ocr_tick` and the report show the engine in use.
+- Build: the list with Owned / BUY NEXT / Planned is now the tier list plan (adapted build + context boots), so "Next" is always an item of the list shown. The plan follows purchases: owned finals first, and physical/crit purchases on a magic plan (or the reverse) refill the remaining slots with the best-ranked items of the player's archetype, preferring what owned components build into (AD crit Shaco was shown only AP items). Boots timing stays the engine's; which boots follows the enemy comp.
+- Stat Anvil: Silver/Gold popups whose titles are all shared (no voucher edge) now show the Best fit without a tier instead of abstaining.
+
 ## 2026-11-24 — Augment read latency (field report on 2ecd870: 13-17 s, one window never read)
 
 - Cause 1: one animated card whose title reads as unknown kept a moving crop hash, so it never settled and the watcher withheld the whole snapshot (one window: 217 s in titles_verifying). Two unknown reads now settle a slot that has no accepted title as unknown (fail-closed); an accepted title still needs a stable image to be downgraded.

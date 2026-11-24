@@ -629,3 +629,32 @@ async def test_c4b_transition_after_valid_offer_sends_uncertain_without_clearing
     assert state.chosen_augments == []
     assert any(e.get("status") == "transition" and
                e.get("offer_state") == "uncertain" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_field_2411_window_opens_when_cards_are_seen_before_level_three():
+    # Field 24/11: the cards were on screen for over a minute before the level
+    # trigger opened the window. A colour probe (no OCR) opens it.
+    state, deps, _events = make_harness([{"tick": 1}], [make_snapshot(level=1)], ocr=True)
+    probes = []
+
+    def probe(now):
+        probes.append(now)
+        return SimpleNamespace(cue="present", slot=None)
+
+    deps.probe_cards = probe
+    await poll_tick(state, deps, 10.0)
+    assert probes == [10.0]
+    assert state.scan_window_open and state.scan_open_reason == "cards_seen"
+    deps.screen_watcher.reset.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_field_2411_no_window_without_cards_or_with_all_picks_done():
+    state, deps, _events = make_harness(
+        [{"tick": 1}, {"tick": 2}], [make_snapshot(level=1), make_snapshot(level=1)], ocr=True)
+    deps.probe_cards = lambda now: SimpleNamespace(cue="absent", slot=None)
+    await poll_tick(state, deps, 10.0)
+    assert not state.scan_window_open
+    from backend.api import server
+    assert not server._cards_probe_due(state, SimpleNamespace(probe_cards=None), 1)
