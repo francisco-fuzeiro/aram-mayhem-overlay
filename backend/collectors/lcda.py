@@ -228,7 +228,17 @@ def parse_game_snapshot(raw: dict, phase: GamePhase) -> GameSnapshot:
         and p is not active_player
     ]
 
+    spells_raw = active_player.get("summonerSpells") if active_player else None
+    summoner_spells = [
+        str(spell.get("displayName"))
+        for spell in (spells_raw.values() if isinstance(spells_raw, dict) else ())
+        if isinstance(spell, dict) and spell.get("displayName")
+    ]
+    resource = raw_stats.get("resourceType") if isinstance(raw_stats, dict) else None
+
     return GameSnapshot(
+        summoner_spells=summoner_spells,
+        resource_type=str(resource) if isinstance(resource, str) and resource else None,
         game_id=game_id,
         phase=phase,
         champion_id=champion_id,

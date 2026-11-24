@@ -223,6 +223,9 @@ class GameSnapshot:
     anvil_vouchers: dict[str, int] | None = None
     # P0-C: ids of a visually verified, tier-resolved Stat Anvil popup.
     anvil_offer_ids: list[str] = field(default_factory=list)
+    # Live Client: own summoner spell names and resource type (synergy rules).
+    summoner_spells: list[str] = field(default_factory=list)
+    resource_type: str | None = None
 
 
 @dataclass

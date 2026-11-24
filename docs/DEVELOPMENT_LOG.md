@@ -1353,3 +1353,22 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
   only), then by name; `tooltip` is used when `desc` is empty. Cache
   schema 8. Not measured on live data from here (CommunityDragon is not
   reachable from the build container); check the count on the PC.
+
+## 2026-11-24 — Augment synergies S1–S70 (Proposta)
+
+- `data/augments/synergies.json` (96 rules from the research file, Part 2)
+  and `backend/engine/augment_synergies.py`. Rules on game data (item tags,
+  planned/owned items, hard-CC count of the kit, live attack range, resource
+  type and summoner spells, augments already chosen) apply now. Rules on
+  curated champion lists ("provavel") only count once the player's own
+  history agrees (>= 30 games of that augment on that champion, win share
+  on the rule's side of the champion's own). All switchable in the file.
+- Blocks (Overflow / Mind to Matter without mana, Snowball augments without
+  Mark, Flashy without Flash, Draw Your Sword on melee, Back To Basics with
+  an ultimate augment) show the augment as tier E with the reason. Other
+  rules join the ±1 context adjustment, total capped at ±1. Unknown data
+  never fires a rule.
+- Live Client snapshot now carries summoner spell names and resourceType.
+- S70: Swindler's Orb / Chemtech Putrifier also suppress the Grievous
+  Wounds rules, like Grievous Venom. The "Build:" parts of the research
+  (raise specific items in the shop list) are not wired yet.

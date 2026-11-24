@@ -195,7 +195,9 @@ def fire_rules(f: Facts) -> list[Rule]:
     carry = role in ("marksman", "mage") or kind in ("ad", "ap") and role != "tank"
     ap = kind == "ap" or (kind is None and role == "mage")
     ad = kind == "ad" or (kind is None and role in ("marksman", "assassin", "fighter"))
-    venom = _norm("Grievous Venom") in f.augments
+    # S70 (research 24/11): these augments already apply Grievous Wounds.
+    venom = bool(f.augments & {_norm("Grievous Venom"), _norm("Swindler's Orb"),
+                               _norm("Chemtech Putrifier")})
     aegis = _norm("Fallen Aegis") in f.augments
     out: list[Rule] = []
     if f.enemies == 0 and f.heal_score == 0:

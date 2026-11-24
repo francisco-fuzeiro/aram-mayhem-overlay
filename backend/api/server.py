@@ -543,7 +543,7 @@ def _stat_vector_of(obj):
     return stats
 
 
-def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd):
+def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, live=None):
     """adjust(aid) -> (step, reason) for the in-match context adjustment.
 
     Demand = champion stats + the adapted build's item stats; synergy with the
@@ -588,11 +588,36 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd):
         cfg = AdjustConfig(weights=tuple((k, IMPACT_WEIGHT if k == "impact" else w)
                                          for k, w in cfg.weights))
 
+    # Research S1-S70 (Proposta 24/11): synergies with the kit, the build and
+    # the augments already chosen; blocks first, total capped at ±1.
+    from backend.engine.augment_synergies import BLOCK, build_context, load_table
+    synergies = load_table()
+    owned = list(getattr(live, "purchased_items", None) or [])
+    syn_ctx = build_context(
+        champion_id, champion, items + owned,
+        [getattr(get_aug(str(a)), "name", None) for a in (chosen_augments or [])],
+        sd=sd, allies=getattr(live, "ally_champion_ids", None) or (),
+        live_stats=getattr(live, "champion_stats", None),
+        spells=getattr(live, "summoner_spells", None),
+        resource=getattr(live, "resource_type", None))
+
     def adjust(aid):
-        return context_adjust(vec(get_aug(str(aid))), demand=demand, chosen=chosen,
-                              enemy=enemy or {}, personal=personal.get(str(aid)),
-                              personal_base=base, own_healing=healer,
-                              impact=impact_gate.lookup(champion_id, aid), config=cfg)
+        step, reason = context_adjust(
+            vec(get_aug(str(aid))), demand=demand, chosen=chosen,
+            enemy=enemy or {}, personal=personal.get(str(aid)),
+            personal_base=base, own_healing=healer,
+            impact=impact_gate.lookup(champion_id, aid), config=cfg)
+        name = getattr(get_aug(str(aid)), "name", None)
+        if not name:
+            return step, reason
+        s_step, s_reason, _rule = synergies.evaluate(
+            name, syn_ctx, history=personal.get(str(aid)), base=base)
+        if s_step == BLOCK:
+            return BLOCK, s_reason
+        if s_step:
+            total = max(-1, min(1, step + s_step))
+            return total, (s_reason if total == s_step else reason) if total else None
+        return step, reason
     return adjust
 
 
@@ -621,6 +646,11 @@ def _augment_tier_payload(champion_id, augment_ids, adjust=None) -> dict:
             step, reason = (0, None)
             if adjust is not None and entry.get("tier"):
                 step, reason = adjust(aid)
+            if step == "block":   # synergy data incompatibility: shown as E
+                tiers[aid]["adjusted_tier"] = "E"
+                tiers[aid]["adjust"] = -1 if entry.get("tier") != "E" else 0
+                tiers[aid]["adjust_reason"] = reason if tiers[aid]["adjust"] else None
+                continue
             adjusted = shift_tier(entry.get("tier"), step, entry.get("level")) \
                 if entry.get("tier") else None
             tiers[aid]["adjusted_tier"] = adjusted
@@ -3801,7 +3831,7 @@ def _serialize_result(
         + [aid for aid in (four or []) if aid],
         adjust=(_offer_context_adjuster(
             result.build_state.champion_id, result.build_state.chosen_augments,
-            out["mayhem_build"], result.enemy_analysis or {}, sd)
+            out["mayhem_build"], result.enemy_analysis or {}, sd, live=snapshot)
             if result.build_state.champion_id else None),
     ))
     return _strip_augment_win_stats(out)
