@@ -453,7 +453,12 @@ async def lifespan(app: FastAPI):
     saved_preferences = preferences.load_preferences()
     game_state.build_style = saved_preferences["build_style"]
     game_state.overlay_preferences = saved_preferences["overlay"]
+    # The first start after a catalog/cache schema change downloads Data
+    # Dragon and CommunityDragon files again (field 24/11: > 15 s on the PC).
+    logger.warning("Loading game data (the first start after an update can take a minute)…")
+    started = time.monotonic()
     static_data.load()
+    logger.warning("Game data loaded in %.1f s", time.monotonic() - started)
     game_state.pipeline = Pipeline(static_data)
     feature_diagnostics.record("tierdb.switch", "ok",
                                "enabled" if tier_service.enabled() else "disabled")

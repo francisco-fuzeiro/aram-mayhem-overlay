@@ -82,7 +82,7 @@ def _run_existing_api() -> None:
     _start_server()
 
 
-def ensure_api_available(timeout: float = 15.0) -> str:
+def ensure_api_available(timeout: float = 120.0) -> str:
     """Return 'reused' or 'started'; never start a second bound API server.
 
     The existing overlay process can own the API. A different process on our

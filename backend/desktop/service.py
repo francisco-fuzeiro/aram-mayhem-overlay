@@ -21,7 +21,7 @@ class ManagedApi:
         self._errors: list[BaseException] = []
         self.mode: str | None = None
 
-    def start(self, timeout: float = 15.0) -> str:
+    def start(self, timeout: float = 120.0) -> str:
         if probe_companion():
             # Field 23/11: an old API kept serving after "updates", so every
             # report came from stale code. Reuse only the same code version.
