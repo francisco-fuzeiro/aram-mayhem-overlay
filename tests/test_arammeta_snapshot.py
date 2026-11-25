@@ -31,7 +31,7 @@ def test_tier_list_once_a_day_and_one_file_per_champion(tmp_path, monkeypatch):
 
 def test_bad_patch_prefix_is_rejected(tmp_path, monkeypatch):
     monkeypatch.setattr(arammeta, "MIN_GAP_S", 0.0)
-    bad = lambda _u: json.dumps({"patch_prefix": "../x"}).encode()  # noqa: E731
+    bad = lambda _u: json.dumps({"patch_prefix": "../x"}).encode()
     try:
         arammeta.refresh_tier_list(root=tmp_path, fetch=bad, now=1.0)
     except ValueError:

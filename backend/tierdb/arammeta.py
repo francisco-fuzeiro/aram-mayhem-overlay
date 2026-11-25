@@ -122,6 +122,6 @@ def snapshot_in_background(champion_id: str | None = None) -> None:
             refresh_tier_list()
             if champion_id:
                 ensure_champion(champion_id)
-        except Exception as exc:  # network, schema change, disk
+        except Exception as exc:  # noqa: BLE001 - network, schema change, disk
             logger.info("AramMeta snapshot skipped: %s", type(exc).__name__)
     threading.Thread(target=work, name="arammeta-snapshot", daemon=True).start()
