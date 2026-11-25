@@ -39,6 +39,8 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "anvil.offer_rating": (False, "Own 0-10 heuristic scores for the visible shards"),
     "augment.pick_inferred": (False, "Cards vanished; pick read from the card under the cursor"),
     "anvil.pick_inferred": (False, "Shards vanished; pick read from the card under the cursor"),
+    "augment.presence_probe": (False, "OCR-free card probe while an offer is read (cue changes)"),
+    "augment.ocr_absence_close": (False, "Offer closed because OCR saw no cards for 3 ticks"),
 }
 # Only actual browser/overlay rendering may ACK these IDs.
 UI_FEATURES = frozenset(("build.next_item_render", "anvil.offer_render",
@@ -153,6 +155,10 @@ FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
     "anvil.pick_inferred": frozenset((
         ("ok", "cursor_slot"), ("skipped", "cursor_ambiguous"),
     )),
+    "augment.presence_probe": frozenset((
+        ("ok", "present"), ("ok", "absent"), ("ok", "mixed"), ("skipped", "unavailable"),
+    )),
+    "augment.ocr_absence_close": frozenset((("ok", "cards_absent"),)),
 }
 REASONS = frozenset(reason for allowed in FEATURE_OUTCOMES.values()
                     for _, reason in allowed)

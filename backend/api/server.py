@@ -185,6 +185,7 @@ class GameState:
         self.ocr_phase: str = "no_offer"
         self.ocr_foreground: str = "other"
         self.ocr_unreadable_ticks: int = 0
+        self.ocr_absent_ticks: int = 0
         self.offer_lifecycle = OfferLifecycle()
         self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         # Monotonic offer generation fences OCR results from old windows and
@@ -2893,6 +2894,34 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
                     state.anvil_absent_ticks = 0
 
 
+OCR_ABSENT_TICKS_TO_CLOSE = 3
+
+
+async def _ocr_absence_close(state: GameState, deps) -> None:
+    """Field 25/11 (game C, levels 7 and 11): a read offer stayed open for
+    minutes although the OCR tick saw no cards again and again; the presence
+    probe never closed it (Alt+3 needed, the next offer was never shown).
+    Three consecutive OCR ticks without cards close it the same way, with the
+    cursor inference from the presence trail (abstains when unsure)."""
+    stage = getattr(getattr(deps, "screen_watcher", None), "last_scan_stage", None)
+    message = None
+    async with state.lock:
+        if _presence_armed(state) != "augment" or stage != "cards_absent":
+            state.ocr_absent_ticks = 0
+            return
+        state.ocr_absent_ticks += 1
+        if state.ocr_absent_ticks < OCR_ABSENT_TICKS_TO_CLOSE:
+            return
+        state.ocr_absent_ticks = 0
+        trail = list(state.presence_trail)
+        slot = card_presence.infer_pick(trail) if trail else None
+        state.presence_trail.clear()
+        feature_diagnostics.record("augment.ocr_absence_close", "ok", "cards_absent")
+        message = _augment_cards_gone(state, slot)
+    if message is not None:
+        await _broadcast(message)
+
+
 def _close_unread_augment_window(state: GameState) -> None:
     """Field 25/11 (level 9, 37 s 'unidentified'): the cards that opened an
     augment window were a Stat Anvil popup. With no augment title read in it,
@@ -2941,6 +2970,10 @@ async def _presence_step(state: GameState, probe, now: float) -> str | None:
             state.presence_trail.clear()
             return None
         trail = state.presence_trail
+        cue = getattr(probe, "cue", "unavailable")
+        feature_diagnostics.record("augment.presence_probe",
+                                   "skipped" if cue == "unavailable" else "ok",
+                                   cue if cue in ("present", "absent", "mixed") else "unavailable")
         trail.append(probe)
         del trail[:-card_presence.TRAIL_LEN]
         if not card_presence.cards_gone(trail):
@@ -3572,6 +3605,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 except Exception as e:
                     logger.warning("OCR watcher error: %s", e, exc_info=True)
 
+            await _ocr_absence_close(state, deps)
             await _anvil_popup_tick(state, deps, now)
 
             # Inject overlay augment state

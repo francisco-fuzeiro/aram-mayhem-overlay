@@ -340,3 +340,23 @@ def test_anvil_closes_an_unread_augment_window_but_not_a_read_one():
     state.ocr_slot_choices = {"left": "1", "centre": None, "right": None}
     server._close_unread_augment_window(state)
     assert state.scan_window_open is True
+
+
+def test_three_ocr_ticks_without_cards_close_a_read_offer(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    sent = []
+
+    async def fake_broadcast(msg):
+        sent.append(msg)
+    monkeypatch.setattr(server, "_broadcast", fake_broadcast)
+    state = GameState()
+    state.match_id = "m1"
+    state.scan_window_open = True
+    state.ocr_slot_choices = {"left": "1", "centre": "2", "right": "3"}
+    deps = SimpleNamespace(screen_watcher=SimpleNamespace(last_scan_stage="cards_absent"))
+    for _ in range(2):
+        asyncio.run(server._ocr_absence_close(state, deps))
+    assert state.scan_window_open is True
+    asyncio.run(server._ocr_absence_close(state, deps))
+    assert state.scan_window_open is False and sent
