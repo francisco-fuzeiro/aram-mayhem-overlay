@@ -167,14 +167,35 @@ class SynergyTable:
         share = wins / games
         return share > base if effect == 1 else share < base
 
+    @staticmethod
+    def is_prior(rule: dict) -> bool:
+        """Owner 25/11: a rule that depends only on the champion (kit, role,
+        resource, CC count) is already inside the champion-level ΔWR, so it
+        acts as a prior. Rules on chosen augments, build or allies are
+        situational. An explicit ``use`` field wins."""
+        use = rule.get("use")
+        if use:
+            return use == "prior_when_level_not_champion"
+        keys = set(rule.get("when") or {})
+        for group in ("any_of", "none_of"):
+            for cond in rule.get(group) or ():
+                keys |= set(cond)
+        return not any(k.startswith(SITUATIONAL_PREFIXES) for k in keys)
+
     def evaluate(self, augment_name: str, ctx: SynergyContext,
                  history: tuple[int, int] | None = None,
-                 base: float | None = None) -> tuple[int | str, str | None, str | None]:
-        """(step in -1..1 or "block", reason, rule id) for one augment."""
+                 base: float | None = None,
+                 champion_level: bool = False) -> tuple[int | str, str | None, str | None]:
+        """(step in -1..1 or "block", reason, rule id) for one augment.
+
+        ``champion_level``: the augment's tier comes from this champion's own
+        games, so prior rules are skipped (blocks always apply)."""
         if not self.settings.get("enabled", True):
             return 0, None, None
         fired = []
         for rule in self.by_augment.get(_norm(augment_name), ()):
+            if champion_level and rule.get("effect") != BLOCK and self.is_prior(rule):
+                continue
             conf = rule.get("confidence")
             if conf == "certo" and not self.settings.get("certo_enabled", True):
                 continue
@@ -195,6 +216,9 @@ class SynergyTable:
         step = 1 if total > 0 else -1
         lead = next(r for r in fired if int(r.get("effect") or 0) == step)
         return step, lead.get("reason"), lead.get("id")
+
+
+SITUATIONAL_PREFIXES = ("chosen_", "build_", "allies_", "spell_", "range_")
 
 
 def load_table(path: Path | None = None) -> SynergyTable:

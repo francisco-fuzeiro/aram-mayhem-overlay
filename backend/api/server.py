@@ -628,6 +628,13 @@ def _stat_vector_of(obj):
     return stats
 
 
+VAMP_ONLY_NO_BOOST = frozenset({"goredrink", "siphon"})
+
+
+def _norm_name(name) -> str:
+    return "".join(ch for ch in str(name or "").lower() if ch.isalnum())
+
+
 def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, live=None):
     """adjust(aid) -> (step, reason) for the in-match context adjustment.
 
@@ -659,10 +666,15 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, liv
         personal, record_ = {}, None
     base = (record_[0] / record_[1]) if record_ and record_[1] >= 10 else 0.5
 
-    from backend.engine.situational_items import sustain_level
+    from backend.engine.situational_items import own_healing, sustain_level
     # Owner 24/11: self-healers AND champions whose build has vamp (Akali
     # with Gunblade, Fiora) gain from vamp / healing augments.
     healer = sustain_level(champion, items, sd.get_item)
+    kit_healer = own_healing(champion)
+    demand_kit = dict(demand)
+    if kit_healer:
+        peak = max(demand_kit.values(), default=1.0) or 1.0
+        demand_kit["heal_power"] = demand_kit.get("heal_power", 0.0) + kit_healer * peak
     if healer:
         # Sustain is part of what this champion's build wants, so vamp /
         # healing augments fit the build instead of reading as off-profile.
@@ -692,9 +704,14 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, liv
     from backend.tierdb.context_adjust import context_votes
 
     def signals(aid):
-        return dict(augment=vec(get_aug(str(aid))), demand=demand, chosen=chosen,
+        # AramHex 16.23 (approved 25/11): Goredrink and Siphon do not gain on
+        # champions whose sustain comes only from a vamp build; only kit
+        # healing raises them. Warlock Juicebox on Akali keeps the vamp boost.
+        vamp_only = _norm_name(getattr(get_aug(str(aid)), "name", "")) in VAMP_ONLY_NO_BOOST
+        return dict(augment=vec(get_aug(str(aid))),
+                    demand=demand_kit if vamp_only else demand, chosen=chosen,
                     enemy=enemy or {}, personal=personal.get(str(aid)),
-                    personal_base=base, own_healing=healer,
+                    personal_base=base, own_healing=kit_healer if vamp_only else healer,
                     impact=impact_gate.lookup(champion_id, aid), config=cfg)
 
     def situational(aid):
@@ -702,8 +719,10 @@ def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, liv
         votes = context_votes(**signals(aid))
         name = getattr(get_aug(str(aid)), "name", None)
         if name:
+            entry = tier_service.provider.augment_tier(str(champion_id), str(aid)) or {}
             s_step, s_reason, rule_id = synergies.evaluate(
-                name, syn_ctx, history=personal.get(str(aid)), base=base)
+                name, syn_ctx, history=personal.get(str(aid)), base=base,
+                champion_level=entry.get("level") == "champion")
             if s_step == BLOCK:
                 return {"block": s_reason, "votes": {}}
             if s_step:

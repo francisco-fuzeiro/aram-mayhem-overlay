@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-25 — Kit synergies K1-K34, priors vs situational rules
+
+- Owner 25/11 approved the separation: rules that depend only on the champion (kit lists, role, resource, CC count) are priors and apply only when the augment's tier does not come from the champion's own games (role/global/borrowed); with champion games their effect is already in the ΔWR and adding it would count it twice. Rules on chosen augments, build, allies, spells or range stay situational inside the ±3 pp cap. Blocks always apply. An explicit `use` field wins; otherwise the condition keys decide.
+- Added K1-K34 and 19 champion lists from research/SINERGIAS_KIT_AUGMENTS_2026-11-25.md (AramHex 16.23 + wiki). Corrections to S: S41 uses @SPIN (no Gwen), S44 Jayce/Nidalee/Elise/Amumu, S37 without Dashing, S6 uses @MYSTIC_PUNCH, Rengar gets range augments (S51r), S43/S45 back to "por confirmar", Goredrink out of S23, Critical Healing out of S30. K rules with data evidence may be "certo" even with champion lists.
+- Vamp decision of 24/11 corrected by data: Goredrink and Siphon no longer gain on champions whose sustain comes only from a vamp build; Warlock Juicebox on Akali still does.
+
 ## 2026-11-24 — Popular, slightly negative augments no longer sink
 
 - Owner 24/11: ARAM is played for performance and fun, win rate alone can mislead (players stall games to scale). Until damage data exists (MayhemMeta permission or LCU history), the base stays on win rate with one exception: an augment in the top 20% of the champion's games within its rarity and with effect in [-1.0, 0) pp ranks as neutral (effect 0). Thresholds decided by the owner 24/11 (adjustable after the match test), as are the situational item thresholds and the situational weights.
