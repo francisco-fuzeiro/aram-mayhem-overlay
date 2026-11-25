@@ -6,6 +6,7 @@ reported in ``status()``; the previous export stays in use.
 """
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
 import threading
@@ -15,7 +16,7 @@ from pathlib import Path
 
 from backend import feature_diagnostics as diag
 from backend.tierdb import aramhex
-from backend.tierdb.export import export_run
+from backend.tierdb.export import BUILD_VERSION, export_run
 from backend.tierdb.pipeline import run_build
 from backend.tierdb.runtime import (
     DEFAULT_EXPORT_FILE,
@@ -99,7 +100,8 @@ def ingest_previous_patch(store, ref: str, patch: str, aliases: dict,
         if progress:
             progress(f"downloading previous patch {prev or path} (champion pool)")
         directory = aramhex.download_dataset(
-            ref, path, Path(tempfile.mkdtemp(prefix="aramhex-prev-")), progress=progress)
+            ref, path, Path(tempfile.mkdtemp(prefix="aramhex-prev-")), progress=progress,
+            cache_dir=aramhex.CACHE_DIR)
         if progress:
             progress(f"storing previous patch {prev or path}")
         return aramhex.ingest_aramhex(store, directory, aliases)
@@ -159,19 +161,25 @@ def item_inputs(static_data):
 
 def update_tierlist(*, db_path: Path, export_path: Path, roles: dict, heuristic: dict,
                     aliases: dict | None = None, dataset_dir: Path | None = None,
-                    items=None) -> dict:
+                    items=None, progress=None) -> dict:
+    say = progress or (lambda _m: None)
+    say("fetching champion names")
     aliases = aliases if aliases is not None else riot_champion_aliases()
     ref = None
     if dataset_dir is None:
         ref, dataset = latest_dataset()
+        say(f"downloading {dataset}")
         dataset_dir = aramhex.download_dataset(
-            ref, dataset, Path(tempfile.mkdtemp(prefix="aramhex-")))
+            ref, dataset, Path(tempfile.mkdtemp(prefix="aramhex-")), progress=progress,
+            cache_dir=aramhex.CACHE_DIR)
     store = TierStore(db_path)
     try:
+        say("storing the dataset")
         snap_id = aramhex.ingest_aramhex(store, dataset_dir, aliases)
         patch = store.snapshot(snap_id).patch
         if ref is not None:
-            ingest_previous_patch(store, ref, patch, aliases)
+            ingest_previous_patch(store, ref, patch, aliases, progress=progress)
+        say("building the tier lists")
         run_id = run_build(store, patch, roles, heuristic, items=items)
         export_run(store, run_id, export_path)
     finally:
@@ -210,6 +218,7 @@ class TierListService:
         self._thread: threading.Thread | None = None
         self.last_error: str | None = None
         self.last_update: dict | None = None
+        self.progress: str | None = None
 
     def enabled(self) -> bool:
         return load_empirical_tiers_enabled(self.preferences_path)
@@ -238,14 +247,18 @@ class TierListService:
             "updating": self.updating,
             "last_error": self.last_error,
             "last_update": self.last_update,
+            "progress": self.progress if self.updating else None,
         }
 
     def needs_update(self, max_age_hours: float = 72.0) -> bool:
+        """Missing, older than ``max_age_hours`` or built by older ranking rules."""
         try:
             age = time.time() - self.export_path.stat().st_mtime
-        except OSError:
+            with self.export_path.open(encoding="utf-8") as fh:
+                built = json.load(fh).get("build_version", 0)
+        except (OSError, ValueError, AttributeError):
             return True
-        return age > max_age_hours * 3600
+        return age > max_age_hours * 3600 or built != BUILD_VERSION
 
     def start_update(self, static_data) -> bool:
         """Start one background update; False if one is already running."""
@@ -259,17 +272,24 @@ class TierListService:
                     roles, heuristic = static_inputs(static_data)
                     self.last_update = update_tierlist(
                         db_path=self.db_path, export_path=self.export_path,
-                        roles=roles, heuristic=heuristic, items=item_inputs(static_data))
+                        roles=roles, heuristic=heuristic, items=item_inputs(static_data),
+                        progress=self._set_progress)
                     self.last_error = None
                     diag.record("tierdb.update", "ok", "updated")
                 except Exception as exc:  # reported, never raised into the API
                     logger.warning("Tier list update failed: %s", exc)
                     self.last_error = f"{type(exc).__name__}: {exc}"
                     diag.record("tierdb.update", "failed", classify_update_error(exc))
+                finally:
+                    self.progress = None
 
             self._thread = threading.Thread(target=work, name="tierlist-update", daemon=True)
             self._thread.start()
             return True
+
+    def _set_progress(self, message: str) -> None:
+        self.progress = message.strip()
+        logger.info("Tier list update: %s", self.progress)
 
     def wait(self, timeout: float | None = None) -> None:
         thread = self._thread

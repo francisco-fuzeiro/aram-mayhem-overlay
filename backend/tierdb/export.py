@@ -13,6 +13,9 @@ from pathlib import Path
 from backend.tierdb.store import TierStore
 
 EXPORT_SCHEMA_VERSION = 1
+# Bump when the ranking rules change, so the desktop rebuilds an export made by
+# older rules on its own (3: champion pool + popular floor + kit synergies, 25/11).
+BUILD_VERSION = 3
 FORBIDDEN_KEYS = frozenset({
     "wins", "games", "n", "n_eff", "win_rate", "winrate", "wr", "score",
     "score_p20", "score_p80", "lift", "delta", "components",
@@ -80,6 +83,7 @@ def export_run(store: TierStore, run_id: int, path: Path | str) -> dict:
             items[champion]["fate"].setdefault(aug, []).append(iid)
     doc = {
         "schema_version": EXPORT_SCHEMA_VERSION,
+        "build_version": BUILD_VERSION,
         "patch": patch,
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),

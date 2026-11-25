@@ -77,7 +77,8 @@ def main(argv: list[str] | None = None) -> int:
                 dataset = getattr(args, "dataset", None) or dataset
                 _say(f"downloading AramHex {dataset} ({ref})")
                 directory = aramhex.download_dataset(
-                    ref, dataset, Path(tempfile.mkdtemp(prefix="aramhex-")), progress=_say)
+                    ref, dataset, Path(tempfile.mkdtemp(prefix="aramhex-")), progress=_say,
+                    cache_dir=aramhex.CACHE_DIR)
             _say("storing the dataset")
             snap_id = aramhex.ingest_aramhex(store, directory, aliases)
             patch = store.snapshot(snap_id).patch
