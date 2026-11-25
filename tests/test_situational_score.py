@@ -83,12 +83,12 @@ def _adjuster(votes, block=None):
 
 
 def test_offer_moves_by_position_and_never_leaks_the_effect(tiers):
-    # #31 (effect 4.0, tier B) + 3 pp -> 7.0 -> position 16 -> tier A
+    # #31 of 40 (effect 4.0, tier D by share) + 3 pp -> 7.0 -> position 16 -> tier B
     out = server._augment_tier_payload(
         "ahri", ["130"], adjust=_adjuster({"build": (1.0, "fits your build"),
                                            "synergy": (1.0, "stacks with your augments")}))
     t = out["augment_tiers"]["130"]
-    assert t["tier"] == "B" and t["adjusted_rank"] == 16 and t["adjusted_tier"] == "A"
+    assert t["tier"] == "D" and t["adjusted_rank"] == 16 and t["adjusted_tier"] == "B"
     assert t["adjust"] == 1 and t["adjust_reason"] in {"fits your build",
                                                        "stacks with your augments"}
     assert "effect_pp" not in t

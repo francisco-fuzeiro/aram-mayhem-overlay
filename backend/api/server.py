@@ -768,7 +768,7 @@ def _situational_entry(out: dict, entry: dict, champion_id, result: dict) -> boo
     base = float(entry["effect_pp"])
     delta, reason, _parts = situational_delta(result.get("votes") or {}, load_weights())
     position = position_of(base + delta, base, effects)
-    adjusted = rank_tier(position, entry.get("level"), entry.get("tier"))
+    adjusted = rank_tier(position, entry.get("level"), entry.get("tier"), len(effects))
     out["adjusted_tier"] = adjusted
     out["adjusted_rank"] = position
     rank = entry.get("rank")
@@ -799,7 +799,7 @@ def _augment_tier_payload(champion_id, augment_ids, adjust=None) -> dict:
         if entry is not None:
             tiers[aid] = {k: entry.get(k) for k in (
                 "tier", "rank", "rank_total", "tie_group", "tie_end",
-                "level", "confidence", "rarity")}
+                "level", "confidence", "rarity", "rank_scope")}
             if (adjust is not None and entry.get("tier")
                     and getattr(adjust, "situational", None) is not None
                     and isinstance(entry.get("effect_pp"), (int, float))

@@ -60,12 +60,22 @@ def _add_spans(entries: list[dict]) -> None:
 # E after. Ranking order is unchanged; evidence caps (e.g. curated-only
 # augments at most A) still apply so a guess is never shown as OP.
 RANK_BANDS = (("OP", 5), ("S", 15), ("A", 30), ("B", 50), ("C", 75), ("D", 100))
+# Proposal 25/11 (field: 237 augments in one list put 58% in E): the same
+# bands as shares of the list with champion data. E is then only what has no
+# games on the champion (borrowed), which ranks after all of them.
+RANK_SHARES = (("OP", 0.05), ("S", 0.15), ("A", 0.30), ("B", 0.50), ("C", 0.75), ("D", 1.0))
 
 
-def rank_tier(rank, level: str | None = None, fallback: str | None = None) -> str | None:
+def rank_tier(rank, level: str | None = None, fallback: str | None = None,
+              total: int | None = None) -> str | None:
+    """Tier of a list position; with ``total`` the bands are shares of it."""
     if not isinstance(rank, int) or rank < 1:
         return fallback
-    tier = next((name for name, last in RANK_BANDS if rank <= last), "E")
+    if isinstance(total, int) and total > 0:
+        tier = next((name for name, share in RANK_SHARES
+                     if rank <= max(1, round(share * total))), "E")
+    else:
+        tier = next((name for name, last in RANK_BANDS if rank <= last), "E")
     from backend.tierdb.augment_tiers import LEVEL_CAP, TIER_ORDER
     cap = LEVEL_CAP.get(level or "")
     if cap is not None:
@@ -73,10 +83,13 @@ def rank_tier(rank, level: str | None = None, fallback: str | None = None) -> st
     return tier
 
 
-def _apply_rank_tiers(entries: list[dict]) -> None:
+def _apply_rank_tiers(entries: list[dict], by_share: bool = True) -> None:
+    total = sum(1 for e in entries
+                if e.get("rank") is not None and e.get("level") != "borrowed")
     for e in entries:
         e["score_tier"] = e.get("tier")
-        e["tier"] = rank_tier(e.get("rank"), e.get("level"), e.get("tier"))
+        e["tier"] = rank_tier(e.get("rank"), e.get("level"), e.get("tier"),
+                              total if by_share else None)
 
 
 class TierListProvider:
@@ -116,7 +129,7 @@ class TierListProvider:
                     if not any(isinstance(e.get("rank_all"), int) for e in entries):
                         # Older export: ranks within each rarity.
                         _add_spans(entries)
-                        _apply_rank_tiers(entries)
+                        _apply_rank_tiers(entries, by_share=False)
                         entry_scope = "rarity"
                         for entry in entries:
                             entry["rank_scope"] = entry_scope

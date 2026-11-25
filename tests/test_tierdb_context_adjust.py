@@ -178,3 +178,6 @@ def test_owner_2411_tier_is_the_list_position():
         "OP", "OP", "S", "S", "A", "A", "B", "B", "C", "C", "D", "D", "E"]
     assert rank_tier(1, "curated") == "A"   # a guess is never shown as OP
     assert rank_tier(None, "champion", "B") == "B"
+    # Shares of a 237-augment list (proposal 25/11): E only past the list.
+    assert [rank_tier(r, total=237) for r in (12, 13, 36, 37, 84, 112, 137, 237, 238)] == [
+        "OP", "S", "S", "A", "B", "B", "C", "D", "E"]
