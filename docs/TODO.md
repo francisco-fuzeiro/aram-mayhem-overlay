@@ -2,7 +2,11 @@
 
 - [x] **TDB-OWN** Leverage decided 23/11: absolute leverage in strength; relative gain = tie-breaker + 5-level potential field.
 - [x] **TDB-I1** AramHex item import: finals, boots, ordered 3-item cores, Weapon of Fate (design `DESENHO_ITENS_BUILDS_ANVILS_2026-11-23.md`, approved 23/11: max 3 in-match swaps, threshold 0.5).
-- [ ] **TDB-I2..I6** Item tiers, reference build, heuristic Stat Anvils, in-match adaptation, overlay, holdout. I2+ waits for the GPT item-eligibility fix; do not touch its files.
+- [x] **TDB-I2** Item tiers per champion (finals + boots; 50 ΔWR / 30 core presence / 20 fit; measured ≥2 % and ≥200 games, else heuristic capped at A), on the GPT-verified item pool (#107).
+- [x] **TDB-I3** Reference build: slots 1-3 from best measured core, 4-6 from item tiers, best boots; exclusive groups respected.
+- [x] **TDB-I4** Heuristic Stat Anvils (estimate, tier capped at A): stat demand from the champion's best measured items (role prior fallback), adjusted by enemy damage mix, CC, ally frontline and confirmed augments. CommunityDragon ability ratios NOT wired yet.
+- [x] **TDB-I5** In-match adaptation (max 3 swaps, gain ≥0.5, slot 1 and owned items locked, reason per swap) + overlay block "Reference / Adapted / Stat Anvils (estimate)" + diagnostics `items.reference_build`, `items.build_render`, `anvil.stat_estimate`.
+- [ ] **TDB-I6** Holdout 16.22→16.23 for item tiers; score real Stat Anvil popup cards (hooks into the GPT Anvil detection); ability-ratio demand.
 - [x] **DIAG-F1** Per-feature diagnostics + post-session report (`backend/feature_diagnostics.py`), one-match test checklist.
 - [x] **TDB-UI3** Show champion strength (tier) and potential (5 levels) side by side in champ select.
 
@@ -22,7 +26,102 @@
 - [ ] **TDB-D1** arammayhem.com CC BY pick-rate importer (prior only).
 - [ ] **TDB-D2** LCU local-history importer for combat/participation/duration metrics.
 
+## 2026-11-23 — P0 Stat Anvils after real source (Claude)
 
+- [x] **P0-ANVIL-SRC-04c RESOLVED:** real source `game/maps/modespecificdata/statanvils.bin.json`, 37 raw / 34 offerable 13/13/8, sha256 pinned, tests `tests/test_p0_stat_anvil_source_16_23.py`.
+- [x] **P0-B** pinned catalogue + loader patch gate (`anvil.catalog_source`).
+- [x] **P0-C (code)** dedicated popup watcher + tier resolution, `tests/test_p0_stat_anvil_offer.py`, `tests/test_p0_stat_anvil_popup_server.py`.
+- [x] **P0-D (code)** own 0–10 scores + best-fit-only overlay panel + epoch-fenced ACK (`tests/js/overlay-messages.test.cjs`).
+- [ ] **P0-C value OCR live:** add value-line crops once a real Anvil popup crop confirms geometry (ROI must extend past 0.50 H). Until then Silver/Gold rely on the voucher hint.
+- [x] **Field fixes 23/11 (code):** Anvil without voucher/during augment window; pick by card disappearance + cursor position; concurrent slot OCR + skip without cards; base components no longer `unknown`.
+- [ ] **Field fixes native:** confirm in the next match (see checklist rows `augment.pick_inferred`, `anvil.pick_inferred`).
+- [ ] **P0-E native:** one owner-controlled Mayhem match per `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`; then exact-head Windows Actions.
+- [ ] Regenerate the catalogue each patch: `py -3.11 -m scripts.build_stat_anvil_catalog --patch <x.y> --fetch` (or `--bin/--strings` offline) and update the sha256 test.
+
+
+## 2026-11-23 — Exact public 16.23 AnvilData BIN investigated; source BLOCKED
+
+- [x] **P0-ANVIL-SRC-04a real exact URL check:** Windows Actions [#45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820) requested `/16.23/game/unknown/507cdd64276919f5.bin.json` → **HTTP 404**; same patch JSON directory index checked, exact filename **absent** and matching prefix candidate list **empty**. Raw AnvilData=0, Silver/Gold/Prismatic=0, parsed=0; source_verified=false. Do NOT re-run as if the URL were confirmed; historic 16.22 count (37 =14/14/8+1 mixed) is NOT current-patch proof.
+- [x] **P0-ANVIL-SRC-04b diagnostic/code tests:** `scripts/anvil_source_exact_probe.py` and `tests/test_p0_anvil_source_exact_probe.py` separate raw AnvilData, singleton/mixed AnvilTypes (0/8/9), strict RootSpell parser totals and 404 fallback to same-patch filename index. No private data/files/League input. Temporary non-gating Windows workflow probe REMOVED after real evidence was recorded. Audit HEAD `5b88846d` tests GREEN (2,115 Python PASS/27 SKIP, 89 JS PASS, 35 pinned OCR PASS); latest post-cleanup HEAD needs its own CI.
+- [ ] **P0-ANVIL-SRC-04c — SOURCE STILL BLOCKED:** locate real 16.23 patch-specific `AnvilData` file via public index/updated source relocation or permission-compatible upstream; owner's earlier scan was 80/471 and two keyword leads were false (TFT/DustToDiamonds). Existing tested pager covers public bins 80..279 then 280..470 via `--discovery-offset 80|280 --discovery-bins 200 --discovery-dirs 100 --json`. Keep scan limitations and network errors explicit. Never copy 16.22 data as current.
+- [ ] **Acceptance source gate:** real patch-16.23 `total > 0`, Silver/Gold/Prismatic each >0, exact verified `source_paths`, and valid `RootSpell.mSpell.DataValues`. Then pin matching source in regular loader with RED→GREEN.
+- [ ] **Remaining P0:** independent actual Stat Anvil popup/3-or-4 card appearance and title+numeric values OCR, own 0–10 champ/augments/items/enemy-context score, fail-closed UI ack, native shop item #49, and ONE user-controlled Mayhem match with complete per-feature diagnostics and exact final-head Windows CI. Keep PR #107 draft on #103, main/TierDB untouched. **User specifically requested one P0-continuation next-chat prompt even though this phase remains open**; no automatic prompts otherwise.
+
+## CURRENT 2026-11-23 — Real 16.23 Stat Anvil source still BLOCKED; public clues
+
+- [x] **ANVIL-SRC-real-scan:** owner on `47fa24b` ran patch 16.23 source discovery: **80 of 471** public bins inspected, 21 dirs, zero errors, `scan_complete=false`, 0 real AnvilData, all rarity counts 0, source_paths empty. Exact keyword-only paths `game/gameplay.bin.json` and `game/maps/modespecificdata/cherry.bin.json`. Do not infer an eligible shard from keywords/old-patch fixtures.
+- [x] **ANVIL-SRC-probe-code:** test-first `tests/test_p0_stat_anvil_keyword_probe.py`; `scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` makes two specific read-only public HTTP reads and prints bounded JSON Anvil reference locations and class counts. New code HEAD `96a8f0b` [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982) SUCCESS. Docs HEAD requires its own Actions.
+- [ ] **ANVIL-SRC-owner-next:** safely pull #107, execute targeted probe on owner Windows and share public report only. Investigate any verified public references to other bins; if still no lead, bounded 200/471 scan and source relocation research. No guessing.
+- [ ] **ANVIL-SRC-acceptance:** actual patch-16.23 `AnvilData`+RootSpell source with `total>0` and Silver/Gold/Prismatic >0, precise source file(s), focused tests; then independent popup/3/4 cards, title+value OCR and own score. Shop #49 native, one controlled final Mayhem test and P0 closure remain OPEN.
+
+## 2026-11-23 — CURRENT: owner 16.23 source zero; indexed bin search gate
+
+- [x] **ANVIL-SRC-03a real negative result**: owner P0 checkout HEAD `9d3b29f` fetched public patch 16.23, `bins=['map12.bin.json'] total=0`, Silver=0 Gold=0 Prismatic=0. Historical hashed 16.22 bin not returned. This is *not* proof the game lacks Anvils, only that old locations do not provide current source.
+- [x] **ANVIL-SRC-03b code discovery RED→GREEN**: `tests/test_p0_stat_anvil_source_index.py`, `tests/test_p0_stat_anvil_discovery.py`; `scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json` searches public patch index + actual candidate `.bin.json` with bounded downloads, no game contact/write. Distinguishes keyword hits from authentic `AnvilData`/RootSpell, outputs source_paths, tiers, scanned counts, failures/limits and no-proof warning. `4a199e6` [Windows #45220848233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45220848233) two jobs GREEN (2,102 Python PASS/27 SKIP, 89 JS, 35 pinned OCR). Additional CLI/docs head must be verified.
+- [ ] **ANVIL-SRC-03c ACTUAL 16.23 GATE**: owner safely pull latest P0 HEAD and run `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json`; send public aggregated result, no local paths. If incomplete, optionally expand `--discovery-bins 200 --discovery-dirs 100`. Need **total>0 and each Silver/Gold/Prismatic>0 with precise source_paths**. Mocked tests/keyword-only hits do not count.
+- [ ] **ANVIL-SRC-03d**: only after source verified, point real patch loader to actual bin(s), add patch-location RED→GREEN; independently implement verified popup title+value OCR, 3/4 geometry and own contextual 0–10 score, genuine UI ACK.
+- [ ] **P0 live gates**: verify shop #49, Anvils and augment behavior in one user-controlled supported custom Mayhem, inspect per-ID diagnostics, then exact HEAD Windows CI; P0 stays OPEN, #107 draft, no automatic prompt while incomplete.
+
+## 2026-11-23 — P0 Stat Anvil benchmarking and source discovery (authoritative)
+
+- [x] **ANVIL-SRC-00 — Distinguish real Anvil source from tier-zero augments**. Owner confirms OP.GG overlay rates Stat Anvils. MIT [ARAM Mayhem Tracker](https://github.com/Sygnano/aram-mayhem-tracker) source confirms patch-specific `AnvilData` game bins and locale stringtable; same name may appear in different rarities, so values must be OCR-verified. No copying OP.GG scores, third-party service access, assets, gameplay automation or personal screens.
+- [x] **ANVIL-SRC-01 — Offline-source parser and tests implemented**: `backend/static_data/anvil_public_catalog.py` handles silver/gold/prismatic game-bin IDs, spell DataValues, excludes unavailable Random/Shardholder variants, rejects inconsistent source, and requires a complete 3/4-card same-tier stat+numeric set to return an identity; **not yet connected to popup**. `tests/test_p0_anvil_public_source.py` tests fail-closed synthetic identity and source validation; `scripts.stat_anvil_catalog_report --public-patch 16.23 [--locale en_us]` opt-in public network read-only with no cache writes.
+- [ ] **ANVIL-SRC-02 — New exact-head Windows GREEN** after the source parser/code/docs; do not use the earlier #45213893695 job to claim subsequent commits passed.
+- [ ] **ANVIL-SRC-03 — Owner patch-16.23 public source report**: with game/Oracle closed, safe `git pull --ff-only` after CI green, run `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23`; if public bins available and valid, optionally `--locale en_us` for names; send source counts and safe public titles only. This is NOT native proof.
+- [ ] **ANVIL-UI-01 — Implement separate Anvil title+value OCR and screen timing gate**, distinguishing real popup from voucher stack, reusing existing independent capture/epoch semantics; 3/4 layout and valid tier evidence must be proven with supported public references + one final native Mayhem match. Never guess from an item purchase.
+- [ ] **ANVIL-SCORE-01 — Feed VERIFIED actual public shard identity/value into our own 0–10 champion/augments/build/enemy-context score**, keep unavailable/unmodelled no-score. Current `rate_verified_anvil_options` only handles existing 3-option tier-zero model and does not resolve source shard title variants yet.
+- [ ] **P0 DIAG + NATIVE — Continue all previous per-id exact tuple/UI ACK gates**, one owner-controlled Mayhem session at the end, verify latest final Windows CI and keep P0 OPEN. No auto next-chat prompt while any mandatory gate remains.
+
+_Earlier dated entries that call Stat Anvil source completely unknown are superseded by this public-source **discovery**; current patch data and actual popup are still unverified._
+
+## 2026-11-23 — Owner Windows v4 validation VERIFIED (current authoritative checkpoint)
+
+- [x] **AUD-P0-02c exact code-head GREEN:** P0 #107 code HEAD `a4ccd15c57c28b9430f5459007839382874f1efa` [Windows Actions #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347), **two jobs SUCCESS**: 2,076 Python PASS / 27 SKIP, 87 JS PASS / 0 FAIL, three JS syntax PASS, 35 pinned PP-OCRv4 PASS.
+- [x] **AUD-P0-02d owner v4 local evidence:** safe fast-forward to exact code HEAD, offline backup of v3, public network-backed `item_pool_v4` `16.23.1` `verified_two_source` `valid=True` `current=True`; **863 total, 104 final, 7 tier2 boots, 111 recommendable, 26 unknown, 152 mode variants**, no warnings. Zero-final source comparison defect confirmed fixed. No personal data collected.
+- [ ] **AUD-P0-02e #49 LIVE shop check:** user-controlled single final custom Mayhem test must confirm actual shop candidates, timing and useful next-item recommendations, not infer from cache.
+- [ ] **AUD-P0-03b ANVILS:** real user-controlled supported Mayhem popup evidence, verified 3/4-card layout and option vocabulary, source legality, safe OCR detection/render; no invented option catalogue or automations.
+- [ ] **P0-DIAG-remaining:** IDs `augment.stats_parser`, `augment.cache_schema`, `build.next_item`, `anvil.voucher_purchase`, `anvil.offer_detected`, `anvil.offer_render` need exact tuple tests, closed reasons and production journal, plus UI `feature_ack` for rendered results. Only `build.item_pool` integrated; reconcile sibling #106 registry on eventual integration without merging TierDB.
+- [ ] **P0 final release gate:** one native user-controlled Mayhem match once features are ready; full per-feature OK/FAILED/SKIPPED/NOT FIRED report, current exact-final-head Windows CI after any additional changes, keep PR #107 draft and do not merge or advance P1 prematurely.
+
+_This section supersedes earlier dated P0 TODOs still describing v3/v4 report and Actions as pending._
+
+## 2026-11-23 — P0 #49 reproducible source-field bug, v4 GREEN pending exact CI
+
+- [x] **AUD-P0-02b:** owner real network-backed `item_pool_v3` patch 16.23.1 had 863 total, **0 final / 7 boots**, 130 unknown, 152 mode variants. User independently compared public DD/CD: 104 terminal items missing DD `into` but explicit CD `to=[]`, all 104 rejected.
+- [x] **AUD-P0-02c targeted RED:** tests-only `2ceae72f`, [Windows #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899), 4 intended new FAIL, 2,069 other Python PASS / 27 SKIP, independent OCR pinned tests PASS; one test's str/int assertion corrected in GREEN.
+- [x] **AUD-P0-02c code implemented:** absent DD terminal `into` normalized only if CD explicit `to` agrees, strict prices/other recipes preserved, `item_pool_v4` invalidates stale v3 cache. Shared-pattern `build.item_pool` diagnostics and exact-tuple tests added without TierDB code; the previous real-v3 cache may still be present locally.
+- [ ] **AUD-P0-02c verification:** newest code+docs HEAD full Windows Python/JS/syntax/pinned OCR model Actions must pass, including all new tests.
+- [ ] **AUD-P0-02d:** user updates own PC to latest P0 HEAD, runs safe public-source `_load_items()` then `py -3.11 -m scripts.item_pool_report`; verify policy `item_pool_v4`, source status and nonzero final count without guessing outcome.
+- [ ] **AUD-P0-02e #49:** final native Mayhem item shop acceptance in ONE user-operated controlled match, after remaining P0 Anvil/augment diagnostics gates ready; never equate verified public catalogue to live purchasability.
+- [ ] **P0-DIAG remaining:** other IDs in single-match checklist need feature registry, exact-tuple RED→GREEN and UI ack where actually displayed. Reconcile shared registry/journal with sibling draft #106 later; do not merge TierDB feature code into #107.
+
+## 2026-11-23 — Every P0 requires one-match diagnostics (owner directive)
+
+- [x] **P0-DIAG-00 — Define binding P0 diagnostic acceptance contract** in AGENTS + skill, with a per-feature row in `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md`; owner wants a single final Mayhem match, not one per P0 substep. Reference separate TierDB draft #106; do not silently import it.
+- [ ] **P0-DIAG-01 — Safely reconcile generic feature registry/journal/report/API/UI-ack infrastructure with sibling #106** before any runtime use. P0 #107 does not currently carry those modules; no report endpoint/CLI is claimed on this branch.
+- [ ] **P0-DIAG-02 — RED exact tuple test + GREEN record per P0 id**, in particular `augment.stats_parser`, `augment.cache_schema`, `build.item_pool`, `build.next_item`, `anvil.voucher_purchase`, `anvil.offer_detected`, `anvil.offer_render`; allow only safe enumerated values and mark conditional triggers skipped. Existing parser/item-report/voucher unit tests are functional-only, not diagnostic tuple tests.
+- [ ] **P0-DIAG-03 — One owner-controlled full Mayhem match once all requested features are ready**, plus per-id OK/FAILED/SKIPPED/NOT FIRED report and UI observations; no raw logs/private data. Until then, no native PASS.
+- [x] **P0-LOCAL-01 — Correct local Git checkout found:** `aram-oracle` child; parent is not Git, origin verified, separate upstream. Preserve untracked `funcionalidades.md` without adding/cleaning it.
+- [ ] **P0-LOCAL-02 — Verify owner P0 branch switch and current-policy v3 item pool report**; the visible local branch was the F3 parent and no branch switch/report output has been verified.
+- [x] **P0-DOC-CI-PREV — Prior exact head verified:** `e7a4cd017a8a64f4e2b50e0c608847e5ad865d5b` [Windows #45195144349](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45195144349) two jobs SUCCESS.
+- [ ] **P0-DOC-CI-NEW — Verify new documentation-only HEAD Actions**, without miscalling P0 complete.
+
+## 2026-11-23 — Owner-approved completion gate (active)
+
+- [x] **PROCESS-01 — Replace automatic prompt-on-checkpoint policy** in `AGENTS.md` and the continuation skill: automatic next-conversation prompt ONLY after phase completion; otherwise report blockers and step-by-step resolution, remain in same phase. Owner-requested transfers can still resume the same incomplete phase.
+- [x] **AUD-P0-04b — Previous documentation checkpoint CI verified:** `e90e85b5acb93f2734d0a9af4360fe39ec56d2b6` [Windows #45192060535](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45192060535) both jobs SUCCESS (2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax, 35 pinned v4 PASS). No native acceptance.
+- [ ] **PROCESS-02 — Verify Windows Actions for this new process-only documentation HEAD** before claiming its exact-head CI gate complete. P0 itself stays OPEN regardless of CI.
+- [ ] **AUD-P0-02b, 02c/#49, 03b — P0 native/evidence gates remain OPEN:** obtain private-safe owner PC v3 cache counts; if defective, public DD/CD reproducible mismatch and minimal RED→GREEN; shop and Anvil Voucher/popup/3-or-4 options require user-controlled custom-game proof, not a CI proxy.
+
+## 2026-11-23 — P0 same-subphase checkpoint (after independent #107 CI verification)
+
+- [x] **AUD-P0-04a — Previous exact PR head and Actions rechecked:** `6c84c823b453443ce7862d104c881a611ddf7245`, [Windows #45189586795](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45189586795), both jobs SUCCESS: 2,068 Python PASS / 27 SKIP, 87 JS PASS, three syntax checks, 35 pinned model PASS. Merge-ref CI, **not native proof**.
+- [ ] **AUD-P0-04b — Verify Actions after this documentation-only checkpoint commit:** compare final new HEAD to PR #107 and its newly triggered Windows run; do not reuse #45189586795 for a changed SHA.
+- [ ] **AUD-P0-02b remains blocked on aggregate current-policy `item_pool_v3` from owner PC:** run `py -3.11 -m scripts.item_pool_report` with League/Oracle closed; only share counts and warnings, no personal paths/logs. Historical v2 zero finals is not sufficient to change rules.
+- [ ] **AUD-P0-02c / #49:** if current v3 has zero final, require reproducible public DD/CD field mismatch and tests-only RED before smallest fail-closed GREEN. Keep conditional/reward/mode exclusions.
+- [ ] **AUD-P0-03b:** native Voucher purchase edge, visual popup timing, 3/4-card geometry and verified public option vocabulary still NOT TESTED / BLOCKED; no catalogue fabrication, OCR inference or automated League actions.
+
+## 2026-11-23 — Independent audit P0 corrections (#107 draft on #103; separate from TierDB)\n\n- [x] **AUD-P0-01 — Parser code and synthetic regressions:** eliminate MR→pen/shield and movement speed→HP mappings; mark unsupported-only effects unmodelled; invalidate augment v4 cache via v5. Tests-only expected RED [Windows #45187742193](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45187742193). **Exact final HEAD Windows GREEN still to verify; not native accuracy.**\n- [x] **AUD-P0-02a — Offline item data report code:** read-only `py -3.11 -m scripts.item_pool_report` including optional `--json`. Synthetic tests and [RED #45187968989](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45187968989); [run protocol](audits/P0_ITEM_POOL_OFFLINE_REPORT_2026-11-23.md).\n- [ ] **AUD-P0-02b — Owner PC current-policy report:** collect only aggregate class counts for *actual current* `item_pool_v3`, without a game. v2 0-final report alone does not prove v3 defect.\n- [ ] **AUD-P0-02c — Evidence-gated shop eligibility fix:** if v3 still wrong, get independent public DD/CD conflict case, separate RED→GREEN, preserve reward/conditional exclusions. Real Mayhem shop NOT TESTED, #49 remains OPEN.\n- [x] **AUD-P0-03a — In-memory LCDA Voucher purchase observer:** active player only, two-valid-observation edge and stack increments; source unknown abstains; tests-only [RED #45188190601](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45188190601). No live popup or invented catalogue.\n- [ ] **AUD-P0-03b — Independently verify actual Anvil popup/corpus/3-or-4 layout and choice-source legality; connect an Anvil-only OCR gate only after real data.** Existing stat Anvil catalogue is empty; no claim of native support.\n- [ ] **AUD-P0-04 — Exact final SHA Windows CI:** main Python + JS/syntax and independent real v4 model job, after last doc commit; native Windows custom Mayhem NOT TESTED. No merge, TierDB changes or unrelated ranking changes.\n\n
 **2026-11-22 — V1.2c CI checkpoint:** The previous final protocol SHA `a8ab76876f2e16d5aa08d714a9032905aaa79d78` has [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086) SUCCESS (1,977 Python PASS / 27 SKIP; 78 JS PASS; 3 JS syntax PASS; independent pinned v4 35 PASS). **PROVEN = offline CI only.** V12-N00..N10 and F1.3 native NOT TESTED; old N1 user-observed FAIL/root cause BLOCKED. Native feasibility must be checked in a supported custom Mayhem lobby, no ordinary competitive substitute. This documentation checkpoint requires its own final SHA Actions; no code change, merge, engine promotion, installer or Settings selector.
 
 

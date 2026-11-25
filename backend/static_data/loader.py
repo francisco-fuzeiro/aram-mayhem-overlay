@@ -58,7 +58,6 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "armor penetration": "lethality",
     "magic penetration": "pen",
     "magic pen": "pen",
-    "magic resist": "pen",
     "critical": "crit",
     "crit": "crit",
     "heal": "heal_power",
@@ -87,15 +86,12 @@ DESCRIPTION_KEYWORDS: dict[str, str] = {
     "damage reduction": "shield",
     "invulnerable": "shield",
     "invulnerability": "shield",
-    "armor": "shield",
-    "resist": "shield",
-    "resistance": "shield",
+    # Audit 24/11 (P0-03): armor is not a shield; like magic resist it has no
+    # StatVector field, so it stays unmodelled instead of being misread.
     "adaptive force": "ap",
     "on-hit": "attack_speed",
-    # Movement speed maps to hp: tanky/bruiser champions that stack HP also
-    # benefit most from movement speed (closing gaps, dodging skillshots).
-    "movement speed": "hp",
-    "true damage": "lethality",
+    # Audit 24/11: true damage ignores resistances, closest to penetration.
+    "true damage": "pen",
     "burn": "ap",
 }
 
@@ -149,7 +145,6 @@ NAME_STAT_HINTS: dict[str, dict[str, float]] = {
     "draw your sword": {"ad": 0.4, "attack_speed": 0.3},
     "feel the burn": {"soft_cc": 0.4},
     "dashing": {"cdr": 0.5},
-    "homeguard": {"hp": 0.3},
     "escape plan": {"shield": 0.4},
     "giant slayer": {"ad": 0.3, "lethality": 0.3},
     "hand of baron": {"ap": 0.4, "ad": 0.4},
@@ -173,8 +168,10 @@ _loader_logger = logging.getLogger("aram-oracle.loader")
 # B3 schema 4 stored passive groups and movement speed. B5 adds verified
 # properties; schema 5 rejects otherwise plausible stale caches.
 _ITEM_CACHE_SCHEMA = 5
-# Version in the filename prevents reuse of contributions parsed by older rules.
-_AUGMENT_CACHE_SCHEMA = 4
+# v5: defensive MR and mobility words must not inherit misleading v4 vectors.
+# The scoring StatVector has no dedicated MR or movement-speed dimensions.
+# Their effects remain unmodelled unless another proven stat is present.
+_AUGMENT_CACHE_SCHEMA = 8  # 24/11: Arena descriptions matched by api name / id / name
 MAYHEM_MIN_AUGMENT_ID = 1000
 _MAYHEM_ICON_MARKER = "/Kiwi/"
 MIN_NORMALIZED_NAME_LEN = 4
@@ -209,6 +206,8 @@ class StaticData:
         self._champions: dict[str, ChampionMeta] = {}
         self._augments: dict[str, AugmentData] = {}
         self._stat_anvils: dict[str, AugmentData] = {}
+        self._stat_anvil_catalog: dict[str, "StatAnvil"] = {}
+        self.stat_anvil_status: dict = {"status": "skipped", "reason": "not_loaded"}
         self._items: dict[str, ItemData] = {}
         self._all_item_names: dict[str, str] = {}  # ALL item names for display
 
@@ -223,10 +222,14 @@ class StaticData:
             k: v for k, v in all_augments.items()
             if v.tier != AugmentTier.STAT_ANVIL
         }
-        self._stat_anvils = {
-            k: v for k, v in all_augments.items()
-            if v.tier == AugmentTier.STAT_ANVIL
-        }
+        # Stat Anvils come ONLY from the patch-pinned real public catalogue
+        # (P0-B); legacy kBronze rows were never proven to be Mayhem shards.
+        try:
+            dd_version = _get_dd_version()
+        except (requests.RequestException, ValueError):
+            dd_version = "unknown"
+        self._stat_anvils, self.stat_anvil_status = _load_stat_anvils(dd_version)
+        self._stat_anvil_catalog = dict(_LAST_STAT_ANVIL_CATALOG)
         self._items = _load_items()
         self._all_item_names = _load_all_item_names()
 
@@ -381,6 +384,10 @@ class StaticData:
             "by_provenance": by_provenance, "by_rarity": by_rarity,
         }
 
+    def stat_anvil_catalog(self) -> dict:
+        """Verified real shards by id (tier, title, exact stats)."""
+        return dict(self._stat_anvil_catalog)
+
     def get_stat_anvil(self, anvil_id: str) -> AugmentData | None:
         return self._stat_anvils.get(str(anvil_id))
 
@@ -523,6 +530,72 @@ def select_mayhem_augments(augments_raw: list[dict]) -> list[dict]:
     return sorted(selected.values(), key=lambda row: int(row["id"]))
 
 
+# Canonical shard stat -> augment StatVector field. Armor, MR, MS, tenacity
+# and omnivamp have no StatVector dimension; the Anvil scorer reads them from
+# the catalogue directly (backend.engine.anvil_priorities).
+_ANVIL_VECTOR = {
+    "ad": "ad", "ap": "ap", "as": "attack_speed", "hp": "hp", "hp_pct": "hp",
+    "lethality": "lethality", "armor_pen_pct": "lethality", "mpen": "pen",
+    "mpen_pct": "pen", "crit": "crit", "crit_damage": "crit", "ah": "cdr",
+    "heal_shield": "heal_power",
+}
+_LAST_STAT_ANVIL_CATALOG: dict = {}
+
+
+def stat_anvil_contribution(shard, catalog) -> StatVector:
+    """Relative strength per stat: value / same-tier single-stat shard value."""
+    from backend.static_data.stat_anvil_catalog import SIDE_EFFECT_STATS
+    singles = {
+        (s.tier, s.stats[0][0]): s.stats[0][1] for s in catalog
+        if len([k for k, _ in s.stats if k not in SIDE_EFFECT_STATS]) == 1
+        and s.stats[0][0] not in SIDE_EFFECT_STATS
+    }
+    vec = StatVector()
+    for stat, value in shard.stats:
+        field_name = _ANVIL_VECTOR.get(stat)
+        if field_name is None:
+            continue
+        ref = singles.get((shard.tier, stat)) or value
+        amount = max(0.0, min(1.0, value / ref)) if ref else 0.0
+        setattr(vec, field_name, max(getattr(vec, field_name), round(amount, 3)))
+    return vec
+
+
+def _load_stat_anvils(dd_version: str) -> tuple[dict[str, AugmentData], dict]:
+    """Load the real shard catalogue only for the exact game data patch."""
+    from backend import feature_diagnostics
+    from backend.static_data.anvil_public_catalog import AnvilCatalogError
+    from backend.static_data.stat_anvil_catalog import catalog_path, load_catalog
+
+    global _LAST_STAT_ANVIL_CATALOG
+    _LAST_STAT_ANVIL_CATALOG = {}
+    try:
+        patch = patch_of(dd_version)
+    except ValueError:
+        patch = None
+    if patch is None or not catalog_path(_APP_ROOT, patch).exists():
+        feature_diagnostics.record("anvil.catalog_source", "skipped", "catalog_patch_mismatch")
+        return {}, {"status": "skipped", "reason": "catalog_patch_mismatch", "patch": patch}
+    try:
+        catalog = load_catalog(_APP_ROOT, patch)
+    except AnvilCatalogError:
+        feature_diagnostics.record("anvil.catalog_source", "failed", "catalog_invalid")
+        return {}, {"status": "failed", "reason": "catalog_invalid", "patch": patch}
+    shards = {}
+    for shard in catalog:
+        shards[shard.id] = AugmentData(
+            id=shard.id, name=shard.title, tier=AugmentTier.STAT_ANVIL,
+            description=", ".join(f"+{v:g} {k}" for k, v in shard.stats),
+            contribution=stat_anvil_contribution(shard, catalog),
+            provenance="public_game_bin",
+        )
+    _LAST_STAT_ANVIL_CATALOG = {s.id: s for s in catalog}
+    tiers = {t: sum(s.tier == t for s in catalog) for t in ("silver", "gold", "prismatic")}
+    feature_diagnostics.record("anvil.catalog_source", "ok", "verified_catalog", len(catalog))
+    return shards, {"status": "ok", "reason": "verified_catalog", "patch": patch,
+                    "total": len(catalog), "tiers": tiers}
+
+
 def _load_augments() -> dict[str, AugmentData]:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -541,9 +614,18 @@ def _load_augments() -> dict[str, AugmentData]:
             # retry the source instead of treating it as a valid cache hit.
             parsed = _parse_augment_cache(cached) if isinstance(cached, dict) else {}
             if parsed:
+                from backend import feature_diagnostics
+                feature_diagnostics.record("augment.cache_schema", "ok", "current")
                 return parsed
+            from backend import feature_diagnostics
+            feature_diagnostics.record("augment.cache_schema", "failed", "cache_invalid")
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             _loader_logger.warning("Invalid augment cache; retrying source")
+            from backend import feature_diagnostics
+            feature_diagnostics.record("augment.cache_schema", "failed", "cache_invalid")
+    else:
+        from backend import feature_diagnostics
+        feature_diagnostics.record("augment.cache_schema", "skipped", "cache_missing")
 
     # Fetch ARAM Mayhem augments from cherry-augments.json (primary source)
     try:
@@ -554,18 +636,14 @@ def _load_augments() -> dict[str, AugmentData]:
         augments_raw = []
 
     # Fetch Arena descriptions as supplementary source (match by name)
-    desc_by_name: dict[str, str] = {}
+    arena_rows: list = []
     try:
         r2 = requests.get(CD_ARENA_DESC_URL, timeout=15)
         r2.raise_for_status()
-        arena_data = r2.json()
-        for arena_aug in arena_data.get("augments", []):
-            aname = arena_aug.get("name", "")
-            adesc = arena_aug.get("desc", "")
-            if aname and adesc:
-                desc_by_name[aname.lower()] = adesc
-    except (requests.RequestException, ValueError, KeyError):
+        arena_rows = r2.json().get("augments", [])
+    except (requests.RequestException, ValueError, KeyError, AttributeError):
         pass
+    arena_desc = _arena_description_index(arena_rows)
 
     RARITY_MAP = {"ksilver": 1, "kgold": 2, "kprismatic": 3, "kbronze": 0}
 
@@ -583,11 +661,20 @@ def _load_augments() -> dict[str, AugmentData]:
         tier_val = RARITY_MAP.get(rarity_str, 1)
         tier = AugmentTier(tier_val)
 
-        # Try to get description from Arena data (match by name)
-        desc = desc_by_name.get(name.lower(), "")
+        # Try to get description from Arena data (match by name). Audit 24/11:
+        # ~65% had none; fall back to the Mayhem record's own text if present.
+        desc = arena_desc(aug, name) or _clean_description(
+            aug.get("descriptionTRA") or aug.get("tooltipTRA")
+            or aug.get("description") or aug.get("desc"))
 
         # Compute contribution from description + name hints
         contribution, provenance = _parse_description_to_stats_with_provenance(desc, name)
+        # S1 (decided 23/11): the reviewed curated table beats the parser.
+        curated = _curated_effects().get(_normalize(name))
+        if curated:
+            contribution = StatVector(**{f: float(curated.get(f, 0.0))
+                                         for f in StatVector.fields()})
+            provenance = "curated"
 
         result[aug_id] = AugmentData(
             id=aug_id,
@@ -613,13 +700,123 @@ def _load_augments() -> dict[str, AugmentData]:
     # allowed to recover without a forced manual cache deletion.
     if cache_data:
         cache_file.write_text(json.dumps(cache_data, indent=2), encoding="utf-8")
+    elif not result:
+        stale = _stale_augment_cache()
+        if stale:
+            _loader_logger.warning("CommunityDragon unavailable: using an older augment cache")
+            return stale
 
     return result
 
 
+def _stale_augment_cache() -> dict:
+    """Newest readable augment cache of any schema (offline fallback, 24/11)."""
+    try:
+        files = sorted(CACHE_DIR.glob("augments_v*_*.json"),
+                       key=lambda f: f.stat().st_mtime, reverse=True)
+    except OSError:
+        return {}
+    for f in files:
+        try:
+            parsed = _parse_augment_cache(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            continue
+        if parsed:
+            return parsed
+    return {}
+
+
+CURATED_EFFECTS_FILE = _APP_ROOT / "data" / "augments" / "curated_effects.json"
+_curated_cache: dict | None = None
+
+
+def _curated_effects() -> dict[str, dict[str, float]]:
+    """Reviewed per-augment stat weights by normalized title (S1)."""
+    global _curated_cache
+    if _curated_cache is None:
+        table = {}
+        try:
+            raw = json.loads(CURATED_EFFECTS_FILE.read_text(encoding="utf-8"))
+            for name, vec in (raw.get("augments") or {}).items():
+                if isinstance(vec, dict) and all(
+                        k in StatVector.fields() and isinstance(v, (int, float))
+                        and 0 <= v <= 1 for k, v in vec.items()):
+                    table[_normalize(name)] = dict(vec)
+        except (OSError, ValueError, AttributeError):
+            table = {}
+        _curated_cache = table
+    return _curated_cache
+
+
+def _keyword_pattern(keyword: str) -> str:
+    """Complete terms plus plain inflections (heal -> heals/healing/healed).
+    Two-letter abbreviations (AD/AP) stay exact: AD cannot match Upgrade/ADS."""
+    word = re.escape(keyword.lower())
+    suffix = "" if len(keyword) <= 2 else "(?:s|es|ed|ing)?"
+    return rf"(?<!\w){word}{suffix}(?!\w)"
+
+
 def _contains_catalog_keyword(text: str, keyword: str) -> bool:
     """Match complete terms only (e.g. AD cannot match Upgrade)."""
-    return re.search(rf"(?<!\w){re.escape(keyword.lower())}(?!\w)", text) is not None
+    return re.search(_keyword_pattern(keyword), text) is not None
+
+
+def _keyword_count(text: str, keyword: str) -> int:
+    return len(re.findall(_keyword_pattern(keyword), text))
+
+
+def _arena_description_index(arena_rows):
+    """desc(mayhem_row, name) -> text, from CommunityDragon's Arena strings.
+
+    Field 24/11: matching by display name alone left 258 of 480 Mayhem
+    augments without text (Mayhem renames many, e.g. "Snowball Fight!").
+    Mayhem rows carry ``augmentNameId`` ("ARAM_ADAPt"), the Arena rows
+    ``apiName`` ("ADAPt") and often the same numeric id: try the api name
+    (with and without the ARAM_ prefix), then the id, then the name; use
+    ``tooltip`` when ``desc`` is empty.
+    """
+    by_api, by_id, by_name = {}, {}, {}
+    for row in arena_rows if isinstance(arena_rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        text = row.get("desc") or row.get("tooltip") or ""
+        if not isinstance(text, str) or not text.strip():
+            continue
+        api = row.get("apiName")
+        if isinstance(api, str) and api:
+            by_api.setdefault(api.lower(), text)
+        if row.get("id") is not None:
+            by_id.setdefault(str(row.get("id")), text)
+        if isinstance(row.get("name"), str) and row["name"]:
+            by_name.setdefault(_normalize(row["name"]), text)
+
+    def lookup(aug: dict, name: str) -> str:
+        api = aug.get("augmentNameId") or aug.get("apiName") or ""
+        keys = []
+        if isinstance(api, str) and api:
+            low = api.lower()
+            keys = [low, low[5:] if low.startswith("aram_") else "aram_" + low]
+        for key in keys:
+            if key in by_api:
+                return by_api[key]
+        try:
+            arena_range = int(aug.get("id")) < MAYHEM_MIN_AUGMENT_ID
+        except (TypeError, ValueError):
+            arena_range = False
+        if arena_range and by_id.get(str(aug.get("id"))):
+            return by_id[str(aug.get("id"))]   # Kiwi row reusing the Arena id
+        return by_name.get(_normalize(name), "")
+    return lookup
+
+
+_TEMPLATE_RE = re.compile(r"@[^@]*@|<[^>]*>|\{\{[^}]*\}\}")
+
+
+def _clean_description(text) -> str:
+    """Strip tooltip markup and @variables@ (never stored beyond the cache)."""
+    if not isinstance(text, str):
+        return ""
+    return " ".join(_TEMPLATE_RE.sub(" ", text).split())
 
 
 def _parse_description_to_stats(description: str, name: str = "") -> StatVector:
@@ -645,8 +842,11 @@ def _parse_description_to_stats_with_provenance(
     if description:
         desc_lower = description.lower()
         for keyword, stat in DESCRIPTION_KEYWORDS.items():
-            if _contains_catalog_keyword(desc_lower, keyword):
-                stats[stat] = min(stats[stat] + 0.3, 1.0)
+            hits = _keyword_count(desc_lower, keyword)
+            if hits:
+                # Audit 24/11: magnitude. A stat the text keeps returning to
+                # matters more than a passing mention (+0.3, +0.1 per repeat).
+                stats[stat] = min(stats[stat] + 0.3 + 0.1 * min(hits - 1, 3), 1.0)
                 if provenance == "none":
                     provenance = "description_keywords"
 
@@ -659,6 +859,13 @@ def _parse_description_to_stats_with_provenance(
 
     if all(value == 0.0 for value in stats.values()):
         provenance = "none"
+    # The actual catalog-parser decision; never store the description or name.
+    from backend import feature_diagnostics
+    feature_diagnostics.record(
+        "augment.stats_parser",
+        "ok" if provenance != "none" else "skipped",
+        "modelled" if provenance != "none" else "unmodelled",
+    )
     return StatVector(**stats), provenance
 
 
@@ -783,6 +990,19 @@ def _report_item_data_source(source):
     events.emit("item_data_source", source=source)
 
 
+def _report_item_pool_diagnostic(catalog):
+    """One closed feature verdict at catalog loading; no item/player identity."""
+    from backend.feature_diagnostics import record
+    if catalog.meta.availability != "verified_two_source":
+        record("build.item_pool", "skipped", "unverified", 0)
+        return
+    final_count = sum(kind == "final" for kind in catalog.classes.values())
+    if final_count == 0:
+        record("build.item_pool", "failed", "no_final_items", 0)
+    else:
+        record("build.item_pool", "ok", "final_items", min(final_count, 1000))
+
+
 def _cdragon_index(payload):
     if isinstance(payload, dict):
         payload = payload.get("items", payload.get("data"))
@@ -814,7 +1034,7 @@ def _assemble_item_catalog(items_raw, cd_index, overrides, meta, source):
         if not isinstance(data, dict):
             continue
         cd = cd_index.get(ident) if cd_index is not None else None
-        category = classify_item(ident, data, cd, overrides)
+        category = classify_item(ident, data, cd, overrides, catalog=items_raw)
         # Validate price and recipe on every prospective shop item. Non-shop
         # exclusions retain their reason even if their source recipes differ.
         if category in POOL_CLASSES and cd is not None and not sources_agree(data, cd):
@@ -982,6 +1202,7 @@ def _load_items() -> ItemCatalog:
         cached = _verified_cached_items(cache_file, version, overrides["version"])
         if cached is not None:
             _report_item_data_source("cache")
+            _report_item_pool_diagnostic(cached)
             return cached
 
     dd_items = {}
@@ -1027,6 +1248,7 @@ def _load_items() -> ItemCatalog:
             )
             temp.replace(cache_file)
             _report_item_data_source("network")
+            _report_item_pool_diagnostic(catalog)
             return catalog
         except (requests.RequestException, OSError, KeyError, ValueError, TypeError):
             _loader_logger.warning("CDragon unavailable or incompatible; checking verified cache")
@@ -1035,6 +1257,7 @@ def _load_items() -> ItemCatalog:
         cached = _verified_cached_items(cache_file, version, overrides["version"])
         if cached is not None:
             _report_item_data_source("cache")
+            _report_item_pool_diagnostic(cached)
             return cached
 
     # A legacy, unversioned-structure cache can recover names when both
@@ -1048,16 +1271,19 @@ def _load_items() -> ItemCatalog:
                 for item in old_items.values():
                     item.item_class = "unknown"
                 _report_item_data_source("ddragon_unverified")
-                return ItemCatalog(
+                catalog = ItemCatalog(
                     old_items, unknown_meta,
                     {ident: "unknown" for ident in old_items},
                     "legacy_unverified",
                 )
+                _report_item_pool_diagnostic(catalog)
+                return catalog
         except (OSError, ValueError, KeyError, TypeError):
             _loader_logger.warning("Legacy item names unavailable; staying unverified")
 
     catalog = _assemble_item_catalog(dd_items, None, overrides, unknown_meta, "ddragon_unverified")
     _report_item_data_source("ddragon_unverified")
+    _report_item_pool_diagnostic(catalog)
     return catalog
 
 

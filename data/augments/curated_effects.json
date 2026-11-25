@@ -1,0 +1,210 @@
+{
+ "version": "curated_effects_2026-11-24",
+ "source": "Manual reading of the augment texts (Arena/Mayhem), owner-approved curated table 23/11. Heuristic weights 0-1, not measured.",
+ "augments": {
+  "ADAPt": {
+   "ad": 0.4,
+   "ap": 0.4
+  },
+  "All For You": {
+   "heal_power": 0.5,
+   "shield": 0.4
+  },
+  "Apex Inventor": {
+   "cdr": 0.7
+  },
+  "Back To Basics": {
+   "ad": 0.5,
+   "ap": 0.5
+  },
+  "Biggest Snowball Ever": {
+   "cdr": 0.2,
+   "hard_cc": 0.3,
+   "soft_cc": 0.2
+  },
+  "Blade Waltz": {
+   "ad": 0.4,
+   "lethality": 0.2
+  },
+  "Blunt Force": {
+   "ad": 0.6
+  },
+  "Bread And Butter": {
+   "cdr": 0.5
+  },
+  "Celestial Body": {
+   "hp": 0.8
+  },
+  "Courage of the Colossus": {
+   "hard_cc": 0.3,
+   "shield": 0.6
+  },
+  "Critical Healing": {
+   "crit": 0.3,
+   "heal_power": 0.5
+  },
+  "Deft": {
+   "attack_speed": 0.7
+  },
+  "Divine Intervention": {
+   "shield": 0.6
+  },
+  "Dual Wield": {
+   "ad": 0.2,
+   "attack_speed": 0.5
+  },
+  "Eureka": {
+   "ap": 0.3,
+   "cdr": 0.6
+  },
+  "Fallen Aegis": {
+   "shield": 0.6
+  },
+  "Firebrand": {
+   "ap": 0.2,
+   "attack_speed": 0.4
+  },
+  "First-Aid Kit": {
+   "heal_power": 0.7,
+   "shield": 0.4
+  },
+  "Glass Cannon": {
+   "ad": 0.4,
+   "ap": 0.4,
+   "pen": 0.2
+  },
+  "Goliath": {
+   "ad": 0.2,
+   "ap": 0.2,
+   "hp": 0.8
+  },
+  "Goredrink": {
+   "ad": 0.2,
+   "heal_power": 0.7
+  },
+  "Grievous Venom": {
+   "soft_cc": 0.5
+  },
+  "Growth Spurt": {
+   "hard_cc": 0.3,
+   "hp": 0.5
+  },
+  "Heavy Hitter": {
+   "ad": 0.4,
+   "hp": 0.4
+  },
+  "Holy Fire": {
+   "ap": 0.3,
+   "heal_power": 0.4
+  },
+  "Impassable": {
+   "hard_cc": 0.2,
+   "hp": 0.4,
+   "shield": 0.4
+  },
+  "Infinite Recursion": {
+   "cdr": 0.6
+  },
+  "It's Critical": {
+   "crit": 0.7
+  },
+  "Jeweled Gauntlet": {
+   "ap": 0.4,
+   "crit": 0.5
+  },
+  "Light 'Em Up!": {
+   "ad": 0.3,
+   "attack_speed": 0.3
+  },
+  "Lightning Strikes": {
+   "attack_speed": 0.6
+  },
+  "Magic Missile": {
+   "ap": 0.5
+  },
+  "Mind to Matter": {
+   "ap": 0.2,
+   "hp": 0.6
+  },
+  "Mountain Soul": {
+   "shield": 0.6
+  },
+  "Mystic Punch": {
+   "attack_speed": 0.4,
+   "cdr": 0.5
+  },
+  "Overflow": {
+   "ap": 0.4,
+   "heal_power": 0.3,
+   "shield": 0.3
+  },
+  "Phenomenal Evil": {
+   "ap": 0.6
+  },
+  "Quantum Computing": {
+   "ad": 0.4,
+   "heal_power": 0.3
+  },
+  "Ravenous Bind": {
+   "hard_cc": 0.3,
+   "heal_power": 0.4
+  },
+  "Recursion": {
+   "cdr": 0.6
+  },
+  "Salvation": {
+   "hard_cc": 0.2,
+   "heal_power": 0.4,
+   "shield": 0.2
+  },
+  "Scopier Weapons": {
+   "ad": 0.3,
+   "attack_speed": 0.3
+  },
+  "Slow Cooker": {
+   "ap": 0.3,
+   "hp": 0.3
+  },
+  "Soul Siphon": {
+   "crit": 0.4,
+   "heal_power": 0.5
+  },
+  "Steel Your Heart": {
+   "hp": 0.7
+  },
+  "Tank Engine": {
+   "hp": 0.8
+  },
+  "Tormentor": {
+   "ap": 0.4,
+   "soft_cc": 0.2
+  },
+  "Twice Thrice": {
+   "attack_speed": 0.5
+  },
+  "Typhoon": {
+   "ad": 0.3,
+   "attack_speed": 0.4
+  },
+  "Upgrade Stormsurge": {
+   "ap": 0.5
+  },
+  "Warmup Routine": {
+   "ad": 0.3,
+   "ap": 0.3
+  },
+  "Witchful Thinking": {
+   "ap": 0.7
+  },
+  "With Haste": {
+   "cdr": 0.4
+  },
+  "Warlock Juicebox": {
+   "ap": 0.2,
+   "heal_power": 0.7
+  },
+  "Vampirism": {
+   "heal_power": 0.8
+  }
+ }
+}

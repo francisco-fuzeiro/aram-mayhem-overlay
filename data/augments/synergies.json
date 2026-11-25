@@ -1,0 +1,2926 @@
+{
+  "version": "kit_synergies_2026-11-25",
+  "status": "Decidido 25/11 (owner): S1-S70 + K1-K34; champion/role-only rules are priors used only when the augment tier does not come from champion games; situational rules share the ±3 pp cap. Corrections to S from AramHex 16.23 applied.",
+  "source": "research/REGRAS_ITEMIZACAO_SITUACIONAL_2026-11-24.md, Part 2 (S1-S70); effects from the LoL wiki MayhemAugmentData module K rules and S corrections: research/SINERGIAS_KIT_AUGMENTS_2026-11-25.md (AramHex 16.23, League wiki).",
+  "settings": {
+    "enabled": true,
+    "certo_enabled": true,
+    "provavel_needs_history": true,
+    "history_min_games": 30
+  },
+  "lists": {
+    "SPELLBLADE": [
+      "Ezreal",
+      "Jax",
+      "Camille",
+      "Jarvan IV",
+      "Irelia",
+      "Gangplank",
+      "Trundle",
+      "Ekko",
+      "Fizz",
+      "Kassadin",
+      "Diana",
+      "Kayle",
+      "Sett",
+      "Renekton",
+      "Akali",
+      "Gwen",
+      "Twisted Fate",
+      "Corki"
+    ],
+    "DASHERS": [
+      "Yasuo",
+      "Yone",
+      "Riven",
+      "Irelia",
+      "Lee Sin",
+      "Kalista",
+      "Vayne",
+      "Ezreal",
+      "Lucian",
+      "Akali",
+      "Kha'Zix",
+      "Fizz",
+      "Zed",
+      "Gragas",
+      "Tristana",
+      "Corki",
+      "Graves",
+      "Kindred",
+      "Samira",
+      "Gwen",
+      "Camille",
+      "Viego",
+      "Nidalee",
+      "Ekko",
+      "Qiyana",
+      "Katarina",
+      "Shaco",
+      "Kassadin",
+      "LeBlanc",
+      "Talon",
+      "Jax",
+      "Fiora",
+      "Hecarim",
+      "Rakan",
+      "Briar",
+      "Naafiri"
+    ],
+    "SPIN": [
+      "Ahri",
+      "Ambessa",
+      "Amumu",
+      "Darius",
+      "Draven",
+      "Garen",
+      "Hecarim",
+      "Jax",
+      "Katarina",
+      "Kayn",
+      "Lillia",
+      "Naafiri",
+      "Nocturne",
+      "Rammus",
+      "Rek'Sai",
+      "Renekton",
+      "Riven",
+      "Samira",
+      "Sylas",
+      "Tryndamere",
+      "Wukong",
+      "Xin Zhao",
+      "Zed"
+    ],
+    "SPIN_ULT": [
+      "Ahri",
+      "Draven",
+      "Katarina",
+      "Rek'Sai",
+      "Samira",
+      "Wukong"
+    ],
+    "TEAMFIGHT_ULT": [
+      "Amumu",
+      "Annie",
+      "Ashe",
+      "Bard",
+      "Brand",
+      "Cassiopeia",
+      "Diana",
+      "Fiddlesticks",
+      "Galio",
+      "Gnar",
+      "Gragas",
+      "Hwei",
+      "Jarvan IV",
+      "Karthus",
+      "Katarina",
+      "Kayle",
+      "Kennen",
+      "Leona",
+      "Lissandra",
+      "Malphite",
+      "Maokai",
+      "Miss Fortune",
+      "Nautilus",
+      "Neeko",
+      "Nunu & Willump",
+      "Orianna",
+      "Ornn",
+      "Rell",
+      "Rumble",
+      "Samira",
+      "Sejuani",
+      "Seraphine",
+      "Sion",
+      "Sona",
+      "Soraka",
+      "Taric",
+      "Varus",
+      "Wukong",
+      "Yasuo",
+      "Zyra"
+    ],
+    "SHORT_ULT": [
+      "Anivia",
+      "Bel'Veth",
+      "Corki",
+      "Elise",
+      "Jayce",
+      "Karma",
+      "Kassadin",
+      "LeBlanc",
+      "Nidalee",
+      "Quinn",
+      "Shyvana",
+      "Teemo",
+      "Udyr",
+      "Zoe"
+    ],
+    "KNOCKBACK_CORE": [
+      "Alistar",
+      "Azir",
+      "Draven",
+      "Gnar",
+      "Gragas",
+      "Hecarim",
+      "Janna",
+      "K'Sante",
+      "Lee Sin",
+      "Poppy",
+      "Quinn",
+      "Singed",
+      "Syndra",
+      "Thresh",
+      "Tristana",
+      "Urgot",
+      "Vayne",
+      "Ziggs"
+    ],
+    "TERRAIN_CORE": [
+      "Anivia",
+      "Azir",
+      "Jarvan IV",
+      "Ornn",
+      "Taliyah",
+      "Trundle",
+      "Yorick"
+    ],
+    "EMPOWERED_AA": [
+      "Blitzcrank",
+      "Camille",
+      "Darius",
+      "Ekko",
+      "Ezreal",
+      "Fiora",
+      "Gangplank",
+      "Garen",
+      "Gwen",
+      "Illaoi",
+      "Jax",
+      "Jayce",
+      "Kassadin",
+      "Kayle",
+      "Kled",
+      "Leona",
+      "Lucian",
+      "Lux",
+      "Malphite",
+      "Nasus",
+      "Nautilus",
+      "Nidalee",
+      "Rell",
+      "Renekton",
+      "Rengar",
+      "Riven",
+      "Sett",
+      "Shyvana",
+      "Skarner",
+      "Sona",
+      "Trundle",
+      "Twisted Fate",
+      "Udyr",
+      "Vayne",
+      "Vi",
+      "Viktor",
+      "Volibear",
+      "Wukong",
+      "Xin Zhao",
+      "Yorick",
+      "Zaahen",
+      "Zac",
+      "Ziggs"
+    ],
+    "AP_TANKS": [
+      "Amumu",
+      "Cho'Gath",
+      "Diana",
+      "Fiddlesticks",
+      "Galio",
+      "Gragas",
+      "Lillia",
+      "Malphite",
+      "Maokai",
+      "Mordekaiser",
+      "Nunu & Willump",
+      "Ornn",
+      "Rumble",
+      "Sejuani",
+      "Singed",
+      "Sion",
+      "Swain",
+      "Vladimir",
+      "Zac",
+      "Zyra"
+    ],
+    "MANA_SCALERS": [
+      "Anivia",
+      "Aurelion Sol",
+      "Cassiopeia",
+      "Corki",
+      "Ezreal",
+      "Galio",
+      "Jayce",
+      "Karma",
+      "Kassadin",
+      "Kog'Maw",
+      "Lulu",
+      "Ryze",
+      "Seraphine",
+      "Sona",
+      "Swain",
+      "Twisted Fate",
+      "Vel'Koz"
+    ],
+    "MANA_HUNGRY": [
+      "Anivia",
+      "Annie",
+      "Aurelion Sol",
+      "Brand",
+      "Cassiopeia",
+      "Corki",
+      "Ezreal",
+      "Galio",
+      "Hwei",
+      "Jayce",
+      "Karma",
+      "Karthus",
+      "Kassadin",
+      "Kog'Maw",
+      "Lissandra",
+      "Lulu",
+      "Lux",
+      "Malzahar",
+      "Orianna",
+      "Ryze",
+      "Seraphine",
+      "Sona",
+      "Swain",
+      "Syndra",
+      "Taliyah",
+      "Twisted Fate",
+      "Veigar",
+      "Vel'Koz",
+      "Viktor",
+      "Vladimir",
+      "Xerath",
+      "Ziggs",
+      "Zoe"
+    ],
+    "ARMOR_SCALERS": [
+      "Alistar",
+      "Braum",
+      "Galio",
+      "Jarvan IV",
+      "K'Sante",
+      "Leona",
+      "Malphite",
+      "Nautilus",
+      "Ornn",
+      "Poppy",
+      "Rammus",
+      "Rell",
+      "Sejuani",
+      "Shen",
+      "Sion",
+      "Skarner",
+      "Taric",
+      "Zac"
+    ],
+    "LONG_RANGE_POKE": [
+      "Ashe",
+      "Aurelion Sol",
+      "Brand",
+      "Caitlyn",
+      "Corki",
+      "Ezreal",
+      "Heimerdinger",
+      "Hwei",
+      "Jayce",
+      "Jhin",
+      "Karma",
+      "Kog'Maw",
+      "Lissandra",
+      "Lux",
+      "Mel",
+      "Morgana",
+      "Neeko",
+      "Nidalee",
+      "Orianna",
+      "Senna",
+      "Seraphine",
+      "Smolder",
+      "Syndra",
+      "Taliyah",
+      "Varus",
+      "Vel'Koz",
+      "Viktor",
+      "Xerath",
+      "Ziggs",
+      "Zoe",
+      "Zyra"
+    ],
+    "HEALERS": [
+      "Aatrox",
+      "Aurelion Sol",
+      "Bel'Veth",
+      "Briar",
+      "Darius",
+      "Dr. Mundo",
+      "Fiddlesticks",
+      "Garen",
+      "Gwen",
+      "Illaoi",
+      "K'Sante",
+      "Kayn",
+      "Kled",
+      "Maokai",
+      "Mordekaiser",
+      "Naafiri",
+      "Nasus",
+      "Nilah",
+      "Olaf",
+      "Rek'Sai",
+      "Renekton",
+      "Riven",
+      "Sett",
+      "Sion",
+      "Skarner",
+      "Soraka",
+      "Swain",
+      "Sylas",
+      "Tahm Kench",
+      "Trundle",
+      "Udyr",
+      "Viego",
+      "Vladimir",
+      "Volibear",
+      "Warwick",
+      "Yorick",
+      "Zac"
+    ],
+    "STEALTH": [
+      "Akali",
+      "Akshan",
+      "Aurora",
+      "Diana",
+      "Evelynn",
+      "Kai'Sa",
+      "Kha'Zix",
+      "Neeko",
+      "Nocturne",
+      "Pyke",
+      "Qiyana",
+      "Rengar",
+      "Senna",
+      "Shaco",
+      "Talon",
+      "Teemo",
+      "Twitch",
+      "Vayne",
+      "Wukong"
+    ],
+    "PETS": [
+      "Annie",
+      "Azir",
+      "Elise",
+      "Heimerdinger",
+      "Illaoi",
+      "Ivern",
+      "Kindred",
+      "Lissandra",
+      "Malzahar",
+      "Naafiri",
+      "Shaco",
+      "Teemo",
+      "Yorick",
+      "Ziggs",
+      "Zoe",
+      "Zyra"
+    ],
+    "ONHIT": [
+      "Akshan",
+      "Aphelios",
+      "Ashe",
+      "Azir",
+      "Bel'Veth",
+      "Caitlyn",
+      "Corki",
+      "Draven",
+      "Ezreal",
+      "Fiora",
+      "Graves",
+      "Gwen",
+      "Irelia",
+      "Jax",
+      "Jhin",
+      "Jinx",
+      "Kai'Sa",
+      "Kalista",
+      "Kayle",
+      "Kennen",
+      "Kindred",
+      "Kog'Maw",
+      "Lucian",
+      "Master Yi",
+      "Miss Fortune",
+      "Nilah",
+      "Quinn",
+      "Samira",
+      "Senna",
+      "Shyvana",
+      "Sivir",
+      "Smolder",
+      "Teemo",
+      "Tristana",
+      "Trundle",
+      "Tryndamere",
+      "Twitch",
+      "Udyr",
+      "Varus",
+      "Vayne",
+      "Viego",
+      "Warwick",
+      "Xayah",
+      "Xin Zhao",
+      "Yasuo",
+      "Yone",
+      "Yunara",
+      "Zeri"
+    ],
+    "MYSTIC_PUNCH": [
+      "Ezreal",
+      "Fiora",
+      "Hecarim",
+      "Irelia",
+      "Jax",
+      "Kai'Sa",
+      "Kalista",
+      "Kayle",
+      "Master Yi",
+      "Varus",
+      "Volibear",
+      "Yasuo",
+      "Yone"
+    ],
+    "RANGE_LEAP": [
+      "Rengar"
+    ],
+    "ULT_ALREADY_CRITS": [
+      "Miss Fortune",
+      "Jhin"
+    ]
+  },
+  "rules": [
+    {
+      "id": "S35",
+      "augments": [
+        "Overflow"
+      ],
+      "effect": "block",
+      "reason": "needs mana",
+      "confidence": "certo",
+      "when": {
+        "resource_not": "mana"
+      }
+    },
+    {
+      "id": "S36",
+      "augments": [
+        "Mind to Matter"
+      ],
+      "effect": "block",
+      "reason": "needs mana",
+      "confidence": "certo",
+      "when": {
+        "resource_not": "mana"
+      }
+    },
+    {
+      "id": "S48",
+      "augments": [
+        "Snowball Upgrade",
+        "Biggest Snowball Ever",
+        "Snowball Roulette"
+      ],
+      "effect": "block",
+      "reason": "needs the Mark spell",
+      "confidence": "certo",
+      "when": {
+        "spell_missing": "mark"
+      }
+    },
+    {
+      "id": "S49",
+      "augments": [
+        "Flashy",
+        "Flashbang"
+      ],
+      "effect": "block",
+      "reason": "needs Flash",
+      "confidence": "certo",
+      "when": {
+        "spell_missing": "flash"
+      }
+    },
+    {
+      "id": "S50",
+      "augments": [
+        "Draw Your Sword"
+      ],
+      "effect": "block",
+      "reason": "ranged champions only",
+      "confidence": "certo",
+      "when": {
+        "range_lt": 300
+      }
+    },
+    {
+      "id": "S44b",
+      "augments": [
+        "Back To Basics"
+      ],
+      "effect": "block",
+      "reason": "removes the ultimate your augments use",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Ultimate Revolution",
+          "Ultimate Awakening",
+          "Can't Touch This",
+          "Ultimate Unstoppable"
+        ]
+      }
+    },
+    {
+      "id": "S1",
+      "augments": [
+        "Twice Thrice",
+        "Typhoon",
+        "Dual Wield",
+        "Firebrand",
+        "Light 'Em Up!",
+        "Tap Dancer",
+        "Deft"
+      ],
+      "effect": 1,
+      "reason": "your champion lives on attacks",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@ON_HIT"
+      }
+    },
+    {
+      "id": "S1d",
+      "augments": [
+        "Twice Thrice",
+        "Typhoon",
+        "Dual Wield",
+        "Firebrand",
+        "Light 'Em Up!",
+        "Tap Dancer",
+        "Deft"
+      ],
+      "effect": 1,
+      "reason": "your champion lives on attacks",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "marksman"
+        ]
+      }
+    },
+    {
+      "id": "S2",
+      "augments": [
+        "Twice Thrice",
+        "Typhoon",
+        "Dual Wield",
+        "Firebrand",
+        "Light 'Em Up!",
+        "Tap Dancer",
+        "Deft"
+      ],
+      "effect": -1,
+      "reason": "you barely attack",
+      "confidence": "provavel",
+      "when": {
+        "role": [
+          "mage"
+        ],
+        "chosen_none": [
+          "Ethereal Weapon"
+        ]
+      }
+    },
+    {
+      "id": "S3",
+      "augments": [
+        "Lightning Strikes"
+      ],
+      "effect": 1,
+      "reason": "you reach the attack speed it needs",
+      "confidence": "certo",
+      "any_of": [
+        {
+          "chosen_min": {
+            "names": [
+              "Deft",
+              "Tap Dancer",
+              "Dual Wield",
+              "Critical Rhythm"
+            ],
+            "n": 2
+          }
+        },
+        {
+          "build_tag_min": {
+            "AttackSpeed": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S3n",
+      "augments": [
+        "Lightning Strikes"
+      ],
+      "effect": -1,
+      "reason": "needs 4 attacks per second",
+      "confidence": "certo",
+      "none_of": [
+        {
+          "chosen_min": {
+            "names": [
+              "Deft",
+              "Tap Dancer",
+              "Dual Wield",
+              "Critical Rhythm"
+            ],
+            "n": 2
+          }
+        },
+        {
+          "build_tag_min": {
+            "AttackSpeed": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "augments": [
+        "Ethereal Weapon"
+      ],
+      "effect": 1,
+      "reason": "your abilities apply on-hit",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Cassiopeia",
+          "Ryze",
+          "Karthus",
+          "Ezreal",
+          "Kayle",
+          "Kai'Sa",
+          "Teemo"
+        ]
+      }
+    },
+    {
+      "id": "S6",
+      "augments": [
+        "Mystic Punch"
+      ],
+      "effect": 1,
+      "reason": "each attack lowers your cooldowns",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@MYSTIC_PUNCH"
+      }
+    },
+    {
+      "id": "S7",
+      "augments": [
+        "Slow And Steady"
+      ],
+      "effect": 1,
+      "reason": "attack speed becomes damage",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Jhin",
+          "Graves"
+        ]
+      }
+    },
+    {
+      "id": "S7n",
+      "augments": [
+        "Slow And Steady"
+      ],
+      "effect": -1,
+      "reason": "cancels your attack speed",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Twice Thrice",
+          "Typhoon",
+          "Dual Wield",
+          "Firebrand",
+          "Light 'Em Up!",
+          "Tap Dancer",
+          "Deft",
+          "Lightning Strikes"
+        ]
+      }
+    },
+    {
+      "id": "S7c",
+      "augments": [
+        "Slow And Steady"
+      ],
+      "effect": -1,
+      "reason": "cancels your attack speed",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@ON_HIT"
+      }
+    },
+    {
+      "id": "S8",
+      "augments": [
+        "Marksmage"
+      ],
+      "effect": 1,
+      "reason": "your attacks scale with AP",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Kayle",
+          "Teemo",
+          "Kog'Maw",
+          "Varus",
+          "Kai'Sa",
+          "Kennen",
+          "Gwen"
+        ]
+      }
+    },
+    {
+      "id": "S9",
+      "augments": [
+        "Heavy Hitter"
+      ],
+      "effect": 1,
+      "reason": "damage scales with your health",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Sett",
+          "Dr. Mundo",
+          "Cho'Gath",
+          "Udyr",
+          "Volibear",
+          "Warwick",
+          "Sion"
+        ]
+      }
+    },
+    {
+      "id": "S10",
+      "augments": [
+        "Gash"
+      ],
+      "effect": 1,
+      "reason": "armor becomes true damage",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Malphite",
+          "Rammus",
+          "Taric",
+          "Shen",
+          "Leona"
+        ]
+      }
+    },
+    {
+      "id": "S11",
+      "augments": [
+        "ReEnergize"
+      ],
+      "effect": 1,
+      "reason": "boosts your Energize items",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3094",
+          "3087",
+          "3095",
+          "6699"
+        ]
+      }
+    },
+    {
+      "id": "S12",
+      "augments": [
+        "It's Critical",
+        "Critical Rhythm",
+        "Soul Siphon",
+        "Upgrade Infinity Edge"
+      ],
+      "effect": 1,
+      "reason": "fits your crit build",
+      "confidence": "certo",
+      "any_of": [
+        {
+          "build_tag_min": {
+            "CriticalStrike": 1
+          }
+        },
+        {
+          "role": [
+            "marksman"
+          ]
+        },
+        {
+          "champ": [
+            "Yasuo",
+            "Yone",
+            "Tryndamere"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S14",
+      "augments": [
+        "Jeweled Gauntlet"
+      ],
+      "effect": 1,
+      "reason": "your abilities can crit",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Brand",
+          "Ziggs",
+          "Syndra",
+          "Cassiopeia",
+          "Karthus",
+          "Lux",
+          "Ahri"
+        ]
+      }
+    },
+    {
+      "id": "S15",
+      "augments": [
+        "Vulnerability"
+      ],
+      "effect": 1,
+      "reason": "burns and items can crit",
+      "confidence": "certo",
+      "any_of": [
+        {
+          "build_any": [
+            "6653",
+            "3068",
+            "6664",
+            "6660",
+            "2503"
+          ]
+        },
+        {
+          "chosen_any": [
+            "Firebrand",
+            "Infernal Conduit",
+            "Slow Cooker",
+            "Tormentor",
+            "Holy Fire",
+            "Feel the Burn"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S16",
+      "augments": [
+        "Tank It Or Leave It"
+      ],
+      "effect": 1,
+      "reason": "your crit also defends",
+      "confidence": "certo",
+      "any_of": [
+        {
+          "build_tag_min": {
+            "CriticalStrike": 1
+          }
+        },
+        {
+          "champ": [
+            "Tryndamere",
+            "Yasuo",
+            "Yone"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S16n",
+      "augments": [
+        "Tank It Or Leave It"
+      ],
+      "effect": -1,
+      "reason": "no crit to use",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "tank"
+        ],
+        "build_tag_max": {
+          "CriticalStrike": 0
+        }
+      }
+    },
+    {
+      "id": "S17",
+      "augments": [
+        "Infernal Conduit"
+      ],
+      "effect": 1,
+      "reason": "many ability hits: low cooldowns",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Brand",
+          "Cassiopeia",
+          "Malzahar",
+          "Teemo",
+          "Zyra",
+          "Karthus",
+          "Lillia",
+          "Singed"
+        ]
+      }
+    },
+    {
+      "id": "S18",
+      "augments": [
+        "Firebrand",
+        "Infernal Conduit",
+        "Slow Cooker",
+        "Tormentor",
+        "Holy Fire",
+        "Feel the Burn"
+      ],
+      "effect": 1,
+      "reason": "your burns can crit",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Vulnerability"
+        ]
+      }
+    },
+    {
+      "id": "S19",
+      "augments": [
+        "Slow Cooker"
+      ],
+      "effect": 1,
+      "reason": "damage aura for who stays in the fight",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Amumu",
+          "Sejuani",
+          "Zac",
+          "Singed",
+          "Rammus"
+        ]
+      }
+    },
+    {
+      "id": "S20",
+      "augments": [
+        "Courage of the Colossus",
+        "Guilty Pleasure",
+        "Tormentor",
+        "Cruelty",
+        "Adamant",
+        "Slap Around"
+      ],
+      "effect": 1,
+      "reason": "your kit has a lot of CC",
+      "confidence": "certo",
+      "when": {
+        "hard_cc_min": 2
+      }
+    },
+    {
+      "id": "S20n",
+      "augments": [
+        "Courage of the Colossus",
+        "Guilty Pleasure",
+        "Tormentor",
+        "Cruelty",
+        "Adamant",
+        "Slap Around"
+      ],
+      "effect": -1,
+      "reason": "your kit has no hard CC",
+      "confidence": "certo",
+      "when": {
+        "hard_cc_max": 0
+      }
+    },
+    {
+      "id": "S21",
+      "augments": [
+        "Frost Wraith"
+      ],
+      "effect": 1,
+      "reason": "the auto-root triggers your augments",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Courage of the Colossus",
+          "Guilty Pleasure",
+          "Tormentor",
+          "Cruelty",
+          "Adamant",
+          "Slap Around"
+        ]
+      }
+    },
+    {
+      "id": "S21b",
+      "augments": [
+        "Courage of the Colossus",
+        "Guilty Pleasure",
+        "Tormentor",
+        "Cruelty",
+        "Adamant",
+        "Slap Around"
+      ],
+      "effect": 1,
+      "reason": "the auto-root triggers this augment",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Frost Wraith"
+        ]
+      }
+    },
+    {
+      "id": "S22",
+      "augments": [
+        "Courage of the Colossus"
+      ],
+      "effect": 1,
+      "reason": "its shield triggers your other augment",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Mighty Shield",
+          "Windspeaker's Blessing"
+        ]
+      }
+    },
+    {
+      "id": "S22b",
+      "augments": [
+        "Mighty Shield",
+        "Windspeaker's Blessing"
+      ],
+      "effect": 1,
+      "reason": "your CC shield triggers it",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Courage of the Colossus"
+        ]
+      }
+    },
+    {
+      "id": "S23",
+      "augments": [
+        "Rabble Rousing",
+        "Restless Restoration",
+        "Guilty Pleasure",
+        "Dawnbringer's Resolve"
+      ],
+      "effect": 1,
+      "reason": "amplifies your self-healing",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@HEALERS"
+      }
+    },
+    {
+      "id": "S25",
+      "augments": [
+        "Restless Restoration"
+      ],
+      "effect": 1,
+      "reason": "more speed, more healing",
+      "confidence": "certo",
+      "when": {
+        "chosen_any": [
+          "Leg Day",
+          "With Haste",
+          "Homeguard"
+        ]
+      }
+    },
+    {
+      "id": "S26",
+      "augments": [
+        "Circle of Death"
+      ],
+      "effect": 1,
+      "reason": "your healing becomes damage",
+      "confidence": "certo",
+      "any_of": [
+        {
+          "chosen_any": [
+            "Perseverance"
+          ]
+        },
+        {
+          "build_any": [
+            "3083",
+            "3065"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S26c",
+      "augments": [
+        "Circle of Death"
+      ],
+      "effect": 1,
+      "reason": "your healing becomes damage",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Dr. Mundo",
+          "Vladimir",
+          "Aatrox",
+          "Soraka",
+          "Swain"
+        ]
+      }
+    },
+    {
+      "id": "S27",
+      "augments": [
+        "Perseverance"
+      ],
+      "effect": 1,
+      "reason": "huge regeneration with your items",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3083",
+          "3065"
+        ]
+      }
+    },
+    {
+      "id": "S27c",
+      "augments": [
+        "Perseverance"
+      ],
+      "effect": 1,
+      "reason": "huge regeneration",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Dr. Mundo"
+        ]
+      }
+    },
+    {
+      "id": "S28",
+      "augments": [
+        "Vampirism"
+      ],
+      "effect": -1,
+      "reason": "you lose regeneration",
+      "confidence": "certo",
+      "any_of": [
+        {
+          "chosen_any": [
+            "Perseverance"
+          ]
+        },
+        {
+          "build_any": [
+            "3083"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S28a",
+      "augments": [
+        "Vampirism"
+      ],
+      "effect": -1,
+      "reason": "you lose your enchanter's healing",
+      "confidence": "provavel",
+      "when": {
+        "allies_any": "@ENCHANTERS"
+      }
+    },
+    {
+      "id": "S29",
+      "augments": [
+        "Glass Cannon"
+      ],
+      "effect": -1,
+      "reason": "you cannot heal above 70%",
+      "confidence": "certo",
+      "any_of": [
+        {
+          "role": [
+            "tank"
+          ]
+        },
+        {
+          "chosen_any": [
+            "Rabble Rousing",
+            "Restless Restoration",
+            "Guilty Pleasure",
+            "Dawnbringer's Resolve",
+            "Goredrink",
+            "Circle of Death",
+            "Perseverance"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S29p",
+      "augments": [
+        "Glass Cannon"
+      ],
+      "effect": 1,
+      "reason": "carries pay little for the health cap",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "assassin",
+          "marksman"
+        ]
+      }
+    },
+    {
+      "id": "S30",
+      "augments": [
+        "First-Aid Kit",
+        "All For You",
+        "Holy Fire",
+        "Sonic Boom",
+        "Windspeaker's Blessing",
+        "I'm a Baby Kitty Where is Mama",
+        "Empyrean Promise"
+      ],
+      "effect": 1,
+      "reason": "amplifies your heals and shields",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@ENCHANTERS"
+      }
+    },
+    {
+      "id": "S30r",
+      "augments": [
+        "First-Aid Kit",
+        "All For You",
+        "Holy Fire",
+        "Sonic Boom",
+        "Windspeaker's Blessing",
+        "I'm a Baby Kitty Where is Mama",
+        "Empyrean Promise",
+        "Critical Healing"
+      ],
+      "effect": 1,
+      "reason": "amplifies your heals and shields",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "support"
+        ]
+      }
+    },
+    {
+      "id": "S31",
+      "augments": [
+        "All For You"
+      ],
+      "effect": -1,
+      "reason": "only works on allies",
+      "confidence": "provavel",
+      "when": {
+        "champ_not": "@ENCHANTERS",
+        "role_not": [
+          "support"
+        ]
+      }
+    },
+    {
+      "id": "S32",
+      "augments": [
+        "Mighty Shield"
+      ],
+      "effect": 1,
+      "reason": "your shields give damage",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3053",
+          "6673",
+          "3156",
+          "6692",
+          "2504",
+          "3155"
+        ]
+      }
+    },
+    {
+      "id": "S32c",
+      "augments": [
+        "Mighty Shield"
+      ],
+      "effect": 1,
+      "reason": "your shields give damage",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@SHIELDERS"
+      }
+    },
+    {
+      "id": "S33",
+      "augments": [
+        "Protein Shake"
+      ],
+      "effect": 1,
+      "reason": "resistances amplify your heals",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Taric",
+          "Braum",
+          "Alistar",
+          "Rell",
+          "Shen",
+          "Maokai",
+          "Zac",
+          "Galio",
+          "Leona"
+        ]
+      }
+    },
+    {
+      "id": "S34",
+      "augments": [
+        "Big Brain"
+      ],
+      "effect": 1,
+      "reason": "shield scales with your AP",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "mage"
+        ]
+      }
+    },
+    {
+      "id": "S35p",
+      "augments": [
+        "Overflow"
+      ],
+      "effect": 1,
+      "reason": "scales with max mana",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Ryze",
+          "Kassadin",
+          "Anivia",
+          "Cassiopeia",
+          "Karma",
+          "Lulu"
+        ]
+      }
+    },
+    {
+      "id": "S37",
+      "augments": [
+        "Outlaw's Grit",
+        "Shadow Runner",
+        "Swift and Safe",
+        "Bodyguard"
+      ],
+      "effect": 1,
+      "reason": "your kit has dashes",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@DASHERS"
+      }
+    },
+    {
+      "id": "S37n",
+      "augments": [
+        "Outlaw's Grit",
+        "Shadow Runner",
+        "Swift and Safe",
+        "Bodyguard"
+      ],
+      "effect": -1,
+      "reason": "your kit has no dash",
+      "confidence": "provavel",
+      "when": {
+        "champ_not": "@DASHERS"
+      }
+    },
+    {
+      "id": "S38",
+      "augments": [
+        "Bread And Butter"
+      ],
+      "effect": 1,
+      "reason": "your damage comes from Q",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Nasus",
+          "Ezreal",
+          "Ryze",
+          "Karthus",
+          "Darius",
+          "Garen",
+          "Annie",
+          "Ziggs",
+          "Jayce",
+          "Lux",
+          "Xerath"
+        ]
+      }
+    },
+    {
+      "id": "S39",
+      "augments": [
+        "Bread And Jam"
+      ],
+      "effect": 1,
+      "reason": "your W is the core of your kit",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Kog'Maw",
+          "Twisted Fate",
+          "Ziggs",
+          "Lissandra",
+          "Viktor",
+          "Yorick",
+          "Mordekaiser"
+        ]
+      }
+    },
+    {
+      "id": "S40",
+      "augments": [
+        "Bread and Cheese"
+      ],
+      "effect": 1,
+      "reason": "your E is the core of your kit",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Cassiopeia",
+          "Garen",
+          "Katarina",
+          "Jax",
+          "Lux",
+          "Morgana",
+          "Kassadin",
+          "Fiddlesticks"
+        ]
+      }
+    },
+    {
+      "id": "S41",
+      "augments": [
+        "Spin To Win"
+      ],
+      "effect": 1,
+      "reason": "you have spinning abilities",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@SPIN"
+      }
+    },
+    {
+      "id": "S42",
+      "augments": [
+        "Ultimate Revolution"
+      ],
+      "effect": 1,
+      "reason": "two team-fight ultimates per fight",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Amumu",
+          "Malphite",
+          "Orianna",
+          "Kennen",
+          "Fiddlesticks",
+          "Sona",
+          "Miss Fortune",
+          "Seraphine",
+          "Leona",
+          "Sejuani",
+          "Zyra"
+        ]
+      }
+    },
+    {
+      "id": "S43",
+      "augments": [
+        "Ultimate Awakening"
+      ],
+      "effect": 1,
+      "reason": "short ultimate: resets everything",
+      "confidence": "por_confirmar",
+      "when": {
+        "champ": [
+          "Jayce",
+          "Nidalee",
+          "Elise",
+          "Karma",
+          "Kassadin",
+          "Ryze",
+          "Udyr"
+        ]
+      }
+    },
+    {
+      "id": "S44",
+      "augments": [
+        "Back To Basics"
+      ],
+      "effect": -1,
+      "reason": "you lose the ultimate that defines you",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Jayce",
+          "Nidalee",
+          "Elise",
+          "Amumu"
+        ]
+      }
+    },
+    {
+      "id": "S45",
+      "augments": [
+        "Can't Touch This",
+        "Ultimate Unstoppable"
+      ],
+      "effect": 1,
+      "reason": "protects your ultimate",
+      "confidence": "por_confirmar",
+      "when": {
+        "champ": [
+          "Katarina",
+          "Miss Fortune",
+          "Fiddlesticks",
+          "Malzahar",
+          "Nunu & Willump",
+          "Vel'Koz",
+          "Xerath",
+          "Samira",
+          "Jhin",
+          "Malphite"
+        ]
+      }
+    },
+    {
+      "id": "S46",
+      "augments": [
+        "Fey Magic"
+      ],
+      "effect": 1,
+      "reason": "your ultimate hits many",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Karthus",
+          "Orianna",
+          "Miss Fortune",
+          "Seraphine",
+          "Kennen",
+          "Brand",
+          "Amumu",
+          "Fiddlesticks"
+        ]
+      }
+    },
+    {
+      "id": "S47",
+      "augments": [
+        "It's Killing Time"
+      ],
+      "effect": 1,
+      "reason": "marks everyone with your ultimate",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Karthus",
+          "Ezreal",
+          "Jinx",
+          "Senna",
+          "Ashe",
+          "Kennen"
+        ]
+      }
+    },
+    {
+      "id": "S50p",
+      "augments": [
+        "Draw Your Sword"
+      ],
+      "effect": 1,
+      "reason": "long range turns into a strong melee",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Caitlyn",
+          "Jinx",
+          "Kog'Maw",
+          "Twitch",
+          "Ashe"
+        ]
+      }
+    },
+    {
+      "id": "S51",
+      "augments": [
+        "Scoped Weapons",
+        "Scopier Weapons",
+        "Scopiest Weapons"
+      ],
+      "effect": 1,
+      "reason": "more range for your attacks",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "marksman"
+        ]
+      }
+    },
+    {
+      "id": "S51r",
+      "augments": [
+        "Scoped Weapons",
+        "Scopier Weapons",
+        "Scopiest Weapons"
+      ],
+      "effect": 1,
+      "reason": "more range for your attacks",
+      "confidence": "certo",
+      "when": {
+        "champ": [
+          "Rengar"
+        ]
+      },
+      "evidence": "AramHex 16.23 Rengar: Scopier +1,2 pp acima do global (z 5,6), Scopiest +1,9 (z 6,3)"
+    },
+    {
+      "id": "S51n",
+      "augments": [
+        "Scoped Weapons",
+        "Scopier Weapons",
+        "Scopiest Weapons"
+      ],
+      "effect": -1,
+      "reason": "you fight with abilities",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "mage"
+        ]
+      }
+    },
+    {
+      "id": "S52",
+      "augments": [
+        "Skilled Sniper"
+      ],
+      "effect": 1,
+      "reason": "long-range poke with almost no cooldown",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Xerath",
+          "Jayce",
+          "Ezreal",
+          "Lux",
+          "Ziggs",
+          "Varus",
+          "Vel'Koz",
+          "Zoe",
+          "Hwei",
+          "Nidalee"
+        ]
+      }
+    },
+    {
+      "id": "S53",
+      "augments": [
+        "Tank Engine",
+        "Goliath",
+        "Celestial Body"
+      ],
+      "effect": 1,
+      "reason": "you scale with max health",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3084",
+          "3083"
+        ]
+      }
+    },
+    {
+      "id": "S53c",
+      "augments": [
+        "Tank Engine",
+        "Goliath",
+        "Celestial Body"
+      ],
+      "effect": 1,
+      "reason": "you scale with max health",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Cho'Gath",
+          "Sion",
+          "Dr. Mundo",
+          "Sett",
+          "Vladimir",
+          "Volibear"
+        ]
+      }
+    },
+    {
+      "id": "S54",
+      "augments": [
+        "Celestial Body"
+      ],
+      "effect": -1,
+      "reason": "you lose damage as a carry",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "marksman",
+          "assassin",
+          "mage"
+        ]
+      }
+    },
+    {
+      "id": "S55",
+      "augments": [
+        "Quest: Steel Your Heart"
+      ],
+      "effect": 1,
+      "reason": "your build has Heartsteel",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3084"
+        ]
+      }
+    },
+    {
+      "id": "S55n",
+      "augments": [
+        "Quest: Steel Your Heart"
+      ],
+      "effect": -1,
+      "reason": "needs Heartsteel",
+      "confidence": "certo",
+      "when": {
+        "build_none": [
+          "3084"
+        ]
+      }
+    },
+    {
+      "id": "S56",
+      "augments": [
+        "Upgrade Sheen"
+      ],
+      "effect": 1,
+      "reason": "boosts your Spellblade items",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3057",
+          "3078",
+          "3100",
+          "6662",
+          "3877"
+        ]
+      }
+    },
+    {
+      "id": "S56n",
+      "augments": [
+        "Upgrade Sheen"
+      ],
+      "effect": -1,
+      "reason": "no Spellblade item in your build",
+      "confidence": "certo",
+      "when": {
+        "build_none": [
+          "3057",
+          "3078",
+          "3100",
+          "6662",
+          "3877"
+        ]
+      }
+    },
+    {
+      "id": "S56c",
+      "augments": [
+        "Upgrade Sheen"
+      ],
+      "effect": 1,
+      "reason": "boosts your Spellblade",
+      "confidence": "provavel",
+      "when": {
+        "champ": "@SPELLBLADE"
+      }
+    },
+    {
+      "id": "S57",
+      "augments": [
+        "Upgrade Infinity Edge"
+      ],
+      "effect": 1,
+      "reason": "fits your Infinity Edge",
+      "confidence": "certo",
+      "when": {
+        "build_tag_min": {
+          "CriticalStrike": 1
+        }
+      }
+    },
+    {
+      "id": "S57n",
+      "augments": [
+        "Upgrade Infinity Edge"
+      ],
+      "effect": -1,
+      "reason": "no crit in your build",
+      "confidence": "certo",
+      "when": {
+        "build_tag_max": {
+          "CriticalStrike": 0
+        }
+      }
+    },
+    {
+      "id": "S58",
+      "augments": [
+        "Upgrade Collector"
+      ],
+      "effect": 1,
+      "reason": "fits your Collector",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "6676"
+        ]
+      }
+    },
+    {
+      "id": "S58n",
+      "augments": [
+        "Upgrade Collector"
+      ],
+      "effect": -1,
+      "reason": "no Collector in your build",
+      "confidence": "certo",
+      "when": {
+        "build_none": [
+          "6676"
+        ]
+      }
+    },
+    {
+      "id": "S59",
+      "augments": [
+        "Upgrade Cutlass"
+      ],
+      "effect": 1,
+      "reason": "boosts Lifeline and Cutlass",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "4004",
+          "3053",
+          "6673",
+          "3156",
+          "6692",
+          "2504",
+          "3155"
+        ]
+      }
+    },
+    {
+      "id": "S59n",
+      "augments": [
+        "Upgrade Cutlass"
+      ],
+      "effect": -1,
+      "reason": "no Lifeline item in your build",
+      "confidence": "certo",
+      "when": {
+        "build_none": [
+          "4004",
+          "3053",
+          "6673",
+          "3156",
+          "6692",
+          "2504",
+          "3155"
+        ]
+      }
+    },
+    {
+      "id": "S60",
+      "augments": [
+        "Upgrade Immolate"
+      ],
+      "effect": 1,
+      "reason": "fits your Immolate item",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3068",
+          "6664",
+          "6660"
+        ]
+      }
+    },
+    {
+      "id": "S60n",
+      "augments": [
+        "Upgrade Immolate"
+      ],
+      "effect": -1,
+      "reason": "no Immolate item in your build",
+      "confidence": "certo",
+      "when": {
+        "build_none": [
+          "3068",
+          "6664",
+          "6660"
+        ]
+      }
+    },
+    {
+      "id": "S61",
+      "augments": [
+        "Upgrade Zhonya's"
+      ],
+      "effect": 1,
+      "reason": "stronger Zhonya's",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "3157",
+          "2420"
+        ]
+      }
+    },
+    {
+      "id": "S61n",
+      "augments": [
+        "Upgrade Zhonya's"
+      ],
+      "effect": -1,
+      "reason": "no Zhonya's in your build",
+      "confidence": "certo",
+      "when": {
+        "build_none": [
+          "3157",
+          "2420"
+        ]
+      }
+    },
+    {
+      "id": "S62",
+      "augments": [
+        "Upgrade Hubris"
+      ],
+      "effect": 1,
+      "reason": "fits your Hubris",
+      "confidence": "certo",
+      "when": {
+        "build_any": [
+          "6697"
+        ]
+      }
+    },
+    {
+      "id": "S62n",
+      "augments": [
+        "Upgrade Hubris"
+      ],
+      "effect": -1,
+      "reason": "no Hubris in your build",
+      "confidence": "certo",
+      "when": {
+        "build_none": [
+          "6697"
+        ]
+      }
+    },
+    {
+      "id": "S63",
+      "augments": [
+        "Upgrade Mikael's Blessing"
+      ],
+      "effect": 1,
+      "reason": "cleanses and heals the team",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "support"
+        ]
+      }
+    },
+    {
+      "id": "S64",
+      "augments": [
+        "Quest: Wooglet's Witchcap"
+      ],
+      "effect": 1,
+      "reason": "your build has Rabadon's",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "mage"
+        ],
+        "build_any": [
+          "3089"
+        ]
+      }
+    },
+    {
+      "id": "S64n",
+      "augments": [
+        "Quest: Wooglet's Witchcap"
+      ],
+      "effect": -1,
+      "reason": "needs Rabadon's and Zhonya's",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "tank",
+          "fighter",
+          "marksman"
+        ]
+      }
+    },
+    {
+      "id": "S65",
+      "augments": [
+        "Minionmancer"
+      ],
+      "effect": 1,
+      "reason": "amplifies your summons",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Annie",
+          "Yorick",
+          "Malzahar",
+          "Heimerdinger",
+          "Zyra",
+          "Ivern",
+          "Elise",
+          "Shaco",
+          "Azir",
+          "Naafiri",
+          "Illaoi"
+        ]
+      }
+    },
+    {
+      "id": "S66",
+      "augments": [
+        "Master of Duality"
+      ],
+      "effect": 1,
+      "reason": "you attack and cast: you get both",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Kai'Sa",
+          "Ezreal",
+          "Varus",
+          "Kayle",
+          "Jax",
+          "Corki",
+          "Katarina",
+          "Gwen"
+        ]
+      }
+    },
+    {
+      "id": "S67",
+      "augments": [
+        "Executioner"
+      ],
+      "effect": 1,
+      "reason": "takedowns reset your cooldowns",
+      "confidence": "provavel",
+      "when": {
+        "champ": [
+          "Katarina",
+          "Master Yi",
+          "Darius",
+          "Pyke",
+          "Kha'Zix",
+          "Akali"
+        ]
+      }
+    },
+    {
+      "id": "S68",
+      "augments": [
+        "Eureka"
+      ],
+      "effect": 1,
+      "reason": "AP becomes ability haste",
+      "confidence": "certo",
+      "when": {
+        "role": [
+          "mage"
+        ],
+        "build_any": [
+          "3089"
+        ]
+      }
+    },
+    {
+      "id": "S69",
+      "augments": [
+        "Apex Inventor"
+      ],
+      "effect": 1,
+      "reason": "item actives at half cooldown",
+      "confidence": "certo",
+      "when": {
+        "build_tag_min": {
+          "Active": 2
+        }
+      }
+    },
+    {
+      "id": "K1",
+      "augments": [
+        "Ultimate Revolution"
+      ],
+      "effect": 1,
+      "reason": "two ults: triggers your ult augments twice",
+      "confidence": "certo",
+      "evidence": "mecânica wiki: reset do R; os augments de R disparam em cada cast",
+      "use": "situational",
+      "any_of": [
+        {
+          "chosen_any": [
+            "Ultimate Awakening",
+            "Can't Touch This",
+            "Ultimate Unstoppable",
+            "Final Form",
+            "Stuck in Here With Me",
+            "Mosh Monster",
+            "It's Killing Time",
+            "Fey Magic",
+            "Jeweled Bracelet",
+            "RISE"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K1b",
+      "augments": [
+        "Ultimate Awakening",
+        "Can't Touch This",
+        "Ultimate Unstoppable",
+        "Final Form",
+        "Stuck in Here With Me",
+        "Mosh Monster",
+        "It's Killing Time",
+        "Fey Magic"
+      ],
+      "effect": 1,
+      "reason": "Ultimate Revolution doubles it",
+      "confidence": "certo",
+      "evidence": "mecânica wiki (simétrica de K1)",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "Ultimate Revolution"
+        ]
+      }
+    },
+    {
+      "id": "K2",
+      "augments": [
+        "Spin To Win"
+      ],
+      "effect": 1,
+      "reason": "Hydra cleave also triggers on your spins",
+      "confidence": "provavel",
+      "evidence": "Upgrade Ravenous Hydra dispara em hits de habilidade; AramHex: Upgrade Ravenous Hydra em @SPIN +2,5 pp (z 3,1)",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "Upgrade Ravenous Hydra"
+        ]
+      }
+    },
+    {
+      "id": "K3",
+      "augments": [
+        "Upgrade Ravenous Hydra"
+      ],
+      "effect": 1,
+      "reason": "your build has Ravenous Hydra",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_any": [
+          "3074"
+        ]
+      }
+    },
+    {
+      "id": "K3n",
+      "augments": [
+        "Upgrade Ravenous Hydra"
+      ],
+      "effect": -1,
+      "reason": "no Ravenous Hydra in your build",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_none": [
+          "3074"
+        ]
+      }
+    },
+    {
+      "id": "K4",
+      "augments": [
+        "Upgrade Sundered Sky"
+      ],
+      "effect": 1,
+      "reason": "your build has Sundered Sky",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_any": [
+          "6610"
+        ]
+      }
+    },
+    {
+      "id": "K4n",
+      "augments": [
+        "Upgrade Sundered Sky"
+      ],
+      "effect": -1,
+      "reason": "no Sundered Sky in your build",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_none": [
+          "6610"
+        ]
+      }
+    },
+    {
+      "id": "K5",
+      "augments": [
+        "Upgrade Death's Dance"
+      ],
+      "effect": 1,
+      "reason": "your build has Death's Dance",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_any": [
+          "6333"
+        ]
+      }
+    },
+    {
+      "id": "K5n",
+      "augments": [
+        "Upgrade Death's Dance"
+      ],
+      "effect": -1,
+      "reason": "no Death's Dance in your build",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_none": [
+          "6333"
+        ]
+      }
+    },
+    {
+      "id": "K6",
+      "augments": [
+        "Upgrade Stormsurge"
+      ],
+      "effect": 1,
+      "reason": "your build has Stormsurge",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_any": [
+          "4646"
+        ]
+      }
+    },
+    {
+      "id": "K6n",
+      "augments": [
+        "Upgrade Stormsurge"
+      ],
+      "effect": -1,
+      "reason": "no Stormsurge in your build",
+      "confidence": "certo",
+      "evidence": "texto do augment",
+      "use": "situational",
+      "when": {
+        "build_none": [
+          "4646"
+        ]
+      }
+    },
+    {
+      "id": "K7",
+      "augments": [
+        "Scoped Weapons",
+        "Scopier Weapons",
+        "Scopiest Weapons"
+      ],
+      "effect": 1,
+      "reason": "Draw Your Sword keeps 100% of augment range",
+      "confidence": "certo",
+      "evidence": "texto de Draw Your Sword: 200 + 100% do alcance bónus de augments",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "Draw Your Sword"
+        ]
+      }
+    },
+    {
+      "id": "K7b",
+      "augments": [
+        "Draw Your Sword"
+      ],
+      "effect": 1,
+      "reason": "your range augments carry over to melee",
+      "confidence": "certo",
+      "evidence": "idem",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "Scoped Weapons",
+          "Scopier Weapons",
+          "Scopiest Weapons"
+        ]
+      }
+    },
+    {
+      "id": "K8",
+      "augments": [
+        "Chain Reaction"
+      ],
+      "effect": 1,
+      "reason": "walls in your team: knockbacks into terrain stun",
+      "confidence": "certo",
+      "evidence": "texto: colisão com terreno = 150–800 dano + knockup 0,75 s + stun 0,5 s",
+      "use": "situational",
+      "any_of": [
+        {
+          "allies_any": "@TERRAIN_CORE"
+        },
+        {
+          "champ": "@TERRAIN_CORE"
+        }
+      ]
+    },
+    {
+      "id": "K9",
+      "augments": [
+        "Lich Brain"
+      ],
+      "effect": 1,
+      "reason": "your health items become AP",
+      "confidence": "certo",
+      "evidence": "texto: 30 + 4% vida bónus em AP",
+      "use": "situational",
+      "any_of": [
+        {
+          "build_any": [
+            "3084",
+            "3083",
+            "6665",
+            "2502",
+            "6664",
+            "3068"
+          ]
+        },
+        {
+          "chosen_any": [
+            "Goliath",
+            "Celestial Body",
+            "Tank Engine",
+            "Quest: Steel Your Heart"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K10",
+      "augments": [
+        "Double Time",
+        "Blue Barrier",
+        "Overflow",
+        "Mind to Matter",
+        "Juiced"
+      ],
+      "effect": 1,
+      "reason": "your Tear item grows your mana",
+      "confidence": "provavel",
+      "evidence": "mecânica (escalam com mana máx./gasta); AramHex: Double Time em @MANA_SCALERS +2,1 pp (z 2,8), Blue Barrier em @MANA_HUNGRY +1,3 pp (z 2,1)",
+      "use": "situational",
+      "when": {
+        "build_any": [
+          "3003",
+          "3004",
+          "3119",
+          "3040",
+          "3042",
+          "3121"
+        ]
+      }
+    },
+    {
+      "id": "K11",
+      "augments": [
+        "No Mana, No Problem"
+      ],
+      "effect": -1,
+      "reason": "removes the mana your other augments use",
+      "confidence": "certo",
+      "evidence": "texto: converte a mana dos itens em AP",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "Overflow",
+          "Mind to Matter",
+          "Double Time",
+          "Blue Barrier",
+          "Juiced"
+        ]
+      }
+    },
+    {
+      "id": "K11b",
+      "augments": [
+        "Overflow",
+        "Mind to Matter",
+        "Double Time",
+        "Blue Barrier",
+        "Juiced"
+      ],
+      "effect": -1,
+      "reason": "No Mana, No Problem took your item mana",
+      "confidence": "certo",
+      "evidence": "idem",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "No Mana, No Problem"
+        ]
+      }
+    },
+    {
+      "id": "K12",
+      "augments": [
+        "Purist - Caster"
+      ],
+      "effect": -1,
+      "reason": "converts away your attack speed",
+      "confidence": "certo",
+      "evidence": "texto: converte todo o AS bónus em AH; AramHex: em @ONHIT −2,65 pp (z −2,6)",
+      "use": "situational",
+      "any_of": [
+        {
+          "chosen_any": [
+            "Deft",
+            "Tap Dancer",
+            "Dual Wield",
+            "Critical Rhythm",
+            "Lightning Strikes",
+            "Flow of Spirit",
+            "Zealot"
+          ]
+        },
+        {
+          "build_tag_min": {
+            "AttackSpeed": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "K13",
+      "augments": [
+        "Group Hug"
+      ],
+      "effect": 1,
+      "reason": "each extra target triggers your support augments",
+      "confidence": "certo",
+      "evidence": "Group Hug dá +2 alvos ao heal/shield; estes augments disparam por alvo",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "All For You",
+          "Windspeaker's Blessing",
+          "Sonic Boom",
+          "Sound Barrier",
+          "Enchanting Butterflies",
+          "Empowered By The Faithful",
+          "Spirit Bomb"
+        ]
+      }
+    },
+    {
+      "id": "K14",
+      "augments": [
+        "Hands off the Talent"
+      ],
+      "effect": 1,
+      "reason": "more range, more far-hit bonus",
+      "confidence": "provavel",
+      "evidence": "texto: bónus em hits a >75% do alcance; mais alcance = mais fácil",
+      "use": "situational",
+      "when": {
+        "chosen_any": [
+          "Scoped Weapons",
+          "Scopier Weapons",
+          "Scopiest Weapons"
+        ]
+      }
+    },
+    {
+      "id": "K15",
+      "augments": [
+        "Jeweled Bracelet"
+      ],
+      "effect": "block",
+      "reason": "your ultimate already crits",
+      "confidence": "provavel",
+      "evidence": "texto: sem efeito se o R já pode critar (MF R escala com crit; Jhin 4.º tiro)",
+      "use": "situational",
+      "when": {
+        "champ": "@ULT_ALREADY_CRITS"
+      }
+    },
+    {
+      "id": "K20",
+      "augments": [
+        "Scoped Weapons",
+        "Scopier Weapons",
+        "Scopiest Weapons"
+      ],
+      "effect": 1,
+      "reason": "range also extends your bush leap",
+      "confidence": "certo",
+      "evidence": "AramHex Rengar: Scopier +1,2 pp acima do global (z 5,6), Scopiest +1,9 (z 6,3); melee recebe 200/250 (wiki)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@RANGE_LEAP"
+      }
+    },
+    {
+      "id": "K21",
+      "augments": [
+        "Ultimate Revolution"
+      ],
+      "effect": 1,
+      "reason": "team-fight ultimate twice per fight",
+      "confidence": "certo",
+      "evidence": "AramHex: @TEAMFIGHT_ULT +1,2 pp vs resto (z 2,9, efeitos aleatórios por campeão)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@TEAMFIGHT_ULT"
+      }
+    },
+    {
+      "id": "K21n",
+      "augments": [
+        "Ultimate Revolution"
+      ],
+      "effect": -1,
+      "reason": "your ultimate is already up all the time",
+      "confidence": "certo",
+      "evidence": "AramHex: @SHORT_ULT −1,9 pp (só 4 campeões com amostra); mecânica: R com CD < 20 s",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@SHORT_ULT"
+      }
+    },
+    {
+      "id": "K22",
+      "augments": [
+        "Back To Basics"
+      ],
+      "effect": -1,
+      "reason": "you lose your form swap",
+      "confidence": "certo",
+      "evidence": "AramHex: @SHORT_ULT −6,0 pp (z −2,3); Jayce/Nidalee/Elise trocam de forma no R",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": [
+          "Jayce",
+          "Nidalee",
+          "Elise",
+          "Gnar"
+        ]
+      }
+    },
+    {
+      "id": "K23",
+      "augments": [
+        "Final Form"
+      ],
+      "effect": 1,
+      "reason": "short ult: the buff is up every fight",
+      "confidence": "provavel",
+      "evidence": "AramHex: Final Form em @ULT_CORE −1,6 pp vs resto (z −4,4); melhores: Jayce, Zed, Kassadin, Talon",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": [
+          "Jayce",
+          "Zed",
+          "Kassadin",
+          "Talon",
+          "Elise",
+          "Nidalee",
+          "Akali",
+          "Kha'Zix",
+          "Fizz",
+          "Ekko"
+        ]
+      }
+    },
+    {
+      "id": "K24",
+      "augments": [
+        "Earthwake",
+        "Swift and Safe"
+      ],
+      "effect": 1,
+      "reason": "your kit has dashes",
+      "confidence": "certo",
+      "evidence": "AramHex: Earthwake +2,3 pp (z 3,4), Swift and Safe +2,7 pp (z 4,6) em dashers",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@DASHERS"
+      }
+    },
+    {
+      "id": "K25",
+      "augments": [
+        "Lich Brain"
+      ],
+      "effect": 1,
+      "reason": "AP tank: health becomes AP",
+      "confidence": "certo",
+      "evidence": "AramHex: @AP_TANKS +2,8 pp (z 4,5); Tahm Kench +5,1 acima do global",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@AP_TANKS"
+      }
+    },
+    {
+      "id": "K26",
+      "augments": [
+        "Double Time",
+        "Blue Barrier"
+      ],
+      "effect": 1,
+      "reason": "you scale with or burn a lot of mana",
+      "confidence": "certo",
+      "evidence": "AramHex: Double Time +2,1 pp (z 2,8), Blue Barrier +1,3 pp (z 2,1)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@MANA_SCALERS"
+      }
+    },
+    {
+      "id": "K27",
+      "augments": [
+        "Armored Impact"
+      ],
+      "effect": 1,
+      "reason": "your armor is your damage",
+      "confidence": "provavel",
+      "evidence": "AramHex: Malphite +8,2 e Poppy +6,7 pp acima do global; grupo +0,7 (z 0,6, não confirmado no grupo)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": [
+          "Malphite",
+          "Poppy",
+          "Rammus",
+          "Taric",
+          "Leona",
+          "K'Sante"
+        ]
+      }
+    },
+    {
+      "id": "K28",
+      "augments": [
+        "Gift of the Drowned"
+      ],
+      "effect": -1,
+      "reason": "turns your tank health into lethality",
+      "confidence": "certo",
+      "evidence": "AramHex: tanques −9,0 pp vs resto (z −4,6); Sett −8,5",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "role": [
+          "tank"
+        ]
+      }
+    },
+    {
+      "id": "K29",
+      "augments": [
+        "Endless Decimation"
+      ],
+      "effect": 1,
+      "reason": "edge hits heal your missing health",
+      "confidence": "certo",
+      "evidence": "AramHex: @HEALERS +2,1 pp (z 5,4)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@HEALERS"
+      }
+    },
+    {
+      "id": "K30",
+      "augments": [
+        "From Downtown",
+        "Skilled Sniper"
+      ],
+      "effect": 1,
+      "reason": "long-range poke",
+      "confidence": "certo",
+      "evidence": "AramHex: From Downtown +3,2 pp (z 4,5), Skilled Sniper +1,6 pp (z 2,9)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@LONG_RANGE_POKE"
+      }
+    },
+    {
+      "id": "K31",
+      "augments": [
+        "Flow of Spirit",
+        "Ethereal Weapon"
+      ],
+      "effect": 1,
+      "reason": "your damage comes from on-hit",
+      "confidence": "certo",
+      "evidence": "AramHex: Flow of Spirit +2,0 pp (z 2,6), Ethereal Weapon +2,0 pp (z 2,5)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@ONHIT"
+      }
+    },
+    {
+      "id": "K32",
+      "augments": [
+        "Upgrade Ravenous Hydra"
+      ],
+      "effect": 1,
+      "reason": "Hydra cleave triggers on your spins",
+      "confidence": "certo",
+      "evidence": "AramHex: @SPIN +2,5 pp (z 3,1)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@SPIN"
+      }
+    },
+    {
+      "id": "K33",
+      "augments": [
+        "Mystic Punch"
+      ],
+      "effect": 1,
+      "reason": "each attack lowers your cooldowns",
+      "confidence": "certo",
+      "evidence": "AramHex: Fiora +8,8, Volibear +12,4, Yone +7,8, Yasuo +6,2, Hecarim +6,9, Yi +4,2 pp acima do global",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@MYSTIC_PUNCH"
+      }
+    },
+    {
+      "id": "K34",
+      "augments": [
+        "Shadow Runner"
+      ],
+      "effect": 1,
+      "reason": "exiting stealth also triggers it",
+      "confidence": "provavel",
+      "evidence": "texto (sair de stealth conta); AramHex +1,0 pp (z 1,5, não confirmado)",
+      "use": "prior_when_level_not_champion",
+      "when": {
+        "champ": "@STEALTH"
+      }
+    }
+  ]
+}

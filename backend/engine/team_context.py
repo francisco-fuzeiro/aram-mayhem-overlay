@@ -29,6 +29,7 @@ class EnemyThreatProfile:
     healing_items: int = 0
     shield_items: int = 0
     tenacity_items: int = 0
+    anti_heal_items: int = 0  # visible Grievous Wounds sources (field 24/11)
     visible_items: int = 0
     unknown_items: int = 0
     high_kill_enemies: int = 0
@@ -109,7 +110,7 @@ def analyze_enemies(
         return EnemyThreatProfile()
 
     known = tanks = armor = magic_resist = items_seen = high_kill = 0
-    healing = shields = tenacity = 0
+    healing = shields = tenacity = anti_heal = 0
     unknown_items = 0
     magic_sum = physical_sum = cc_sum = sustain_sum = shield_sum = burst_sum = 0.0
 
@@ -131,6 +132,7 @@ def analyze_enemies(
             player_healing_items += int(heals)
             shields += int("shield" in properties)
             tenacity += int("tenacity" in properties)
+            anti_heal += int("anti_heal" in properties)
 
         champion: ChampionMeta | None = get_champion(player.champion_id)
         if champion is None:
@@ -158,7 +160,7 @@ def analyze_enemies(
             unknown_items=unknown_items, armor_items=armor,
             magic_resist_items=magic_resist,
             healing_items=healing, shield_items=shields,
-            tenacity_items=tenacity,
+            tenacity_items=tenacity, anti_heal_items=anti_heal,
         )
 
     power_total = magic_sum + physical_sum
@@ -177,7 +179,7 @@ def analyze_enemies(
         armor_items=armor,
         magic_resist_items=magic_resist,
         healing_items=healing, shield_items=shields,
-        tenacity_items=tenacity,
+        tenacity_items=tenacity, anti_heal_items=anti_heal,
         visible_items=items_seen,
         unknown_items=unknown_items,
         high_kill_enemies=high_kill,

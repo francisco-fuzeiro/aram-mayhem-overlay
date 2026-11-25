@@ -7,12 +7,12 @@ CARD_BODY_BOTTOM_H = 0.26
 SLOTS = ("left", "centre", "right")
 
 
-def card_body_rects(client_rect, bands) -> dict[str, tuple[int, int, int, int]]:
+def card_body_rects(client_rect, bands, slots=SLOTS) -> dict[str, tuple[int, int, int, int]]:
     """Pure physical-pixel card bodies; excludes areas below the card/reroll."""
     x0, y0, width, height = client_rect
     half_width = round(CARD_BODY_HALF_WIDTH_H * height)
     rectangles = {}
-    for slot in SLOTS:
+    for slot in slots:
         bx, by, bw, bh = bands[slot]
         cx = x0 + bx + bw // 2
         cy = y0 + by + bh // 2

@@ -24,6 +24,13 @@ FRAME_MAX_AGE_S = 0.25
 FRAME_SIZE_TOLERANCE_PX = 2
 WGC_MIN_UPDATE_INTERVAL_MS = 100
 WGC_INVALID_STREAK_LIMIT = 10
+# Field 24/11: a degraded session used to stay dead until the offer ended
+# (one augment window was never read in 217 s). Try a fresh session again.
+WGC_DEGRADED_RETRY_S = 5.0
+INVALID_DETAILS = frozenset((
+    "none", "no_frame", "stale_frame", "frame_geometry", "flat_frame",
+    "degraded", "source_start",
+))
 
 Reason = Literal[
     "ok", "no_window", "minimized", "occluded", "backend_unavailable",
@@ -115,11 +122,18 @@ _source: FrameSource | None = None
 _invalid_streak = 0
 _restarted = False
 _degraded = False
+_degraded_at = 0.0
+_last_detail = "none"
+
+
+def last_invalid_detail() -> str:
+    """Bounded sub-reason of the last WGC invalid frame (diagnostics only)."""
+    return _last_detail if _last_detail in INVALID_DETAILS else "none"
 
 
 def reset_capture_state() -> None:
     """Release the persistent per-HWND WGC session (also on match reset)."""
-    global _hwnd, _source, _invalid_streak, _restarted, _degraded
+    global _hwnd, _source, _invalid_streak, _restarted, _degraded, _last_detail
     with _lock:
         if _source is not None:
             try:
@@ -131,6 +145,7 @@ def reset_capture_state() -> None:
         _invalid_streak = 0
         _restarted = False
         _degraded = False
+        _last_detail = "none"
 
 
 def _notify(result: CaptureResult) -> CaptureResult:
@@ -277,17 +292,28 @@ def _safe_mss(game: LeagueWindow, api, clock) -> CaptureResult:
 
 
 def _wgc(game: LeagueWindow, api, clock, factory) -> CaptureResult:
-    global _hwnd, _source, _invalid_streak, _restarted, _degraded
+    global _hwnd, _source, _invalid_streak, _restarted, _degraded, _degraded_at, _last_detail
     if _hwnd != game.hwnd:
         reset_capture_state()
         _hwnd = game.hwnd
     if _degraded:
-        return CaptureResult(None, None, "backend_unavailable")
+        try:
+            now = float(clock())
+        except (TypeError, ValueError):
+            now = _degraded_at
+        if now - _degraded_at < WGC_DEGRADED_RETRY_S:
+            _last_detail = "degraded"
+            return CaptureResult(None, None, "backend_unavailable")
+        # Retry a fresh session; a second degraded episode waits again.
+        _degraded = False
+        _restarted = False
+        _invalid_streak = 0
     if _source is None:
         try:
             _source = factory(game.hwnd)
         except Exception:
             # Dependency startup errors are the only automatic MSS fallback.
+            _last_detail = "source_start"
             return CaptureResult(None, None, "backend_unavailable")
     try:
         sample = _source.latest()
@@ -296,14 +322,19 @@ def _wgc(game: LeagueWindow, api, clock, factory) -> CaptureResult:
     request_time = clock()
     img = None
     ts = None
+    detail = "no_frame"
     if sample is not None:
         try:
             frame, ts = sample
             if isinstance(ts, (int, float)) and request_time - FRAME_MAX_AGE_S <= ts <= request_time + FRAME_MAX_AGE_S:
                 img = _frame_client(frame, game, api)
+                detail = "frame_geometry" if img is None else "flat_frame"
+            else:
+                detail = "stale_frame"
         except (TypeError, ValueError):
             img = None
     if img is not None and _valid_image(img, game):
+        _last_detail = "none"
         _invalid_streak = 0
         _restarted = False  # A recovered frame ends the degraded-streak episode.
         return CaptureResult(img, CaptureProof(
@@ -311,6 +342,7 @@ def _wgc(game: LeagueWindow, api, clock, factory) -> CaptureResult:
             _foreground(api, game.hwnd),
         ), "ok")
 
+    _last_detail = detail
     _invalid_streak += 1
     if _invalid_streak >= WGC_INVALID_STREAK_LIMIT:
         _invalid_streak = 0
@@ -322,6 +354,10 @@ def _wgc(game: LeagueWindow, api, clock, factory) -> CaptureResult:
         _source = None
         if _restarted:
             _degraded = True
+            try:
+                _degraded_at = float(clock())
+            except (TypeError, ValueError):
+                _degraded_at = 0.0
             from backend.diagnostic_events import events
             events.transition("wgc_degraded", streak=WGC_INVALID_STREAK_LIMIT)
         else:

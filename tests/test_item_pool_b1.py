@@ -52,7 +52,7 @@ def test_full_480_classification_matches_versioned_expected_fixture():
     expected = fixture("expected_item_pool_16.23.1.json")
     classified = {ident: classify_item(ident, row, cd.get(ident), {"force_class": {}})
                   for ident, row in dd.items()}
-    assert ITEM_POLICY_VERSION == "item_pool_v3"
+    assert ITEM_POLICY_VERSION == "item_pool_v6"
     assert classified == expected["classes"]
     assert Counter(classified.values()) == {
         "final": 104, "boots_tier2": 7, "boots_tier1": 1,
@@ -160,9 +160,9 @@ def test_verified_two_source_pool_and_versioned_cache(monkeypatch, tmp_path):
     assert catalog.data_source == "network"
     data = StaticData()
     data._items = catalog
-    assert len(data.recommendable_items()) == 111
+    assert len(data.recommendable_items()) == 112
     assert len(catalog.pool_ids) == 181
-    assert {i.id for i in data.recommendable_items()} == set(fixture("expected_item_pool_16.23.1.json")["final_ids"])
+    assert {i.id for i in data.recommendable_items()} == set(fixture("expected_item_pool_16.23.1.json")["final_ids"]) | {"2526"}  # Whispering Circlet: Tear item, transform unbuyable (24/11)
     assert all(item.item_class in RECOMMENDABLE_CLASSES for item in data.recommendable_items())
     assert "226668" not in catalog.pool_ids
     assert "3040" not in catalog.pool_ids
@@ -180,7 +180,7 @@ def test_offline_uses_only_verified_same_version_cache(monkeypatch, tmp_path):
     assert len(StaticData().recommendable_items()) == 0  # no implicit globally trusted catalog
     data = StaticData()
     data._items = reused
-    assert len(data.recommendable_items()) == 111
+    assert len(data.recommendable_items()) == 112
 
 
 def test_no_cache_or_wrong_version_fails_closed_with_names(monkeypatch, tmp_path):
@@ -219,7 +219,7 @@ def test_conflicting_cost_downgrades_only_that_item(monkeypatch, tmp_path):
     assert catalog["3074"].item_class == "unknown"
     assert "3074" not in catalog.pool_ids
     assert len(catalog.pool_ids) == 180
-    assert len(catalog.recommendable_ids) == 110
+    assert len(catalog.recommendable_ids) == 111
     assert observed == ["3074"]
 
 

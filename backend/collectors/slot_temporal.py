@@ -14,6 +14,17 @@ from PIL import Image
 
 from backend.collectors.slot_title_ocr import SLOTS, SlotMatches
 
+
+def _read_concurrently(plan, augment_names, read_slot) -> list:
+    """Read the planned slots in parallel; results keep the plan's order."""
+    if len(plan) <= 1:
+        return [read_slot(slot, crop, augment_names) for slot, crop, _ in plan]
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=len(plan)) as pool:
+        futures = [pool.submit(read_slot, slot, crop, augment_names)
+                   for slot, crop, _ in plan]
+        return [future.result() for future in futures]
+
 Match = tuple[str, str, int] | None
 
 # 32x32 average hashes: keep jitter tolerance below visibly changed glyph strokes.
@@ -63,6 +74,11 @@ class SlotTemporalTracker:
         return bool(self._pending)
 
     @property
+    def has_named_pending(self) -> bool:
+        """A pending read names an augment (it is not an unknown title)."""
+        return any(p.match is not None for p in self._pending.values())
+
+    @property
     def has_unverified_changes(self) -> bool:
         """Some title slot is still awaiting a second C3 verification read.
 
@@ -95,6 +111,7 @@ class SlotTemporalTracker:
             raise ValueError("exactly three ordered, client-bounded crops required")
 
         verified: dict[str, tuple[Match, str]] = {}
+        plan: list[tuple[str, Image.Image, str]] = []
         for slot in SLOTS:
             crop = crops[slot]
             image_hash = hash_image(crop)
@@ -114,20 +131,41 @@ class SlotTemporalTracker:
                     continue
                 self._unknown_retry_ticks[slot] = UNKNOWN_RETRY_INTERVAL_TICKS
                 self._baselines.pop(slot, None)
+            plan.append((slot, crop, image_hash))
 
-            # No old baseline (new offer/refocus) or a changed card: sample OCR.
-            # This uses the same strict C2 matcher irrespective of the trigger.
-            match = read_slot(slot, crop, augment_names)
+        # No old baseline (new offer/refocus) or a changed card: sample OCR.
+        # Field fix 23/11 (latency): the slots are independent and Tesseract
+        # runs out of process, so read them concurrently; results are applied
+        # below in physical slot order with the same strict C2 matcher.
+        reads = _read_concurrently(plan, augment_names, read_slot)
+        for (slot, crop, image_hash), match in zip(plan, reads):
             previous = self._pending.get(slot)
             signature = match[0] if match is not None else None
             previous_signature = (
                 previous.match[0] if previous is not None and previous.match is not None
                 else None
             )
+            # Field 23/11 (latency): animated Mayhem cards kept the title crop
+            # hash moving, so two reads naming the SAME augment were rejected
+            # and verification took 10-30 s. Two identical named reads now
+            # verify; an unknown (None) read still needs a stable image.
+            same_name = signature is not None and signature == previous_signature
+            # Field 24/11 (latency): one animated card whose title reads as
+            # unknown kept its hash moving, stayed pending forever and held
+            # back the two readable cards (one window: 217 s, never shown).
+            # Two unknown reads now settle a slot that has NO accepted
+            # identity as unknown (fail-closed: nothing is claimed for it);
+            # a slot with an accepted title still needs a stable image to
+            # be downgraded, so an animation never erases a verified title.
+            unknown_settles = (
+                signature is None and previous_signature is None
+                and self._accepted.get(slot) is None
+            )
             if (
                 previous is not None
-                and hash_distance(image_hash, previous.hash_value) <= STABLE_THRESHOLD
-                and signature == previous_signature
+                and (same_name or unknown_settles or (
+                    hash_distance(image_hash, previous.hash_value) <= STABLE_THRESHOLD
+                    and signature == previous_signature))
             ):
                 count = previous.count + 1
             else:

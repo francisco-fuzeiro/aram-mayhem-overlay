@@ -65,7 +65,7 @@ def test_name_hint_description_keywords_and_override_provenance(tmp_path, monkey
 
     monkeypatch.setattr(loader.requests, "get", fake_get)
     first = loader._load_augments()
-    assert first["501"].provenance == "name_hint"
+    assert first["501"].provenance == "curated"  # S1 table (24/11) beats the name hint
     assert first["502"].provenance == "description_keywords"
     assert first["503"].provenance == "override"
     assert first["504"].provenance == "override"
@@ -76,7 +76,7 @@ def test_name_hint_description_keywords_and_override_provenance(tmp_path, monkey
 
     cache_path = tmp_path / f"augments_v{loader._AUGMENT_CACHE_SCHEMA}_e2-fixture.json"
     cached = json.loads(cache_path.read_text(encoding="utf-8"))
-    assert cached["501"]["provenance"] == "name_hint"
+    assert cached["501"]["provenance"] == "curated"
     assert cached["502"]["provenance"] == "description_keywords"
     assert cached["505"]["modelled"] is False
 

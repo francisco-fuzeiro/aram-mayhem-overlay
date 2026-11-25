@@ -74,21 +74,37 @@ def test_pair_without_data_falls_back_to_role_level():
     pairs = {("lux", "burn"): (6000, 10000), ("garen", "burn"): (500, 1000)}
     rows, _ = _world(pairs, champions=champions, roles=roles)
     row = _by(rows, "ahri", "burn")
-    assert row.level == "role"
-    assert row.confidence == "medium"
-    assert row.tier in {"S", "A", "B", "C", "D", "E"}  # never OP
+    # Owner 24/11: no game on the champion -> borrowed score, always tier E.
+    assert row.level == "borrowed"
+    assert row.confidence == "low"
+    assert row.tier == "E"
 
 
-def test_heuristic_only_is_capped_at_a():
+def test_augments_without_champion_games_rank_after_those_with_games():
+    """OP.GG check 24/11: role/global fallbacks (Draw Your Sword on melee,
+    Blue Barrier on manaless champions) were topping champion lists."""
+    champions = {"rengar": (5000, 10000), "yi": (50000, 100000)}
+    roles = {"rengar": "assassin", "yi": "assassin"}
+    pairs = {("yi", "great"): (70000, 100000), ("rengar", "weak"): (900, 2000),
+             ("yi", "weak"): (900, 2000)}
+    rows, _ = _world(pairs, champions=champions, roles=roles)
+    great, weak = _by(rows, "rengar", "great"), _by(rows, "rengar", "weak")
+    assert great.level == "borrowed" and great.tier == "E"
+    assert weak.rank < great.rank
+    assert weak.rank_all < great.rank_all
+    assert great.tie_group != weak.tie_group
+
+
+def test_heuristic_only_without_games_is_borrowed_tier_e():
     rarity = {"curated": "gold", "other": "gold"}
     rows, _ = build_augment_tiers(
         {"ahri": (5000, 10000)}, {}, rarity, {"ahri": "mage"},
         {("ahri", "curated"): 10.0, ("ahri", "other"): 1.0}, CFG,
     )
     row = _by(rows, "ahri", "curated")
-    assert row.level == "curated"
-    assert row.confidence == "heuristic"
-    assert row.tier == "A"
+    # Owner 24/11: no game of the augment on the champion -> tier E, last.
+    assert row.level == "borrowed"
+    assert row.tier == "E"
 
 
 def test_no_data_and_no_model_is_explicit_not_zero():
@@ -151,3 +167,21 @@ def test_same_inputs_same_output():
     first, th1 = _world(pairs)
     second, th2 = _world(pairs)
     assert first == second and th1 == th2
+
+
+def test_popular_slightly_negative_augment_ranks_as_neutral():
+    """Owner 24/11: popular and only slightly negative does not sink to the bottom."""
+    from backend.tierdb.augment_tiers import AugmentTierConfig, _popular_floor
+    effect = {("c", "pop"): -0.5 / 25, ("c", "rare"): -0.5 / 25,
+              ("c", "bad"): -3.0 / 25, ("c", "good"): 1.0 / 25, ("c", "x"): -0.1 / 25}
+    pairs = {("c", "pop"): (480, 50000), ("c", "bad"): (400, 40000),
+             ("c", "rare"): (10, 200), ("c", "good"): (60, 100), ("c", "x"): (5, 100)}
+    rarity = {a: "gold" for _c, a in effect}
+    cfg = AugmentTierConfig(popular_top_share=0.4)   # top 2 of 5 by games
+    out = _popular_floor("c", [a for _c, a in effect], effect, pairs, rarity, cfg)
+    assert out["pop"] == 0.0                      # popular + slightly negative
+    assert out["rare"] == -0.5 / 25               # same effect, not popular
+    assert out["bad"] == -3.0 / 25                # popular but clearly negative
+    off = _popular_floor("c", [a for _c, a in effect], effect, pairs, rarity,
+                         AugmentTierConfig(popular_floor_pp=0.0))
+    assert off["pop"] == -0.5 / 25

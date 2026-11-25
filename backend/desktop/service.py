@@ -5,7 +5,9 @@ import logging
 import threading
 import time
 
-from backend.desktop.runtime import DesktopStartupError, port_in_use, probe_companion
+from backend.desktop.runtime import (
+    DesktopStartupError, companion_code, port_in_use, probe_companion,
+)
 
 logger = logging.getLogger("aram-oracle.desktop")
 
@@ -19,8 +21,17 @@ class ManagedApi:
         self._errors: list[BaseException] = []
         self.mode: str | None = None
 
-    def start(self, timeout: float = 15.0) -> str:
+    def start(self, timeout: float = 120.0) -> str:
         if probe_companion():
+            # Field 23/11: an old API kept serving after "updates", so every
+            # report came from stale code. Reuse only the same code version.
+            from backend.feature_diagnostics import code_version
+            mine, theirs = code_version(), companion_code()
+            if mine is not None and theirs != mine:
+                raise DesktopStartupError(
+                    f"An older ARAM Oracle ({theirs or 'unknown version'}) is still "
+                    f"running. Quit it (tray icon > Quit ARAM Oracle, or close its "
+                    f"terminal) and start this version ({mine}) again.")
             self.mode = "reused"
             return self.mode
         if port_in_use():

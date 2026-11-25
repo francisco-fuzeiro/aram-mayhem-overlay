@@ -36,6 +36,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
+## ARAM Mayhem Tracker — Sygnano (MIT)
+
+Design reference only (no code copied): Stat Anvil data location in
+CommunityDragon game bins (`AnvilData`, `RootSpell.mSpell.DataValues`,
+`AnvilTypes` 0/8/9), shard titles from `lol.stringtable.json`, shard cards
+sharing the augment card frame, and the idea of settling Silver/Gold by the
+value lines. https://github.com/Sygnano/aram-mayhem-tracker — MIT License,
+Copyright (c) 2026 Sygnano.
+
 ## Reviewed but not copied
 
 - Mayhem Advisor (ItzStorDz/mayhem-advisor) is all-rights-reserved.
@@ -61,3 +70,28 @@ downloads them to the user's machine, verifies their SHA-256 checksums and
 derives tiers and ranks; win rates and sample sizes are never displayed. If
 the application becomes commercial, this source must be removed or
 authorised in writing; `ingest_aramhex(app_mode="commercial")` refuses it.
+
+### PP-OCRv4 text recognition model (PaddleOCR / RapidOCR)
+
+The optional OCR engine uses the PP-OCRv4 recognition model
+(`ch_PP-OCRv4_rec_infer.onnx`) from PaddleOCR (https://github.com/PaddlePaddle/PaddleOCR),
+licensed under the Apache License 2.0, as packaged by RapidOCR
+(`rapidocr-onnxruntime`, https://github.com/RapidAI/RapidOCR, Apache License 2.0).
+`scripts/setup_ppocr_v4.py` downloads it to the user's machine only when the
+user runs that script, and verifies its SHA-256. The model binary is not
+redistributed in this repository. A copy of the Apache License 2.0 is
+available at https://www.apache.org/licenses/LICENSE-2.0.
+
+### League of Legends Wiki — ARAM: Mayhem augment list
+
+Source: https://wiki.leagueoflegends.com/en-us/ARAM:_Mayhem/Augments —
+text licensed under Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0,
+https://creativecommons.org/licenses/by-sa/3.0/), as stated by the wiki's
+site information. Attribution: League of Legends Wiki contributors.
+
+`data/augments/mayhem_catalog_wiki.json` holds the augment names and rarities
+taken from that page (retrieved 2026-11-24). It is a derivative of the wiki
+content and is therefore shared under CC BY-SA 3.0, separately from the rest of
+this repository. It is used only to validate the augment catalog, never as a
+tier or win-rate source. League of Legends and its augment names are
+trademarks of Riot Games, Inc.

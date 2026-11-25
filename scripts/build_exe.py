@@ -49,6 +49,7 @@ def main():
             "--add-data", f"{ROOT / 'frontend'};frontend",
             "--add-data", f"{ROOT / 'data' / 'champions'};data/champions",
             "--add-data", f"{ROOT / 'data' / 'augments'};data/augments",
+            "--add-data", f"{ROOT / 'data' / 'anvils'};data/anvils",
             "--hidden-import", "backend.api.server",
             "--hidden-import", "uvicorn.logging",
             "--hidden-import", "uvicorn.loops.auto",

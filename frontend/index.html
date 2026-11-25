@@ -68,6 +68,19 @@
             </div>
         </div>
 
+        <!-- Stat Anvil popup (P0-C/D): only a visually verified offer -->
+        <div id="section-anvil" class="section hidden">
+            <div class="section-header build-static-header"><span id="anvil-title">STAT ANVIL</span></div>
+            <div class="section-body" id="anvil-body">
+                <div id="anvil-top" class="augment-card stat-anvil-card top-pick"></div>
+                <!-- Field 24/11: the overlay is click-through, so a dropdown
+                     cannot be opened in game: every shard is always shown. -->
+                <div id="anvil-details" class="aug-explain">
+                    <div id="anvil-others"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Build Path -->
         <div id="section-build" class="section">
             <div class="section-header build-static-header">BUILD
@@ -79,6 +92,7 @@
                 </div>
                 <div id="build-footer" class="build-footer hidden"></div>
                 <div id="build-alternatives" class="build-list hidden"></div>
+                <div id="mayhem-build" class="build-list"></div>
             </div>
         </div>
 

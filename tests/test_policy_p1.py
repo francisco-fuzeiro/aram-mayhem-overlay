@@ -83,10 +83,11 @@ def test_http_history_import_denied_without_explicit_opt_in(monkeypatch):
     from backend.storage import history_import
     called = []
     monkeypatch.setattr(history_import, "sync_recent_mayhem_games",
-                        lambda: called.append(True))
+                        lambda *a: called.append(True))
     monkeypatch.setattr(server.config, "_data", {
         **server.config._data, "lcu_history_enabled": False,
     })
+    monkeypatch.setattr(server, "load_history_enabled", lambda: False)
     with TestClient(server.app) as client:
         response = client.post("/api/history/import")
     assert response.status_code == 403
@@ -97,7 +98,7 @@ def test_http_history_import_only_when_explicitly_enabled(monkeypatch):
     from backend.storage import history_import
     called = []
     monkeypatch.setattr(history_import, "sync_recent_mayhem_games",
-                        lambda: called.append(True) or {
+                        lambda *a: called.append(a) or {
                             "status": "ok", "imported": 0, "inspected": 0,
                         })
     monkeypatch.setattr(server.config, "_data", {
@@ -106,7 +107,10 @@ def test_http_history_import_only_when_explicitly_enabled(monkeypatch):
     with TestClient(server.app) as client:
         response = client.post("/api/history/import")
     assert response.status_code == 200
-    assert called == [True]
+    assert called == [(40,)]
+    with TestClient(server.app) as client:
+        assert client.post("/api/history/import?max_games=1000").status_code == 200
+    assert called[-1] == (1000,)
 
 
 def test_click_position_hints_are_disabled_and_no_lbutton_poll_occurs():

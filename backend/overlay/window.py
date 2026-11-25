@@ -66,6 +66,7 @@ VK_B = 0x42
 VK_1 = 0x31
 VK_2 = 0x32
 VK_3 = 0x33
+VK_4 = 0x34
 # PG: never monitor global click positions without a separate policy/consent gate.
 PICK_CLICK_HINTS_ENABLED = False
 
@@ -169,7 +170,8 @@ if PYQT_AVAILABLE:
             self._visibility_hotkey_was_down = False
             self._scan_hotkey_was_down = False
             self._build_hotkey_was_down = False
-            self._pick_hotkeys_down = {"left": False, "centre": False, "right": False}
+            self._pick_hotkeys_down = {"left": False, "centre": False, "right": False,
+                                       "fourth": False}
             self._tray = None
             self._tray_toggle = None
             self._on_quit = on_quit
@@ -418,7 +420,8 @@ if PYQT_AVAILABLE:
                 self._view.page().runJavaScript(
                     "window.postMessage({type:'toggle_build'}, '*')"
                 )
-            for slot, key in (("left", VK_1), ("centre", VK_2), ("right", VK_3)):
+            for slot, key in (("left", VK_1), ("centre", VK_2), ("right", VK_3),
+                              ("fourth", VK_4)):
                 down = alt_down and bool(user32.GetAsyncKeyState(key) & 0x8000)
                 if down and not self._pick_hotkeys_down[slot]:
                     self._request_confirm_slot(slot)
@@ -482,7 +485,7 @@ if PYQT_AVAILABLE:
 
         def _request_confirm_slot(self, slot: str):
             """Confirm only through the local ledger API, off the Qt thread."""
-            if slot not in ("left", "centre", "right"):
+            if slot not in ("left", "centre", "right", "fourth"):
                 return
             try:
                 port = urlsplit(self._view.url().toString()).port or 8765

@@ -189,6 +189,24 @@
                             </div>
                         </div>
                     </div>
+                    <div class="info-card">
+                        <h2>Your match history (local)</h2>
+                        <p class="small">Reads your own recent ARAM Mayhem games from the League
+                           client on this PC and keeps them only on this PC. Once enough games
+                           are stored and a check on your newest games shows it helps, damage
+                           and healing per minute also nudge the ±1 tier of offered augments.
+                           Nothing is uploaded and no win rates are shown.</p>
+                        <label class="small">
+                            <input type="checkbox" id="history-enabled" disabled>
+                            Allow reading my match history from the League client
+                        </label>
+                        <div class="setting-footer">
+                            <span id="history-status" role="status" aria-live="polite" class="form-status">Loading…</span>
+                            <div class="button-group">
+                                <button id="history-import" type="button" class="button-secondary" disabled>Import recent games</button>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="panel-ocr" class="tab-panel hidden" role="tabpanel"
@@ -311,11 +329,21 @@
                            The original MIT LICENSE and THIRD_PARTY_NOTICES.md are retained
                            in the project repository. This notice is not Riot approval.</p>
                     </div>
+                    <div class="info-card" id="about-data-sources">
+                        <h2>Data and models</h2>
+                        <p>ARAM: Mayhem statistics from AramHex
+                           (github.com/czgreat/aramhex-data), licensed CC BY-NC 4.0, used
+                           only while ARAM Oracle is non-commercial. Not affiliated with Riot
+                           Games or Tencent. Tiers and ranks only; win rates are never shown.</p>
+                        <p>Card title recognition can use the PP-OCRv4 recognition model
+                           (PaddleOCR, Apache License 2.0), installed on request from the
+                           RapidOCR package (Apache License 2.0). The model is not
+                           redistributed in this repository.</p>
+                    </div>
                     <div class="info-card">
                         <h2>Development status</h2>
-                        <p>Overlay appearance and its simulated preview are available. Live
-                           three-card OCR diagnostics, contextual shop detection and
-                           installation/update features are separate future work, not current options.</p>
+                        <p>Overlay appearance and its simulated preview are available.
+                           Installation/update features are separate future work.</p>
                     </div>
                 </section>
             </main>

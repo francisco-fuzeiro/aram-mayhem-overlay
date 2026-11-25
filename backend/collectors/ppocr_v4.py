@@ -171,6 +171,13 @@ def _session(model: str) -> PPOCRv4Recognizer:
     return PPOCRv4Recognizer(Path(model))
 
 
+def engine_in_use() -> str:
+    """Diagnostics: which title recognizer this process is actually using."""
+    if _reported_unavailable:
+        return "tesseract"
+    return "ppocrv4" if _session.cache_info().currsize else "unknown"
+
+
 def recognize_text(image: Image.Image) -> str | None:
     """Return None only if v4 cannot run, empty string for a safe OCR abstention.
 
@@ -179,6 +186,8 @@ def recognize_text(image: Image.Image) -> str | None:
     different engine's unverified guess.
     """
     global _reported_unavailable
+    if _reported_unavailable:
+        return None  # checked once per process; Tesseract keeps working
     try:
         recognizer = _session(str(default_model_path()))
         parts = []

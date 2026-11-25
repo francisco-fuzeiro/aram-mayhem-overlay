@@ -15,10 +15,17 @@ from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from backend.feature_registry import FEATURES, REASONS, STATUSES
+from backend.feature_registry import FEATURES, STATUSES, REASONS, allowed_outcome
 
 # Values are strict enums or bounded numeric types. Never log arbitrary strings.
 SCHEMA: dict[str, dict[str, object]] = {
+    "session_start": {"code": "git_sha"},
+    "feature": {
+        "feature": frozenset(FEATURES),
+        "status": frozenset(STATUSES),
+        "reason": REASONS,
+        "count": "int",
+    },
     "lcda": {
         "status": frozenset(("available", "unavailable", "error")),
         "error_class": frozenset(("none", "http", "connection", "timeout", "request", "parse", "http_404", "refused", "bad_json")),
@@ -31,7 +38,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
-        "reason": frozenset(("level_due", "damage", "manual_choice", "confirmed", "offer_disappeared", "reset", "unknown")),
+        "reason": frozenset(("level_due", "cards_seen", "damage", "manual_choice", "confirmed", "offer_disappeared", "anvil_cards_gone", "anvil_instead", "cursor_pick", "reset", "unknown")),
         "level": "int",
     },
     "ocr_scan_stage": {
@@ -41,7 +48,9 @@ SCHEMA: dict[str, dict[str, object]] = {
             "capture_unavailable", "geometry_unsupported",
             "titles_verifying", "titles_unidentified",
             "titles_detected", "titles_unchanged", "titles_transition",
-            "verified_absence",
+            "verified_absence", "cards_absent", "layout_unverified",
+            "layout_four_unsupported", "four_titles_verifying",
+            "four_titles_detected",
         )),
     },
     "ocr_recognition": {
@@ -52,6 +61,22 @@ SCHEMA: dict[str, dict[str, object]] = {
         )),
         "count": "int",
         "confidence": "confidence100",
+    },
+    # Field 24/11 (latency): per augment-watcher tick, bounded timings only.
+    "ocr_tick": {
+        "stage": "scan_stage",
+        "total_ms": "ms",
+        "capture_ms": "ms",
+        "attempts": "int",
+        "engine": frozenset(("ppocrv4", "tesseract", "unknown")),
+        "reason": frozenset((
+            "no_window", "minimized", "occluded", "backend_unavailable",
+            "invalid_frame", "window_changed", "unsupported_platform", "other",
+        )),
+        "detail": frozenset((
+            "none", "no_frame", "stale_frame", "frame_geometry", "flat_frame",
+            "degraded", "source_start",
+        )),
     },
     "capture_backend": {"backend": frozenset(("wgc", "mss_zorder", "none"))},
     "ocr_occlusion": {"owner": frozenset(("self", "other"))},
@@ -71,7 +96,7 @@ SCHEMA: dict[str, dict[str, object]] = {
         "confidence": "confidence1",
     },
     "augment_confirmation": {
-        "method": frozenset(("manual", "automatic")),
+        "method": frozenset(("manual", "automatic", "cursor")),
         "kind": frozenset(("augment", "anvil", "unknown")),
     },
     "item_data_source": {
@@ -138,13 +163,6 @@ SCHEMA: dict[str, dict[str, object]] = {
         "x": "pixel_dimension", "y": "pixel_dimension",
         "w": "pixel_dimension", "h": "pixel_dimension",
     },
-    "session_start": {},
-    "feature": {
-        "feature": frozenset(FEATURES),
-        "status": frozenset(STATUSES),
-        "reason": REASONS,
-        "count": "int",
-    },
     "match_transition": {
         "from_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
         "to_state": frozenset(("no_game", "champ_select", "in_game", "post_game")),
@@ -178,6 +196,17 @@ def _clean(event: str, fields: dict) -> dict | None:
         elif constraint == "item_id":
             if isinstance(value, str) and value.isascii() and value.isdecimal() and 4 <= len(value) <= 6:
                 safe[key] = value
+        elif constraint == "git_sha":
+            if (isinstance(value, str) and value.isascii() and 7 <= len(value) <= 12
+                    and all(c in "0123456789abcdef" for c in value)):
+                safe[key] = value
+        elif constraint == "ms":
+            if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 600_000:
+                safe[key] = value
+        elif constraint == "scan_stage":
+            stages = SCHEMA["ocr_scan_stage"]["stage"]
+            if isinstance(value, str) and value in stages:
+                safe[key] = value
         elif constraint == "int":
             if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1000:
                 safe[key] = value
@@ -196,6 +225,10 @@ def _clean(event: str, fields: dict) -> dict | None:
                 maximum = 1 if constraint == "confidence1" else 100
                 if 0 <= value <= maximum:
                     safe[key] = round(float(value), 3)
+    if event == "feature" and not allowed_outcome(
+        safe.get("feature"), safe.get("status"), safe.get("reason"),
+    ):
+        return None
     return safe
 
 
@@ -259,17 +292,19 @@ class StructuredEventLogger:
         if safe is None or not self._running:
             return False
         key = json.dumps(safe, sort_keys=True)
+        # Feature duplicates are scoped per feature, not to the single shared
+        # journal event type. Never erase one feature's state with another.
+        dedup_key = (f"feature:{safe['feature']}" if event == "feature"
+                     else event)
         if not self._transition_lock.acquire(blocking=False):
             self.dropped += 1
             return False
         try:
-            # Per-feature slot so interleaved features do not defeat the dedup.
-            slot = event + ":" + str(safe.get("feature", ""))
-            if self._last.get(slot) == key:
+            if self._last.get(dedup_key) == key:
                 return False
             queued = self.emit(event, **safe)
             if queued:
-                self._last[slot] = key
+                self._last[dedup_key] = key
             return queued
         finally:
             self._transition_lock.release()

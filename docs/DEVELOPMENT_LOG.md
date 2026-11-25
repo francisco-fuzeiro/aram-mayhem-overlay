@@ -1,5 +1,80 @@
 # Overlay LoL — Development Log
 
+## 2026-11-25 — Kit synergies K1-K34, priors vs situational rules
+
+- Owner 25/11 approved the separation: rules that depend only on the champion (kit lists, role, resource, CC count) are priors and apply only when the augment's tier does not come from the champion's own games (role/global/borrowed); with champion games their effect is already in the ΔWR and adding it would count it twice. Rules on chosen augments, build, allies, spells or range stay situational inside the ±3 pp cap. Blocks always apply. An explicit `use` field wins; otherwise the condition keys decide.
+- Added K1-K34 and 19 champion lists from research/SINERGIAS_KIT_AUGMENTS_2026-11-25.md (AramHex 16.23 + wiki). Corrections to S: S41 uses @SPIN (no Gwen), S44 Jayce/Nidalee/Elise/Amumu, S37 without Dashing, S6 uses @MYSTIC_PUNCH, Rengar gets range augments (S51r), S43/S45 back to "por confirmar", Goredrink out of S23, Critical Healing out of S30. K rules with data evidence may be "certo" even with champion lists.
+- Vamp decision of 24/11 corrected by data: Goredrink and Siphon no longer gain on champions whose sustain comes only from a vamp build; Warlock Juicebox on Akali still does.
+
+## 2026-11-24 — Popular, slightly negative augments no longer sink
+
+- Owner 24/11: ARAM is played for performance and fun, win rate alone can mislead (players stall games to scale). Until damage data exists (MayhemMeta permission or LCU history), the base stays on win rate with one exception: an augment in the top 20% of the champion's games within its rarity and with effect in [-1.0, 0) pp ranks as neutral (effect 0). Thresholds decided by the owner 24/11 (adjustable after the match test), as are the situational item thresholds and the situational weights.
+- Measured: out-of-sample 16.22→16.23 Spearman 0.915 → 0.914, top-10 ΔWR unchanged (+4.73 pp); in the 16.23 list 677 augments move up, 10.5 positions on average. Clearly negative popular augments (e.g. Trusty Weapon on Ezreal, −2.4 pp) still sink.
+- `effect_pp` in the export is the ranking effect, so the in-match situational score uses the same scale as the list.
+
+## 2026-11-24 — Champion tiers pool the previous patch
+
+- Owner decision 24/11 ("16.22 nos campeões, augments iguais"): the champion tier list sums the champion games of the newest older patch from the same source with the current patch. Measured against OP.GG's champion order (analysis only, nothing copied): Spearman 0.838 → 0.855 over 173 champions. Augment tiers, leverage and potential stay on the current patch only (export identical).
+- Owner follow-up 24/11: the current patch keeps at least 50% of the champion games (older games scaled down; 16.22 has ~12x the games of 16.23). OP.GG Spearman 0.851 instead of 0.855 at plain sums: we do not chase OP.GG. The scale is recorded as `champion_pool_scale`.
+- `update` and `ingest-aramhex` also ingest the previous normal-rules AramHex patch once (best effort; event, pre-hotfix and PBE datasets skipped). The run records the pooled snapshots in `thresholds_json.champion_pool`.
+
+## 2026-11-24 — Situational augment score (continuous, capped)
+
+- Owner decisions 24/11: (1) continuous situational score capped at about two tiers (±3 pp of win rate); (2) hand weights first, recalibrated with the owner's own games; (3) recalibration only with ≥200 own games AND a better temporal holdout (latest 30%) than the hand weights.
+- The export now keeps `effect_pp` per champion/augment (blended posterior ΔWR, logit ×25, in pp). It is used locally to place a situationally adjusted augment inside the champion's own list; it is never shown and never leaves the provider (the offer payload keys stay an explicit list).
+- `context_adjust.context_votes()` returns the per-signal votes (-1..1) with reasons; `backend/tierdb/situational_score.py` turns them into a capped pp delta with `data/augments/situational_weights.json` (status Proposta), finds the new list position and maps it to the tier bands. Blocking signals still force E; borrowed (no champion games) rows keep the legacy shift.
+- Synergy rules that depend on allies feed the "allies" weight; the rest feed "synergy". Impact weight is 0 until calibrated.
+- The overlay's best-pick ordering uses `adjusted_rank` when present.
+- Recalibration (`backend/tierdb/situational_calibration.py`): rebuilds each stored player's votes from end-of-game data (champion + final items, other augments, enemy champions + final items, own healing, synergy rules with the allied champions; personal and impact left out), fits pp per vote by logistic regression around the hand weights (L2, 0-5 pp, per-augment ±3 pp cap) on the oldest 70% of games and compares log-loss with the hand weights on the newest 30%. Written to `~/.aram-oracle/situational_calibration.json` (counts and weights only); used only when games ≥ 200 and the holdout improves. Runs after each history sync; diagnostics feature `tierdb.situational_calibration`.
+- Known limit: end-of-game items overstate what was known when the augment was picked, so build/enemy votes are slightly optimistic in the fit.
+
+## 2026-11-24 — Owner test session (before 433b92a): window opened ~1 min late, builds incoherent
+
+- Owner requirement: augments readable in under 5 s or the overlay is not used. The console showed the window OPENING over a minute after the cards were on screen at game start. The scan no longer depends only on the Live Client level: while a pick may be pending and no window is open, a colour probe of the card title bands (no OCR) opens it as soon as the cards are seen (`ocr_window` reason `cards_seen`, feature `augment.window_open`). When the level threshold arrives later, the reads already made are attached to that offer instead of being reset.
+- PP-OCRv4 (in-process, ~16 ms per crop) is now used automatically when its verified model is installed (`python scripts/setup_ppocr_v4.py`, which also installs onnxruntime 1.20.1); Tesseract remains the fallback and `ARAM_ORACLE_OCR_ENGINE=tesseract` forces it. `ocr_tick` and the report show the engine in use.
+- Build: the list with Owned / BUY NEXT / Planned is now the tier list plan (adapted build + context boots), so "Next" is always an item of the list shown. The plan follows purchases: owned finals first, and physical/crit purchases on a magic plan (or the reverse) refill the remaining slots with the best-ranked items of the player's archetype, preferring what owned components build into (AD crit Shaco was shown only AP items). Boots timing stays the engine's; which boots follows the enemy comp.
+- Stat Anvil: Silver/Gold popups whose titles are all shared (no voucher edge) now show the Best fit without a tier instead of abstaining.
+- Owner decision 24/11: the shown tier is the list position (OP = top 5, S = 6-15; proposal A 16-30, B 31-50, C 51-75, D 76-100, E after), for augments (per champion and rarity) and champions. Ranking order is unchanged; the score-based tier is kept as `score_tier`; evidence caps still apply (curated-only at most A).
+- Champion tier list review (owner: "champion recommendation not reliable"): our 16.23 champion ranking matches AramHex's own (Spearman 0.997 over 173 champions; largest gap 16 positions, mid-table). The problem was the order: champion-select candidates were sorted by the legacy team-fit composite. They are now ordered by the tier list rank; team fit only breaks ties.
+- Owner screenshots 24/11: Mayhem can show FOUR augment cards (same card pitch, centred, so cards sit where the three-card gaps are). Read through the three-card bands, each crop mixed two titles. A colour test of five narrow strips between/at the cards (no OCR) now tells three from four; four cards fail closed (`layout_four_unsupported`) until four-slot support exists. The Stat Anvil popup (phone photo only) uses bigger, left-shifted cards; its geometry needs a straight screenshot.
+- Owner 24/11: "4/4 shown with picks still due, then no new offers". A new pick level now always opens the scan (the confirmed count only gates the respawn re-open and the first snapshot); seeing the cards opens it whatever the count; an earlier offer that vanished unconfirmed (`confirmation_pending`) no longer blocks the next window.
+- Owner 24/11 "automatic pick never works": the OCR-free presence probe guarded only offers with all three titles read, and the cursor window was counted from the first absent probe, so the pick animation (cards half-visible for over a second) pushed the click sample out of it. The probe now guards any offer with one verified title, and the window is anchored on the last probe where the cards were still fully present.
+- Audit 24/11 fixes: real augments carry `contribution`, not `stats`, so the ±1 tier context adjustment and the augment boost of the Anvil estimate never ran with real data (tests used fake augments with `stats`); both now read either. The Anvil popup shows the tier-list estimate (tier capped at A, labelled estimate) instead of the old model's x/10. Four-card offers still map to three slots: the four-card geometry needs one real screenshot.
+
+## 2026-11-24 — Augment read latency (field report on 2ecd870: 13-17 s, one window never read)
+
+- Cause 1: one animated card whose title reads as unknown kept a moving crop hash, so it never settled and the watcher withheld the whole snapshot (one window: 217 s in titles_verifying). Two unknown reads now settle a slot that has no accepted title as unknown (fail-closed); an accepted title still needs a stable image to be downgraded.
+- Cause 2: every WGC miss (no fresh frame yet, a repeated callback) cost a poll cycle and suspended the C3 tracker, forcing all three slots to be read twice again (capture_invalid ~7 s per window). Transient misses (`invalid_frame`, `backend_unavailable`) are now retried in-tick (4 × 80 ms; the burst second frame waits for a newer callback) and then only skip the tick, keeping baselines and pending reads. Window change, minimise, occlusion and proof failures keep the full suspension.
+- Cause 3: the Anvil watcher OCR'd the same cards in the same tick while augment titles were being confirmed, delaying the read and the recommendation drawn after it; it now waits while a pending read names an augment. Its scan stages no longer mix into the augment window timings.
+- A degraded WGC session is retried after 5 s instead of staying dead until the offer ends.
+- Diagnostics: new bounded `ocr_tick` event (stage, total/capture ms, attempts, miss reason and WGC sub-reason); the feature report shows ticks, median tick time and capture misses per augment window.
+
+## 2026-11-23 — In-match context adjustment, patch recency, visible tier/rank
+
+- Owner decision: in-match "context adjustment" (`backend/tierdb/context_adjust.py`). Base tier (measured ΔWR, list rank unchanged) moves at most one tier within its level cap, from fit with champion + adapted build stats (40), synergy with chosen augments (25), enemy comp (20) and the player's own synced games (15; k=30 shrinkage, ≥5 games). The overlay shows the adjusted tier with ↑/↓ and the reason, base tier kept. Diagnostic `tierdb.context_adjust`.
+- Patch recency (holdout 16.21+16.22→16.23): adding the previous patch at weight 0.25 moves τ from 0.7499 to 0.7518 (+0.002); 0.5 → 0.7515; 1.0 → 0.7502. Too small to justify a second patch in the pipeline: not added.
+- Owner request: tier and rank must be readable at a glance. Offers and champion select show a large coloured tier pill and the rank (#n/N) next to it; everything else is secondary text.
+
+## 2026-11-23 — Fixes from the owner's Fiora match test (6e8074e)
+
+- Tie groups chained: each item was compared only with its neighbour, so evenly spaced items became one group ("tied #32–#69"). Now an item is tied only if indistinguishable from the group's first (augments, champions, items). Real 16.23 Fiora: largest group 25–33 → 6–11.
+- "Next: Bloodthirster" contradicted the measured reference (Ravenous Hydra first): the legacy engine ignored the tier list build. With a tier list build shown, Next is the first adapted item not owned (boots timing, full inventory and a finished build keep the engine choice). "(0g)" now reads "(ready to buy)" / "(Ng more)".
+- Offer cards: with tiers on, the badge is the measured tier and the best tier is highlighted; the legacy composite moves to a "Fit x/10" detail line; unrated labels are muted (were green). Champion select leads with Mayhem strength; the composite is labelled "Team fit".
+- Diagnosis vs a third-party overlay seen in the match (numbers not stored): divergences come from data and method, not shrinkage (Fiora median ~5.4k games per augment; k=300). Example from AramHex 16.23: Upgrade Sheen is picked in 5.6 % of Fiora games but wins 1.7 pp below her baseline; Soul Siphon 6.7 pp below. Our ranks are within rarity (/96 gold), theirs across all augments.
+- Owner chose "measure popularity on the holdout first". Holdout 16.22→16.23, 22,293 champion×augment pairs, mean Kendall τ vs next-patch ΔWR: ΔWR only 0.750; 90/10 0.745; 80/20 0.724; 70/30 0.687; popularity only 0.278. Popularity makes the prediction worse at every weight, so it is NOT added.
+
+## 2026-11-23 — Stat Anvil estimates use the real 16.23 catalogue stats
+
+- Merged #107 (real 16.23 catalogue: `statanvils.bin.json`, 34 offerable shards 13/13/8, pinned in `data/anvils/stat_anvils_16.23.json`). `rank_anvil_options` now ranks from each shard's canonical `stats` instead of guessing from the kind: raw `Min*` DataValues names map, hybrids (as+ah, ad+ap, armor+mr) score on both stats weighted by value against the pure shard of the same tier, side effects (size, ranged omnivamp) never score, heal/shield power added as a 14th stat. All 34 real shards are modelled (before: almost all "unmodelled"). `anvil_priorities.py` (#107) untouched.
+
+## 2026-11-23 — Tier DB I2-I5: item tiers, reference builds, Stat Anvils, adaptation
+
+- Merged the GPT P0 fix (#107) into the tier DB line; item eligibility/canonical IDs come from its verified pool (`recommendable_items`, `canonical_item_id`, exclusive groups). Its files untouched.
+- `backend/tierdb/item_tiers.py`: per-champion finals and boots tiers (S = 10·(0.5 pct ΔWR + 0.3 pct core presence + 0.2 pct fit), Beta shrink k=300 to the champion's equipment baseline, Monte-Carlo tie groups, percentile tiers; unmeasured items heuristic, capped at A) and reference builds (best core slots 1-3, tiers 4-6, best boots).
+- `backend/tierdb/anvil_stats.py`: heuristic Stat Anvil ranking (13-stat space; level "estimate", tier ≤A, no win rate). Shard kinds/values are game data from CommunityDragon decoded by the GPT catalog; the ARAM Mayhem Tracker's MIT licence covers its code only and its stats (aramkit) are not used.
+- `backend/tierdb/build_adapt.py`: owner decision "more adaptation" (max 3 swaps, threshold 0.5, slot 1 locked).
+- New tables `item_tier`, `reference_build`, `champion_stat_demand`; export adds `items` (tier/rank/tie group/level/confidence only, no scores). Overlay shows Reference vs Adapted with the reason of each swap and the top-3 Stat Anvil stats. Diagnostics: `items.reference_build`, `items.build_render`, `anvil.stat_estimate`.
+
 ## 2026-11-23 — Tier DB I1: AramHex equipment import
 
 - New `item_observation`/`item_info` tables (separate from augment observations; per-value n and source). Importer reads the optional AramHex equipment tables when meta.json lists them, all SHA-256 checked: finished items per champion (+ recommendation denominator), Boots-typed holdings (+ equipment denominator), ordered first-three-legendary cores with pick, Weapon of Fate (augment 3081) first-legendary references. Unmapped champions quarantined; snapshots ingested by older builds get items once.
@@ -29,8 +104,85 @@
 - F1 store, F2 importer, F3/F4 augment tiers, F5 champion tiers, F6 pipeline/export/runtime switch/CLI: each as RED test commit then GREEN code commit. 54 tier DB tests; full Linux suite 2,086 PASS / 48 SKIP. Windows Actions NOT yet verified.
 - F7 `scripts/validate_tierdb_holdout.py` (aggregate metrics only; run locally): train 16.22 → test 16.23, mean per champion×rarity Kendall τ: raw ΔWR 0.750, shrunk k=300 0.750 (k barely matters at these n), composite 0.749 on the same pairs; pairs ranked only by fallback levels ≈ 0 (uninformative); tiers same-or-adjacent 97.8 %. Champions: WR-only 0.860, composite with relative leverage 0.644, with absolute leverage (E[max of 3 offers] of shrunk logit WR) 0.844 → absolute is the default, owner decision pending.
 - Not done: Settings toggle and overlay/champ-select display of tiers, arammayhem.com pick-rate and LCU local-history importers, combat/participation/duration/consistency metrics (no legal data source at scale), multi-source fusion.
+## 2026-11-23 — Field fixes after the owner's Fiora match (Claude)
+
+Evidence: owner's `events.jsonl`, backend console and `feature_diagnostics` report (HEAD 6e8074e of the combined branch). Private photos/logs are NOT in the repo.
+- **Anvil never read (PROVEN cause):** the popup appeared with **no voucher edge** (`anvil.voucher_purchase skipped/no_edge`) and while the augment scan window was still open (opened 19:31:34, closed only at match end); `_anvil_popup_tick` required both the voucher window and a closed scan. At 19:44:10 the augment watcher read the shard cards as three blank titles. Fix: the Anvil check runs all match long (own watcher), skipped only while the augment watcher is reading augment titles; it looks when those titles come back blank. The voucher is now only a tier hint. RED→GREEN in `tests/test_p0_stat_anvil_popup_server.py`.
+- **Pick never recognised (PROVEN cause):** production had no disappearance signal (absence gate needs an approved calibration), so offers stayed `awaiting_confirm` and Alt+1/2/3 kept showing. Fix (owner request 23/11): `backend/collectors/card_presence.py` — while a verified offer (augments or shards) is on screen, an OCR-free probe every 0.3 s reads the card-background cue (downsampled title bands) and the cursor **position** (`GetCursorPos`, read-only; no button state, no input). Two absent probes after `present` = cards gone; the pick is the ONE card under the cursor in the last 1 s before vanishing, else abstain (Alt+N / stat-delta path unchanged). Pick source `cursor_inferred`, always correctable by Alt+N, never overrides a manual pick. New ids `augment.pick_inferred`, `anvil.pick_inferred` (`ok/cursor_slot`, `skipped/cursor_ambiguous`). Tests `tests/test_p0_card_presence_pick.py`.
+- **Latency (SUSPECTED → fixed, native NOT TESTED):** ~10 s per OCR tick, 33 s to first read. The three title slots are now OCR'd concurrently (same two-read gate, results applied in slot order), and production watchers skip Tesseract when no card background is in any title band (`cards_absent` stage). Tests `tests/test_p0_ocr_latency.py`.
+- **`inventory_unknown` (PROVEN cause):** DD 16.23.1 omits `from` on all 26 base items (Long Sword 1036, Doran's, Tear…); CDragon has `from: []`; `sources_agree` treated the omission as a conflict → class `unknown` → build blocked. Omitted `from` now means empty (only matches an empty CD recipe). Policy `item_pool_v5` forces cache rebuild. Tests `tests/test_p0_item_basic_components.py`.
+- Not here (TierDB thread / #108): Bloodthirster rush on Fiora, augment tiers vs OP.GG photos, champ-select rank visibility, "no model" ratings.
+- Still NOT TESTED natively: probe cue on Anvil cards, cursor mapping at the owner's resolution/DPI, value-line OCR for Silver/Gold ambiguous offers (the photo offer Might/Attack Damage/Unbreakable is title-ambiguous and needs values).
 
 
+## 2026-11-23 — Real 16.23 Stat Anvil source found; catalogue, popup gate and scores (Claude)
+
+- **P0-A PROVEN (real data):** patch 16.23 Stat Anvils live in `game/maps/modespecificdata/statanvils.bin.json` (CommunityDragon named the 16.22 hash file; `game/unknown/507cdd64276919f5.bin.json` 404 is explained). Fetched 2026-11-23 via the owner's desktop built-in browser (cloud proxy blocks CDragon), Last-Modified `Mon, 23 Nov 2026 18:11:48 GMT`, sha256 `494f603d…94c2`. **37 `AnvilData`** (raw 14 Silver / 14 Gold / 8 Prismatic / 1 mixed), every `RootSpell.mSpell.DataValues` resolved; **34 offerable = 13/13/8** (`Random` x2 and `Pristine` are `Enabled=false`, rejected generically). Titles from same-patch `lol.stringtable.json` (60 keys, 0 missing). Unmodified bin + allowlisted string extract pinned in `tests/fixtures/anvils/`.
+- **P0-B GREEN:** `backend/static_data/stat_anvil_catalog.py` + `scripts/build_stat_anvil_catalog.py` → `data/anvils/stat_anvils_16.23.json` (exact source path + sha256, canonical stats e.g. Gold AS 35%, Silver HP 110, Prismatic HP 15% + size). `StaticData` loads shards ONLY when the Data Dragon patch matches (`anvil.catalog_source` ok/verified_catalog, skipped/catalog_patch_mismatch, failed/catalog_invalid). Legacy kBronze rows no longer count as shards. Public report tries the named path first.
+- **P0-C code GREEN, native NOT TESTED:** dedicated `ScreenWatcher` (`backend/collectors/anvil_popup.py`, own two-read gate) reads card titles against shard titles while a voucher is held or just spent and the augment scan is closed. Offer exists only from titles (`backend/engine/stat_anvil_offer.py`): tier = title intersection → OCR values (pure path ready) → spent/held voucher tier → else `tier_ambiguous`. Silver/Gold share all titles except Critical (Shard vs Strike Shard), so ~77% of Silver/Gold offers rely on the voucher hint **[Suposição: 220008 Anvil Voucher = Silver]**. 3- and 4-card resolve structurally; live watcher is 3-slot. Augment OCR no longer matches shard titles. `220010 Prismatic Stat Voucher` added (public items.json). Card position = augment card frame per MIT tracker docs **[Provável]**.
+- **P0-D GREEN:** `rate_stat_anvil_offer` own 0.0–10.0 (fit vs best shard of that tier for the champion; augment stat model + confirmed augments + owned items; armor/MR/tenacity from visible enemy damage/CC). No OP.GG grades, no win rate. Overlay `#section-anvil` shows only `Best fit: <shard> · x/10` + reason; others behind "Other options". ACK `anvil.offer_render` fenced to anvil epoch + real card count. New ids: `anvil.catalog_source`, `anvil.offer_rating`; `anvil.offer_detected` adds `tier_ambiguous`/`mixed_tiers`/`incomplete_offer`.
+- **Still open (P0-E):** value-line OCR live (MIT tracker layout: value lines at 0.465/0.497 H, h 0.022 H; our ROI ends at 0.50 H → needs a real popup crop first), native popup timing/geometry, shop #49, and ONE owner-controlled Mayhem match; Anvil checks not fired = NOT FIRED, never PASS. #108 TierDB `anvil_stat_for_kind` cannot map real `Min*` names — flagged to coordinator, not touched here.
+
+
+## 2026-11-23 — Exact 16.23 hashed Anvil bin 404 despite historical 16.22 references
+
+- User pointed to `game/unknown/507cdd64276919f5.bin.json` and historical 16.22 totals 37 (14/14/8 + 1 mixed). Created public-only `scripts/anvil_source_exact_probe.py` plus `tests/test_p0_anvil_source_exact_probe.py`; output reports source status, raw `AnvilData` and raw singleton/mixed rarity, strict parsed counts, with same-patch index lookup after 404. No League access, player data, game screenshots or writes.
+- Actual real public network probe from Windows GitHub Actions [#45228414820](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45228414820) at SHA `5b88846d0630c1d0b96410bfab6db990d5227413`: **HTTP 404** for exact 16.23 URL. Fallback `https://raw.communitydragon.org/json/16.23/game/unknown/` index `checked` but `exact_filename_in_index=false`, matching candidate filenames empty. No actual 16.23 records from that path, all tiers 0, `source_verified=false`. Not evidence Mayhem removed Anvils, only that source path is absent from this public patch.
+- All audit SHA Windows jobs SUCCESS despite the probe step being explicitly *non-gating* and warning on 404: 2,115 Python PASS/27 SKIP, 89 JS PASS/0 FAIL, 35 real pinned PP-OCRv4 PASS. Temporary public-only workflow audit step removed afterwards; final code/docs HEAD needs exact-head Actions GREEN.
+- Earlier owner indexed scan saw 471 plausible bins, only 80 inspected; two keyword hits proved unrelated TFT UI material or DustToDiamonds AnvilsGranted. Next session should find relocated actual current-patch source, possibly use tested paged bin scanner (80..279 then 280..470), while respecting candidate ordering/limits and not treating keyword matches as AnvilData. The normal parser must not point to guessed or old patch data.
+- P0 still OPEN: real source `total>0` with Silver/Gold/Prismatic each>0 and exact source filename, safe OCR of actual popup/title+numeric values/3-4 choices, own contextual 0–10 recommendation + UI ack, native shop #49, a single final user-controlled Mayhem match with per-feature diagnostic evidence and final Windows CI. Preserve draft #107 base #103, no main/TierDB merge. User explicitly requests a P0-continuation next-chat prompt even while blocked; provide it without declaring completion.
+
+## 2026-11-23 — 80/471 public bin scan produces 2 keyword-only leads; targeted investigation
+
+- Owner Windows safely updated P0 #107 to `47fa24b` and ran actual `--public-patch 16.23 --discover --json`: 471 indexed bin candidates, 80 inspected, 21 dirs, 2,039,856 bytes, zero index/source errors; `scan_complete=false`, source_paths empty, `total=0`, Silver/Gold/Prismatic=0. Two keyword paths `game/gameplay.bin.json` and `game/maps/modespecificdata/cherry.bin.json`. These are text hints only, not `AnvilData` source or permission to rank.
+- Test-first RED `d6dd7c061432e80c7a19cb681071888552629a01`: `tests/test_p0_stat_anvil_keyword_probe.py`. GREEN public-only structural probe `scripts.stat_anvil_catalog_report --public-patch 16.23 --probe-keyword-paths` inspects only those two files with bounded traversal, JSON paths/value summaries and top-level/nested AnvilData counts. No file writes/game/OCR/private data; probe always catalogue_verified=false. Code HEAD `96a8f0b` [Windows #45224141982](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45224141982) passed exact Python/JS/pinned OCR jobs. This latest documentation HEAD requires a separate CI check.
+- Next owner step is targeted public probe after safe fast-forward, then investigate any referenced current patch path; only broaden original scan if targeted sources inconclusive. Real 16.23 source requires total>0 with Silver/Gold/Prismatic >0 and precise path, followed by independent popup/3-or-4 choices, OCR values and contextual 0–10. Final user-controlled Mayhem one-match gate and live shop #49 are still open; no main, TierDB, merge or P1.
+## 2026-11-23 — ARAM Mayhem Tracker bin history rechecked; 16.23 source zero, index scanner added
+
+- Owner's real Windows patch 16.23 public report on `9d3b29f`: `bins=['map12.bin.json'] total=0` and every tier zero. The old 16.22 hash was not returned, so no validated current public AnvilData. The source scanner correctly abstained; mocked fixtures from 16.19/16.22 do not establish patch 16.23 validity.
+- Reopened independent MIT tracker `service/src/upstream/documents.ts`: it tries `game/data/maps/shipping/map12/map12.bin.json` and `game/unknown/507cdd64276919f5.bin.json`. Its public tests/fixtures use older 16.19 sources. CommunityDragon documents JSON directory listing via `https://raw.communitydragon.org/json/<patch>/...`. Current 16.23 map/mode/bin relocation still unknown.
+- Tests-only RED `85beca18c45d8f5e8d3e46b6d4ac58df6f57a9e3` for public index and `9655d711d51033081aa2ac09f71971a0678c7b63` for scanned alternative bin. GREEN `bfe0dd8702493253f38ff377252c345dc5f8df9a` public index, `a0b5f7bea089c529525bd8a704a5dc3b2e732928` bounded selected directory/actual-bin content scan, `4a199e632016e4195175f8fb33e20c504601a345` CLI entry point; `6354cbed335bec24ab40dd4493516ca194335553` adds bounded retry args and explicit no-proof warnings. These are mocked tests and public-only discovery code, **not** actual current-patch source proof.
+- [Windows #45220848233](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45220848233) both jobs SUCCESS for scanner code HEAD `4a199e6`: 2,102 Python PASS/27 SKIP, 89 JS PASS/0 FAIL, 35 real pinned OCR PASS. New latest docs/CLI HEAD needs exact Actions verification before calling GREEN.
+- Owner next: after safe fast-forward, game/Oracle closed, `py -3.11 -m scripts.stat_anvil_catalog_report --public-patch 16.23 --discover --json`; optionally expand `--discovery-bins 200 --discovery-dirs 100`. Public output only. Require verified source_paths and total>0 with Silver, Gold and Prismatic each>0. Only then point parser to confirmed file; current native shop, Anvil OCR/rank and one end-of-batch custom match remain unverified. Keep PR #107 draft, main/TierDB untouched.
+## 2026-11-23 — P0 Stat Anvil competitor benchmark → public source decoder
+
+- Owner reported OP.GG overlay assigns Stat Anvil scores; treat as user-reported functional benchmark, not public formula or licence. Reviewed separate MIT open-source [Sygnano/aram-mayhem-tracker](https://github.com/Sygnano/aram-mayhem-tracker) README, `crates/mayhem-vision/src/anvil.rs`, `crates/mayhem-core/src/anvils.rs`, `service/src/domain/anvils.ts`, and `service/src/upstream/documents.ts`. Its public research distinguishes `AnvilData` game bins and per-locale string table from cherry augment list; titles identify stats but values disambiguate tier; Riot 25.23 publicly introduced three shard tiers. No proprietary or borrowed ratings/assets/screen samples committed.
+- Tests-only RED `183cc38c65278ffcb98d0813db834478bbb04daa`, synthetic public source shapes + strict 3-card same-tier identity; GREEN pure decoder `c5bb99967a6720a0dceb3361e161080a66503fa7`. Added opt-in patch-pinned CDragon source report `fe43ea61b46b8103b7c7f226af6d658bcd724537`, source URL/unsafe patch tests `dcd443e43cf5ef44f984e9d62dca0d6089c20e23`, corrected public-patch regex/output formatting in `da61de788e9af69715294e0249b6e8caf0a32149`. These reports make no writes or game/API contacts; network public-only when explicitly requested, optional ~31 MB locale stringtable.
+- Before the public-source commits, `3650c9bc6710a68ca3fa21bc9a616c273ca7da94` [Windows #45213893695](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45213893695) both jobs SUCCESS: 2,084 Python, 27 skip, 89 JS, three syntax and 35 real pinned OCR tests. **New exact final HEAD Actions not yet verified**. The generic feature diagnostics include parser/cache, next-item decision and render ACK, voucher edge/popup-unverified; no independent live Stat Anvil option detection or 0–10 scoring integration yet.
+- Owner offline current `item_pool_v4`: verified two public sources, 104 final/7 tier2 boots/111 recommendable; no need to repeat. Real shop/native still not tested. Patch-specific Stat Anvil IDs/titles, source extraction, real three/four geometry, visible OCR values, UI rank and single controlled match remain P0 blockers. Maintain draft #107 on draft #103, never touch TierDB or main, no prompt without phase acceptance.
+## 2026-11-23 — Owner verifies item pool v4: 104 finals recovered / PR #107 still P0
+
+- Owner Windows fast-forwarded to P0 code HEAD `a4ccd15c57c28b9430f5459007839382874f1efa`, backed up old v3 cache, ran existing public-source `_load_items()` on patch 16.23.1 and offline report. **v4, verified_two_source, source=network, valid/current=True, total 863, final 104, boots_tier2 7, recommendable 111, unknown 26, mode_variant 152**; no warnings. This independently confirms the concrete zero-final repair on owner device; no private report, raw OCR or game data was saved.
+- Confirmed exact code HEAD [Windows Actions #45209892347](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45209892347): test + v4-real-model jobs SUCCESS; Python 2,076 PASS / 27 SKIP, JS 87 PASS / 0 FAIL, three syntax PASS, 35 pinned PP-OCRv4 PASS.
+- **Scope:** classifications from patch-matched DD/CD do not prove live Mayhem shop items. #49 native still OPEN. Remaining P0 include feature diagnostic IDs and genuine render acks, stat Anvil option source/popup/3-or-4 layout + OCR/render, one owner-controlled final Mayhem validation and post-change exact-head CI. Do not prematurely close P0, auto-handoff or P1.
+- Updated continuity docs only; this NEW documentation HEAD needs its own exact-head Windows CI. PR #107 remains draft on #103; no merge, main, TierDB, changes to product code, or user's untracked local requirements file.
+## 2026-11-23 — Real v3 terminal-DD field discrepancy fixed in P0 #107 (Windows GREEN pending)
+
+- Owner Windows v3 cache genuinely network-backed with two current public sources, 863 items/0 final/7 boots; additional owner public-source comparison found **104 terminal candidates** with DD missing `into` and CD explicit `to=[]`, causing all 104 to fail strict `sources_agree`. Same-patch examples IDs 3031, 3089, 3074. No private personal data uploaded or committed.
+- **RED-only** `2ceae72faa9ab5450f3b18daed8dceeb52883a26`, [Windows #45207926899](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45207926899): 4 FAIL new (one extraneous str/int component test assertion corrected in GREEN), 2,069 older Python PASS/27 SKIP, independent real pinned v4 model job PASS.
+- **Core code** `c640d3774e165acbea7b05301d5eb25f9dd9798b`: normalize absent DD `into` to [] only where CommunityDragon confirms explicit empty `to`; DD `from`, CD field, price and all exclusions remain strict. Bump policy `item_pool_v3`→`item_pool_v4`, leaving JSON cache schema 5; adjust tests, add prior-policy cache invalidation and fail-closed cases.
+- **Feature diagnostics** `aadea1ecd875232d72968cb9a30a5bdcff45337d`: add only the generic registry/journal/report CLI from same owner's sibling #106 pattern, not TierDB business logic; `build.item_pool` records ok/final_items, failed/no_final_items or skipped/unverified (count only), session start in ASGI lifespan. Non-rendered decision needs no UI ack. Registry/journal union with #106 is a future integration gate; all other P0 feature IDs remain pending.
+- New documentation-only continuation checkpoint creates new HEAD; verify exact code+docs Windows Actions before asserting GREEN. Owner local version v4/Mayhem shop and Stat Anvil UI NOT TESTED; #49/P0 remain open. No branch merges, main/TierDB/data changes; keep local untracked `funcionalidades.md` untouched.
+## 2026-11-23 — Owner: per-feature P0 diagnosis + observed Windows checkout (documentation only)
+
+- Read owner-approved `docs/plans/GPT_BRIEF_TIERDB_2026-11-23.md` on separate docs branch and the working reference `docs/plans/FEATURE_DIAGNOSTICS.md`, `backend/feature_registry.py` and `docs/plans/SINGLE_MATCH_TEST_CHECKLIST.md` on sibling draft #106. The owner's rule is **id per P0 feature + exact diagnostic tuple test + checklist row + single final end-to-end Mayhem match**. In #107 those generic modules were not present, so this commit only records the rule and planned IDs/tests; no false claim of an event journal, server ack, or native acceptance. Preserve TierDB isolation and reconcile shared code before implementing.
+- Owner Windows screenshots located the actual checkout in child `aram-oracle` beneath a non-repo workspace. `origin` matched this repo and `upstream` was the separate league-aram-builder. The local branch was the F3 parent and `funcionalidades.md` was untracked; it must not be cleaned/overwritten/committed. No user P0 branch switch or v3 aggregate output confirmed.
+- Prior #107 HEAD `e7a4cd017a8a64f4e2b50e0c608847e5ad865d5b` had both [Windows jobs #45195144349](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45195144349) SUCCESS. New documentation HEAD must be rechecked separately. No product code, main, TierDB or other draft PR changed; native gates and P0 remain OPEN.
+
+## 2026-11-23 — Owner policy fix: stop premature conversation handoffs (docs only)
+
+- The owner clarified that the assistant must provide a **next-session prompt automatically only when the current phase is fully completed**, not after a documentation checkpoint or passing CI. When mandatory acceptance is still open, remain in this phase and give blockers and ordered instructions to resolve them. Explicit owner-requested transfers may produce a same-phase prompt.
+- Updated the authoritative policy in `AGENTS.md` and `.agents/skills/continue-aram-oracle/SKILL.md`; marked historical prompt-every-subphase rules as superseded. Synced state/TODO/phases. No product code, TierDB, item eligibility or Anvil mechanics changed, and no native tests were run.
+- Before this docs-only update, draft #107 HEAD `e90e85b5acb93f2734d0a9af4360fe39ec56d2b6` passed exact [Windows #45192060535](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45192060535) (2,068 Python/27 skip, 87 JS, three syntax, 35 pinned v4). The new documentation commit will require a new exact-head CI check. Current P0 remains incomplete: owner local v3 cache report missing, #49 native item gate open, Anvil real option vocabulary/geometry and custom Mayhem not tested. No merge, main or TierDB changes.
+
+## 2026-11-23 — P0 follow-up evidence checkpoint, no product code change
+
+- Read `AGENTS.md`, the continuation skill, current state/TODO/log/phases, P0 offline report, and the independent audit from the separate documentation #105 branch without incorporating TierDB work.
+- Independently rechecked draft/unmerged #107 directly on #103 and exact HEAD `6c84c823b453443ce7862d104c881a611ddf7245`. Windows [#45189586795](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45189586795) two jobs SUCCESS, with logs showing 2,068 Python PASS / 27 SKIP, 87 JS PASS, three JS syntax checks and 35 pinned-model PASS. Workflow checked PR merge ref `c7c8bce964283cb5c45b5ab9c98a75954173f0a8`, not an in-game session.
+- Source inspection: `scripts/item_pool_report.py` reads only saved cache classifications and cannot retrieve original DD/CD disagreement details; `item_policy.py:sources_agree` enforces exact prices and direct recipe lists. Owner PC current-policy v3 output is unavailable, so no source-agreement correction or production-code RED/GREEN was justified. Historical cache v2 and test fixtures do not prove #49 resolved. Voucher observer only returns local positive-stack signals; Anvil popup/option corpus/geometry and custom-game validation remain blocked/not tested.
+- Added a sanitized evidence and blocker note to draft #107 conversation (no personal data). This record is a documentation-only handoff and creates a NEW commit/SHA requiring independent post-commit Windows CI. Remain in the same P0 subphase; preserve main, stacked drafts and TierDB branch/plans/database/tier lists. No merge.
+
+## 2026-11-23 — P0 independent-audit repairs, isolated draft #107\n\n- Parent is draft #103 at `e0772f44d8b854aa0eef0808e83fb2e1250bf92f`; independent audit text was read from #105 without bringing TierDB commits into the product branch. Main, TierDB code/database/plans and all upstream drafts remain untouched.\n- Parser tests-only `cafc0a24`: [Windows RED #45187742193](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45187742193) had four expected new assertion failures (MR pen/shield, MS HP, mixed stats, old schema), independent pinned v4 job passed. Updated parser to fail closed for unmodelled MR/MS rather than rewrite meaning; bump augment cache v4→v5 and align old fixture tests.\n- Offline item cache reporter tests-only `ce91deef`: [Windows RED #45187968989](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45187968989) failed on expected missing module; reporter added without network, game, cache refresh or personal data. It counts saved `item_pool_v2` and `v3` separately but cannot attribute source conflicts from cached classes. User-device v3 truth **NOT TESTED**; classification rules unchanged.\n- LCDA Anvil Voucher tests-only `3e742012`: [Windows RED #45188190601](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45188190601) failed on expected missing module; code now observes active-player-only voucher `220008/220009` positive stack edges and records a pending internal trigger, never a verified visual offer or picked stat. No catalogue fabricated; real popup geometry/identity **BLOCKED**.\n- New synthetic source-to-poll tests; exact final code+docs Windows Actions **PENDING**, real League/Windows user validation **NOT TESTED**. This is not a claim that #49 or native Anvil scoring is fixed. Next collect v3 PC aggregate report and an approved native voucher/popup sample under private/local safety protocol; do not merge.\n\n
 ## 2026-11-22 — V1.2c exact-head CI evidence verified, native gate unchanged
 
 - [Draft #83](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/pull/83) still OPEN/DRAFT, direct base #80 (on #78→#76); repo intentionally PUBLIC; `main` and research branches unchanged. Exact before-checkpoint HEAD `a8ab76876f2e16d5aa08d714a9032905aaa79d78` independently checked against [Windows #45025052086](https://github.com/francisco-fuzeiro/aram-mayhem-overlay/actions/runs/45025052086): standard test job 1,977 Python PASS / 27 SKIP, 78 JS PASS, three syntax; v4 pinned-model product job 35 PASS. Job logs reviewed, both SUCCESS. No code changed or new RED/GREEN cycle required; the historical F1 concurrency timeout cause remains unknown.
@@ -1039,3 +1191,280 @@ Use a date/time in Europe/Lisbon, branch/PR, files changed, why, test command an
 - Added `docs/plans/ADAPTIVE_SCORING_ANVILS_PRODUCT_CONTRACT_2026-11-23.md`: full roster per champion/context, numeric score + calibrated grade + meaningful tied ranking/denominator, patch/rarity/coverage/uncertainty; bought Stat Anvil popup at *any* inventory stage, actual OCR options only, full-build boots MS swap then stats; contextual, unobtrusive in-game display. New specs are **not equivalent to passing code**.
 - Added `docs/audits/CLAUDE_FULL_REVIEW_BRIEF_2026-11-23.md` with scoped read-only source inspections, code paths/math, five open P0/P1 issues, Riot/data license and native Windows acceptance questions and structured report requirements. Added `docs/audits/UX_AUDIT_SOURCE_NOTES_2026-11-23.md` as text-only summary of project-provided historic screenshot audit, excluding private screen pixels and web media placeholders. No AI Claude review result exists yet.
 - Linked documents from PROJECT_STATE/TODO and prepare pointer comment to #84 and #49. New audit docs-only commits require exact new final Windows gate; do not claim native popup triggered, OCR right, physical 4 cards supported, picked ID automatic or global tier/rank implemented.
+
+## 2026-11-23 — Local 10-player Mayhem history and impact metric (draft #108)
+
+- Owner approved importing local LCU Mayhem history for all 10 players. New local
+  `participants` table (salted local game key, no names/PUUIDs/summoner/match IDs,
+  never submitted); remakes skipped; existing own-game import unchanged.
+- `backend/tierdb/impact.py`: per game z(damage/min) + z(heal+shield/min) against
+  the champion's own baseline, summed, no role labels (owner refinement: full-AP
+  Sona counts by damage). Shrunk by n, bounded to [-1, 1].
+- `context_adjust` gains an `impact` vote with weight 0 (off). Gate:
+  `scripts/validate_impact_holdout.py` must return `enable` on real local history.
+- The LCU list returns at most 20 games per sync; ~1000 games at once would need
+  Riot SGP (owner decision pending). Doc: `docs/plans/TIERDB_IMPACT_METRIC_2026-11-23.md`.
+- Follow-up: the sync now pages the LCU match list (20 per page, up to 1000, 0.3 s
+  pause) and stops when a page brings nothing new. Whether the client honours the
+  indices beyond the newest 20 is unverified until run on a real client.
+- Normal-ARAM (450) damage prior: offline Riot match-v5 collector, key only from
+  RIOT_API_KEY, local per-champion aggregates only, blended into the impact
+  baseline (20 pseudo-games). Aggregates stay out of the repo pending Riot policy.
+
+## 2026-11-23 — Field test (Master Yi, e38fd2e) follow-ups (draft #108)
+
+- Report: every always-expected feature OK. Pick inference fired twice (1 ok,
+  1 ambiguous) for 4 offers; the player used Alt+1/2/3. `card_presence.infer_pick`
+  now takes the card under the cursor last (within 1 s before the cards vanish)
+  instead of abstaining when two cards were hovered; Alt+N still corrects.
+- Master Yi build had no attack speed: AramHex 16.23 data (531k Yi games) ranks the
+  crit/lethality core (Collector, IE, LDR) top in both play and win rate; Terminus is
+  A-tier #6, just outside six slots. Not a code bug. Stat demand now blends what
+  players build (games-weighted) with the tier order: Yi AS 5% -> 8%.
+- Open: one offer produced no disappearance event at all; the level-18 offer had
+  no OCR read before the game ended; no Stat Anvil purchase edge was seen.
+- Second report (same app session): Stat Anvils bought, nothing shown. Cause
+  [Provável]: the popup watcher returned early whenever an augment window was open
+  but not yet read (level reached, cards not shown or pick postponed), which in
+  Mayhem can last minutes. Now it is blocked only once augment titles were read.
+  New always-expected diagnostic `anvil.popup_watch` says why each tick did or did
+  not look (no_cards, titles_partial, augment_cards_read, ocr_off, ...).
+- Owner: a Yi build with no attack speed is not acceptable. Reference builds now
+  keep one attack-speed item when attack-speed items appear in >= 60% of the
+  champion's games and the core is not AP: the last tier slot becomes the best-
+  ranked AS item (source `stat`, core untouched). 16.23: Yi gets Terminus; 8 of 173
+  champions affected. Tier DB schema migrates `reference_build.source`.
+- Third report still showed the 20:56 session and no `anvil.popup_watch` row: the
+  old app process was never restarted. The report now prints `Running code: <sha>`
+  (from `session_start`), or `unknown` for a stale or packaged process. The Anvil
+  watcher shares the poll tick with augment OCR, so while an augment window is open
+  it now looks at most once every 3 s (`anvil.popup_watch skipped/throttled`).
+- Kha'Zix field report: build rushed Death's Dance with no lethality. Cause: all three
+  AramHex cores were < 5 % pick (spread builds), so no core qualified and slots 1-6
+  came from item win rate alone (DD 53.9 % on 27k games vs Hubris 48.6 % on 174k).
+  35/173 champions were in this state. Fallback: if no core reaches 5 % pick, use the
+  source's top cores with >= 5,000 games. Now 172/173 champions start from a core;
+  Kha'Zix: Hubris -> Voltaic Cyclosword -> Serylda's, then DD/Sterak's/Youmuu's.
+- Owner batch before the next test match: (1) latency: polling every 1 s while an
+  augment window is open and unread; report gains per-window "first read" time and
+  time per OCR scan stage, plus `augment.read_latency` buckets. (2) Boots: default =
+  most-played boots on the champion (Yi: Berserker's); live, with >= 3 analysed
+  enemies, heavy CC -> Mercury's, heavy physical damage -> Plated Steelcaps, with the
+  reason shown. (3) `enemy.detection` (always expected): enemies listed vs analysed.
+  (4) Full Mayhem build + Stat Anvil estimate shown only when dead, in the first
+  60 s, or pinned with Alt+B; otherwise only the next item (no shop-open signal in
+  Live Client Data, so death/start is the proxy).
+- Real match on 892f379: enemies detected (5/5). Time from cards on screen to first
+  verified read: ~0 s, ~10 s, ~11 s, ~13 s (the rest of "first read" was the player
+  opening the offer later). Causes in the stages: titles_verifying/transition and
+  capture_invalid. Fixes: two consecutive reads naming the same augment now verify
+  even if the crop hash moved (animated cards); a repeated capture frame gets one
+  more fresh attempt in the same tick. Report adds "OCR after cards shown".
+- Anvil watcher saw "no_cards" 30x: the augment card-background cue may not match
+  the Stat Anvil popup. Every 4 s it now OCRs the titles regardless of the cue.
+- Three reports in a row still came from 892f379 after "update and reopen": a new
+  launch only re-activated the running instance, and the desktop host reuses any
+  compatible API on port 8765. Now the instance descriptor and /health carry the
+  code version: a launch with different code asks the old instance to quit and
+  takes over, and an API running other code is refused with a clear message.
+  (Instances older than this change cannot be asked to quit: close them by hand once.)
+
+## 2026-11-24 — Next-item alternatives, Grievous Wounds, own sustain
+
+- Owner request: with the shop open, show up to 3 alternatives to the next
+  item, each with a reason (e.g. heavy enemy magic damage → magic resist).
+- Grievous Wounds leads the alternatives when the enemy team heals a lot
+  (sustain_pressure ≥ 0.35 or ≥ 3 healing items) and nothing anti-heal is
+  planned or owned; pool = tier-list finals, else the recommendable shop pool.
+- Own sustain (champion heal/shield power plus confirmed augment
+  contributions) adds a bounded bonus to heal/shield power items.
+- Alternatives respect the build archetype (AD/AP), skip boots, owned and
+  conflicting items. Heuristic context over measured item ranks.
+- Shop-open visual detection still pending a full-window screenshot.
+
+## 2026-11-24 — Situational item rules from the itemization research
+
+- New `backend/engine/situational_items.py`: rule table from
+  REGRAS_ITEMIZACAO_SITUACIONAL (GW1-3, CC1-2, BU1, MR1-5, AR1-6, SH1-2,
+  PEN1-2, HP1-2, OH1) over visible enemy champions, items and scores, our
+  champion, items and confirmed augments (Grievous Venom, Fallen Aegis).
+- Curated champion lists (healers, shielders, enchanters, burst, poke,
+  on-hit, suppression) because repo `heal_power` is a stat weight.
+- Items resolve by name against the available shop pool (fail closed).
+  Never two Grievous Wounds; at most 2 situational alternatives.
+- Priority-1 rules (heavy healing, suppression, fed assassin) replace Next,
+  shown with its reason. All thresholds live in THRESHOLDS: proposals.
+- Assumes normal ARAM; Mayhem item differences not verified.
+
+## 2026-11-24 — Four-card augment offers; chained Stat Anvils
+
+- Field report (7ddf862): a match with four-card offers (the whole match)
+  read no augment for 3 minutes; of three Stat Anvils opened back to back
+  only the first was shown.
+- Four cards: `four_title_bands` (centres at +-0.5/+-1.5 pitch, checked on
+  the owner's screenshots, not stored). The augment watcher reads the four
+  titles with the same strict matcher, verifies with two reads (second a
+  fresh capture) and exposes `four_offer`; the three-slot ledger path stays
+  closed. Server keeps `state.four_offer`, shows it with tiers, infers the
+  pick from the cursor over four card bodies (`four_card_cue`), Alt+1..4
+  confirm (`OfferLedger.confirm_four`). A four-card row also opens the
+  augment window through the OCR-free probe.
+- Anvils: after a popup closes (and while vouchers are held) the Anvil
+  watcher is not throttled for 15 s and the 0.3 s presence probe triggers
+  it as soon as cards show, so chained popups picked in 1-2 s are read.
+
+## 2026-11-24 — Shop-open detection (draggable shop)
+
+- Owner: full build only while the shop is open; the shop can be dragged
+  and keeps its position. `shop_detect.shop_frame_found` looks for the shop
+  frame anywhere in the client: a gold top border >= 0.45 x client height
+  with gold side borders at both ends (cards are 0.29 x height). Checked on
+  the owner's screenshots (shop found; augment, four-card and Anvil screens
+  not), ~55 ms per look, once per second, in memory only.
+- Debounced (open on one sighting, closed after two misses), pushed to the
+  overlay as `shop_state`; dead / first minute / Alt+B still show it too.
+
+## 2026-11-24 — Alternatives always three, healing as a context axis, Tear
+
+- Owner: always three options beside the plan (strongest item left + two
+  alternatives), one item per reason (anti-heal, kills tanks, anti-burst,
+  spell shield vs hooks/long-range CC, resistances, healing amp), with
+  distinct fallbacks ("more survivability", "more damage") so the three
+  reasons never repeat. New situational rule SS1 (Banshee's / Edge of Night
+  vs >= 2 hook/engage champions); PEN rules now prefer BotRK / Liandry's.
+- Healing: curated self-healers (Maokai and Zac moved to strong) or a build
+  with lifesteal/omnivamp feed the augment ±1 adjustment ("sustain" vote,
+  base tier untouched) and favour Spirit Visage (by name: its healing amp is
+  passive text, not a Data Dragon stat). Two or more visible enemy Grievous
+  Wounds items cancel/halve it. Fix: the "enemies cut healing" vote looked at
+  enemy HEALING items; it now counts their anti-heal items
+  (EnemyThreatProfile.anti_heal_items).
+- Mana-stacking items: Tear of the Goddess becomes Next early while a Tear
+  item is planned. Whispering Circlet (transform not buyable) is now a final
+  item (policy item_pool_v6); Manamune/Archangel's/Winter's were already final.
+
+## 2026-11-24 — Augment parser audit fixes and curated effects table
+
+- Parser (fallback for augments without curated data): "armor" no longer
+  maps to shield (armor stays unmodelled, like MR); "true damage" maps to
+  penetration, not lethality; keywords match inflections (heal/heals/
+  healing/healed; two-letter keywords stay exact); magnitude counts repeats
+  (+0.3, then +0.1 per repeat, up to 3); when the Arena description is
+  missing the CommunityDragon description/tooltip is cleaned and parsed.
+- Curated effects table `data/augments/curated_effects.json` (~53 common
+  Mayhem augments, 0–1 weights, hand-written from the in-game text). It wins
+  over the parser and marks provenance "curated". Cache schema 7.
+- PP-OCRv4 / RapidOCR Apache-2.0 notice in THIRD_PARTY_NOTICES.md; the
+  settings About card credits AramHex (CC BY-NC 4.0) and PP-OCRv4.
+
+## 2026-11-24 — Impact metric gated by the holdout; history import in Settings; title geometry by height
+
+- `backend/tierdb/impact_gate.ImpactGate` re-runs the temporal holdout
+  (`backend/tierdb/impact_holdout.evaluate`, moved out of the script) at
+  startup and after every import. Only when the verdict is `enable` does the
+  server pass `impact=` to `context_adjust`, with vote weight 0.20; otherwise
+  nothing changes. Counts and verdict only, never champions or players.
+- Settings > Tier lists: "Your match history (local)" switch (stored in
+  ~/.aram-oracle/history_preferences.json, off by default) and an
+  "Import recent games" button (200 games). `/api/history` GET/PUT; the
+  import endpoint accepts the switch or the old config flag.
+- Card title bands, layout strips and four-card bands scale with the client
+  HEIGHT (offset from the centre in height units), as League's centred UI
+  does. Unchanged at 2544x1353; 1080p boxes move a few pixels.
+
+## 2026-11-24 — Augment descriptions: 258 of 480 were empty
+
+- The loader matched CommunityDragon's Arena strings by display name only;
+  Mayhem renames many augments, so 258 of 480 had no text and the parser
+  had nothing to read. Now matched by `augmentNameId` (with/without the
+  `ARAM_` prefix) against the Arena `apiName`, then by id (Arena-range ids
+  only), then by name; `tooltip` is used when `desc` is empty. Cache
+  schema 8. Not measured on live data from here (CommunityDragon is not
+  reachable from the build container); check the count on the PC.
+
+## 2026-11-24 — Augment synergies S1–S70 (Proposta)
+
+- `data/augments/synergies.json` (96 rules from the research file, Part 2)
+  and `backend/engine/augment_synergies.py`. Rules on game data (item tags,
+  planned/owned items, hard-CC count of the kit, live attack range, resource
+  type and summoner spells, augments already chosen) apply now. Rules on
+  curated champion lists ("provavel") only count once the player's own
+  history agrees (>= 30 games of that augment on that champion, win share
+  on the rule's side of the champion's own). All switchable in the file.
+- Blocks (Overflow / Mind to Matter without mana, Snowball augments without
+  Mark, Flashy without Flash, Draw Your Sword on melee, Back To Basics with
+  an ultimate augment) show the augment as tier E with the reason. Other
+  rules join the ±1 context adjustment, total capped at ±1. Unknown data
+  never fires a rule.
+- Live Client snapshot now carries summoner spell names and resourceType.
+- S70: Swindler's Orb / Chemtech Putrifier also suppress the Grievous
+  Wounds rules, like Grievous Venom. The "Build:" parts of the research
+  (raise specific items in the shop list) are not wired yet.
+
+## 2026-11-24 — Post-game reconciliation of the chosen augments
+
+- When a match ends and the history switch is on, the server waits for the
+  client to publish the game (20/40/60 s), reads our own `playerAugmentN`
+  from the local LCU match history and reconciles the match's offers:
+  each offer whose titles include a taken augment becomes `reconciled`
+  (pick source `postgame`); four-card offers, which keep no slot titles,
+  match by pick or by order. Diagnostics `augment.postgame_reconcile`
+  report agreed / corrected / unmatched counts only. The finished game is
+  then imported and the impact holdout re-run.
+
+## 2026-11-24 — First start after an update took minutes
+
+- Field: the first start of 1202913 spent several minutes downloading the
+  catalogs again (cache schema change) and the desktop gave up at 15 s, so
+  the download never finished. Now the game data loads in a thread with a
+  40 s budget: past it the API starts anyway and the data appears when the
+  download ends; a stack dump of all threads prints at 25 s to show what is
+  slow. Without CommunityDragon the newest older augment cache is used.
+- Measured in the container: tiers + ±1 adjustment + synergies for 4 cards
+  take ~1.3 ms per refresh, far inside the 5 s budget for augments.
+
+## 2026-11-24 — Report of the acc6577 match: diagnostics for enemies and post-game
+
+- Augments: OCR took 0.4–0.5 s after the cards were on screen; the rest of
+  "first read" (4.4 s at level 3, 8.2 s at level 7) was `cards_absent`, i.e.
+  the title bands showed no card background. Either the cards were not open
+  yet or the presence cue missed them: asked the owner.
+- `enemy.detection` now tells "Live Client listed no players" apart from
+  "we were not found among the players" (`player_unidentified`), which is
+  what hides the enemy team. `augment.postgame_reconcile` records
+  `no_offers` when a match ends with nothing to reconcile.
+
+## 2026-11-24 — Match feedback: Anvil options, vamp builders, champion strength label
+
+- Stat Anvil: all shards are always listed (the "Other options" dropdown
+  could not be opened in game: the overlay is click-through).
+- Owner rule: champions whose usual build has life steal / omnivamp (Akali
+  with Gunblade, Fiora...) gain from more vamp and healing, not only
+  champions with healing abilities. `situational_items.VAMP_BUILDERS`
+  (Proposta) or a planned vamp item raise the sustain level to 1.0; sustain
+  joins the build demand, so Goredrink / Warlock Juicebox (curated) fit the
+  build; vamp items get "more vamp for your sustain".
+- Champion select: the strength line names the tier and rank explicitly.
+- The badges above the cards with "x/222" are not ARAM Oracle's (another
+  app); ours is the side panel.
+
+## 2026-11-24 — One augment list per champion across all rarities
+
+- Owner decision: a reroll can bring a card of another rarity, so augments
+  are ranked in ONE list per champion (all rarities), ordered by the blended
+  posterior-median ΔWR (same champion/role/global nesting as the score).
+  `augment_tier.rank_all` (additive migration), exported as `rank_all`; the
+  provider uses it as the rank and the tier is the position (OP 1–5, S 6–15,
+  ...). Older exports keep the per-rarity ranks until the next update.
+- Overlay label: "#n/N" of all augments; per-rarity exports say the rarity.
+
+## 2026-11-24 — Augments without champion games rank last (tier E)
+
+- A validation check against an external Mayhem tier list (analysis only, nothing imported) showed ~40% of each champion's top 30 augments had zero games on that champion: their score came from the class/global levels (Draw Your Sword on melee champions, Blue Barrier on manaless Rengar, enchanter augments on Akali).
+- Owner decision 24/11: such augments rank after every augment with champion games, with tier E, and stay visible. New level `borrowed` (cap E, confidence low) in `backend/tierdb/augment_tiers.py`; applies to the per-rarity ranks and `rank_all`; overlay text "no games on this champion".
+- Re-export needed on the PC: Settings › Tier lists › Update now.
+
+## 2026-11-24 — Mayhem augment catalog from the League of Legends Wiki
+
+- `data/augments/mayhem_catalog_wiki.json`: 244 names + rarities from wiki.leagueoflegends.com (CC BY-SA 3.0, confirmed via the wiki's siteinfo API), attribution in THIRD_PARTY_NOTICES. Validation reference only.
+- Cross-check: AramHex 16.23 lists 237 augments; 4 rarity disagreements (Terror, BONK!, Pin Cushion, Flow of Spirit). 10 entries of `curated_effects.json` are not Mayhem augments on the wiki (Arena-only or removed): Fallen Aegis, Grievous Venom, Holy Fire, Lightning Strikes, Quantum Computing, Slow Cooker, Tormentor, Twice Thrice, Warmup Routine, Vampirism.

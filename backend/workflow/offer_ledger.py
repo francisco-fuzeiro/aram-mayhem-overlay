@@ -14,7 +14,7 @@ from backend.workflow.picked_augment import (
 
 OfferState = Literal["due", "visible", "awaiting_confirm", "confirmed", "reconciled"]
 IdentitySource = Literal["ocr", "user_identify"]
-PickSource = Literal["user_confirm", "postgame", "verified_external"]
+PickSource = Literal["user_confirm", "postgame", "verified_external", "cursor_inferred"]
 SLOTS = ("left", "centre", "right")
 CANDIDATE_QUIET_S = 6.0
 
@@ -186,9 +186,13 @@ class OfferLedger:
         offer = self._checked(offer_id, epoch)
         if offer.state == "confirmed":
             if offer.picked_id == augment_id:
+                if offer.pick_source == "cursor_inferred":
+                    offer.pick_source = "user_confirm"  # user agrees
                 return offer  # idempotent; never close the newest offer again
-            raise LedgerError("offer_closed")
-        if offer.state not in ("visible", "awaiting_confirm"):
+            if offer.pick_source != "cursor_inferred":
+                raise LedgerError("offer_closed")
+            # The user corrects an inferred pick (Alt+N): their word wins.
+        elif offer.state not in ("visible", "awaiting_confirm"):
             raise LedgerError("offer_closed")
         if augment_id not in (item.augment_id for item in offer.slots.values()):
             raise LedgerError("not_in_offer")
@@ -270,8 +274,7 @@ class OfferLedger:
         )
         return offer, True
 
-    def confirm_slot(self, slot: str) -> Offer:
-        self._slot(slot)
+    def _slot_target(self) -> Offer | None:
         target = next(
             (offer for offer in self.offers if offer.state == "awaiting_confirm"),
             None,
@@ -281,10 +284,88 @@ class OfferLedger:
                 (offer for offer in reversed(self.offers) if offer.state == "visible"),
                 None,
             )
+        return target
+
+    def confirm_inferred(self, slot: str) -> Offer:
+        """Cards vanished with the cursor over one card: a correctable pick.
+
+        Never overrides a user/postgame/provider pick; Alt+N replaces it.
+        """
+        self._slot(slot)
+        target = self._slot_target()
+        if target is None or target.slots[slot].augment_id is None:
+            raise LedgerError("bad_slot")
+        offer = self.confirm(target.offer_id, target.epoch, target.slots[slot].augment_id)
+        offer.pick_source = "cursor_inferred"
+        return offer
+
+    def confirm_four(self, augment_id: str, four_ids, *, inferred: bool) -> Offer:
+        """Field 24/11: a FOUR-card offer is read outside the three slots.
+
+        The pick must be one of the four verified titles. It closes the
+        newest open offer (due, visible or awaiting); an inferred pick never
+        overrides a user/provider one and the user can correct it (Alt+N).
+        """
+        ids = [i for i in (four_ids or ()) if isinstance(i, str) and i]
+        if not isinstance(augment_id, str) or augment_id not in ids:
+            raise LedgerError("not_in_offer")
+        target = next((o for o in reversed(self.offers)
+                       if o.state in ("due", "visible", "awaiting_confirm")), None)
+        if target is None and self.offers and self.offers[-1].pick_source == "cursor_inferred":
+            target = self.offers[-1]
+        if target is None:
+            raise LedgerError("offer_closed")
+        if target.state == "confirmed" and inferred:
+            raise LedgerError("offer_closed")
+        target.picked_id = augment_id
+        target.pick_source = "cursor_inferred" if inferred else "user_confirm"
+        target.candidate_id = None
+        target.candidate_source = None
+        target.state = "confirmed"
+        return target
+
+    def confirm_slot(self, slot: str) -> Offer:
+        self._slot(slot)
+        target = self._slot_target()
+        if target is None and self.offers and (
+                self.offers[-1].pick_source == "cursor_inferred"):
+            target = self.offers[-1]  # correcting the inferred pick
         if target is None or target.slots[slot].augment_id is None:
             raise LedgerError("bad_slot")
         return self.confirm(target.offer_id, target.epoch,
                             target.slots[slot].augment_id)
+
+    def reconcile(self, final_ids) -> dict:
+        """Post-game truth (LCU ``playerAugmentN``) over the live picks.
+
+        Every offer whose visible titles include one of the augments the
+        match history says were taken becomes ``reconciled`` with that pick
+        (source ``postgame``). Returns counts only: agreed (live pick was
+        right), corrected (live pick wrong or missing), unmatched (no
+        title of that offer is in the final list).
+        """
+        final = [str(a) for a in final_ids or () if a]
+        counts = {"agreed": 0, "corrected": 0, "unmatched": 0}
+        used: set[str] = set()
+        for index, offer in enumerate(self.offers):
+            seen = [i.augment_id for i in offer.slots.values() if i.augment_id]
+            if offer.picked_id:
+                seen.append(offer.picked_id)
+            hit = next((a for a in final if a in seen and a not in used), None)
+            if (hit is None and not any(i.augment_id for i in offer.slots.values())
+                    and index < len(final) and final[index] not in used):
+                # Four-card offers keep no slot titles: the history lists
+                # picks in order, so the n-th offer took the n-th augment.
+                hit = final[index]
+            if hit is None:
+                counts["unmatched"] += 1
+                continue
+            used.add(hit)
+            counts["agreed" if offer.picked_id == hit else "corrected"] += 1
+            offer.picked_id = hit
+            offer.pick_source = "postgame"
+            offer.state = "reconciled"
+        return counts
 
     def active_augment_ids(self) -> list[str]:
         return [

@@ -122,7 +122,7 @@ def test_conditional_currency_item_absent_from_loaded_build_candidates(monkeypat
     assert actual.build_state.next_item_id != "3074"
     assert actual.build_state.boot_replacement is None
     # All other fixture candidates retain the existing two-source proof.
-    assert len(data.recommendable_items()) == 110
+    assert len(data.recommendable_items()) == 111
 
 
 def test_old_policy_cache_cannot_promote_unsafe_item_when_sources_unavailable(

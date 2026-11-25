@@ -47,6 +47,14 @@ def main() -> int:
     parser.add_argument("--check", action="store_true",
                         help="Verify an already installed model, without network")
     args = parser.parse_args()
+    try:
+        import onnxruntime  # noqa: F401
+    except ImportError:
+        if args.check:
+            print("ONNXRUNTIME_MISSING")
+            return 1
+        subprocess.run([sys.executable, "-m", "pip", "install",
+                        "--disable-pip-version-check", "onnxruntime==1.20.1"], check=True)
     destination = default_model_path()
     if destination.is_file():
         verify_model(destination)
@@ -67,7 +75,8 @@ def main() -> int:
             raise ValueError("Expected exactly one pinned wheel")
         extract_verified_model(wheels[0], destination)
     print("PPOCRV4_MODEL_INSTALLED_AND_VERIFIED")
-    print("Activate only for a controlled session: ARAM_ORACLE_OCR_ENGINE=ppocrv4")
+    print("Restart ARAM Oracle: PP-OCRv4 is used automatically "
+          "(ARAM_ORACLE_OCR_ENGINE=tesseract forces the old engine).")
     return 0
 
 

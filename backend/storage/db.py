@@ -30,7 +30,42 @@ CREATE TABLE IF NOT EXISTS augment_stats (
     wins        INTEGER DEFAULT 0,
     PRIMARY KEY (augment_id, champion_id)
 );
+
+-- All 10 players of each finished local Mayhem game (owner decision 23/11).
+-- Local-only and never submitted: no names, PUUIDs, summoner IDs or match IDs;
+-- `game` is a salted local hash of the match id.
+CREATE TABLE IF NOT EXISTS participants (
+    game                TEXT NOT NULL,
+    slot                INTEGER NOT NULL,
+    duration            INTEGER NOT NULL,
+    team                INTEGER,
+    champion_id         TEXT NOT NULL,
+    win                 INTEGER,
+    augments            TEXT NOT NULL,
+    items               TEXT NOT NULL,
+    damage_to_champions INTEGER,
+    heal_shield         INTEGER,
+    heal_total          INTEGER,
+    kills               INTEGER,
+    deaths              INTEGER,
+    assists             INTEGER,
+    is_self             INTEGER DEFAULT 0,
+    imported_at         TEXT NOT NULL,
+    PRIMARY KEY (game, slot)
+);
+
+CREATE TABLE IF NOT EXISTS local_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
+
+MIN_GAME_SECS = 300  # shorter games are remakes
+_PARTICIPANT_FIELDS = (
+    "game", "duration", "team", "champion_id", "win", "augments", "items",
+    "damage_to_champions", "heal_shield", "heal_total", "kills", "deaths",
+    "assists", "is_self",
+)
 
 
 def init_db(db_path: Path | None = None) -> None:
@@ -186,6 +221,86 @@ def mark_submitted(game_ids: list[str], db_path: Path | None = None) -> None:
             )
     except sqlite3.Error as e:
         logger.error("Failed to mark games submitted: %s", e)
+
+
+def _local_salt(con: sqlite3.Connection) -> str:
+    con.executescript(SCHEMA)
+    row = con.execute("SELECT value FROM local_meta WHERE key='game_salt'").fetchone()
+    if row:
+        return row[0]
+    import secrets
+    salt = secrets.token_hex(16)
+    con.execute("INSERT INTO local_meta(key, value) VALUES ('game_salt', ?)", (salt,))
+    return salt
+
+
+def _game_key(con: sqlite3.Connection, game_id: str) -> str:
+    import hashlib
+    return hashlib.sha256(f"{_local_salt(con)}:{game_id}".encode()).hexdigest()[:16]
+
+
+def participants_exist(game_id: str, db_path: Path | None = None) -> bool:
+    try:
+        with _connect(db_path or DB_PATH) as con:
+            key = _game_key(con, str(game_id))
+            return con.execute("SELECT 1 FROM participants WHERE game=? LIMIT 1",
+                               (key,)).fetchone() is not None
+    except sqlite3.Error:
+        return False
+
+
+def record_participants(game_id: str, duration: int, rows: list[dict],
+                        db_path: Path | None = None) -> int:
+    """Store all players of one game once; returns rows inserted (0 for remakes)."""
+    if not rows or int(duration or 0) < MIN_GAME_SECS:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        with _connect(db_path or DB_PATH) as con:
+            key = _game_key(con, str(game_id))
+            if con.execute("SELECT 1 FROM participants WHERE game=? LIMIT 1",
+                           (key,)).fetchone():
+                return 0
+            con.executemany(
+                "INSERT INTO participants (game, slot, duration, team, champion_id, win,"
+                " augments, items, damage_to_champions, heal_shield, heal_total, kills,"
+                " deaths, assists, is_self, imported_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                [(key, i, int(duration), r.get("team"), r["champion_id"],
+                  None if r.get("win") is None else int(bool(r["win"])),
+                  json.dumps(list(r.get("augments") or [])),
+                  json.dumps(list(r.get("items") or [])),
+                  r.get("damage_to_champions"), r.get("heal_shield"),
+                  r.get("heal_total"), r.get("kills"), r.get("deaths"),
+                  r.get("assists"), int(bool(r.get("is_self"))), now)
+                 for i, r in enumerate(rows)],
+            )
+            return len(rows)
+    except sqlite3.Error as e:
+        logger.error("Failed to record participants: %s", e)
+        return 0
+
+
+def get_participants(db_path: Path | None = None) -> list[dict]:
+    """All stored participant rows, oldest import first (for temporal holdouts)."""
+    try:
+        with _connect(db_path or DB_PATH) as con:
+            con.executescript(SCHEMA)
+            rows = con.execute(
+                "SELECT " + ", ".join(_PARTICIPANT_FIELDS) +
+                " FROM participants ORDER BY imported_at, rowid").fetchall()
+    except sqlite3.Error as e:
+        logger.error("Failed to read participants: %s", e)
+        return []
+    out = []
+    for row in rows:
+        d = dict(zip(_PARTICIPANT_FIELDS, row))
+        d["augments"] = json.loads(d["augments"] or "[]")
+        d["items"] = json.loads(d["items"] or "[]")
+        d["win"] = None if d["win"] is None else bool(d["win"])
+        d["is_self"] = bool(d["is_self"])
+        out.append(d)
+    return out
 
 
 def _connect(db_path: Path | None = None) -> sqlite3.Connection:

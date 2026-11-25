@@ -1,13 +1,27 @@
-"""Registry of feature ids for per-feature diagnostics (no imports, no I/O).
+"""Strict per-feature P0 diagnostics, compatible with the shared TierDB pattern.
 
-Every user-visible feature that a single end-to-end match test exercises gets
-a dotted id (``area.name``) plus a closed set of reasons. Add new ids and
-reasons here; free text never reaches the journal.
+Merge the UNION of P0 and TierDB IDs/reasons on eventual integration with
+sibling PR #106. Never log champion/player identities, OCR text or paths.
 """
 from __future__ import annotations
 
-# id -> (expected during one full Mayhem match test, short description)
 FEATURES: dict[str, tuple[bool, str]] = {
+    "build.item_pool": (True, "Current-patch public item catalog has safe final items"),
+    "augment.stats_parser": (False, "Conservative stat vector mapping on fresh catalog"),
+    "augment.cache_schema": (True, "Augment cache was current, rejected or absent"),
+    "build.next_item": (True, "Backend selected or abstained from next purchase"),
+    "build.next_item_render": (False, "Overlay rendered next-item advice"),
+    "anvil.catalog_source": (True, "Patch-pinned real Stat Anvil catalogue loaded or refused"),
+    "anvil.voucher_purchase": (False, "Observed genuine local-player voucher stack edge"),
+    "anvil.offer_detected": (False, "Independently verified Stat Anvil popup"),
+    "anvil.offer_render": (False, "Overlay rendered verified Stat Anvil cards"),
+    "enemy.detection": (True, "Enemy champions listed by live data and analysed"),
+    "augment.window_open": (False, "Augment window opened because the cards were seen on screen"),
+    "build.shop_open": (False, "Shop frame seen on screen (full build shown)"),
+    "augment.four_cards": (False, "Four-card augment offer read"),
+    "augment.read_latency": (False, "Seconds from augment window opening to first verified read"),
+    "anvil.popup_watch": (True, "Stat Anvil popup watcher ran during the match"),
+    # Tier list DB (PR #106)
     "tierdb.load": (True, "Tier list export read from disk"),
     "tierdb.update": (False, "Background download/build of the tier list"),
     "tierdb.switch": (True, "Tier list switch state at startup or after a change"),
@@ -15,25 +29,143 @@ FEATURES: dict[str, tuple[bool, str]] = {
     "tierdb.offer_render": (True, "Overlay drew tier lines on the offer cards"),
     "tierdb.champselect_tiers": (True, "Server attached strength/potential in champ select"),
     "tierdb.champselect_render": (True, "Overlay drew strength/potential in champ select"),
+    "items.reference_build": (True, "Server attached reference + adapted build"),
+    "items.build_render": (True, "Overlay drew reference/adapted build and Anvil estimates"),
+    "tierdb.context_adjust": (False, "In-match ±1 tier context adjustment of offered augments"),
+    "augment.postgame_reconcile": (False, "Live augment picks checked against the match history"),
+    "tierdb.impact_holdout": (False, "Local-history holdout verdict for the impact metric"),
+    "tierdb.situational_calibration": (False, "Own-games recalibration of the situational augment weights"),
+    "anvil.stat_estimate": (True, "Heuristic Stat Anvil stat priorities attached"),
+    "anvil.offer_rating": (False, "Own 0-10 heuristic scores for the visible shards"),
+    "augment.pick_inferred": (False, "Cards vanished; pick read from the card under the cursor"),
+    "anvil.pick_inferred": (False, "Shards vanished; pick read from the card under the cursor"),
+    "augment.presence_probe": (False, "OCR-free card probe while an offer is read (cue changes)"),
+    "augment.ocr_absence_close": (False, "Offer closed because OCR saw no cards for 3 ticks"),
 }
-
-# Features the browser may report about itself (DOM rendering only).
-UI_FEATURES = frozenset(("tierdb.offer_render", "tierdb.champselect_render"))
-
+# Only actual browser/overlay rendering may ACK these IDs.
+UI_FEATURES = frozenset(("build.next_item_render", "anvil.offer_render",
+                         "tierdb.offer_render", "tierdb.champselect_render",
+                         "items.build_render"))
 STATUSES = ("ok", "failed", "skipped")
+FEATURE_OUTCOMES: dict[str, frozenset[tuple[str, str]]] = {
+    "build.item_pool": frozenset((
+        ("ok", "final_items"), ("failed", "no_final_items"),
+        ("skipped", "unverified"),
+    )),
+    "augment.stats_parser": frozenset((
+        ("ok", "modelled"), ("skipped", "unmodelled"),
+    )),
+    "augment.cache_schema": frozenset((
+        ("ok", "current"), ("skipped", "cache_missing"),
+        ("failed", "cache_invalid"),
+    )),
+    "build.next_item": frozenset((
+        ("ok", "ranked"), ("skipped", "unverified"),
+        ("skipped", "slot_blocked"), ("skipped", "inventory_unknown"),
+        ("skipped", "item_recipe_unknown"), ("skipped", "no_candidate"),
+    )),
+    "build.next_item_render": frozenset((("ok", "rendered"),)),
+    "anvil.catalog_source": frozenset((
+        ("ok", "verified_catalog"), ("skipped", "catalog_patch_mismatch"),
+        ("failed", "catalog_invalid"),
+    )),
+    "anvil.voucher_purchase": frozenset((
+        ("ok", "positive_edge"), ("skipped", "no_edge"),
+        ("skipped", "source_unavailable"),
+    )),
+    "anvil.offer_detected": frozenset((
+        ("ok", "verified_offer"), ("skipped", "popup_unverified"),
+        ("skipped", "tier_ambiguous"), ("skipped", "mixed_tiers"),
+        ("skipped", "incomplete_offer"),
+    )),
+    "anvil.offer_render": frozenset((("ok", "rendered"),)),
+    "enemy.detection": frozenset((
+        ("ok", "all_resolved"), ("ok", "partial"), ("failed", "none_resolved"),
+        ("skipped", "no_enemies_listed"), ("failed", "player_unidentified"),
+        ("skipped", "no_players_listed"),
+    )),
+    "augment.window_open": frozenset((("ok", "cards_seen"),)),
+    "build.shop_open": frozenset((("ok", "opened"), ("ok", "closed"))),
+    "augment.four_cards": frozenset((("ok", "verified"),)),
+    "augment.read_latency": frozenset((
+        ("ok", "under_3s"), ("ok", "3_to_10s"), ("ok", "10_to_30s"), ("ok", "over_30s"),
+    )),
+    "anvil.popup_watch": frozenset((
+        ("ok", "titles_matched"), ("skipped", "titles_partial"), ("skipped", "no_cards"),
+        ("skipped", "unavailable"), ("skipped", "augment_cards_read"), ("skipped", "ocr_off"),
+        ("skipped", "throttled"), ("skipped", "augment_verifying"),
+    )),
+    "tierdb.load": frozenset((
+        ("ok", "loaded"), ("failed", "export_missing"), ("failed", "export_invalid"),
+    )),
+    "tierdb.update": frozenset((
+        ("ok", "updated"), ("failed", "network"), ("failed", "bad_dataset"),
+        ("failed", "license"), ("failed", "build_failed"), ("failed", "unexpected"),
+        ("skipped", "already_running"), ("skipped", "fresh"),
+        ("skipped", "auto_update_off"),
+    )),
+    "tierdb.switch": frozenset((
+        ("ok", "enabled"), ("ok", "disabled"), ("failed", "save_error"),
+    )),
+    "tierdb.offer_tiers": frozenset((
+        ("ok", "tiers_attached"), ("skipped", "tiers_off"), ("skipped", "no_champion"),
+        ("skipped", "no_visible_augments"), ("failed", "export_missing"),
+        ("failed", "champion_not_in_tierlist"),
+    )),
+    "tierdb.offer_render": frozenset((
+        ("ok", "rendered"), ("skipped", "no_tier_data"), ("skipped", "tiers_off"),
+    )),
+    "tierdb.champselect_tiers": frozenset((
+        ("ok", "annotated"), ("skipped", "tiers_off"), ("skipped", "no_candidates"),
+        ("failed", "export_missing"), ("failed", "no_candidate_in_tierlist"),
+    )),
+    "tierdb.champselect_render": frozenset((
+        ("ok", "rendered"), ("skipped", "no_tier_data"),
+    )),
+    "items.reference_build": frozenset((
+        ("ok", "attached"), ("skipped", "tiers_off"), ("skipped", "no_champion"),
+        ("failed", "export_missing"), ("failed", "champion_not_in_tierlist"),
+    )),
+    "items.build_render": frozenset((("ok", "rendered"), ("skipped", "no_build"))),
+    "tierdb.context_adjust": frozenset((
+        ("ok", "adjusted"), ("ok", "unchanged"), ("skipped", "no_context"),
+    )),
+    "augment.postgame_reconcile": frozenset((
+        ("ok", "agreed"), ("ok", "corrected"), ("ok", "unmatched"),
+        ("skipped", "history_off"), ("skipped", "history_unavailable"),
+        ("skipped", "no_offers"),
+    )),
+    "tierdb.impact_holdout": frozenset((
+        ("ok", "enable"), ("ok", "keep_off"), ("skipped", "insufficient_data"),
+        ("failed", "error"),
+    )),
+    "tierdb.situational_calibration": frozenset((
+        ("ok", "better_holdout"), ("ok", "no_holdout_gain"),
+        ("skipped", "insufficient_data"), ("failed", "error"),
+    )),
+    "anvil.stat_estimate": frozenset((
+        ("ok", "estimated"), ("skipped", "tiers_off"), ("skipped", "no_demand"),
+    )),
+    "anvil.offer_rating": frozenset((
+        ("ok", "scored"), ("skipped", "unmodelled"),
+    )),
+    "augment.pick_inferred": frozenset((
+        ("ok", "cursor_slot"), ("skipped", "cursor_ambiguous"),
+    )),
+    "anvil.pick_inferred": frozenset((
+        ("ok", "cursor_slot"), ("skipped", "cursor_ambiguous"),
+    )),
+    "augment.presence_probe": frozenset((
+        ("ok", "present"), ("ok", "absent"), ("ok", "mixed"), ("skipped", "unavailable"),
+    )),
+    "augment.ocr_absence_close": frozenset((("ok", "cards_absent"),)),
+}
+REASONS = frozenset(reason for allowed in FEATURE_OUTCOMES.values()
+                    for _, reason in allowed)
 
-REASONS = frozenset((
-    # tierdb.load
-    "loaded", "export_missing", "export_invalid",
-    # tierdb.update
-    "updated", "network", "bad_dataset", "license", "build_failed", "unexpected",
-    "already_running", "fresh", "auto_update_off",
-    # tierdb.switch
-    "enabled", "disabled", "save_error",
-    # tierdb.offer_tiers / champselect_tiers
-    "tiers_attached", "tiers_off", "no_champion", "no_visible_augments",
-    "champion_not_in_tierlist", "annotated", "no_candidates",
-    "no_candidate_in_tierlist",
-    # UI renders
-    "rendered", "no_tier_data",
-))
+
+def allowed_outcome(feature: object, status: object, reason: object) -> bool:
+    """Closed outcomes per ID; source-agnostic input never becomes journal text."""
+    return (isinstance(feature, str) and isinstance(status, str)
+            and isinstance(reason, str)
+            and (status, reason) in FEATURE_OUTCOMES.get(feature, frozenset()))

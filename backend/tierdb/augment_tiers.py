@@ -26,9 +26,12 @@ from dataclasses import dataclass, field
 import numpy as np
 
 TIER_ORDER = ("OP", "S", "A", "B", "C", "D", "E")
-LEVELS = ("champion", "role", "global", "curated")
-LEVEL_CAP = {"champion": "OP", "role": "S", "global": "S", "curated": "A"}
-LEVEL_CONFIDENCE = {"champion": "high", "role": "medium", "global": "low",
+LEVELS = ("champion", "role", "global", "curated", "borrowed")
+# "borrowed": no game of this augment on this champion; the score only comes
+# from the class/global/curated levels. Owner decision 24/11 (OP.GG check):
+# such augments rank after every augment with champion games, tier E.
+LEVEL_CAP = {"champion": "OP", "role": "S", "global": "S", "curated": "A", "borrowed": "E"}
+LEVEL_CONFIDENCE = {"champion": "high", "role": "medium", "global": "low", "borrowed": "low",
                     "curated": "heuristic"}
 
 
@@ -46,6 +49,13 @@ class AugmentTierConfig:
     weights: dict = field(default_factory=lambda: {
         "win": 50, "combat": 15, "participation": 12,
         "duration": 8, "context": 8, "consistency": 7})
+    # Owner 24/11: ARAM is played for performance and fun, so win rate alone
+    # can mislead. An augment that is popular on the champion (top share of
+    # its games within the rarity) and only slightly negative (>= -floor pp)
+    # ranks as neutral instead of sinking. Out-of-sample cost 16.22->16.23:
+    # Spearman 0.915 -> 0.914, top-10 ΔWR unchanged. Thresholds decided 24/11 (adjustable after the test).
+    popular_floor_pp: float = 1.0
+    popular_top_share: float = 0.2
 
 
 @dataclass(frozen=True)
@@ -62,6 +72,13 @@ class AugmentTierRow:
     level: str
     confidence: str
     n_eff: float
+    # Owner 24/11: one list per champion across ALL rarities (like the public
+    # sites), ordered by the blended ΔWR effect. None = no empirical data.
+    rank_all: int | None = None
+    # Blended posterior-median ΔWR in percentage points (logit x 25). Local
+    # only: the situational score (owner 24/11) adds context to it; the
+    # overlay never shows it.
+    effect_pp: float | None = None
 
 
 def combine_components(z: dict, weights: dict):
@@ -115,6 +132,24 @@ def _tier_for(score: float, p20: float, thresholds: dict, level: str) -> str:
             break
     cap = LEVEL_CAP[level]
     return TIER_ORDER[max(TIER_ORDER.index(tier), TIER_ORDER.index(cap))]
+
+
+def _popular_floor(champion, augment_ids, effect, pairs, rarity, config) -> dict:
+    """Effects (logit) used for the list order, with the popular-floor rule."""
+    out = {a: float(effect[(champion, a)]) for a in augment_ids}
+    floor = config.popular_floor_pp / 25.0
+    if floor <= 0 or config.popular_top_share <= 0:
+        return out
+    by_rarity: dict[str, list[str]] = {}
+    for a in augment_ids:
+        if (champion, a) in pairs:
+            by_rarity.setdefault(rarity.get(a, ""), []).append(a)
+    for augs in by_rarity.values():
+        augs.sort(key=lambda a: (-pairs[(champion, a)][1], a))
+        for a in augs[:max(1, round(config.popular_top_share * len(augs)))]:
+            if -floor <= out[a] < 0:
+                out[a] = 0.0
+    return out
 
 
 def build_augment_tiers(
@@ -184,10 +219,12 @@ def build_augment_tiers(
         return combine_components({"win": z}, config.weights), float(n)
 
     raw: dict[tuple[str, str], tuple] = {}
+    effect: dict[tuple[str, str], float] = {}
     for c in champs:
         for a in sorted(rarity):
             r = rarity[a]
             levels = []
+            deltas = []
             for name, stats, ref, key, k in (
                 ("champion", champ, ref_champ, (c, a), k1),
                 ("role", role, ref_role, (roles.get(c, ""), a), k2),
@@ -196,6 +233,7 @@ def build_augment_tiers(
                 s, n = level_score(stats, ref, key, r)
                 if s is not None:
                     levels.append((name, s, n, n / (n + k)))
+                    deltas.append((stats[key][1], n / (n + k)))
             h = heuristic.get((c, a))
             if h is not None:
                 levels.append(("curated", np.full(D, float(h)), 0.0, 1.0))
@@ -213,7 +251,14 @@ def build_augment_tiers(
                 eff.append((share, name, n))
                 remaining -= share
             _, level, n_eff = max(eff, key=lambda t: t[0])
+            if (c, a) not in champ:
+                level = "borrowed"
             raw[(c, a)] = (acc, level, n_eff)
+            if deltas:  # same nested blend on the posterior-median ΔWR
+                d = None
+                for med_, w_ in reversed(deltas):
+                    d = med_ if d is None else w_ * med_ + (1 - w_) * d
+                effect[(c, a)] = d
 
     # Frozen thresholds per rarity from the empirical (levels 1-2) reference.
     thresholds: dict[str, dict[str, float]] = {}
@@ -230,13 +275,17 @@ def build_augment_tiers(
         for r in sorted(set(rarity.values())):
             augs = [a for a in sorted(rarity) if rarity[a] == r]
             scored = [(a, raw[(c, a)]) for a in augs if raw.get((c, a)) is not None]
-            scored.sort(key=lambda t: (-float(np.median(t[1][0])), t[0]))
+            scored.sort(key=lambda t: (t[1][1] == "borrowed",
+                                       -float(np.median(t[1][0])), t[0]))
             group = 0
-            prev = None
+            leader, leader_level = None, None
             for rank, (a, (draws, level, n_eff)) in enumerate(scored, start=1):
-                if prev is None or float(np.mean(prev > draws)) >= config.tie_probability:
+                # Tied = not distinguishable from the group's first augment
+                # (comparing neighbours only chained whole lists together).
+                if (leader is None or level == "borrowed" and leader_level != "borrowed"
+                        or float(np.mean(leader > draws)) >= config.tie_probability):
                     group = rank
-                prev = draws
+                    leader, leader_level = draws, level
                 med = float(np.median(draws))
                 p20, p80 = (float(x) for x in np.percentile(draws, [20, 80]))
                 rows.append(AugmentTierRow(
@@ -253,4 +302,20 @@ def build_augment_tiers(
                         score_p20=None, score_p80=None, rank=None, tie_group=None,
                         tier=None, level="none", confidence="none", n_eff=0.0,
                     ))
+    # One ranking per champion across every rarity (owner decision 24/11).
+    from dataclasses import replace as _replace
+    by_champ: dict[str, list[int]] = {}
+    for idx, row in enumerate(rows):
+        if row.rank is not None and (row.champion_id, row.augment_id) in effect:
+            by_champ.setdefault(row.champion_id, []).append(idx)
+    for c, idxs in by_champ.items():
+        ranked = _popular_floor(c, [rows[i_].augment_id for i_ in idxs], effect, pairs,
+                                rarity, config)
+        idxs.sort(key=lambda i_: (rows[i_].level == "borrowed",
+                                  -ranked[rows[i_].augment_id], rows[i_].augment_id))
+        for pos, idx in enumerate(idxs, start=1):
+            # effect_pp is the ranking effect, so the in-match situational
+            # score places augments on the same scale as the list.
+            rows[idx] = _replace(rows[idx], rank_all=pos, effect_pp=round(
+                25.0 * float(ranked[rows[idx].augment_id]), 3))
     return rows, thresholds

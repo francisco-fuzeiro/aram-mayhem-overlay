@@ -28,6 +28,14 @@ from backend.tierdb.store import (
 SOURCE_NAME = "aramhex"
 REPO_URL = "https://github.com/czgreat/aramhex-data"
 RAW_URL = "https://raw.githubusercontent.com/czgreat/aramhex-data/{ref}/{path}"
+# Same repository through the jsDelivr CDN; tried first for pinned tags because
+# raw.githubusercontent can crawl (~80 s per file seen 25/11). Every file is
+# still checked against meta.json's SHA-256, whichever host served it.
+MIRROR_URLS = (
+    "https://cdn.jsdelivr.net/gh/czgreat/aramhex-data@{ref}/{path}",
+    RAW_URL,
+)
+CACHE_DIR = Path.home() / ".aram-oracle" / "aramhex-cache"
 ATTRIBUTION = (
     "ARAM: Mayhem statistics from AramHex (github.com/czgreat/aramhex-data), "
     "CC BY-NC 4.0. Not affiliated with Riot Games or Tencent."
@@ -310,29 +318,81 @@ def ingest_aramhex(
     return snapshot_id
 
 
-def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None) -> Path:
+def _listed_sha(listed: dict, name: str) -> str | None:
+    entry = listed.get(name)
+    expected = entry.get("sha256") if isinstance(entry, dict) else entry
+    return expected.lower() if isinstance(expected, str) and len(expected) == 64 else None
+
+
+def _default_fetch(url: str) -> bytes:
+    import requests
+    response = requests.get(url, timeout=(10, 60))
+    response.raise_for_status()
+    return response.content
+
+
+def _fetch_any(fetch, ref: str, path: str, mirrors) -> bytes:
+    """First mirror that answers; the last error is raised when all fail."""
+    last: Exception | None = None
+    for template in mirrors:
+        try:
+            return fetch(template.format(ref=ref, path=path))
+        except Exception as exc:  # try the next host
+            last = exc
+    raise last if last else RuntimeError("no mirror")
+
+
+def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None,
+                     progress=None, *, cache_dir: Path | None = None,
+                     mirrors=None) -> Path:
     """Download one dataset directory pinned to a git ref (e.g. ``data-v20``).
 
-    ``fetch(url) -> bytes`` is injectable for tests; checksums are verified by
-    :func:`load_aramhex_dataset` afterwards, not trusted from the transport.
+    Resumable: each file is kept under ``cache_dir/<ref>/<dataset_path>`` and
+    reused when its SHA-256 matches meta.json, so an interrupted update only
+    fetches what is missing. ``fetch(url) -> bytes`` is injectable for tests;
+    checksums are verified by :func:`load_aramhex_dataset` afterwards, not
+    trusted from the transport.
     """
-    if fetch is None:
-        import requests
-
-        def fetch(url: str) -> bytes:
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-            return response.content
-
+    fetch = fetch or _default_fetch
+    mirrors = tuple(mirrors) if mirrors is not None else (
+        MIRROR_URLS if ref.startswith("data-v") else (RAW_URL,))
     target.mkdir(parents=True, exist_ok=True)
-    meta_bytes = fetch(RAW_URL.format(ref=ref, path=f"{dataset_path}/meta.json"))
+    cache = None
+    if cache_dir is not None:
+        cache = Path(cache_dir) / ref / dataset_path
+        try:
+            cache.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            cache = None
+    meta_bytes = _fetch_any(fetch, ref, f"{dataset_path}/meta.json", mirrors)
     (target / "meta.json").write_bytes(meta_bytes)
     try:
         listed = json.loads(meta_bytes.decode("utf-8-sig")).get("files") or {}
     except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
         listed = {}
     names = list(REQUIRED_FILES) + [n for n in ITEM_FILES if n in listed]
-    for name in names:
-        data = fetch(RAW_URL.format(ref=ref, path=f"{dataset_path}/{name}"))
+    for i, name in enumerate(names, start=1):
+        expected = _listed_sha(listed, name)
+        data = None
+        if cache is not None and expected:
+            try:
+                cached = (cache / name).read_bytes()
+                if hashlib.sha256(cached).hexdigest() == expected:
+                    data = cached
+            except OSError:
+                pass
+        reused = data is not None
+        if data is None:
+            data = _fetch_any(fetch, ref, f"{dataset_path}/{name}", mirrors)
+            if cache is not None and expected and hashlib.sha256(data).hexdigest() == expected:
+                try:
+                    tmp = cache / (name + ".part")
+                    tmp.write_bytes(data)
+                    tmp.replace(cache / name)
+                except OSError:
+                    pass
         (target / name).write_bytes(data)
+        if progress:
+            how = "cached" if reused else f"{len(data) // 1024} KB"
+            progress(f"  {dataset_path}: {i}/{len(names)} {name} ({how})")
     return target

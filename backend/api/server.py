@@ -15,19 +15,25 @@ import logging
 logger = logging.getLogger("aram-oracle")
 
 from backend.static_data.loader import StaticData
-from backend.storage.db import init_db, get_champion_record
+from backend.storage.db import init_db, get_champion_record, get_all_personal_winrates
 from backend.static_data.updater import force_refresh
 from backend.workflow.pipeline import Pipeline
 from backend.collectors.lcda import LCDAResult, get_raw_game_data, parse_game_snapshot
+from backend.collectors.anvil_voucher import AnvilVoucherPurchaseObserver
+from backend.collectors import anvil_popup
+from backend.collectors import card_presence
+from backend.engine.stat_anvil_offer import resolve_offer as resolve_anvil_offer, title_catalog as anvil_title_catalog
 from backend.collectors.lcu import read_champ_select, read_gameflow
 from backend.engine.champion_select import summarize_champion_select
 from backend.tierdb.service import TierListService
+from backend.tierdb.impact_gate import ImpactGate, load_history_enabled, save_history_enabled
 from backend.collectors import screen_ocr as ocr_capture
 from backend.collectors.screen_ocr import (
     detect_augments, is_available as ocr_available, watcher as screen_watcher,
 )
 from backend.collectors.offer_lifecycle import OfferLifecycle
 from backend.workflow.offer_ledger import LedgerError, OfferLedger, SLOTS
+from backend.collectors.card_title_geometry import FOUR_SLOTS
 from backend.workflow.picked_augment import PickedAugmentEvidence
 from backend.models import GamePhase, GameSnapshot, PipelineResult
 from backend.engine.build_suggester import BUILD_STYLES
@@ -37,6 +43,7 @@ from backend.engine.augment_detector import match_augment
 from backend.diagnostics import collector as diagnostics
 from backend.diagnostic_events import events as event_log
 from backend import feature_diagnostics
+from backend.feature_registry import UI_FEATURES
 from backend.workflow.f0_trace import (
     classify_champion_identity, classify_offer_slots, emit_f0_trace,
 )
@@ -136,12 +143,41 @@ class GameState:
         self.augment_choices: list[str] = []
         self.chosen_augments: list[str] = []  # real augments only (max 4)
         self.chosen_stat_anvils: list[str] = []  # stat anvil / voucher picks
+        # Voucher purchase is an LCDA signal only: never verified popup/OCR.
+        self.anvil_voucher_observer = AnvilVoucherPurchaseObserver()
+        self.anvil_voucher_purchase_events: int = 0
+        self.anvil_voucher_trigger_pending: bool = False
+        self.anvil_voucher_last_purchase: tuple[str, ...] = ()
+        # P0-C: dedicated Stat Anvil popup watch. The voucher edge only opens
+        # an attention window; the offer exists only after title OCR.
+        self.anvil_window_until: float | None = None
+        self.anvil_last_check: float = float("-inf")
+        self.anvil_last_forced: float = float("-inf")
+        # Field 24/11: three Anvils opened back to back, only the first shown.
+        self.anvil_followup_until: float | None = None
+        self.scan_opened_at: float | None = None
+        self.scan_open_reason: str | None = None
+        self.scan_first_read_done: bool = False
+        self.anvil_voucher_tier: str | None = None
+        self.anvil_epoch: int = 0
+        self.anvil_offer = None  # AnvilOfferResolution with status "ok"
+        self.anvil_absent_ticks: int = 0
+        self.anvil_prev_counts: dict | None = None
+        self.anvil_picked_ids: list[str] = []  # shards picked (cursor-inferred)
+        # Field fix: OCR-free card presence trail (cue + card under cursor).
+        # Positions are reduced to a slot name and never leave memory.
+        self.presence_trail: list = []
         self.build_style: str = "Balanced"  # player preference, survives match resets
         self.overlay_preferences: dict = dict(preferences.DEFAULT_OVERLAY)  # D4a: stored only
         # OCR state
         self.ocr_enabled: bool = True
         self.ocr_last_detected: list[str] = []
         self.ocr_slot_choices: dict[str, str | None] | None = None
+        # Field 24/11: verified FOUR-card offer (ids c1..c4, None = unread).
+        self.four_offer: list[str | None] | None = None
+        # Field 24/11: full build only while the shop is open (OCR-free probe).
+        self.shop_open: bool = False
+        self.shop_misses: int = 0
         # Complete prior offer identity, never proof that a NEW offer is visible.
         self._prior_due_triple: tuple[str, str, str] | None = None
         self.ocr_stale: bool = False
@@ -149,6 +185,7 @@ class GameState:
         self.ocr_phase: str = "no_offer"
         self.ocr_foreground: str = "other"
         self.ocr_unreadable_ticks: int = 0
+        self.ocr_absent_ticks: int = 0
         self.offer_lifecycle = OfferLifecycle()
         self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         # Monotonic offer generation fences OCR results from old windows and
@@ -221,6 +258,9 @@ class GameState:
             event_log.emit("ocr_window", state="closed", reason="reset", level=self.scan_window_level)
         self.ocr_last_detected.clear()
         self.ocr_slot_choices = None
+        self.four_offer = None
+        self.shop_open = False
+        self.shop_misses = 0
         self._prior_due_triple = None
         self.ocr_stale = False
         self.ocr_stale_since_epoch = None
@@ -232,10 +272,27 @@ class GameState:
         self.augment_choices.clear()
         self.chosen_augments.clear()
         self.chosen_stat_anvils.clear()
+        self.anvil_voucher_observer.reset()
+        self.anvil_voucher_purchase_events = 0
+        self.anvil_voucher_trigger_pending = False
+        self.anvil_voucher_last_purchase = ()
+        self.anvil_window_until = None
+        self.anvil_last_check = float("-inf")
+        self.anvil_last_forced = float("-inf")
+        self.anvil_followup_until = None
+        self.anvil_voucher_tier = None
+        self.anvil_offer = None
+        self.anvil_absent_ticks = 0
+        self.anvil_prev_counts = None
+        self.anvil_picked_ids = []
+        self.presence_trail = []
         self.offer_ledger = OfferLedger(AUGMENT_PICK_LEVELS_SORTED)
         screen_watcher.reset()
         self.last_known_level = 0
         self.scan_window_open = False
+        self.scan_opened_at = None
+        self.scan_open_reason = None
+        self.scan_first_read_done = False
         self.scan_window_level = 0
         self.was_dead = False
         self.stat_snapshot_before.clear()
@@ -378,21 +435,59 @@ def should_open_augment_scan(
         expected_augments_for_level(level)
         > expected_augments_for_level(previous_level)
     )
-    return due and (new_threshold or just_respawned)
+    # Field 24/11: the overlay said 4/4 while picks were still due and then
+    # never opened another window. A new pick level always opens a scan; the
+    # chosen count (which can be wrong) only gates the respawn re-open.
+    # The very first snapshot (previous level 0, e.g. the app started
+    # mid-game) still respects picks already confirmed.
+    first_snapshot = previous_level <= 0
+    return (new_threshold and (due or not first_snapshot)) or (due and just_respawned)
+
+
+STATIC_LOAD_BUDGET_S = 40.0
+
+
+def _load_static_data() -> None:
+    started = time.monotonic()
+    try:
+        static_data.load()
+    except Exception:
+        logger.exception("Game data load failed")
+    else:
+        logger.warning("Game data ready after %.1f s", time.monotonic() - started)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     diagnostics.install_log_handler()
     event_log.start()  # nonblocking event queue; writer owns all disk I/O
+    feature_diagnostics.session_start()
     # Every entrypoint (CLI, desktop overlay, and direct ASGI) needs a DB.
     init_db()
     saved_preferences = preferences.load_preferences()
     game_state.build_style = saved_preferences["build_style"]
     game_state.overlay_preferences = saved_preferences["overlay"]
-    static_data.load()
+    # The first start after a catalog/cache schema change downloads Data
+    # Dragon and CommunityDragon files again (field 24/11: > 15 s on the PC).
+    # Field 24/11: a hung download blocked the start for minutes. The load
+    # now runs in a thread with a budget; past it the API starts anyway and
+    # the data appears when the load finishes. A stack dump of every thread
+    # is printed at 25 s so the culprit is visible in the terminal.
+    import faulthandler
+    import threading
+    logger.warning("Loading game data (the first start after an update can take a minute)…")
+    started = time.monotonic()
+    loader = threading.Thread(target=_load_static_data, name="static-data-load", daemon=True)
+    faulthandler.dump_traceback_later(25, repeat=False)
+    loader.start()
+    await asyncio.to_thread(loader.join, STATIC_LOAD_BUDGET_S)
+    faulthandler.cancel_dump_traceback_later()
+    if loader.is_alive():
+        logger.warning("Game data still loading after %.0f s: starting now, data will "
+                       "appear when the download finishes", STATIC_LOAD_BUDGET_S)
+    else:
+        logger.warning("Game data loaded in %.1f s", time.monotonic() - started)
     game_state.pipeline = Pipeline(static_data)
-    feature_diagnostics.session_start()
     feature_diagnostics.record("tierdb.switch", "ok",
                                "enabled" if tier_service.enabled() else "disabled")
     # Tier lists: refresh in the background when missing or older than 3 days.
@@ -402,14 +497,19 @@ async def lifespan(app: FastAPI):
         tier_service.start_update(static_data)
     else:
         feature_diagnostics.record("tierdb.update", "skipped", "fresh")
+    _arammeta_snapshot(None)
 
+    asyncio.create_task(_refresh_impact_gate())
     poll_task = asyncio.create_task(_poll_game_loop())
+    presence_task = asyncio.create_task(_presence_loop())
+    shop_task = asyncio.create_task(_shop_loop())
     yield
-    poll_task.cancel()
-    try:
-        await poll_task
-    except asyncio.CancelledError:
-        pass
+    for task in (poll_task, presence_task, shop_task):
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
     event_log.stop()
 
 
@@ -418,6 +518,88 @@ app = FastAPI(lifespan=lifespan)
 # Empirical Mayhem tier lists (backend/tierdb). Shown now by owner decision
 # 2026-11-23, behind a live switch; never exposes win rates or sample sizes.
 tier_service = TierListService()
+# Impact (damage + heal/shield per minute) joins the ±1 adjustment only when
+# the holdout on the player's own imported games says "enable" (23/11).
+impact_gate = ImpactGate()
+
+
+POSTGAME_RECONCILE_DELAYS_S = (20.0, 40.0, 60.0)
+
+
+async def _postgame_reconcile(ledger, champion_id, delays=POSTGAME_RECONCILE_DELAYS_S) -> None:
+    """Plan v2 layer 3: check the live picks against the match history.
+
+    Only with the history switch on (local LCU, own games). Retries while the
+    client has not published the game yet; then imports the finished game so
+    personal records and the impact holdout include it.
+    """
+    record = feature_diagnostics.record
+    if not _history_import_allowed():
+        record("augment.postgame_reconcile", "skipped", "history_off")
+        return
+    from backend.storage import history_import
+    final = None
+    for delay in delays:
+        await asyncio.sleep(delay)
+        try:
+            final = await asyncio.to_thread(history_import.fetch_latest_own_augments,
+                                            champion_id)
+        except Exception:  # optional, never breaks the server
+            logger.exception("Post-game reconciliation failed")
+            final = None
+        if final:
+            break
+    if not final:
+        record("augment.postgame_reconcile", "skipped", "history_unavailable")
+        return
+    counts = ledger.reconcile(final)
+    reason = "corrected" if counts["corrected"] else "agreed" if counts["agreed"] else "unmatched"
+    record("augment.postgame_reconcile", "ok", reason,
+           counts["corrected"] or counts["agreed"] or None)
+    try:
+        await asyncio.to_thread(history_import.sync_recent_mayhem_games, 5)
+        await _refresh_impact_gate()
+    except Exception:
+        logger.exception("Post-game history import failed")
+
+
+_ARAMMETA_ASKED: set = set()
+
+
+def _arammeta_snapshot(champion) -> None:
+    """Owner 25/11 (step 1): local AramMeta snapshot per patch, a few requests
+    per patch (tier list daily at most, one file per champion played). It does
+    not feed the tiers yet. Off with ARAM_ORACLE_ARAMMETA_SNAPSHOT=0."""
+    if (os.environ.get("ARAM_ORACLE_ARAMMETA_SNAPSHOT", "1") != "1"
+            or "PYTEST_CURRENT_TEST" in os.environ):
+        return
+    key = str(champion or "")
+    if key in _ARAMMETA_ASKED:
+        return
+    _ARAMMETA_ASKED.add(key)
+    from backend.tierdb import arammeta
+    arammeta.snapshot_in_background(champion or None)
+
+
+async def _refresh_impact_gate() -> None:
+    verdict = await asyncio.to_thread(impact_gate.refresh)
+    status, reason = {"enable": ("ok", "enable"), "keep_off": ("ok", "keep_off"),
+                      "insufficient_data": ("skipped", "insufficient_data")
+                      }.get(verdict, ("failed", "error"))
+    feature_diagnostics.record("tierdb.impact_holdout", status, reason)
+    # Owner 24/11: the situational weights recalibrate from the same games,
+    # used only with >= 200 games and a better temporal holdout.
+    try:
+        from backend.tierdb import situational_calibration
+        verdict = await asyncio.to_thread(situational_calibration.refresh,
+                                          tier_service.provider, static_data)
+    except Exception:  # optional, never breaks the server
+        logger.exception("Situational calibration failed")
+        verdict = "error"
+    feature_diagnostics.record(
+        "tierdb.situational_calibration",
+        "ok" if verdict in ("better_holdout", "no_holdout_gain") else
+        "skipped" if verdict == "insufficient_data" else "failed", verdict)
 
 
 def _visible_augment_ids(recommendations, offers) -> list[str]:
@@ -443,7 +625,184 @@ def _visible_augment_ids(recommendations, offers) -> list[str]:
     return ids
 
 
-def _augment_tier_payload(champion_id, augment_ids) -> dict:
+def _augment_anvil_boost(chosen, sd) -> dict[str, float]:
+    """Anvil stats the confirmed augments already lean on (0-1)."""
+    boost: dict[str, float] = {}
+    for aug in chosen or []:
+        augment = sd.get_augment(str(aug)) if hasattr(sd, "get_augment") else None
+        stats = _stat_vector_of(augment)  # audit 24/11: real augments use contribution
+        for field_name, stat in _AUGMENT_TO_ANVIL.items():
+            value = float(getattr(stats, field_name, 0.0) or 0.0) if stats else 0.0
+            if value > 0:
+                boost[stat] = max(boost.get(stat, 0.0), min(value, 1.0))
+    return boost
+
+
+def _stat_vector_of(obj):
+    """Champions and items expose ``stats``; augments expose ``contribution``."""
+    if obj is None:
+        return None
+    stats = getattr(obj, "stats", None)
+    if stats is None:
+        stats = getattr(obj, "contribution", None)
+    return stats
+
+
+VAMP_ONLY_NO_BOOST = frozenset({"goredrink", "siphon"})
+
+
+def _norm_name(name) -> str:
+    return "".join(ch for ch in str(name or "").lower() if ch.isalnum())
+
+
+def _offer_context_adjuster(champion_id, chosen_augments, mayhem, enemy, sd, live=None):
+    """adjust(aid) -> (step, reason) for the in-match context adjustment.
+
+    Demand = champion stats + the adapted build's item stats; synergy with the
+    augments already chosen; enemy comp; the player's own synced games.
+    """
+    from backend.models import StatVector
+    from backend.tierdb.context_adjust import context_adjust
+
+    def vec(obj):
+        # Audit 24/11: real augments carry ``contribution``, not ``stats``;
+        # reading only ``stats`` made the ±1 tier adjustment never run.
+        stats = _stat_vector_of(obj)
+        return {f: float(getattr(stats, f, 0.0) or 0.0) for f in StatVector.fields()} \
+            if stats is not None else None
+
+    demand: dict = {}
+    champion = sd.get_champion(champion_id) if hasattr(sd, "get_champion") else None
+    items = [e.get("id") for e in ((mayhem or {}).get("adapted") or [])]
+    for source in [champion] + [sd.get_item(i) for i in items if i]:
+        for k, v in (vec(source) or {}).items():
+            demand[k] = demand.get(k, 0.0) + v
+    get_aug = getattr(sd, "get_augment", lambda _a: None)
+    chosen = [v for v in (vec(get_aug(str(a))) for a in (chosen_augments or [])) if v]
+    try:
+        personal = get_all_personal_winrates(str(champion_id)) or {}
+        record_ = get_champion_record(str(champion_id))
+    except Exception:  # personal history is optional
+        personal, record_ = {}, None
+    base = (record_[0] / record_[1]) if record_ and record_[1] >= 10 else 0.5
+
+    from backend.engine.situational_items import own_healing, sustain_level
+    # Owner 24/11: self-healers AND champions whose build has vamp (Akali
+    # with Gunblade, Fiora) gain from vamp / healing augments.
+    healer = sustain_level(champion, items, sd.get_item)
+    kit_healer = own_healing(champion)
+    demand_kit = dict(demand)
+    if kit_healer:
+        peak = max(demand_kit.values(), default=1.0) or 1.0
+        demand_kit["heal_power"] = demand_kit.get("heal_power", 0.0) + kit_healer * peak
+    if healer:
+        # Sustain is part of what this champion's build wants, so vamp /
+        # healing augments fit the build instead of reading as off-profile.
+        peak = max(demand.values(), default=1.0) or 1.0
+        demand["heal_power"] = demand.get("heal_power", 0.0) + healer * peak
+
+    from backend.tierdb.context_adjust import AdjustConfig
+    from backend.tierdb.impact_gate import IMPACT_WEIGHT
+    cfg = AdjustConfig()
+    if impact_gate.enabled:
+        cfg = AdjustConfig(weights=tuple((k, IMPACT_WEIGHT if k == "impact" else w)
+                                         for k, w in cfg.weights))
+
+    # Research S1-S70 (Proposta 24/11): synergies with the kit, the build and
+    # the augments already chosen; blocks first, total capped at ±1.
+    from backend.engine.augment_synergies import BLOCK, build_context, load_table
+    synergies = load_table()
+    owned = list(getattr(live, "purchased_items", None) or [])
+    syn_ctx = build_context(
+        champion_id, champion, items + owned,
+        [getattr(get_aug(str(a)), "name", None) for a in (chosen_augments or [])],
+        sd=sd, allies=getattr(live, "ally_champion_ids", None) or (),
+        live_stats=getattr(live, "champion_stats", None),
+        spells=getattr(live, "summoner_spells", None),
+        resource=getattr(live, "resource_type", None))
+
+    from backend.tierdb.context_adjust import context_votes
+
+    def signals(aid):
+        # AramHex 16.23 (approved 25/11): Goredrink and Siphon do not gain on
+        # champions whose sustain comes only from a vamp build; only kit
+        # healing raises them. Warlock Juicebox on Akali keeps the vamp boost.
+        vamp_only = _norm_name(getattr(get_aug(str(aid)), "name", "")) in VAMP_ONLY_NO_BOOST
+        return dict(augment=vec(get_aug(str(aid))),
+                    demand=demand_kit if vamp_only else demand, chosen=chosen,
+                    enemy=enemy or {}, personal=personal.get(str(aid)),
+                    personal_base=base, own_healing=kit_healer if vamp_only else healer,
+                    impact=impact_gate.lookup(champion_id, aid), config=cfg)
+
+    def situational(aid):
+        """Votes for the continuous situational score (owner 24/11)."""
+        votes = context_votes(**signals(aid))
+        name = getattr(get_aug(str(aid)), "name", None)
+        if name:
+            entry = tier_service.provider.augment_tier(str(champion_id), str(aid)) or {}
+            s_step, s_reason, rule_id = synergies.evaluate(
+                name, syn_ctx, history=personal.get(str(aid)), base=base,
+                champion_level=entry.get("level") == "champion")
+            if s_step == BLOCK:
+                return {"block": s_reason, "votes": {}}
+            if s_step:
+                channel = "allies" if synergies.uses_allies(rule_id) else "synergy"
+                prev = votes.get(channel, (0.0, None))[0]
+                # The kit/build/augment rule and the stat-cosine vote share
+                # one channel: the stronger one counts, not both.
+                if abs(float(s_step)) >= abs(prev):
+                    votes[channel] = (float(s_step), s_reason)
+        return {"block": None, "votes": votes}
+
+    def adjust(aid):
+        step, reason = context_adjust(**signals(aid))
+        name = getattr(get_aug(str(aid)), "name", None)
+        if not name:
+            return step, reason
+        s_step, s_reason, _rule = synergies.evaluate(
+            name, syn_ctx, history=personal.get(str(aid)), base=base)
+        if s_step == BLOCK:
+            return BLOCK, s_reason
+        if s_step:
+            total = max(-1, min(1, step + s_step))
+            return total, (s_reason if total == s_step else reason) if total else None
+        return step, reason
+    adjust.situational = situational
+    return adjust
+
+
+def _situational_entry(out: dict, entry: dict, champion_id, result: dict) -> bool:
+    """Continuous situational score (owner 24/11) into ``out``; False = not applied."""
+    from backend.tierdb.runtime import rank_tier
+    from backend.tierdb.situational_score import load_weights, position_of, situational_delta
+
+    if result.get("block"):
+        out["adjusted_tier"] = "E"
+        out["adjust"] = -1 if entry.get("tier") != "E" else 0
+        out["adjust_reason"] = result["block"] if out["adjust"] else None
+        out["adjusted_rank"] = None
+        return True
+    effects = tier_service.provider.augment_effects(champion_id)
+    if not effects:
+        return False
+    base = float(entry["effect_pp"])
+    delta, reason, _parts = situational_delta(result.get("votes") or {}, load_weights())
+    position = position_of(base + delta, base, effects)
+    adjusted = rank_tier(position, entry.get("level"), entry.get("tier"), len(effects))
+    out["adjusted_tier"] = adjusted
+    out["adjusted_rank"] = position
+    rank = entry.get("rank")
+    moved = adjusted != entry.get("tier")
+    out["adjust"] = (0 if not moved else 1 if isinstance(rank, int) and position < rank else -1)
+    out["adjust_reason"] = reason if moved else None
+    return True
+
+
+def _augment_tier_payload(champion_id, augment_ids, adjust=None) -> dict:
+    """Tiers of the visible augments. ``adjust(aid) -> (step, reason)`` adds the
+    in-match context adjustment (±1 tier, owner decision 23/11); ranks stay."""
+    from backend.tierdb.context_adjust import shift_tier
+
     record = feature_diagnostics.record
     if not tier_service.enabled():
         record("tierdb.offer_tiers", "skipped", "tiers_off")
@@ -460,8 +819,33 @@ def _augment_tier_payload(champion_id, augment_ids) -> dict:
         if entry is not None:
             tiers[aid] = {k: entry.get(k) for k in (
                 "tier", "rank", "rank_total", "tie_group", "tie_end",
-                "level", "confidence", "rarity")}
+                "level", "confidence", "rarity", "rank_scope")}
+            if (adjust is not None and entry.get("tier")
+                    and getattr(adjust, "situational", None) is not None
+                    and isinstance(entry.get("effect_pp"), (int, float))
+                    and entry.get("level") != "borrowed"):
+                if _situational_entry(tiers[aid], entry, champion_id, adjust.situational(aid)):
+                    continue
+            step, reason = (0, None)
+            if adjust is not None and entry.get("tier"):
+                step, reason = adjust(aid)
+            if step == "block":   # synergy data incompatibility: shown as E
+                tiers[aid]["adjusted_tier"] = "E"
+                tiers[aid]["adjust"] = -1 if entry.get("tier") != "E" else 0
+                tiers[aid]["adjust_reason"] = reason if tiers[aid]["adjust"] else None
+                continue
+            adjusted = shift_tier(entry.get("tier"), step, entry.get("level")) \
+                if entry.get("tier") else None
+            tiers[aid]["adjusted_tier"] = adjusted
+            tiers[aid]["adjust"] = 0 if adjusted == entry.get("tier") else step
+            tiers[aid]["adjust_reason"] = reason if tiers[aid]["adjust"] else None
     if tiers:
+        if adjust is None:
+            record("tierdb.context_adjust", "skipped", "no_context")
+        else:
+            moved = sum(1 for t in tiers.values() if t["adjust"])
+            record("tierdb.context_adjust", "ok", "adjusted" if moved else "unchanged",
+                   moved or None)
         record("tierdb.offer_tiers", "ok", "tiers_attached", min(len(tiers), 1000))
     elif not tier_service.provider.loaded:
         record("tierdb.offer_tiers", "failed", "export_missing")
@@ -490,6 +874,18 @@ def _annotate_champion_candidates(result: dict) -> dict:
             "confidence": entry.get("confidence"),
         }
     annotated = sum(1 for c in candidates if c.get("mayhem"))
+    if annotated:
+        # Owner 24/11 ("champion recommendation not reliable"): our list matches
+        # AramHex 16.23 (Spearman 0.997), but candidates were ORDERED by the
+        # legacy team-fit composite. Order by the tier list rank; team fit only
+        # breaks ties and orders champions without tier data (last).
+        def key(c):
+            m = c.get("mayhem") or {}
+            rank = m.get("rank") if isinstance(m.get("rank"), int) else 10**6
+            return (rank, -float(c.get("score") or 0.0), str(c.get("name") or ""))
+        ordered = sorted(candidates, key=key)
+        result["candidates"] = ordered + [c for c in (result.get("candidates") or [])
+                                          if not isinstance(c, dict)]
     if not candidates:
         record("tierdb.champselect_tiers", "skipped", "no_candidates")
     elif annotated:
@@ -501,13 +897,492 @@ def _annotate_champion_candidates(result: dict) -> dict:
     return result
 
 
+_AUGMENT_TO_ANVIL = {"ap": "ap", "ad": "ad", "attack_speed": "as", "hp": "hp",
+                     "lethality": "lethality", "pen": "mpen", "crit": "crit", "cdr": "ah"}
+
+
+def _item_context(item, champion, enemy: dict, allies: dict, fate: set,
+                  own_sustain: float = 0.0, vamp_covered: bool = False):
+    """Bounded 0-3 match bonus for an item and the first reason (heuristic,
+    except Weapon of Fate picks which AramHex measures)."""
+    props = getattr(item, "properties", frozenset()) or frozenset()
+    reasons: list[tuple[float, str]] = []
+    if item is not None and item.id in fate:
+        reasons.append((1.5, "Weapon of Fate pick (measured)"))
+    # Owner 24/11: amplify the player's own healing and shields (abilities
+    # + confirmed augments) with heal/shield power items.
+    stats = getattr(item, "stats", None)
+    e = enemy or {}
+    from backend.engine.situational_items import HEAL_AMP_ITEMS, _norm
+    amp = (stats is not None and float(stats.heal_power or 0) > 0) or (
+        item is not None and _norm(getattr(item, "name", "")) in HEAL_AMP_ITEMS)
+    if own_sustain >= 0.4 and not vamp_covered and props & {"lifesteal", "omnivamp"}:
+        # Owner 24/11: more vamp for champions that heal. Field 25/11 (Rengar,
+        # Kha'Zix): when the measured build already has vamp (Endless Hunger)
+        # the axis is covered; more vamp replaced Collector/lethality items.
+        cut = int(e.get("anti_heal_items") or 0) >= 2
+        reasons.append((0.5 if cut else 1.0, "more vamp for your sustain"))
+    if own_sustain >= 0.4 and amp:
+        # Owner 24/11: Swain/Maokai/Zac -> Spirit Visage beats another MR item.
+        # Visible enemy Grievous Wounds halve that value.
+        cut = int(e.get("anti_heal_items") or 0) >= 2
+        reasons.append((0.75 if cut else 1.5, "amplifies your healing and shields"))
+    if e.get("enemies_analyzed", 0) > 0 and props:
+        ap = champion is not None and (champion.role.lower() == "mage"
+                                       or champion.stats.ap > champion.stats.ad)
+        if "anti_heal" in props and (e.get("sustain_pressure", 0) >= 0.35
+                                     or e.get("healing_items", 0) >= 3):
+            reasons.append((1.5, "enemies heal a lot"))
+        if ("magic_pen" if ap else "armor_pen") in props and (
+                e.get("tanks", 0) >= 2 or e.get("armor_items", 0) >= 3
+                or (ap and e.get("magic_resist_items", 0) >= 3)):
+            reasons.append((1.5, "enemies stack resistances"))
+        if "armor" in props and e.get("physical_pressure", 0) >= 0.6:
+            reasons.append((1.5, "enemies deal mostly physical damage"))
+        if "magic_resist" in props and e.get("magic_pressure", 0) >= 0.6:
+            reasons.append((1.5, "enemies deal mostly magic damage"))
+        if props & {"shield", "health"} and e.get("burst_pressure", 0) >= 0.5:
+            reasons.append((1.0, "high enemy burst"))
+        if props & {"tenacity", "cleanse"} and e.get("cc_pressure", 0) >= 0.5:
+            reasons.append((1.0, "heavy enemy crowd control"))
+    a = allies or {}
+    if (a.get("known") and a.get("frontline", 1) == 0 and "health" in props
+            and props & {"armor", "magic_resist"}):
+        reasons.append((1.0, "allies lack frontline"))
+    if not reasons:
+        return 0.0, None
+    return min(3.0, sum(v for v, _ in reasons)), reasons[0][1]
+
+
+MERCURY_TREADS = "3111"
+PLATED_STEELCAPS = "3047"
+
+
+def _context_boots(base: str | None, eligible: set, enemy: dict | None):
+    """(boots id, reason) from the enemy team; else the champion's usual boots.
+
+    Owner decision 23/11: heavy crowd control -> Mercury's Treads; heavy
+    physical (auto-attack) damage -> Plated Steelcaps; otherwise the boots most
+    played on the champion. Needs at least 3 analysed enemies.
+    """
+    e = enemy or {}
+    if (e.get("enemies_analyzed") or 0) < 3:
+        return base, None
+    options = []
+    cc, phys = float(e.get("cc_pressure") or 0), float(e.get("physical_pressure") or 0)
+    if cc >= 0.55 and MERCURY_TREADS in eligible:
+        options.append((cc - 0.55, MERCURY_TREADS, "enemy crowd control"))
+    if phys >= 0.65 and PLATED_STEELCAPS in eligible:
+        options.append((phys - 0.65, PLATED_STEELCAPS, "enemy physical damage"))
+    if not options:
+        return base, None
+    _, iid, reason = max(options)
+    return (base, None) if iid == base else (iid, reason)
+
+
+def _record_enemy_detection(enemy: dict | None, snapshot=None) -> None:
+    """How many enemy champions the live data listed and the model analysed."""
+    e = enemy or {}
+    visible, analysed = int(e.get("enemies_visible") or 0), int(e.get("enemies_analyzed") or 0)
+    if visible == 0 and snapshot is not None and hasattr(snapshot, "player_identified"):
+        # Field 24/11: tell "Live Client listed nobody" (Practice Tool,
+        # loading) apart from "we could not find ourselves among the players".
+        if not getattr(snapshot, "players_listed", 0):
+            feature_diagnostics.record("enemy.detection", "skipped", "no_players_listed")
+        elif not snapshot.player_identified:
+            feature_diagnostics.record("enemy.detection", "failed", "player_unidentified",
+                                       min(int(snapshot.players_listed), 1000))
+        else:
+            feature_diagnostics.record("enemy.detection", "skipped", "no_enemies_listed",
+                                       min(int(snapshot.players_listed), 1000))
+        return
+    if visible == 0:
+        feature_diagnostics.record("enemy.detection", "skipped", "no_enemies_listed")
+    elif analysed == 0:
+        feature_diagnostics.record("enemy.detection", "failed", "none_resolved", visible)
+    elif analysed < visible:
+        feature_diagnostics.record("enemy.detection", "ok", "partial", analysed)
+    else:
+        feature_diagnostics.record("enemy.detection", "ok", "all_resolved", analysed)
+
+
+def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies, sd,
+                          enemy_states=None):
+    """Reference build (measured), adapted build (max 3 swaps, >= 0.5) and
+    heuristic Stat Anvil priorities for the overlay. No win rates."""
+    from backend.tierdb.anvil_stats import ANVIL_STATS, rank_anvil_options
+    from backend.tierdb.build_adapt import adapt_build, follow_owned, strength_from_rank
+
+    record = feature_diagnostics.record
+    if not tier_service.enabled():
+        record("items.reference_build", "skipped", "tiers_off")
+        record("anvil.stat_estimate", "skipped", "tiers_off")
+        return None
+    if not champion_id:
+        record("items.reference_build", "skipped", "no_champion")
+        return None
+    data = tier_service.provider.items(str(champion_id))
+    if not data or not data.get("reference"):
+        record("items.reference_build", "failed",
+               "champion_not_in_tierlist" if tier_service.provider.loaded else "export_missing")
+        record("anvil.stat_estimate", "skipped", "no_demand")
+        return None
+    champion = sd.get_champion(champion_id) if hasattr(sd, "get_champion") else None
+    finals = data.get("final") or {}
+    strength = {iid: strength_from_rank(e.get("rank"), e.get("rank_total"))
+                for iid, e in finals.items()}
+    groups = getattr(sd, "exclusive_item_groups", {}) or {}
+
+    def conflicts(a, b):
+        return any(a in ids and b in ids for ids in groups.values())
+
+    fate = set()
+    chosen = [str(a) for a in (chosen_augments or [])]
+    for aug in chosen:
+        fate |= set((data.get("fate") or {}).get(aug, []))
+
+    from backend.engine.situational_items import sustain_level
+    own_sustain = 0.0
+    if champion is not None:
+        own_sustain = (float(champion.stats.heal_power or 0) + float(champion.stats.shield or 0)
+                       + sustain_level(champion, list(data.get("reference") or []),
+                                       getattr(sd, "get_item", None)))
+    for aug in chosen:
+        vec_ = _stat_vector_of(sd.get_augment(aug) if hasattr(sd, "get_augment") else None)
+        if vec_ is not None:
+            own_sustain += float(vec_.heal_power or 0) + float(vec_.shield or 0)
+
+    vamp_covered = any(
+        getattr(sd.get_item(i), "properties", frozenset()) & {"lifesteal", "omnivamp"}
+        for i in data.get("reference") or [])
+
+    def context(iid):
+        return _item_context(sd.get_item(iid), champion, enemy, allies, fate, own_sustain,
+                             vamp_covered)
+
+    canonical = getattr(sd, "canonical_item_id", lambda x: str(x))
+    owned = {canonical(i) for i in (owned_ids or [])}
+    reference = list(data["reference"])
+    adapted = adapt_build(reference, strength, context=context, owned=owned,
+                          conflicts=conflicts)
+    # Field 24/11: the plan follows what the player actually bought (owned
+    # finals first; physical vs magic purchases switch the remaining slots).
+    owned_order = []
+    for i in owned_ids or []:
+        cid = canonical(i)
+        if cid not in owned_order:
+            owned_order.append(cid)
+    ranked = sorted(finals, key=lambda i: (finals[i].get("rank") or 10**6, i))
+    plan, follows = follow_owned(
+        list(adapted.items), owned_order, get_item=sd.get_item, ranked=ranked,
+        conflicts=conflicts, size=len(adapted.items) or 6)
+
+    def name(iid):
+        item = sd.get_item(iid)
+        return item.name if item is not None and item.name else iid
+
+    payload = {
+        "reference": [{"id": i, "name": name(i)} for i in reference],
+        "adapted": [{"id": i, "name": name(i)} for i in plan],
+        "follows": follows,
+        "boots": None,
+        "swaps": [] if follows else [
+            {"slot": s["slot"], "out": s["out"], "in": s["in"],
+             "out_name": name(s["out"]), "in_name": name(s["in"]),
+             "reason": s["reason"]} for s in adapted.swaps if s["in"] in plan],
+        "anvil_stats": [],
+    }
+    situational = _situational_alternatives(
+        champion, chosen, owned_ids, plan, enemy, enemy_states, follows, conflicts, sd)
+    payload["alternatives"] = _next_item_alternatives(
+        plan, owned, finals, strength, context, conflicts, enemy, follows, sd, name,
+        situational=situational)
+    boots_ids = {str(b) for b in (data.get("boots") or {})}
+    boots_id, boots_reason = _context_boots(data.get("boots_reference"), boots_ids, enemy)
+    if boots_id:
+        payload["boots"] = {"id": boots_id, "name": name(boots_id), "reason": boots_reason}
+    record("items.reference_build", "ok", "attached")
+    demand = data.get("stat_demand") or {}
+    if not demand:
+        record("anvil.stat_estimate", "skipped", "no_demand")
+        return payload
+    boost = _augment_anvil_boost(chosen, sd)
+    ranked = rank_anvil_options([{"id": s, "stat": s} for s in ANVIL_STATS], demand,
+                                enemy=enemy, allies=allies, augment_stats=boost)
+    payload["anvil_stats"] = [{"stat": r["stat"], "tier": r["tier"], "level": r["level"],
+                               "reason": r["reason"]} for r in ranked[:3]]
+    record("anvil.stat_estimate", "ok", "estimated", len(payload["anvil_stats"]))
+    return payload
+
+
+def _enemy_heals_a_lot(enemy: dict | None) -> bool:
+    e = enemy or {}
+    return (e.get("enemies_analyzed", 0) > 0
+            and (float(e.get("sustain_pressure") or 0) >= 0.35
+                 or int(e.get("healing_items") or 0) >= 3))
+
+
+def _situational_alternatives(champion, chosen, owned_ids, plan, enemy, enemy_states,
+                              follows, conflicts, sd) -> list[dict]:
+    """Research 24/11 rule table (thresholds are proposals). Empty without
+    visible enemies or a catalog of available items."""
+    from backend.engine import situational_items as si
+    from backend.tierdb.build_adapt import item_archetype
+
+    if not enemy_states or not hasattr(sd, "recommendable_items"):
+        return []
+    try:
+        get_augment = getattr(sd, "get_augment", lambda _a: None)
+        augments = [getattr(get_augment(a), "name", None) or a for a in chosen]
+        owned_items = [i for i in (sd.get_item(x) for x in owned_ids or []) if i]
+        facts = si.gather_facts(champion, enemy_states, enemy, owned_items, augments,
+                                sd.get_champion, sd.get_item, own_kind=follows)
+        taken = set(plan) | {getattr(i, "id", None) for i in owned_items}
+
+        def fits(iid):
+            item = sd.get_item(iid)
+            if item is None or getattr(item, "boots", False):
+                return False
+            if any(conflicts(iid, o) for o in taken if o):
+                return False
+            kind = item_archetype(item)
+            return kind is None or follows is None or kind == follows
+
+        return si.suggestions(facts, sd.recommendable_items(), taken, fits)
+    except Exception as exc:  # never break the overlay over a heuristic
+        logger.warning("situational items failed: %s", type(exc).__name__)
+        return []
+
+
+ANTI_TANK_ITEMS = ("Blade of The Ruined King", "Liandry's Torment", "Lord Dominik's Regards",
+                   "Void Staff", "Black Cleaver", "Serylda's Grudge", "Kraken Slayer")
+
+
+def _next_item_alternatives(plan, owned, finals, strength, context, conflicts,
+                            enemy, follows, sd, name, limit: int = 3,
+                            situational=None) -> list[dict]:
+    """Owner 24/11: ALWAYS three options beside the plan (also in the
+    pre-build): the strongest item left, then alternatives with ONE item per
+    reason (anti-heal, anti-tank, anti-burst, spell shield, resistances...).
+    Heuristic reasons over the measured item ranks; never win rates."""
+    from backend.engine.situational_items import _norm
+    from backend.tierdb.build_adapt import item_archetype
+
+    def item(iid):
+        return sd.get_item(iid)
+
+    def props(iid):
+        return getattr(item(iid), "properties", frozenset()) or frozenset()
+
+    taken = set(plan) | set(owned)
+    kinds = [item_archetype(item(i)) for i in plan]
+    kind = follows or ("ap" if kinds.count("ap") > kinds.count("ad") else
+                       "ad" if kinds.count("ad") > kinds.count("ap") else None)
+    chosen: list[dict] = []
+
+    def fits(iid):
+        it = item(iid)
+        if it is None or getattr(it, "boots", False) or iid in taken:
+            return False
+        if any(o["id"] == iid for o in chosen):
+            return False
+        if any(conflicts(iid, o) for o in taken | {o["id"] for o in chosen}):
+            return False
+        k = item_archetype(it)
+        return k is None or kind is None or k == kind
+
+    def add(iid, reason, **extra):
+        if (len(chosen) >= limit or not reason or not fits(iid)
+                or any(o["reason"] == reason for o in chosen)):
+            return False
+        if "anti_heal" in props(iid) and any("anti_heal" in props(o["id"]) for o in chosen):
+            return False  # Grievous Wounds never stacks
+        chosen.append({"id": iid, "name": name(iid), "reason": reason, **extra})
+        return True
+
+    ranked = sorted((i for i in finals if fits(i)),
+                    key=lambda i: (-strength.get(i, 0.0), i))
+    if ranked:
+        rank = (finals.get(ranked[0]) or {}).get("rank")
+        add(ranked[0], f"strongest option left (#{rank})" if rank else "strongest option left")
+    for s in situational or []:
+        if s.get("id"):
+            add(s["id"], s.get("reason"),
+                **{k: s[k] for k in ("rule", "urgent") if k in s})
+    if (_enemy_heals_a_lot(enemy) and not any("anti_heal" in props(i) for i in taken)
+            and not any("anti_heal" in props(o["id"]) for o in chosen)):
+        pool = [i for i in finals if "anti_heal" in props(i) and fits(i)]
+        if not pool and hasattr(sd, "recommendable_items"):
+            pool = [it.id for it in sd.recommendable_items()
+                    if "anti_heal" in (it.properties or ()) and fits(it.id)]
+        if pool:
+            add(max(pool, key=lambda i: (strength.get(i, 0.0), i)),
+                "enemies heal a lot: Grievous Wounds")
+    scored = sorted(((strength.get(i, 0.0) + context(i)[0], i) for i in ranked),
+                    key=lambda t: (-t[0], t[1]))
+    for _value, iid in scored:
+        add(iid, context(iid)[1])
+    e = enemy or {}
+    names = {_norm(getattr(item(i), "name", "")): i for i in ranked}
+    if int(e.get("tanks") or 0) >= 2:
+        for wanted in ANTI_TANK_ITEMS:
+            if _norm(wanted) in names and add(names[_norm(wanted)], "kills tanks"):
+                break
+    # Distinct fallbacks so there are always three different reasons.
+    defensive = [i for i in ranked if props(i) & {"armor", "magic_resist", "health"}]
+    offensive = [i for i in ranked if item_archetype(item(i)) is not None]
+    for pool, reason in ((defensive, "more survivability"), (offensive, "more damage"),
+                         (ranked, "solid alternative")):
+        for iid in pool:
+            if add(iid, reason):
+                break
+    for iid in ranked:  # last resort: still three items
+        if len(chosen) >= limit:
+            break
+        rank = (finals.get(iid) or {}).get("rank")
+        add(iid, f"also strong on this champion (#{rank})" if rank else "another option")
+    return chosen[:limit]
+
+
+TEAR_ID = "3070"
+
+
+def _early_tear(plan, owned, sd) -> str | None:
+    """Tear of the Goddess as Next while a Tear item is planned and no Tear
+    (or Tear item) is owned yet, and at most one other item is finished."""
+    tear = sd.get_item(TEAR_ID)
+    if tear is None or TEAR_ID in owned:
+        return None
+    family = [i for i in plan if TEAR_ID in (getattr(sd.get_item(i), "from_ids", ()) or ())]
+    if not family or any(i in owned for i in family):
+        return None
+    finished = [i for i in owned if getattr(sd.get_item(i), "final", False)
+                and not getattr(sd.get_item(i), "boots", False)]
+    return TEAR_ID if len(finished) <= 1 else None
+
+
+def _align_next_with_mayhem_build(build_state: dict, mayhem: dict | None,
+                                  current_gold, sd) -> dict:
+    """Make Next follow the tier list build shown beside it.
+
+    Fiora match test 23/11: the legacy engine suggested Bloodthirster while the
+    measured reference started with Ravenous Hydra. With a tier list build, Next
+    is the first adapted item not owned yet. Boots timing, a full inventory and
+    a completed adapted build keep the engine's choice.
+    """
+    if not mayhem or not mayhem.get("adapted") or build_state.get("slot_blocked"):
+        return build_state
+    canonical = getattr(sd, "canonical_item_id", lambda x: str(x))
+    engine_next = build_state.get("next_item_id")
+    boots = (mayhem.get("boots") or {}).get("id")
+    owned = {canonical(i) for i in (build_state.get("purchased_items") or [])}
+    owned |= {canonical(i) for i in (build_state.get("owned_build_ids") or [])}
+
+    def is_boots(iid):
+        item = sd.get_item(iid) if iid else None
+        return bool(getattr(item, "boots", False))
+
+    # Field 24/11 ("says the plan and recommends a different item"): the list
+    # shown with Owned / BUY NEXT / Planned IS the tier list plan.
+    plan = [e["id"] for e in mayhem["adapted"] if e.get("id")]
+    mine = sorted(i for i in owned if is_boots(i) and i != "1001")
+    owned_boots = bool(mine)
+    if not any(is_boots(i) for i in plan):
+        if owned_boots:
+            plan.insert(min(1, len(plan)), mine[0])
+        elif boots:
+            plan.insert(min(1, len(plan)), boots)
+    plan = plan[:6]
+    out = dict(build_state)
+    out["full_build"] = plan
+    out["full_build_names"] = [
+        (getattr(sd.get_item(i), "name", None) or i) for i in plan]
+    out["next_source"] = "tierlist"
+    urgent = next((a for a in mayhem.get("alternatives") or []
+                   if a.get("urgent") and a.get("id") not in owned), None)
+    if engine_next and is_boots(engine_next) and boots and not owned_boots:
+        # Boots timing stays the engine's, the boots themselves follow the enemy comp.
+        candidate = boots
+    elif urgent:
+        # Research 24/11 conflict rule 1 (proposal): only priority-1 rules
+        # (heavy healing, suppression, fed assassin) replace Next.
+        candidate = urgent["id"]
+        out["next_reason"] = urgent.get("reason")
+    elif (tear := _early_tear(plan, owned, sd)) is not None:
+        # Owner 24/11: mana-stacking items (Manamune, Archangel's, Winter's
+        # Approach...) are never worth it late; buy the Tear first.
+        candidate = tear
+        out["next_reason"] = "start stacking mana early"
+    else:
+        # Boots timing is the engine's: they are Next only when it says so.
+        candidate = next((i for i in plan if i not in owned and not is_boots(i)), None)
+    if candidate is None:
+        return out
+    if engine_next and canonical(engine_next) == candidate:
+        return out
+    item = sd.get_item(candidate)
+    cost = int(getattr(item, "cost", 0) or 0) if item is not None else 0
+    out["engine_next_item_id"] = engine_next
+    out["next_item_id"] = candidate
+    out["next_item_name"] = item.name if item is not None and item.name else candidate
+    out["next_item_gold_needed"] = cost
+    out["gold_to_next"] = (max(0, cost - int(current_gold))
+                           if isinstance(current_gold, (int, float)) and cost else None)
+    return out
+
+
 def _handle_feature_ack(msg: dict) -> bool:
     """Accept a DOM-render report from the overlay for UI features only."""
-    if not isinstance(msg, dict) or msg.get("feature") not in feature_diagnostics.UI_FEATURES:
+    if (not isinstance(msg, dict) or msg.get("feature") not in UI_FEATURES
+            or not str(msg.get("feature")).startswith(("tierdb.", "items."))):
         return False
     count = msg.get("count")
     return feature_diagnostics.record(msg.get("feature"), msg.get("status"),
                                       msg.get("reason"), count if count is not None else None)
+
+
+def _accept_feature_ack(state: GameState, msg: dict) -> bool:
+    """DOM-only ACK, fenced to the current match and verified Anvil offer.
+
+    Never trust an acknowledgment as proof of League shop stock or a newly
+    presented popup. Never persist match IDs, item identities or OCR text.
+    """
+    if not isinstance(msg, dict):
+        return False
+    if set(msg) - {"type", "feature", "status", "reason", "count",
+                    "match_id", "offer_epoch"}:
+        return False
+    feature = msg.get("feature")
+    count = msg.get("count")
+    if (feature not in UI_FEATURES or msg.get("type") != "feature_ack"
+            or msg.get("status") != "ok" or msg.get("reason") != "rendered"
+            or not state.had_game_last_tick or not state.match_id
+            or msg.get("match_id") != state.match_id
+            or type(count) is not int or count <= 0):
+        return False
+    if feature == "build.next_item_render":
+        if count != 1:
+            return False
+    elif feature == "anvil.offer_render":
+        # P0-C: only the dedicated, visually verified popup of THIS epoch,
+        # with as many cards as were read. A voucher edge never qualifies.
+        offer = state.anvil_offer
+        if (offer is None or getattr(offer, "status", None) != "ok"
+                or type(msg.get("offer_epoch")) is not int
+                or msg["offer_epoch"] != state.anvil_epoch
+                or count != len(offer.shards)
+                or any(static_data.get_stat_anvil(s.id) is None for s in offer.shards)):
+            return False
+    else:
+        return False
+    return feature_diagnostics.record(feature, "ok", "rendered", count)
+
+
+@app.get("/api/diagnostics/features")
+def get_feature_report():
+    """Sanitized last-session IDs, statuses and aggregate counts only."""
+    return feature_diagnostics.build_report()
+
 
 # In PyInstaller bundles, sys._MEIPASS points to the extraction dir.
 _APP_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent.parent))
@@ -644,12 +1519,6 @@ def update_tierlist_switch(req: TierListSwitchRequest):
     return {"enabled": enabled}
 
 
-@app.get("/api/diagnostics/features")
-def feature_report():
-    """Per-feature verdicts for the last session (enums and counts only)."""
-    return feature_diagnostics.build_report()
-
-
 @app.post("/api/tierlist/update")
 def start_tierlist_update():
     return {"started": tier_service.start_update(static_data)}
@@ -663,6 +1532,7 @@ def health():
         "champions_loaded": len(static_data._champions),
         "augments_loaded": len(static_data._augments),
         "items_loaded": len(static_data._items),
+        "code": feature_diagnostics.code_version(),
     }
 
 
@@ -732,19 +1602,49 @@ def _read_champ_select_payload() -> dict | None:
     return _annotate_champion_candidates(result)
 
 
+def _history_import_allowed() -> bool:
+    return (config.get("lcu_history_enabled", False) is True
+            or load_history_enabled())
+
+
+class HistorySwitchRequest(BaseModel):
+    enabled: StrictBool
+
+
+@app.get("/api/history")
+def history_status():
+    """Opt-in state and the impact holdout verdict (counts only)."""
+    return {"enabled": _history_import_allowed(), **impact_gate.status()}
+
+
+@app.put("/api/history")
+def update_history_switch(req: HistorySwitchRequest):
+    try:
+        save_history_enabled(req.enabled)
+    except OSError:
+        logger.exception("Could not persist history switch")
+        raise HTTPException(status_code=500, detail="Could not save preference") from None
+    return {"enabled": _history_import_allowed()}
+
+
 @app.post("/api/history/import")
-async def import_personal_history():
+async def import_personal_history(max_games: int = 40):
     """Explicit, local-only sync of own ARAM Mayhem matches.
 
-    Called on user action only. Never returns raw match or player data.
+    Called on user action only (Settings switch + button, or the config
+    flag). Never returns raw match or player data.
     """
-    if config.get("lcu_history_enabled", False) is not True:
+    if not _history_import_allowed():
         raise HTTPException(
             status_code=403,
-            detail="LCU history import disabled pending policy review and explicit opt-in",
+            detail="LCU history import is off: switch it on in Settings first",
         )
     from backend.storage.history_import import sync_recent_mayhem_games
-    return await asyncio.to_thread(sync_recent_mayhem_games)
+    max_games = max(1, min(int(max_games), 1000))
+    # max_games up to 1000 pages the local client's list back in time (one-off backfill).
+    result = await asyncio.to_thread(sync_recent_mayhem_games, max_games)
+    await _refresh_impact_gate()
+    return {**result, **impact_gate.status()}
 
 
 @app.get("/api/champ-select/status")
@@ -989,7 +1889,8 @@ def _sync_confirmed_augments(
     if state.scan_window_open:
         event_log.emit(
             "ocr_window", state="closed",
-            reason="confirmed" if method == "automatic" else "manual_choice",
+            reason=("confirmed" if method == "automatic" else
+                    "cursor_pick" if method == "cursor" else "manual_choice"),
             level=state.scan_window_level,
         )
     state.scan_window_open = False
@@ -1060,8 +1961,16 @@ async def confirm_offer(req: OfferConfirmRequest):
 @app.post("/api/offers/confirm-slot")
 async def confirm_offer_slot(req: OfferSlotRequest):
     async with game_state.lock:
+        four = game_state.four_offer
+        order = ("left", "centre", "right", "fourth")
         try:
-            offer = game_state.offer_ledger.confirm_slot(req.slot)
+            if four and req.slot in order:
+                # Alt+1..4 on a four-card offer (field 24/11).
+                offer = game_state.offer_ledger.confirm_four(
+                    four[order.index(req.slot)], four, inferred=False)
+                game_state.four_offer = None
+            else:
+                offer = game_state.offer_ledger.confirm_slot(req.slot)
         except LedgerError as exc:
             raise _offer_http_error(exc) from None
         _sync_confirmed_augments(game_state, offer)
@@ -1217,6 +2126,15 @@ async def game_ws(websocket: WebSocket):
                         _serialize_result(result, static_data)
                     ))
 
+            elif msg_type == "feature_ack":
+                # Tier list renders (incl. champ select) ack without a match;
+                # every other UI feature stays match/offer fenced.
+                if str(msg.get("feature", "")).startswith(("tierdb.", "items.")):
+                    _handle_feature_ack(msg)
+                else:
+                    async with game_state.lock:
+                        _accept_feature_ack(game_state, msg)
+
             elif msg_type == "set_augment_choices":
                 augment_ids = msg.get("augment_ids", [])
                 if not isinstance(augment_ids, list):
@@ -1351,9 +2269,6 @@ async def game_ws(websocket: WebSocket):
                     "type": "ack", "action": "set_build_style", "style": style,
                 }))
 
-            elif msg_type == "feature_ack":
-                _handle_feature_ack(msg)
-
             elif msg_type == "toggle_ocr":
                 async with game_state.lock:
                     requested = msg.get("enabled", not game_state.ocr_enabled)
@@ -1440,9 +2355,9 @@ def _slots_from_detected(detected: list[dict] | None) -> dict[str, str | None] |
 
 def _ocr_title_catalog() -> dict[str, str]:
     """Share one deterministic title catalog for manual and watcher scans."""
-    names = {aid: aug.name for aid, aug in static_data._stat_anvils.items()}
-    names.update({aid: aug.name for aid, aug in static_data._augments.items()})
-    return names
+    # Stat Anvil titles have a dedicated watcher (P0-C); shared Silver/Gold
+    # titles must never be read into an augment offer.
+    return {aid: aug.name for aid, aug in static_data._augments.items()}
 
 
 def _run_ocr_scan_manual() -> _ManualScanEvidence:
@@ -1604,6 +2519,15 @@ def _status_message(state: GameState, status: str) -> str:
 
 def _finish_match(state: GameState, now: float) -> None:
     """Called under the state lock; one end transition, no 300s timeout."""
+    ended_ledger, ended_champion = state.offer_ledger, state._last_champion_id
+    if not ended_ledger.offers:
+        feature_diagnostics.record("augment.postgame_reconcile", "skipped", "no_offers")
+    else:
+        try:
+            asyncio.get_running_loop().create_task(
+                _postgame_reconcile(ended_ledger, ended_champion))
+        except RuntimeError:  # no loop (sync tests): nothing to reconcile with
+            pass
     state.reset()
     state.match_id = None
     state._last_game_time = None
@@ -1682,6 +2606,8 @@ def _begin_or_continue_match(
         state.match_id = authoritative
 
     state._last_game_time = game_time if game_time is not None else state._last_game_time
+    if champion and champion != state._last_champion_id:
+        _arammeta_snapshot(champion)
     state._last_champion_id = champion or state._last_champion_id
     state._last_player_key = player_key or state._last_player_key
     state.lcda_misses = 0
@@ -1756,6 +2682,8 @@ def _poll_dependencies() -> SimpleNamespace:
         read_gameflow=read_gameflow,
         ocr_available=ocr_available,
         run_watcher_check=_run_watcher_check,
+        run_anvil_check=anvil_popup.run_anvil_check,
+        probe_cards=card_presence.probe_cards,
         screen_watcher=screen_watcher,
         to_thread=asyncio.to_thread,
         broadcast=_broadcast,
@@ -1765,6 +2693,512 @@ def _poll_dependencies() -> SimpleNamespace:
         static_data=static_data,
     )
 
+
+def _anvil_offer_payload(state: GameState, result) -> dict | None:
+    """Only a verified popup with ratings is sent; the UI shows the top pick."""
+    offer = state.anvil_offer
+    ratings = list(getattr(result, "anvil_offer_ratings", None) or [])
+    if offer is None:
+        return None
+    estimated = _anvil_offer_estimates(offer, result)
+    if estimated:
+        # Audit 24/11: the popup shows the tier-list estimate (tier capped at
+        # A, labelled estimate), not the old model's x/10.
+        ratings = estimated
+    return {"epoch": state.anvil_epoch, "tier": offer.tier,
+            "tier_source": offer.tier_source, "count": len(offer.shards),
+            "cards": ratings if ratings else [
+                {"anvil_id": s.id, "anvil_name": s.title, "tier": s.tier,
+                 "stats": dict(s.stats), "score": None, "modelled": False}
+                for s in offer.shards]}
+
+
+def _anvil_offer_estimates(offer, result) -> list[dict]:
+    """Rate the popup's shards with the tier list demand; [] when unavailable."""
+    from backend.tierdb.anvil_stats import rank_anvil_options
+    build_state = getattr(result, "build_state", None)
+    champion_id = getattr(build_state, "champion_id", None)
+    if not champion_id or not tier_service.enabled():
+        return []
+    try:
+        data = tier_service.provider.items(str(champion_id)) or {}
+    except Exception:
+        return []
+    demand = data.get("stat_demand") or {}
+    if not demand:
+        return []
+    sd = static_data
+    shards = [{"id": s.id, "tier": s.tier, "stats": dict(s.stats)} for s in offer.shards]
+    catalog_fn = getattr(sd, "stat_anvil_catalog", None)
+    reference = ([{"id": s.id, "tier": s.tier, "stats": dict(s.stats)}
+                  for s in (catalog_fn() or {}).values()] if callable(catalog_fn) else None)
+    ranked = rank_anvil_options(
+        shards, demand, enemy=getattr(result, "enemy_analysis", None) or {},
+        allies=getattr(result, "ally_analysis", None) or {},
+        augment_stats=_augment_anvil_boost(getattr(build_state, "chosen_augments", None), sd),
+        reference=reference)
+    by_id = {s.id: s for s in offer.shards}
+    cards = []
+    for row in ranked:
+        shard = by_id.get(row.get("id"))
+        if shard is None:
+            continue
+        cards.append({"anvil_id": shard.id, "anvil_name": shard.title, "tier": shard.tier,
+                      "stats": dict(shard.stats), "score": row.get("score"),
+                      "est_tier": row.get("tier"), "level": row.get("level"),
+                      "reason": row.get("reason"),
+                      "modelled": row.get("score") is not None})
+    return cards
+
+
+def _augment_cards_verified(state: GameState) -> bool:
+    slots = state.ocr_slot_choices
+    return bool(state.scan_window_open and isinstance(slots, dict)
+                and all(isinstance(slots.get(s), str) and slots[s]
+                        for s in ("left", "centre", "right")))
+
+
+def _augment_titles_read(state: GameState) -> bool:
+    """Augment titles were read in the open window (some slot has a title)."""
+    slots = state.ocr_slot_choices
+    return bool(state.scan_window_open and isinstance(slots, dict)
+                and any(isinstance(v, str) and v for v in slots.values()))
+
+
+def _augment_titles_blank(state: GameState) -> bool:
+    slots = state.ocr_slot_choices
+    return isinstance(slots, dict) and bool(slots) and all(v is None for v in slots.values())
+
+
+ANVIL_CHECK_IN_AUGMENT_WINDOW_S = 3.0
+# Field 24/11: after one Anvil the next popup can follow at once and is picked
+# in 1-2 s. For a while after a popup closes, and while vouchers are held, the
+# Anvil watcher is not throttled and the fast presence probe triggers it.
+ANVIL_FOLLOWUP_S = 15.0
+
+
+def _anvil_attention(state: GameState, now: float) -> bool:
+    return bool(state.match_id) and any(
+        until is not None and now <= until
+        for until in (state.anvil_window_until, state.anvil_followup_until))
+# Field 23/11: 30 "no_cards" ticks and no popup read. Every few seconds the
+# Anvil titles are OCR'd even when the augment card cue says no cards.
+ANVIL_FORCED_OCR_INTERVAL_S = 4.0
+# Field 23/11: offers took 23 s to minutes to show. While an augment window is
+# open and its cards are not read yet, poll every second instead of every 2 s.
+FAST_POLL_INTERVAL_S = 1.0
+# Field 25/11: with cards already on screen but not read yet (fading in, or a
+# first unverified read), a 1 s tick cost 1-2 s per window (OCR after cards
+# shown: 2.7 s and 5.5 s, above the 5 s rule). Ticks take ~0.1-0.15 s, so look
+# again quickly until the read is verified; cards_absent keeps the 1 s pace.
+CARDS_SEEN_POLL_INTERVAL_S = 0.3
+_CARDS_SEEN_STAGES = frozenset((
+    "titles_unidentified", "titles_verifying", "titles_transition",
+    "four_titles_verifying",
+))
+
+
+def _latency_bucket(seconds: float) -> str:
+    """Seconds from the augment window opening to the first verified read."""
+    return ("under_3s" if seconds < 3 else "3_to_10s" if seconds < 10
+            else "10_to_30s" if seconds < 30 else "over_30s")
+
+
+def _poll_interval(state: GameState, base: float, stage: str | None = None) -> float:
+    if state.scan_window_open and not _augment_cards_verified(state):
+        if stage is None:
+            stage = getattr(screen_watcher, "last_scan_stage", None)
+        if stage in _CARDS_SEEN_STAGES:
+            return min(base, CARDS_SEEN_POLL_INTERVAL_S)
+        return min(base, FAST_POLL_INTERVAL_S)
+    return base
+
+
+async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
+    """P0-C: watch the screen for the Stat Anvil popup during the match.
+
+    Field fix 23/11: neither a voucher edge nor the augment scan window may
+    gate this (the popup came with no voucher while the augment window was
+    still open). It uses its own watcher, which skips OCR when no card
+    background is on screen, and skips while verified AUGMENT cards show.
+    Diagnostics carry IDs/reasons only, never OCR text or pixels.
+    """
+    run = getattr(deps, "run_anvil_check", None)
+    sd = getattr(deps, "static_data", None)
+    catalog_fn = getattr(sd, "stat_anvil_catalog", None)
+    if run is None or not callable(catalog_fn) or not state.match_id:
+        return
+    if (state.anvil_window_until is not None and now > state.anvil_window_until
+            and state.anvil_offer is None):
+        # The voucher hint expired unseen. Diagnostic only: the popup is
+        # still watched below (field 23/11: it came with no voucher edge).
+        state.anvil_window_until = None
+        state.anvil_voucher_tier = None
+        feature_diagnostics.record("anvil.offer_detected", "skipped", "popup_unverified")
+    if not state.ocr_enabled or not deps.ocr_available():
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "ocr_off")
+        return
+    if _augment_titles_read(state):
+        # The augment watcher has read augment titles in this window: never
+        # OCR the same cards twice. Field 23/11: during the Anvil popup it
+        # read three BLANK titles, which is when this watcher must look.
+        # Field 23/11 (Master Yi): an augment window that is open but not yet
+        # READ (level reached, cards not shown or pick postponed for minutes)
+        # no longer blocks this watcher; it used to, so no Anvil was seen.
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_cards_read")
+        return
+    watcher = getattr(deps, "screen_watcher", None)
+    if (state.scan_window_open and state.anvil_offer is None
+            and getattr(watcher, "verifying_named", False) is True):
+        # Field 24/11 (latency): the augment watcher is confirming augment
+        # titles on these very cards; an Anvil OCR now would only delay that
+        # read (and the recommendation drawn after this tick).
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_verifying")
+        return
+    blank_titles = getattr(watcher, "last_scan_stage", None) == "titles_unidentified"
+    if (state.scan_window_open and state.anvil_offer is None
+            and not _anvil_attention(state, now) and not blank_titles
+            and now - state.anvil_last_check < ANVIL_CHECK_IN_AUGMENT_WINDOW_S):
+        # Field 23/11: an unread augment window may last minutes, so the Anvil
+        # watcher must look then too, but it runs in the same tick as the
+        # augment OCR: at most one look every few seconds so it never slows
+        # the augment read.
+        feature_diagnostics.record("anvil.popup_watch", "skipped", "throttled")
+        return
+    catalog = catalog_fn()
+    if not catalog:
+        return
+    force = now - state.anvil_last_forced >= ANVIL_FORCED_OCR_INTERVAL_S
+    state.anvil_last_check = now
+    names = anvil_title_catalog(catalog.values())
+    if force:
+        state.anvil_last_forced = now
+        try:
+            action, ids = await deps.to_thread(run, names, True)
+        except TypeError:  # injected checker without the force flag
+            action, ids = await deps.to_thread(run, names)
+    else:
+        action, ids = await deps.to_thread(run, names)
+    if action in ("detected", "unchanged"):
+        feature_diagnostics.record(
+            "anvil.popup_watch", "ok" if ids and all(ids) else "skipped",
+            "titles_matched" if ids and all(ids) else "titles_partial")
+    else:
+        feature_diagnostics.record("anvil.popup_watch", "skipped",
+                                   "no_cards" if action == "no_augments" else "unavailable")
+    async with state.lock:
+        if action in ("detected", "unchanged") and ids and all(ids):
+            state.anvil_absent_ticks = 0
+            res = resolve_anvil_offer(ids, catalog, voucher_tier=state.anvil_voucher_tier)
+            if res.status == "ok":
+                changed = (state.anvil_offer is None
+                           or [s.id for s in state.anvil_offer.shards]
+                           != [s.id for s in res.shards])
+                if changed:
+                    state.anvil_epoch += 1
+                    feature_diagnostics.record(
+                        "anvil.offer_detected", "ok", "verified_offer", len(res.shards))
+                    _close_unread_augment_window(state)
+                state.anvil_offer = res
+            else:
+                state.anvil_offer = None
+                feature_diagnostics.record("anvil.offer_detected", res.status, res.reason)
+        elif action in ("no_augments", "disappeared", "unavailable"):
+            if state.anvil_offer is not None:
+                state.anvil_absent_ticks += 1
+                if state.anvil_absent_ticks >= anvil_popup.ABSENT_TICKS_TO_CLOSE:
+                    # Popup gone (choice made or closed): end this window.
+                    state.anvil_offer = None
+                    state.anvil_window_until = None
+                    state.anvil_followup_until = now + ANVIL_FOLLOWUP_S
+                    state.anvil_voucher_tier = None
+                    state.anvil_absent_ticks = 0
+
+
+OCR_ABSENT_TICKS_TO_CLOSE = 3
+
+
+async def _ocr_absence_close(state: GameState, deps) -> None:
+    """Field 25/11 (game C, levels 7 and 11): a read offer stayed open for
+    minutes although the OCR tick saw no cards again and again; the presence
+    probe never closed it (Alt+3 needed, the next offer was never shown).
+    Three consecutive OCR ticks without cards close it the same way, with the
+    cursor inference from the presence trail (abstains when unsure)."""
+    stage = getattr(getattr(deps, "screen_watcher", None), "last_scan_stage", None)
+    message = None
+    async with state.lock:
+        if _presence_armed(state) != "augment" or stage != "cards_absent":
+            state.ocr_absent_ticks = 0
+            return
+        state.ocr_absent_ticks += 1
+        if state.ocr_absent_ticks < OCR_ABSENT_TICKS_TO_CLOSE:
+            return
+        state.ocr_absent_ticks = 0
+        trail = list(state.presence_trail)
+        slot = card_presence.infer_pick(trail) if trail else None
+        state.presence_trail.clear()
+        feature_diagnostics.record("augment.ocr_absence_close", "ok", "cards_absent")
+        message = _augment_cards_gone(state, slot)
+    if message is not None:
+        await _broadcast(message)
+
+
+def _close_unread_augment_window(state: GameState) -> None:
+    """Field 25/11 (level 9, 37 s 'unidentified'): the cards that opened an
+    augment window were a Stat Anvil popup. With no augment title read in it,
+    close that window instead of counting the Anvil as a slow augment read;
+    the card probe reopens one when real augment cards show."""
+    if not state.scan_window_open or _augment_titles_read(state) or _four_offer_read(state):
+        return
+    event_log.emit("ocr_window", state="closed", reason="anvil_instead",
+                   level=state.scan_window_level)
+    state.scan_window_open = False
+    state.offer_lifecycle.close()
+    state.ocr_slot_choices = None
+    state.augment_choices.clear()
+    state.presence_trail.clear()
+
+
+def _presence_armed(state: GameState) -> str | None:
+    """Which verified offer the OCR-free presence probe is guarding, if any."""
+    if not state.match_id:
+        return None
+    if state.anvil_offer is not None:
+        return "anvil"
+    # Field 24/11: an offer with one unreadable card was never guarded, so
+    # its pick was never inferred. One verified title is enough to guard it;
+    # a pick on the unknown card still abstains (ledger has no id for it).
+    if _augment_titles_read(state) or _four_offer_read(state):
+        return "augment"
+    return None
+
+
+def _four_offer_read(state: GameState) -> bool:
+    return bool(state.scan_window_open and state.four_offer and any(state.four_offer))
+
+
+async def _presence_step(state: GameState, probe, now: float) -> str | None:
+    """Apply one probe; on confirmed disappearance close and infer the pick.
+
+    Returns the closed target ("augment"/"anvil") or None. Inference is a
+    correctable pick (Alt+N wins); without one clear card it abstains.
+    """
+    message = None
+    closed = None
+    async with state.lock:
+        target = _presence_armed(state)
+        if target is None:
+            state.presence_trail.clear()
+            return None
+        trail = state.presence_trail
+        cue = getattr(probe, "cue", "unavailable")
+        feature_diagnostics.record("augment.presence_probe",
+                                   "skipped" if cue == "unavailable" else "ok",
+                                   cue if cue in ("present", "absent", "mixed") else "unavailable")
+        trail.append(probe)
+        del trail[:-card_presence.TRAIL_LEN]
+        if not card_presence.cards_gone(trail):
+            return None
+        slot = card_presence.infer_pick(trail)
+        trail.clear()
+        closed = target
+        if target == "anvil":
+            offer = state.anvil_offer
+            index = ("left", "centre", "right", "fourth").index(slot) if slot else None
+            if offer is not None and index is not None and index < len(offer.shards):
+                state.anvil_picked_ids.append(offer.shards[index].id)
+                feature_diagnostics.record("anvil.pick_inferred", "ok", "cursor_slot")
+            else:
+                feature_diagnostics.record("anvil.pick_inferred", "skipped", "cursor_ambiguous")
+            state.anvil_offer = None
+            state.anvil_window_until = None
+            state.anvil_followup_until = now + ANVIL_FOLLOWUP_S
+            state.anvil_voucher_tier = None
+            state.anvil_absent_ticks = 0
+            event_log.emit("ocr_window", state="closed", reason="anvil_cards_gone",
+                           level=state.scan_window_level)
+        else:
+            message = _augment_cards_gone(state, slot)
+    if message is not None:
+        await _broadcast(message)
+    return closed
+
+
+def _augment_cards_gone(state: GameState, slot: str | None) -> str:
+    """Cards vanished (two OCR-free probes). State lock held by the caller."""
+    state.offer_ledger.on_titles_unverified()
+    state.offer_lifecycle.observe("disappeared", verified_absence=True)
+    state.set_ocr_phase("no_offer", offer_closed=True)
+    event_log.emit("ocr_window", state="closed", reason="offer_disappeared",
+                   level=state.scan_window_level)
+    state.confirmation_pending = True
+    state.awaiting_stat_delta = True
+    state.delta_wait_ticks = 0
+    inferred = None
+    four = state.four_offer
+    state.four_offer = None
+    if four and slot in FOUR_SLOTS:
+        try:
+            inferred = state.offer_ledger.confirm_four(
+                four[FOUR_SLOTS.index(slot)], four, inferred=True)
+        except LedgerError:
+            inferred = None
+    elif slot is not None and slot in SLOTS:
+        try:
+            inferred = state.offer_ledger.confirm_inferred(slot)
+        except LedgerError:
+            inferred = None
+    if inferred is not None:
+        feature_diagnostics.record("augment.pick_inferred", "ok", "cursor_slot")
+        _sync_confirmed_augments(state, inferred, method="cursor")
+    else:
+        feature_diagnostics.record("augment.pick_inferred", "skipped", "cursor_ambiguous")
+        state.scan_window_open = False
+        state.offer_epoch += 1
+    return json.dumps({
+        "type": "ocr_result", "status": "disappeared",
+        "offer_state": state.offer_state, "stale": False,
+        "phase": state.ocr_phase,
+        "picked_id": inferred.picked_id if inferred is not None else None,
+        "pick_source": "cursor_inferred" if inferred is not None else None,
+        "augment_choices": list(state.augment_choices),
+        "offer_epoch": state.offer_epoch, "match_id": state.match_id,
+        "offers": state.offer_ledger.payload(),
+    })
+
+
+SHOP_PROBE_INTERVAL_S = 1.0
+SHOP_MISSES_TO_CLOSE = 2
+
+
+async def _shop_step(state: GameState, seen: bool | None) -> bool:
+    """Debounced shop state; returns True when it changed. Lock inside."""
+    async with state.lock:
+        before = state.shop_open
+        if seen is True:
+            state.shop_open, state.shop_misses = True, 0
+        elif seen is False:
+            state.shop_misses += 1
+            if state.shop_misses >= SHOP_MISSES_TO_CLOSE:
+                state.shop_open = False
+        if state.shop_open != before:
+            feature_diagnostics.record("build.shop_open", "ok",
+                                       "opened" if state.shop_open else "closed")
+        return state.shop_open != before
+
+
+async def _shop_loop() -> None:
+    """Field 24/11: is the (draggable) shop open? Position-independent look."""
+    from backend.collectors.shop_detect import probe_shop
+    while True:
+        try:
+            if game_state.match_id and game_state.ocr_enabled:
+                seen = await asyncio.to_thread(probe_shop)
+                if await _shop_step(game_state, seen):
+                    await _broadcast(json.dumps(
+                        {"type": "shop_state", "open": game_state.shop_open}))
+        except Exception as exc:  # never kill the loop
+            logger.warning("Shop probe failed: %s", type(exc).__name__)
+        await asyncio.sleep(SHOP_PROBE_INTERVAL_S)
+
+
+async def _presence_loop() -> None:
+    """Fast OCR-free probe, active only while a verified offer is shown."""
+    loop = asyncio.get_running_loop()
+    while True:
+        try:
+            if _presence_armed(game_state) is not None:
+                now = loop.time()
+                four = _four_offer_read(game_state) and game_state.anvil_offer is None
+                probe = await asyncio.to_thread(
+                    lambda: card_presence.probe_cards(now, four=four))
+                await _presence_step(game_state, probe, now)
+            else:
+                if game_state.presence_trail:
+                    game_state.presence_trail.clear()
+                now = loop.time()
+                if _anvil_attention(game_state, now) and game_state.anvil_offer is None:
+                    # A chained Anvil popup: read it as soon as cards show.
+                    probe = await asyncio.to_thread(card_presence.probe_cards, now)
+                    if probe.cue == "present":
+                        await _anvil_popup_tick(game_state, _poll_dependencies(), now)
+        except Exception as exc:  # never kill the loop; IDs only in logs
+            logger.warning("Card presence probe failed: %s", type(exc).__name__)
+        await asyncio.sleep(card_presence.PROBE_INTERVAL_S)
+
+
+
+def _open_augment_scan(state: GameState, deps, snapshot, now: float, level: int,
+                       prior_count: int, have: int, expected: int, reason: str) -> None:
+    """Open the augment scan window (state lock held by the caller)."""
+    state.scan_window_open = True
+    state.scan_window_level = level
+    state.scan_opened_at = now
+    state.scan_first_read_done = False
+    state.scan_open_reason = reason
+    # An unconfirmed earlier offer must never block the next one (field 24/11).
+    state.confirmation_pending = False
+    if len(state.offer_ledger.offers) == prior_count:
+        state.offer_epoch += 1
+        if state.offer_ledger.offers:
+            state.offer_ledger.set_current_epoch(state.offer_epoch)
+    # Log the *final* epoch after any respawn-generation bump.
+    emit_f0_trace("augment", "offer", "unknown",
+                  "scan_level_due", source="lcda",
+                  epoch=state.offer_epoch)
+    state.offer_lifecycle.open()
+    event_log.emit("ocr_window", state="opened", reason=reason, level=level)
+    state.awaiting_stat_delta = False
+    state.delta_wait_ticks = 0
+    state.stat_snapshot_before = dict(snapshot.champion_stats)
+    state.stat_snapshot_level_before = level
+    observed_items = getattr(snapshot, "purchased_items", None)
+    state.stat_snapshot_items_before = (
+        tuple(str(item) for item in observed_items)
+        if isinstance(observed_items, (list, tuple))
+        else None
+    )
+    deps.screen_watcher.reset()
+    logger.info(
+        "Augment pick window OPENED (%s, level %d, have %d/%d augments)",
+        "cards on screen" if reason == "cards_seen" else "eligible level",
+        level, have, expected,
+    )
+
+
+def _cards_probe_due(state: GameState, deps, level: int) -> bool:
+    """A pick may be pending but no window is open (state lock held)."""
+    if (state.scan_window_open or state.awaiting_stat_delta
+            or state.anvil_offer is not None
+            or not state.ocr_enabled or getattr(deps, "probe_cards", None) is None):
+        return False
+    # Field 24/11: cards on screen open a window whatever the confirmed
+    # count says (it showed 4/4 with picks still due and blocked detection;
+    # Mayhem can also offer more picks than the level schedule).
+    return True
+
+
+async def _open_scan_on_visible_cards(state: GameState, deps, snapshot, now: float,
+                                      level: int) -> bool:
+    try:
+        if not deps.ocr_available():
+            return False
+        probe = await deps.to_thread(lambda: deps.probe_cards(now))
+    except Exception as exc:  # never break the poll; class name only
+        logger.warning("Card probe failed: %s", type(exc).__name__)
+        return False
+    if getattr(probe, "cue", None) != "present":
+        return False
+    async with state.lock:
+        if not _cards_probe_due(state, deps, level):
+            return False
+        have = len(_confirmed_augment_ids(state))
+        _open_augment_scan(state, deps, snapshot, now, level,
+                           len(state.offer_ledger.offers), have,
+                           expected_augments_for_level(max(level, AUGMENT_PICK_LEVELS_SORTED[0])),
+                           "cards_seen")
+    feature_diagnostics.record("augment.window_open", "ok", "cards_seen")
+    return True
 
 async def poll_tick(state: GameState, deps: SimpleNamespace, now: float) -> None:
     """Serialize individual polling transactions without locking out sockets."""
@@ -1801,8 +3235,43 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
             current_level = snapshot.level
 
             match_confirmation_due = False
+            cards_probe_due = False
             async with state.lock:
                 _begin_or_continue_match(state, snapshot, raw, flow)
+                # Two observed inventories, same game: detect actual voucher
+                # increments. Do not open a generic 3-slot augment scan:
+                # live Stat Anvil option catalogue/layout is still unknown.
+                voucher_counts = getattr(snapshot, "anvil_vouchers", None)
+                bought = state.anvil_voucher_observer.observe(voucher_counts)
+                if bought:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "ok", "positive_edge", len(bought),
+                    )
+                    # Voucher inventory alone cannot establish a visible
+                    # popup; no OCR, card identity or scoring is inferred.
+                    feature_diagnostics.record(
+                        "anvil.offer_detected", "skipped", "popup_unverified",
+                    )
+                elif voucher_counts is None:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "skipped", "source_unavailable",
+                    )
+                else:
+                    feature_diagnostics.record(
+                        "anvil.voucher_purchase", "skipped", "no_edge",
+                    )
+                state.anvil_voucher_last_purchase = bought
+                if bought:
+                    state.anvil_voucher_purchase_events += len(bought)
+                    state.anvil_voucher_trigger_pending = True
+                # Attention window + tier hint only; never an offer.
+                watch, hint = anvil_popup.attention(state.anvil_prev_counts, voucher_counts)
+                if watch:
+                    state.anvil_window_until = now + anvil_popup.ANVIL_WINDOW_S
+                    if hint is not None:
+                        state.anvil_voucher_tier = hint
+                state.anvil_prev_counts = (
+                    dict(voucher_counts) if isinstance(voucher_counts, dict) else None)
                 _record_items_outside_pool(state, raw, deps.static_data)
                 # -- Scan window management --
                 #
@@ -1835,9 +3304,21 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     emit_f0_trace("augment", "offer", "unknown",
                                   "new_offer_due", source="lcda",
                                   epoch=state.offer_epoch)
+                    if (not prior_count and state.scan_window_open
+                            and state.scan_open_reason == "cards_seen"):
+                        # Field 24/11: the cards were on screen (window opened
+                        # by them) before the level threshold. The same cards
+                        # are this offer: keep their reads, attach them to it.
+                        slots = state.ocr_slot_choices
+                        if isinstance(slots, dict) and any(slots.values()):
+                            try:
+                                _ledger_verified_titles(
+                                    state.offer_ledger, slots, state.offer_epoch)
+                            except LedgerError:
+                                pass
                     # A later offer must not inherit OCR candidates from its
                     # predecessor. Do not change first-offer recovery semantics.
-                    if prior_count:
+                    elif prior_count:
                         # Retain only the previous *complete* identity. It
                         # can be re-read after a temporal reset while the old
                         # offer is still physically visible.
@@ -1860,6 +3341,7 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         state.augment_choices.clear()
                         state.ocr_last_detected.clear()
                         state.ocr_slot_choices = None
+                        state.four_offer = None
                         state.ocr_unreadable_ticks = 0
                         state.ocr_stale = False
                         state.ocr_stale_since_epoch = None
@@ -1884,41 +3366,9 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                     )
                     and not state.scan_window_open
                     and not state.awaiting_stat_delta
-                    and not state.confirmation_pending
                 ):
-                    state.scan_window_open = True
-                    state.scan_window_level = current_level
-                    if len(state.offer_ledger.offers) == prior_count:
-                        state.offer_epoch += 1
-                        if state.offer_ledger.offers:
-                            state.offer_ledger.set_current_epoch(state.offer_epoch)
-                    # Log the *final* epoch after any respawn-generation bump.
-                    emit_f0_trace("augment", "offer", "unknown",
-                                  "scan_level_due", source="lcda",
-                                  epoch=state.offer_epoch)
-                    state.offer_lifecycle.open()
-                    event_log.emit(
-                        "ocr_window", state="opened", reason="level_due",
-                        level=current_level,
-                    )
-                    state.awaiting_stat_delta = False
-                    state.delta_wait_ticks = 0
-                    state.stat_snapshot_before = dict(
-                        snapshot.champion_stats
-                    )
-                    state.stat_snapshot_level_before = current_level
-                    observed_items = getattr(snapshot, "purchased_items", None)
-                    state.stat_snapshot_items_before = (
-                        tuple(str(item) for item in observed_items)
-                        if isinstance(observed_items, (list, tuple))
-                        else None
-                    )
-                    deps.screen_watcher.reset()
-                    logger.info(
-                        "Augment pick window OPENED at eligible level "
-                        "(level %d, have %d/%d augments)",
-                        current_level, have, expected,
-                    )
+                    _open_augment_scan(state, deps, snapshot, now, current_level,
+                                       prior_count, have, expected, "level_due")
 
                 # -- Stat delta detection --
                 # Stat matching only follows an OCR disappearance signal.
@@ -1930,6 +3380,13 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                         match_confirmation_due = True
                         state.awaiting_stat_delta = False
                         state.delta_wait_ticks = 0
+                cards_probe_due = _cards_probe_due(state, deps, current_level)
+
+            # Field 24/11: the cards were on screen for over a minute before
+            # the level trigger opened the window. A cheap colour probe (no
+            # OCR) opens it as soon as the cards are visible.
+            if cards_probe_due:
+                await _open_scan_on_visible_cards(state, deps, snapshot, now, current_level)
 
             # Confirmation acquires its own short lock for a consistent offer
             # snapshot. The injected matcher and its transport run unlocked.
@@ -1990,6 +3447,15 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             emit_f0_trace("augment", "epoch", "stale",
                                           "epoch_superseded", source="ledger",
                                           epoch=state.offer_epoch)
+                        if action != "superseded":
+                            four = getattr(deps.screen_watcher, "four_offer", None)
+                            if isinstance(four, list) and any(four):
+                                ids4 = [m[0] if m else None for m in four]
+                                if ids4 != state.four_offer:
+                                    feature_diagnostics.record(
+                                        "augment.four_cards", "ok", "verified",
+                                        sum(1 for i in ids4 if i))
+                                state.four_offer = ids4
                         if (action == "detected" and detected
                                 and state._prior_due_triple is not None):
                             candidate_slots = _slots_from_detected(detected)
@@ -2054,6 +3520,11 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                             state.ocr_last_detected.extend(ids)
                             state.ocr_slot_choices = _slots_from_detected(detected)
                             logger.info("OCR detected augments: %s", detected)
+                            if not state.scan_first_read_done and state.scan_opened_at is not None:
+                                state.scan_first_read_done = True
+                                feature_diagnostics.record(
+                                    "augment.read_latency", "ok",
+                                    _latency_bucket(now - state.scan_opened_at))
                             ocr_msg = json.dumps({
                                 "type": "ocr_result",
                                 "status": "detected", "stale": state.ocr_stale,
@@ -2155,7 +3626,13 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 except Exception as e:
                     logger.warning("OCR watcher error: %s", e, exc_info=True)
 
+            await _ocr_absence_close(state, deps)
+            await _anvil_popup_tick(state, deps, now)
+
             # Inject overlay augment state
+            snapshot.anvil_offer_ids = (
+                [s.id for s in state.anvil_offer.shards] if state.anvil_offer else []
+            )
             snapshot.augment_choices = list(state.augment_choices)
             snapshot.chosen_augments = _confirmed_augment_ids(state)
             snapshot.build_style = state.build_style
@@ -2171,7 +3648,8 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                               "ocr_slots": state.ocr_slot_choices,
                               "offer_state": state.offer_state,
                               "offer_epoch": state.offer_epoch,
-                              "offers": state.offer_ledger.payload()}
+                              "offers": state.offer_ledger.payload(),
+                              "anvil_offer": _anvil_offer_payload(state, result)}
                     if state.match_id:
                         update["match_id"] = state.match_id
                 await deps.broadcast(json.dumps(update))
@@ -2183,6 +3661,12 @@ async def _poll_tick_once(state: GameState, deps: SimpleNamespace, now: float) -
                 )
                 await deps.broadcast(_status_message(state, status))
         else:
+            # LCDA interruption cannot masquerade as zero voucher stacks.
+            # Reconnect requires a fresh two-read baseline before an edge.
+            async with state.lock:
+                state.anvil_voucher_observer.reset()
+                state.anvil_voucher_last_purchase = ()
+                state.anvil_voucher_trigger_pending = False
             # A single LCDA error is never an end-of-match signal.
             active_phases = ("GameStart", "InProgress", "Reconnect")
             if state.had_game_last_tick:
@@ -2270,7 +3754,7 @@ async def _poll_game_loop(interval: float | None = None):
             await poll_tick(game_state, deps, asyncio.get_running_loop().time())
         except Exception as e:
             logger.error("Poll loop error: %s", e, exc_info=True)
-        await asyncio.sleep(interval)
+        await asyncio.sleep(_poll_interval(game_state, interval))
 
 def _queue_ws_message(
     state: GameState,
@@ -2477,6 +3961,11 @@ def _resolve_item_name(item_id: str, sd: StaticData) -> str:
     return sd.get_item_name(item_id)
 
 
+def _augment_name(augment_id: str, sd) -> str:
+    aug = sd.get_augment(augment_id) if hasattr(sd, "get_augment") else None
+    return aug.name if aug is not None and aug.name else augment_id
+
+
 def _resolve_champion_name(champ_id: str, sd: StaticData) -> str:
     champ = sd.get_champion(champ_id)
     return champ.name if champ else champ_id
@@ -2594,6 +4083,7 @@ def _serialize_result(
         out["current_gold"] = snapshot.current_gold
         out["level"] = snapshot.level
         out["scan_window_open"] = game_state.scan_window_open
+        out["shop_open"] = game_state.shop_open
         out["augment_state"] = game_state.get_augment_state()
         out["offers"] = game_state.offer_ledger.payload()
         out["enemies"] = [
@@ -2605,9 +4095,26 @@ def _serialize_result(
             for eid in snapshot.enemy_champion_ids
         ]
 
+    _record_enemy_detection(result.enemy_analysis, snapshot)
+    out["mayhem_build"] = _mayhem_build_payload(
+        result.build_state.champion_id, result.build_state.chosen_augments,
+        result.build_state.purchased_items, result.enemy_analysis or {},
+        result.ally_analysis or {}, sd,
+        enemy_states=getattr(snapshot, "enemy_states", None) if snapshot else None)
+    out["build_state"] = _align_next_with_mayhem_build(
+        out["build_state"], out["mayhem_build"], out.get("current_gold"), sd)
+    four = game_state.four_offer if game_state.scan_window_open else None
+    out["four_offer"] = [
+        {"slot": slot, "id": aid, "name": _augment_name(aid, sd) if aid else None}
+        for slot, aid in zip(FOUR_SLOTS, four)] if four else None
     out.update(_augment_tier_payload(
         result.build_state.champion_id,
-        _visible_augment_ids(out["recommendations"], out.get("offers")),
+        _visible_augment_ids(out["recommendations"], out.get("offers"))
+        + [aid for aid in (four or []) if aid],
+        adjust=(_offer_context_adjuster(
+            result.build_state.champion_id, result.build_state.chosen_augments,
+            out["mayhem_build"], result.enemy_analysis or {}, sd, live=snapshot)
+            if result.build_state.champion_id else None),
     ))
     return _strip_augment_win_stats(out)
 

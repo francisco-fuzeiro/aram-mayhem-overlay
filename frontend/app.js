@@ -45,6 +45,7 @@
     const rerollBanner = $("reroll-banner");
     const rerollReason = $("reroll-reason");
     const buildList = $("build-list");
+    const mayhemBuild = $("mayhem-build");
     const buildNext = $("build-next");
     const dueHint = $("augment-due-hint");
     const augmentRecover = $("augment-recover");
@@ -177,6 +178,34 @@
         }
     }
 
+    // Only acknowledge actually rendered UI elements, and only for a fresh
+    // match. Backend applies its own match/epoch/catalog gates. No item IDs,
+    // champion IDs, OCR titles or private data are transmitted.
+    function reportVisibleFeatures(data) {
+        const match = data && typeof data.match_id === "string"
+            && data.match_id === activeMatchId && !stale;
+        if (!match || data.phase !== "in_game") return;
+        const bs = data.build_state;
+        if (bs && bs.next_item_id && !bs.slot_blocked &&
+                !$("section-build").classList.contains("hidden") &&
+                buildNext.textContent.startsWith("Next: ")) {
+            wsSend({type: "feature_ack", feature: "build.next_item_render",
+                status: "ok", reason: "rendered", count: 1,
+                match_id: activeMatchId});
+        }
+        // P0-C: only the dedicated, server-verified Stat Anvil popup can be
+        // acknowledged; a purchased voucher never produces this panel.
+        const anvil = data.anvil_offer;
+        if (anvil && Number.isSafeInteger(anvil.epoch) &&
+                Array.isArray(anvil.cards) && anvil.cards.length === anvil.count &&
+                !$("section-anvil").classList.contains("hidden") &&
+                $("anvil-top").textContent.length > 0) {
+            wsSend({type: "feature_ack", feature: "anvil.offer_render",
+                status: "ok", reason: "rendered", count: anvil.count,
+                match_id: activeMatchId, offer_epoch: anvil.epoch});
+        }
+    }
+
     // -- Match-specific display lifecycle --
 
     function setWaitingTitle(title) {
@@ -213,7 +242,8 @@
         buildAlternatives.classList.add("hidden");
         buildFooter.classList.add("hidden");
 
-        for (const el of [augmentList, buildList, buildAlternatives, enemyList, augmentConfirm]) {
+        for (const el of [augmentList, buildList, buildAlternatives, enemyList, augmentConfirm,
+            mayhemBuild]) {
             el.innerHTML = "";
             el.replaceChildren();
         }
@@ -461,6 +491,13 @@
         }
 
         if (msg.type === "preferences_updated") return;
+        if (msg.type === "shop_state") {
+            if (lastResult && !stale) {
+                lastResult.shop_open = msg.open === true;
+                autoExpandSections(lastResult);
+            }
+            return;
+        }
         if (msg.type === "toggle_build") {
             if (lastResult && !stale) {
                 buildPinnedByHotkey = !buildPinnedByHotkey;
@@ -500,6 +537,8 @@
         sections.forEach((id) => {
             $(id).classList.toggle("hidden", show);
         });
+        // The Anvil panel only ever opens from a verified popup update.
+        if (show) $("section-anvil").classList.add("hidden");
     }
 
     function bindHistorySync() {
@@ -507,14 +546,16 @@
         const status = $("history-sync-status");
         button.addEventListener("click", async () => {
             button.disabled = true;
-            status.textContent = "Reading your recent Mayhem games from the League client...";
+            status.textContent = "Reading your Mayhem games from the League client (first run can take a minute)...";
             try {
-                const response = await fetch("/api/history/import", { method: "POST" });
+                const response = await fetch("/api/history/import?max_games=1000", { method: "POST" });
                 if (!response.ok) throw new Error("HTTP " + response.status);
                 const result = await response.json();
                 if (result.status === "ok") {
                     status.textContent = "Synced " + result.imported +
-                        " new games (" + result.inspected + " recent Mayhem games checked).";
+                        " new games (" + result.inspected + " Mayhem games checked" +
+                        (result.listed != null ? ", " + result.listed + " games listed by the client" : "") +
+                        ").";
                     const draftResponse = await fetch("/api/champ-select/status");
                     if (draftResponse.ok) {
                         const draft = await draftResponse.json();
@@ -532,8 +573,9 @@
         });
     }
 
+    const TIER_ORDER = ["OP", "S", "A", "B", "C", "D", "E"];
     const TIER_LEVEL_TEXT = {champion: "champion data", role: "class data",
-        global: "global data", curated: "estimate"};
+        global: "global data", curated: "estimate", borrowed: "no games on this champion"};
     const POTENTIAL_TEXT = {very_low: "very low", low: "low", medium: "medium",
         high: "high", very_high: "very high"};
 
@@ -553,10 +595,32 @@
             : {type: "feature_ack", feature, status: "skipped", reason: skippedReason});
     }
 
+    // Big coloured tier pill + rank, the two things to read at a glance.
+    function tierPill(tier, arrow) {
+        const t = TIER_ORDER.includes(tier) ? tier : "E";
+        return '<span class="tier-pill tier-' + t + '">' + esc(t + (arrow || "")) + "</span>";
+    }
+
+    // Field 24/11: augment ranks are per rarity (an offer is one rarity),
+    // so the label names it: "#18/71 Gold", not a share of all ~222.
+    function rarityLabel(rarity) {
+        const r = String(rarity || "").toLowerCase().replace(/^k/, "");
+        return {silver: "Silver", gold: "Gold", prismatic: "Prismatic"}[r] || "";
+    }
+
+    function rankPill(rank, total, rarity) {
+        const label = rarityLabel(rarity);
+        return Number.isInteger(rank) && Number.isInteger(total)
+            ? '<span class="rank-pill">#' + rank + "/" + total +
+              (label ? " " + label : "") + "</span>" : "";
+    }
+
     function augmentTierText(t) {
         if (!t || !t.tier || t.level === "none") return "No tier data for this champion";
         return "Tier " + t.tier + " · " +
-            tierRankText(t.rank, t.rank_total, t.tie_group, t.tie_end) + " · " +
+            tierRankText(t.rank, t.rank_total, t.tie_group, t.tie_end) +
+            (t.rank_scope !== "all" && rarityLabel(t.rarity)
+                ? " of " + rarityLabel(t.rarity) + " augments" : " of all augments") + " · " +
             (TIER_LEVEL_TEXT[t.level] || "estimate");
     }
 
@@ -592,24 +656,32 @@
 
             const summary = document.createElement("div");
             summary.className = "aug-details";
-            summary.textContent = candidate.tier + " · " + Number(candidate.score).toFixed(1) + "/10.0 composite · " + candidate.role;
+            summary.textContent = "Team fit: " + candidate.tier + " · " +
+                Number(candidate.score).toFixed(1) + "/10 · " + candidate.role;
 
             const reasons = document.createElement("div");
             reasons.className = "aug-explain";
             reasons.textContent = (candidate.reasons || []).join(" · ") +
                 (candidate.sample_size ? " · Personal sample: " + candidate.sample_size + " games" : " · No match data yet");
 
-            card.append(name, summary, reasons);
+            card.appendChild(name);
+            // The measured Mayhem strength leads; the legacy composite is
+            // only the team-fit estimate (Fiora match test 23/11).
             const m = candidate.mayhem;
             if (m && m.strength) {
                 const mayhem = document.createElement("div");
-                mayhem.className = "aug-explain aug-tier";
-                mayhem.textContent = "Mayhem strength: " + m.strength + " · " +
-                    tierRankText(m.rank, m.rank_total, m.tie_group, m.tie_end) +
-                    " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown");
+                mayhem.className = "aug-tier mayhem-main";
+                const tied = Number.isInteger(m.tie_end) && Number.isInteger(m.tie_group) &&
+                    m.tie_end > m.tie_group ? " · tied #" + m.tie_group + "–#" + m.tie_end : "";
+                mayhem.innerHTML = tierPill(m.strength, "") +
+                    rankPill(m.rank, m.rank_total) +
+                    '<span class="mayhem-sub">' + esc("Mayhem strength " + m.strength + " (#" + m.rank + " of " + m.rank_total + ")" + tied +
+                        " · Potential: " + (POTENTIAL_TEXT[m.potential] || "unknown")) +
+                    "</span>";
                 card.appendChild(mayhem);
                 mayhemLines += 1;
             }
+            card.append(summary, reasons);
             champSelectList.appendChild(card);
         }
         if (candidates.length) reportRender("tierdb.champselect_render", mayhemLines, "no_tier_data");
@@ -628,12 +700,66 @@
 
     // -- Render update --
 
+    // Best-fit shard first, then every other shard (always visible: the
+    // overlay is click-through, a dropdown could not be opened in game).
+    function renderAnvilOffer(data) {
+        const section = $("section-anvil");
+        const top = $("anvil-top");
+        const others = $("anvil-others");
+        const offer = data && data.anvil_offer;
+        const cards = offer && Array.isArray(offer.cards) ? offer.cards : [];
+        top.replaceChildren();
+        others.replaceChildren();
+        top.textContent = "";
+        if (!offer || !cards.length || cards.length !== offer.count) {
+            section.classList.add("hidden");
+            return;
+        }
+        section.classList.remove("hidden");
+        const tier = typeof offer.tier === "string" ? offer.tier : "";
+        $("anvil-title").textContent = "STAT ANVIL" + (tier ? " · " + tier.toUpperCase() : "");
+        const scored = cards.filter(c => typeof c.score === "number" &&
+            Number.isFinite(c.score) && c.modelled !== false);
+        // Audit 24/11: tier-list estimate (capped at A), never the old x/10.
+        const fmt = c => (c.anvil_name || c.anvil_id) +
+            (typeof c.est_tier === "string" ? " · " + c.est_tier + " (estimate)"
+                : typeof c.score === "number" ? " · " + c.score.toFixed(1) + "/10" : " · No model");
+        if (scored.length) {
+            top.textContent = "Best fit: " + fmt(scored[0]);
+            if (typeof scored[0].reason === "string") {
+                const why = document.createElement("div");
+                why.className = "aug-explain";
+                why.textContent = scored[0].reason;
+                top.appendChild(why);
+            }
+        } else {
+            top.textContent = "Shards read: no rating for this champion";
+        }
+        for (const card of cards) {
+            if (scored.length && card === scored[0]) continue;
+            const row = document.createElement("div");
+            row.className = "aug-explain";
+            row.textContent = fmt(card) +
+                (typeof card.reason === "string" ? " — " + card.reason : "");
+            others.appendChild(row);
+        }
+        if (scored.length && typeof scored[0].explanation === "string") {
+            const note = document.createElement("div");
+            note.className = "aug-explain";
+            note.textContent = scored[0].explanation;
+            others.appendChild(note);
+        }
+    }
+
     function renderUpdate(data) {
         renderHeader(data);
         renderRecommendations(data);
+        renderAnvilOffer(data);
         renderBuild(data.build_state);
+        renderMayhemBuild(data.mayhem_build);
         renderEnemies(data.enemies || [], data.enemy_analysis || {});
         autoExpandSections(data);
+        reportVisibleFeatures(data);
     }
 
     function renderHeader(data) {
@@ -949,11 +1075,74 @@
         row.appendChild(resultsHost);
     }
 
+    // Field 24/11: Mayhem matches with FOUR-card offers (whole match).
+    function fourOffer(data) {
+        const four = data && data.four_offer;
+        return Array.isArray(four) && four.length === 4 &&
+            four.some(c => c && typeof c.id === "string") ? four : null;
+    }
+
+    function renderFourOffer(data, four) {
+        const tiers = data.tiers_enabled === true && data.augment_tiers &&
+            typeof data.augment_tiers === "object" ? data.augment_tiers : null;
+        const tierOf = (id) => tiers && id && Object.prototype.hasOwnProperty.call(tiers, id)
+            && tiers[id] && tiers[id].tier && tiers[id].level !== "none" ? tiers[id] : null;
+        const shown = (t) => (TIER_ORDER.includes(t.adjusted_tier) ? t.adjusted_tier : t.tier);
+        const shownRank = (t) => Number(t.adjusted_rank) || Number(t.rank) || 1e6;
+        let best = null;
+        for (const card of four) {
+            const t = tierOf(card && card.id);
+            if (t && TIER_ORDER.includes(shown(t)) && (!best ||
+                    TIER_ORDER.indexOf(shown(t)) < TIER_ORDER.indexOf(shown(best)) ||
+                    (shown(t) === shown(best) && shownRank(t) < shownRank(best))))
+                best = t;
+        }
+        let tierLines = 0;
+        four.forEach((card, index) => {
+            const id = card && typeof card.id === "string" ? card.id : null;
+            const name = id ? (card.name || (staticNames.augments[id] &&
+                staticNames.augments[id].name) || id) : "Unknown — title not verified";
+            const t = tierOf(id);
+            const arrow = t && t.adjust > 0 ? " ↑" : t && t.adjust < 0 ? " ↓" : "";
+            const row = document.createElement("div");
+            row.className = "augment-card" + (t && t === best ? " top-pick" : "");
+            const right = t ? tierPill(shown(t), arrow) + rankPill(t.rank, t.rank_total, t.rank_scope === "all" ? null : t.rarity)
+                : '<span class="aug-score muted">' + esc(id ? "No tier data" : "Title unverified") + "</span>";
+            row.innerHTML = '<div class="aug-row"><span class="aug-rank">' + (index + 1) +
+                '</span><span class="aug-name">' + esc(name) + "</span>" + right + "</div>";
+            if (t) {
+                const note = document.createElement("div");
+                note.className = "aug-explain aug-tier";
+                note.textContent = augmentTierText(t);
+                row.appendChild(note);
+                tierLines += 1;
+                if (arrow && typeof t.adjust_reason === "string") {
+                    const why = document.createElement("div");
+                    why.className = "aug-explain aug-adjust";
+                    why.textContent = arrow.trim() + " " + t.adjust_reason + " (base " + t.tier + ")";
+                    row.appendChild(why);
+                }
+            }
+            augmentList.appendChild(row);
+        });
+        reportRender("tierdb.offer_render", tierLines,
+            data.tiers_enabled === true ? "no_tier_data" : "tiers_off");
+        const hint = document.createElement("div");
+        hint.className = "aug-explain";
+        hint.textContent = "4 cards · pick is detected automatically, or Alt+1 / 2 / 3 / 4";
+        augmentList.appendChild(hint);
+    }
+
     function renderRecommendations(data) {
         augmentList.replaceChildren();
         rerollBadge.classList.add("hidden");
         rerollBanner.classList.add("hidden");
         offerPanelTitle.textContent = "AUGMENTS";
+        const four = fourOffer(data);
+        if (four) {
+            renderFourOffer(data, four);
+            return;
+        }
         const offer = activeOffer();
         if (!offer || !offerCanOpen(offer, data)) return;
         const interactive = Boolean(document.body && document.body.classList &&
@@ -986,6 +1175,26 @@
                 rec.modelled !== false) scored.push(rec.score);
         }
         const best = scored.length ? Math.max(...scored) : null;
+        // With the tier list on, the measured tier is the headline: the best
+        // tier on screen is highlighted and the legacy fit score moves to a
+        // detail line (Fiora match test 23/11: "No model" read as a verdict).
+        const tierTable = data.tiers_enabled === true && data.augment_tiers &&
+            typeof data.augment_tiers === "object" && !verifiedAnvilOffer
+            ? data.augment_tiers : null;
+        const tierOf = (id) => tierTable && id &&
+            Object.prototype.hasOwnProperty.call(tierTable, id) &&
+            tierTable[id] && tierTable[id].tier && tierTable[id].level !== "none"
+            ? tierTable[id] : null;
+        const shownTier = (t) => (TIER_ORDER.includes(t.adjusted_tier) ? t.adjusted_tier : t.tier);
+        const tierKey = (t) => [TIER_ORDER.indexOf(shownTier(t)), Number(t.adjusted_rank) || Number(t.rank) || 1e6];
+        let bestTier = null;
+        for (const slot of OFFER_SLOTS) {
+            const t = tierOf((offer.slots[slot] || {}).augment_id);
+            if (t && TIER_ORDER.includes(shownTier(t)) && (!bestTier ||
+                    tierKey(t)[0] < tierKey(bestTier)[0] ||
+                    (tierKey(t)[0] === tierKey(bestTier)[0] && tierKey(t)[1] < tierKey(bestTier)[1])))
+                bestTier = t;
+        }
         let tierLines = 0;
         for (const [index, slot] of OFFER_SLOTS.entries()) {
             const identity = offer.slots[slot] || {};
@@ -999,9 +1208,10 @@
                   (staticNames.augments[id] && staticNames.augments[id].name) || id
                 : "Unknown — title not verified";
             const row = document.createElement("div");
+            const tier = tierOf(id);
             row.className = "augment-card" +
                 (verifiedAnvilOffer ? " stat-anvil-card" : "") +
-                (rated && rec.score === best ? " top-pick" : "");
+                ((bestTier ? tier === bestTier : rated && rec.score === best) ? " top-pick" : "");
             const origin = identity.source === "user_identify" ? " (manual)"
                 : identity.source === "ocr" ? " (OCR)" : "";
             // A visible but unrated card is not necessarily a missing model:
@@ -1012,10 +1222,12 @@
                 : !rec ? "No rating data"
                 : rec.modelled === false ? "No model"
                 : "Rating unavailable";
+            const arrow = tier && tier.adjust > 0 ? " ↑" : tier && tier.adjust < 0 ? " ↓" : "";
+            const right = tier ? tierPill(shownTier(tier), arrow) + rankPill(tier.rank, tier.rank_total, tier.rank_scope === "all" ? null : tier.rarity)
+                : '<span class="aug-score' + (rated ? "" : " muted") + '">' + esc(score) + "</span>";
             row.innerHTML = '<div class="aug-row"><span class="aug-rank">' +
                 ["L", "C", "R"][index] + '</span><span class="aug-name">' +
-                esc(name + origin) + '</span><span class="aug-score">' +
-                esc(score) + '</span></div>';
+                esc(name + origin) + "</span>" + right + "</div>";
             const tiers = data.tiers_enabled === true && data.augment_tiers &&
                 typeof data.augment_tiers === "object" ? data.augment_tiers : null;
             if (tiers && id && !verifiedAnvilOffer &&
@@ -1025,6 +1237,19 @@
                 tierNote.textContent = augmentTierText(tiers[id]);
                 row.appendChild(tierNote);
                 tierLines += 1;
+            }
+            if (tier && arrow && typeof tier.adjust_reason === "string") {
+                const why = document.createElement("div");
+                why.className = "aug-explain aug-adjust";
+                why.textContent = arrow.trim() + " " + tier.adjust_reason +
+                    " (base " + tier.tier + ")";
+                row.appendChild(why);
+            }
+            if (tier && rated) {
+                const fit = document.createElement("div");
+                fit.className = "aug-explain";
+                fit.textContent = "Fit " + rec.score.toFixed(1) + "/10 (team and stats estimate)";
+                row.appendChild(fit);
             }
             if (rec && typeof rec.explanation === "string") {
                 const note = document.createElement("div");
@@ -1071,6 +1296,59 @@
         }
     }
 
+    const ANVIL_STAT_TEXT = {ad: "Attack Damage", ap: "Ability Power", as: "Attack Speed",
+        hp: "Health", armor: "Armor", mr: "Magic Resist", ah: "Ability Haste",
+        crit: "Critical Strike", ms: "Move Speed", lethality: "Lethality",
+        mpen: "Magic Penetration", omnivamp: "Omnivamp", tenacity: "Tenacity",
+        heal_shield: "Heal & Shield Power"};
+
+    // Tier list build: measured reference, adapted swaps (max 3), Anvil
+    // estimates. Ranks and reasons only; never win rates.
+    function renderMayhemBuild(mb) {
+        if (!mayhemBuild) return;
+        mayhemBuild.replaceChildren();
+        if (!mb || !Array.isArray(mb.reference) || mb.reference.length === 0) return;
+        const line = (text, cls) => {
+            const row = document.createElement("div");
+            row.className = cls || "aug-explain";
+            row.textContent = text;
+            mayhemBuild.appendChild(row);
+        };
+        const names = (list) => list.map((i) => i && i.name ? i.name : String(i && i.id))
+            .join(" › ");
+        line("Reference: " + names(mb.reference) +
+            (mb.boots && mb.boots.name ? " · Boots: " + mb.boots.name +
+                (mb.boots.reason ? " (" + mb.boots.reason + ")" : "") : ""),
+            "aug-explain aug-tier");
+        if (mb.follows === "ad" || mb.follows === "ap") {
+            // Field 24/11: the build list follows what the player bought.
+            line("Following your items (" + (mb.follows === "ad" ? "physical/crit" : "magic") +
+                ")", "aug-explain aug-tier");
+        }
+        const alts = Array.isArray(mb.alternatives) ? mb.alternatives : [];
+        if (alts.length) {
+            // Owner 24/11: options to the next item, each with its reason.
+            line("Alternatives:", "aug-explain aug-tier");
+            for (const a of alts) {
+                line((a.name || a.id) + (a.reason ? " — " + a.reason : ""));
+            }
+        }
+        const swaps = Array.isArray(mb.swaps) ? mb.swaps : [];
+        if (swaps.length && Array.isArray(mb.adapted)) {
+            line("Adapted: " + names(mb.adapted), "aug-explain aug-tier");
+            for (const s of swaps) {
+                line(s.out_name + " → " + s.in_name + (s.reason ? " (" + s.reason + ")" : ""));
+            }
+        }
+        const anvils = Array.isArray(mb.anvil_stats) ? mb.anvil_stats : [];
+        if (anvils.length) {
+            line("Stat Anvils (estimate): " + anvils.map((a) =>
+                ANVIL_STAT_TEXT[a.stat] || a.stat).join(" · "));
+        }
+        wsSend({type: "feature_ack", feature: "items.build_render", status: "ok",
+            reason: "rendered", count: 1});
+    }
+
     function renderBuild(bs) {
         const nextName = bs && (bs.next_item_name || bs.next_item_id);
         // IDs backed by the observed inventory, including canonicalized
@@ -1086,7 +1364,8 @@
         } else if (nextName) {
             const cost = Number(bs.gold_to_next);
             buildNext.textContent = "Next: " + nextName +
-                (Number.isFinite(cost) && cost >= 0 ? " (" + cost + "g)" : "");
+                (bs.gold_to_next == null || !Number.isFinite(cost) || cost < 0 ? ""
+                    : cost === 0 ? " (ready to buy)" : " (" + cost + "g more)");
         } else if (bs && !bs.build_unavailable_reason &&
                 Array.isArray(bs.full_build) && bs.full_build.length === 6 &&
                 new Set(bs.full_build).size === 6 &&
@@ -1154,7 +1433,8 @@
             buildFooter.className = "build-footer";
         } else if (bs.next_item_id && bs.next_item_name) {
             const goldHint = bs.gold_to_next > 0 ? ` (${bs.gold_to_next}g)` : "";
-            buildFooter.textContent = `Next: ${bs.next_item_name}${goldHint}`;
+            const why = bs.next_reason ? ` (${bs.next_reason})` : "";
+            buildFooter.textContent = `Next: ${bs.next_item_name}${goldHint}${why}`;
             buildFooter.className = "build-footer";
         } else if (bs.gold_to_next != null && bs.gold_to_next > 0) {
             buildFooter.textContent = `Need ${bs.gold_to_next}g for next item`;
@@ -1230,7 +1510,7 @@
         const augSection = $("section-augments");
         const enemySection = $("section-enemies");
         const offer = activeOffer();
-        const offerOpen = offerCanOpen(offer, data);
+        const offerOpen = offerCanOpen(offer, data) || Boolean(fourOffer(data));
         augSection.classList.toggle("collapsed", !offerOpen);
         const due = currentOffers.filter((entry) => entry && entry.state === "due")
             .sort((a, b) => b.offer_id - a.offer_id)[0];
@@ -1240,8 +1520,14 @@
         const interactive = Boolean(document.body && document.body.classList &&
             document.body.classList.contains("interactive-mode"));
         augmentRecover.classList.toggle("hidden", !interactive || !due);
-        const details = data.is_dead === true || buildPinnedByHotkey;
+        // Field 23/11 (owner): the full build and Stat Anvil estimate only when
+        // the shop can be open (dead, game start) or pinned with Alt+B;
+        // otherwise just the next item.
+        const shopTime = typeof data.game_time === "number" && data.game_time < 60;
+        const details = data.shop_open === true || data.is_dead === true || shopTime ||
+            buildPinnedByHotkey;
         buildList.classList.toggle("hidden", !details);
+        if (mayhemBuild) mayhemBuild.classList.toggle("hidden", !details);
         buildFooter.classList.toggle("hidden", !details);
         buildAlternatives.classList.toggle("hidden", !details);
         enemySection.classList.toggle("collapsed", !interactive || !enemyManuallyOpen);
@@ -1292,6 +1578,7 @@
         $("section-augments").classList.add("hidden");
         $("section-build").classList.add("hidden");
         $("section-enemies").classList.add("hidden");
+        $("section-anvil").classList.add("hidden");
     }
 
     function hidePostGameFeedback() {
@@ -1345,6 +1632,7 @@
             renderUpdate,
             renderHeader,
             renderRecommendations,
+            renderAnvilOffer,
             renderBuild,
             renderEnemies,
             renderChampSelect,

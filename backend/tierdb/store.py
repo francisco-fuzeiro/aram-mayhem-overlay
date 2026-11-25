@@ -96,6 +96,35 @@ CREATE TABLE IF NOT EXISTS item_observation (
 );
 CREATE INDEX IF NOT EXISTS ix_item_obs ON item_observation (scope, champion_id);
 
+CREATE TABLE IF NOT EXISTS item_tier (
+    run_id      INTEGER NOT NULL REFERENCES tier_run(id) ON DELETE CASCADE,
+    champion_id TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    kind        TEXT NOT NULL CHECK (kind IN ('final', 'boots')),
+    score       REAL, score_p20 REAL, score_p80 REAL,
+    rank        INTEGER, tie_group INTEGER, tier TEXT,
+    level       TEXT NOT NULL, confidence TEXT NOT NULL,
+    PRIMARY KEY (run_id, champion_id, kind, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS reference_build (
+    run_id      INTEGER NOT NULL REFERENCES tier_run(id) ON DELETE CASCADE,
+    champion_id TEXT NOT NULL,
+    slot        INTEGER NOT NULL,  -- 1..6 items, 0 = boots
+    item_id     TEXT NOT NULL,
+    source      TEXT NOT NULL CHECK (source IN ('core', 'tier', 'stat', 'boots')),
+    PRIMARY KEY (run_id, champion_id, slot)
+);
+
+CREATE TABLE IF NOT EXISTS champion_stat_demand (
+    run_id      INTEGER NOT NULL REFERENCES tier_run(id) ON DELETE CASCADE,
+    champion_id TEXT NOT NULL,
+    stat        TEXT NOT NULL,
+    weight      REAL NOT NULL,
+    source      TEXT NOT NULL CHECK (source IN ('builds', 'role')),
+    PRIMARY KEY (run_id, champion_id, stat)
+);
+
 CREATE TABLE IF NOT EXISTS item_info (
     snapshot_id INTEGER NOT NULL REFERENCES snapshot(id) ON DELETE CASCADE,
     item_id     TEXT NOT NULL,
@@ -145,6 +174,8 @@ CREATE TABLE IF NOT EXISTS augment_tier (
     confidence  TEXT NOT NULL,
     n_eff       REAL NOT NULL DEFAULT 0,
     sources_json TEXT NOT NULL,
+    rank_all    INTEGER,
+    effect_pp   REAL,
     PRIMARY KEY (run_id, champion_id, augment_id)
 );
 
@@ -321,6 +352,25 @@ class TierStore:
         if "potential" not in cols:
             with self.connection:
                 self.connection.execute("ALTER TABLE champion_tier ADD COLUMN potential TEXT")
+        cols = {r[1] for r in self.connection.execute("PRAGMA table_info(augment_tier)")}
+        if "rank_all" not in cols:
+            with self.connection:
+                self.connection.execute("ALTER TABLE augment_tier ADD COLUMN rank_all INTEGER")
+        if "effect_pp" not in cols:
+            with self.connection:
+                self.connection.execute("ALTER TABLE augment_tier ADD COLUMN effect_pp REAL")
+        sql = (self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE name='reference_build'").fetchone() or [""])[0]
+        if "'stat'" not in sql:
+            # Field 23/11: builds may carry a required-stat slot (source 'stat').
+            con = self.connection
+            con.execute("PRAGMA foreign_keys = OFF")
+            with con:
+                con.execute("ALTER TABLE reference_build RENAME TO reference_build_old")
+                con.executescript(SCHEMA)
+                con.execute("INSERT INTO reference_build SELECT * FROM reference_build_old")
+                con.execute("DROP TABLE reference_build_old")
+            con.execute("PRAGMA foreign_keys = ON")
 
     def close(self) -> None:
         self.connection.close()

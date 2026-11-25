@@ -157,12 +157,13 @@ def build_champion_tiers(
     # Statistical tie groups on the score order.
     order = sorted(ids, key=lambda c: (-med[c], c))
     groups: list[list[str]] = []
-    prev = None
+    leader = None
     for c in order:
-        if prev is None or float(np.mean(prev > scores[c])) >= config.tie_probability:
+        # Tied = not distinguishable from the group's first champion.
+        if leader is None or float(np.mean(leader > scores[c])) >= config.tie_probability:
             groups.append([])
+            leader = scores[c]
         groups[-1].append(c)
-        prev = scores[c]
 
     rows = []
     rank = 0

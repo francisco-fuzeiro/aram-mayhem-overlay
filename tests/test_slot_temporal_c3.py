@@ -489,3 +489,29 @@ def test_c4b_unapproved_occlusion_cannot_override_verified_cards(monkeypatch):
     assert watcher.check({})[0] == "detected"
     assert watcher.check({}) == ("unchanged", None)
     assert watcher.check({}) == ("unchanged", None)
+
+
+def test_animated_card_verifies_on_two_identical_names_despite_moving_hash():
+    # Field 23/11 (latency): shimmering Mayhem cards moved the crop hash every
+    # read, so the same title read twice never verified (10-30 s waits).
+    tracker = SlotTemporalTracker()
+    frames = iter(range(1000))
+
+    def moving_hash(_crop):
+        return str(next(frames))
+
+    def read(_slot, crop, _names):
+        return TITLES.get(crop.getpixel((0, 0))[0])
+
+    assert tracker.observe(frame(), {}, read, moving_hash, distance) is None
+    assert_ids(tracker.observe(frame(), {}, read, moving_hash, distance),
+               ["en", "bind", "kill"])
+
+
+def test_unknown_reads_still_need_a_stable_image():
+    tracker = SlotTemporalTracker()
+    frames = iter(range(1000))
+    blank = {slot: Image.new("RGB", (340, 90), (0, 0, 0)) for slot in SLOTS}
+    for _ in range(3):
+        assert tracker.observe(blank, {}, read_slot, lambda c: str(next(frames)),
+                               distance) is None

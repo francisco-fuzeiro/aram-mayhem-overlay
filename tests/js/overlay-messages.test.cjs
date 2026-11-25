@@ -1042,7 +1042,7 @@ test("F0 source-to-UI replay: next item is copied from build_state without shop 
         alternatives: {}, selected_style: "Balanced",
     };
     h.api.handleMessage(update);
-    assert.equal(h.element("build-next").textContent, "Next: Synthetic Item (520g)");
+    assert.equal(h.element("build-next").textContent, "Next: Synthetic Item (520g more)");
     // This tests today's presentation contract; F4 shop-aware visibility is
     // deliberately NOT implemented by the F0 evidence-only phase.
     h.api.handleMessage({...update, build_state: {...update.build_state,
@@ -1407,8 +1407,8 @@ test("TDB-UI2: offered augments show tier, rank, tie span and source level", () 
     });
     const cards = h.element("augment-list").children;
     const text = (card) => card.children.map((c) => c.textContent).join(" | ");
-    assert.match(text(cards[0]), /Tier S · #3\/70 \(tied #3–#7\) · champion data/);
-    assert.match(text(cards[1]), /Tier C · #50\/70 · global data/);
+    assert.match(text(cards[0]), /Tier S · #3\/70 \(tied #3–#7\) of Gold augments · champion data/);
+    assert.match(text(cards[1]), /Tier C · #50\/70 of Gold augments · global data/);
     assert.match(text(cards[2]), /No tier data/);
     assert.doesNotMatch(cards.map(text).join(" "), /win rate|%/i);
 });
@@ -1438,8 +1438,10 @@ test("TDB-UI3: champion select shows Mayhem strength and potential side by side"
     });
     const cards = h.element("champ-select-list").children;
     assert.equal(cards[0].children[0].textContent, "Ahri");
-    assert.equal(cards[0].children[3].textContent,
-        "Mayhem strength: S · #4/172 (tied #3–#5) · Potential: very high");
+    assert.match(cards[0].children[1].innerHTML,
+        /<span class="tier-pill tier-S">S<\/span><span class="rank-pill">#4\/172<\/span>/);
+    assert.match(cards[0].children[1].innerHTML,
+        /Mayhem strength S \(#4 of 172\) · tied #3–#5 · Potential: very high/);
     assert.equal(cards[1].children.length, 3);
 });
 
@@ -1466,4 +1468,207 @@ test("DIAG-UI: offer and champion select renders report a feature ack", () => {
     const champ = sent.filter((m) => m.feature === "tierdb.champselect_render");
     assert.deepEqual(champ.at(-1), {type: "feature_ack", feature: "tierdb.champselect_render",
         status: "ok", reason: "rendered", count: 1});
+});
+
+test("P0 next-item UI emits match-scoped render ACK only for real rendered advice", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    const socket = h.sockets[0];
+    socket.readyState = 1;
+    const update = gameUpdate("Jinx");
+    update.match_id = "synthetic-current-match";
+    update.build_state = {
+        ...update.build_state, next_item_id: "3031",
+        next_item_name: "Infinity Edge", full_build: ["3031"],
+        purchased_items: [], gold_to_next: 1600, slot_blocked: false,
+    };
+    h.api.handleMessage(update);
+    const ack = JSON.parse(socket.sent);
+    assert.equal(ack.type, "feature_ack");
+    assert.equal(ack.feature, "build.next_item_render");
+    assert.equal(ack.status, "ok");
+    assert.equal(ack.reason, "rendered");
+    assert.equal(ack.match_id, "synthetic-current-match");
+    assert.equal(ack.count, 1);
+
+    socket.sent = undefined;
+    h.api.handleMessage({...update, match_id: "synthetic-current-match",
+        build_state: {...update.build_state, next_item_id: null,
+            next_item_name: null, full_build: []}});
+    assert.equal(socket.sent, undefined);
+    h.api.handleMessage({type: "no_game"});
+    assert.equal(socket.sent, undefined);
+});
+
+test("P0 no synthetic Anvil ACK on a normal augment update", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    h.sockets[0].readyState = 1;
+    const update = gameUpdate();
+    update.match_id = "synthetic";
+    h.api.handleMessage(update);
+    assert.equal(h.sockets[0].sent, undefined);
+});
+
+test("TDB-I5: build panel shows Mayhem reference, adapted swaps and Anvil estimates", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    h.sockets[0].readyState = 1;
+    const sent = [];
+    h.sockets[0].send = (m) => sent.push(JSON.parse(m));
+    const ref = ["Malignance", "Shadowflame", "Rabadon", "Void", "Zhonya", "Banshee"]
+        .map((name, i) => ({id: String(3000 + i), name}));
+    const adapted = [...ref];
+    adapted[3] = {id: "6655", name: "Morello"};
+    h.api.handleMessage({...gameUpdate(), mayhem_build: {
+        reference: ref, adapted, boots: {id: "3020", name: "Sorcerer's Shoes"},
+        swaps: [{slot: 4, out: "3003", in: "6655", out_name: "Void", in_name: "Morello",
+            reason: "enemies heal a lot"}],
+        anvil_stats: [{stat: "ap", tier: "A", level: "estimate", reason: "x"},
+            {stat: "ah", tier: "B", level: "estimate", reason: "x"}]}});
+    const text = h.element("mayhem-build").children.map((c) => c.textContent).join(" | ");
+    assert.match(text, /Reference: Malignance › Shadowflame › Rabadon › Void › Zhonya › Banshee/);
+    assert.match(text, /Adapted: .*Morello/);
+    assert.match(text, /Void → Morello \(enemies heal a lot\)/);
+    assert.match(text, /Stat Anvils \(estimate\): Ability Power · Ability Haste/);
+    assert.doesNotMatch(text, /win rate|%/i);
+    const ack = sent.filter((m) => m.feature === "items.build_render").at(-1);
+    assert.deepEqual(ack, {type: "feature_ack", feature: "items.build_render", status: "ok",
+        reason: "rendered", count: 1});
+    h.api.handleMessage({...gameUpdate(), mayhem_build: null});
+    assert.equal(h.element("mayhem-build").children.length, 0);
+});
+
+test("P0-C Stat Anvil panel shows only the best fit, details collapsed, epoch-fenced ACK", () => {
+    const h = harness();
+    h.api.connectWebSocket();
+    const socket = h.sockets[0];
+    socket.readyState = 1;
+    const update = gameUpdate("Jinx");
+    update.match_id = "synthetic-current-match";
+    h.api.handleMessage(update);
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), true);
+    assert.equal(socket.sent, undefined, "no Anvil ACK without a verified popup");
+
+    update.anvil_offer = {epoch: 2, tier: "gold", tier_source: "titles", count: 3, cards: [
+        {anvil_id: "ARAM_GoldStatAnvil_CritChance", anvil_name: "Critical Strike Shard",
+         score: 10, modelled: true, reason: "crit chance suits this champion",
+         explanation: "Own heuristic; not a win rate."},
+        {anvil_id: "ARAM_GoldStatAnvil_AS", anvil_name: "Attack Speed Shard",
+         score: 7.3, modelled: true, reason: "attack speed suits this champion"},
+        {anvil_id: "ARAM_GoldStatAnvil_AR", anvil_name: "Armor Shard",
+         score: 1.9, modelled: true, reason: "armor suits this champion"},
+    ]};
+    h.api.handleMessage(update);
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), false);
+    assert.match(h.element("anvil-top").textContent, /^Best fit: Critical Strike Shard · 10\.0\/10/);
+    assert.match(h.element("anvil-title").textContent, /GOLD/);
+    assert.equal(h.element("anvil-others").children.length, 3); // 2 others + note
+    const ack = JSON.parse(socket.sent);
+    assert.equal(ack.feature, "anvil.offer_render");
+    assert.equal(ack.count, 3);
+    assert.equal(ack.offer_epoch, 2);
+
+    socket.sent = undefined;
+    h.api.handleMessage({...update, anvil_offer: null});
+    assert.equal(h.element("section-anvil").classList.contains("hidden"), true);
+    assert.equal(socket.sent, undefined);
+});
+
+test("TDB-FIX1: offer badge shows the tier, unrated labels are muted, best tier highlighted", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({
+        left: "jinx", centre: "circle", right: "nodata",
+    }),
+        recommendations: [
+            {augment_id: "circle", augment_name: "Circle", score: 2.7, label: [],
+                core_items_names: [], explanation: "Modelled", sample_size: 0},
+            {augment_id: "jinx", augment_name: "Jinx", score: null, modelled: false,
+                label: [], core_items_names: [], explanation: null, sample_size: 0},
+        ],
+        suggest_reroll: false, tiers_enabled: true,
+        augment_tiers: {
+            jinx: {tier: "A", rank: 9, rank_total: 96, tie_group: 9, tie_end: 9,
+                level: "champion", confidence: "high", rarity: "gold"},
+            circle: {tier: "C", rank: 53, rank_total: 70, tie_group: 53, tie_end: 53,
+                level: "champion", confidence: "high", rarity: "prismatic"},
+        },
+    });
+    const cards = h.element("augment-list").children;
+    assert.match(cards[0].innerHTML,
+        /<span class="tier-pill tier-A">A<\/span><span class="rank-pill">#9\/96 Gold<\/span>/);
+    assert.match(cards[1].innerHTML,
+        /<span class="tier-pill tier-C">C<\/span><span class="rank-pill">#53\/70 Prismatic<\/span>/);
+    assert.match(cards[2].innerHTML, /class="aug-score muted"/);
+    assert.equal(cards[0].className.includes("top-pick"), true);
+    assert.equal(cards[1].className.includes("top-pick"), false);
+    const text = cards[1].children.map((c) => c.textContent).join(" | ");
+    assert.match(text, /Fit 2\.7\/10/);
+});
+
+test("TDB-FIX2: champion select leads with Mayhem strength; composite is labelled team fit", () => {
+    const h = harness();
+    h.api.handleMessage({
+        type: "champ_select", current_status: "unresolved",
+        candidates: [{current: false, score: 6.6, tier: "B", role: "fighter", reasons: [],
+            sample_size: 0, id: "fiora", name: "Fiora", mayhem: {strength: "OP",
+                potential: "high", rank: 2, rank_total: 173, tie_group: 2, tie_end: 2,
+                confidence: "high"}}],
+    });
+    const card = h.element("champ-select-list").children[0];
+    assert.match(card.children[1].innerHTML,
+        /^<span class="tier-pill tier-OP">OP<\/span><span class="rank-pill">#2\/173<\/span>/);
+    assert.match(card.children[1].innerHTML, /Mayhem strength OP \(#2 of 173\) · Potential: high/);
+    assert.equal(card.children[1].className.includes("mayhem-main"), true);
+    assert.match(card.children[2].textContent, /^Team fit: B · 6\.6\/10 · fighter/);
+});
+
+test("TDB-FIX3: next item cost reads as ready or gold still needed", () => {
+    const h = harness();
+    h.api.renderBuild({next_item_id: "a", next_item_name: "Ravenous Hydra", gold_to_next: 0,
+        full_build: [], purchased_items: [], owned_build_ids: []});
+    assert.equal(h.element("build-next").textContent, "Next: Ravenous Hydra (ready to buy)");
+    h.api.renderBuild({next_item_id: "a", next_item_name: "Ravenous Hydra", gold_to_next: 1925,
+        full_build: [], purchased_items: [], owned_build_ids: []});
+    assert.equal(h.element("build-next").textContent, "Next: Ravenous Hydra (1925g more)");
+});
+
+test("TDB-CTX: offer badge shows the adjusted tier with arrow and reason, base kept", () => {
+    const h = harness();
+    h.api.handleMessage({...gameUpdate(), ...d2VerifiedFields({left: "a", centre: "b"}),
+        recommendations: [], suggest_reroll: false, tiers_enabled: true,
+        augment_tiers: {
+            a: {tier: "B", adjusted_tier: "A", adjust: 1, adjust_reason: "fits your build",
+                rank: 30, rank_total: 96, tie_group: 30, tie_end: 30, level: "champion",
+                confidence: "high", rarity: "gold"},
+            b: {tier: "A", adjusted_tier: "A", adjust: 0, adjust_reason: null,
+                rank: 10, rank_total: 96, tie_group: 10, tie_end: 10, level: "champion",
+                confidence: "high", rarity: "gold"},
+        },
+    });
+    const cards = h.element("augment-list").children;
+    assert.match(cards[0].innerHTML,
+        /<span class="tier-pill tier-A">A ↑<\/span><span class="rank-pill">#30\/96 Gold<\/span>/);
+    const text = cards[0].children.map((c) => c.textContent).join(" | ");
+    assert.match(text, /↑ fits your build \(base B\)/);
+    assert.match(text, /Tier B · #30\/96/);
+    assert.match(cards[1].innerHTML, /<span class="tier-pill tier-A">A<\/span>/);
+});
+
+test("FIELD 23/11: full Mayhem build only with the shop reachable, else next item only", () => {
+    const h = harness();
+    const mb = {reference: [{id: "6676", name: "The Collector"}],
+        boots: {id: "3111", name: "Mercury's Treads", reason: "enemy crowd control"},
+        adapted: [], swaps: [], anvil_stats: [{stat: "as"}]};
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false, game_time: 600,
+        mayhem_build: mb});
+    assert.equal(h.element("mayhem-build").classList.contains("hidden"), true);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: true, game_time: 640,
+        mayhem_build: mb});
+    assert.equal(h.element("mayhem-build").classList.contains("hidden"), false);
+    assert.match(h.element("mayhem-build").innerHTML + h.element("mayhem-build").children
+        .map(c => c.textContent).join(" "), /Mercury's Treads \(enemy crowd control\)/);
+    h.api.handleMessage({...gameUpdate("Jinx"), is_dead: false, game_time: 30,
+        mayhem_build: mb});
+    assert.equal(h.element("mayhem-build").classList.contains("hidden"), false);
 });

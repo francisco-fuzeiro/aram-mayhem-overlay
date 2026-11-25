@@ -5,7 +5,7 @@ pixels at desktop origin (8,31). Full letter padding was visually reviewed
 against two independent captures of a three-card offer and a centre reroll.
 
 This module neither observes the desktop nor recognises game text. 1080p is
-a proportional extrapolation awaiting live Windows acceptance. Unsupported
+a height-scaled extrapolation awaiting live Windows acceptance. Unsupported
 ratios fail closed instead of silently borrowing 16:9 geometry.
 """
 from __future__ import annotations
@@ -50,13 +50,17 @@ def title_bands_from_client_rect(
     if not _MIN_RATIO <= ratio <= _MAX_RATIO:
         return None
 
+    # League's centred UI scales with the client HEIGHT (plan v2, audit
+    # P1-10): x is an offset from the centre in height units, so 16:9 1080p
+    # and the measured 1.88 client both line up. Identical at 2544x1353.
+    scale = height / _OBSERVED_HEIGHT
     result = {}
     for slot, (x, y, w, h) in _OBSERVED_BANDS:
         scaled = (
-            round(x * width / _OBSERVED_WIDTH),
-            round(y * height / _OBSERVED_HEIGHT),
-            round(w * width / _OBSERVED_WIDTH),
-            round(h * height / _OBSERVED_HEIGHT),
+            round(width / 2 + (x - _OBSERVED_WIDTH / 2) * scale),
+            round(y * scale),
+            round(w * scale),
+            round(h * scale),
         )
         sx, sy, sw, sh = scaled
         if (sx < 0 or sy < 0 or sw < 80 or sh < 20
@@ -64,3 +68,69 @@ def title_bands_from_client_rect(
             return None
         result[slot] = scaled
     return result
+
+
+# Field 24/11 (owner screenshot, 2550x1363 client): Mayhem can offer FOUR
+# cards. Card pitch is the same as the three-card layout (457/2544 of the
+# width, i.e. 457/1353 of the height); a four-card row is centred, so its cards sit at +-0.5 and +-1.5
+# pitches and its gaps at 0 and +-1 pitch, the opposite of three cards.
+_PITCH = 457 / _OBSERVED_HEIGHT   # in client heights (UI scales with height)
+_STRIP = 20 / _OBSERVED_HEIGHT
+
+
+def layout_probe_strips(
+    client_rect: tuple[int, int, int, int],
+) -> dict[float, tuple[int, int, int, int]] | None:
+    """Narrow client-relative strips (x,y,w,h) at the title height, keyed by
+    the offset from the centre in pitches (-1, -0.5, 0, 0.5, 1)."""
+    bands = title_bands_from_client_rect(client_rect)
+    if bands is None:
+        return None
+    left, top, right, bottom = client_rect
+    width, height = right - left, bottom - top
+    _, y, _, h = bands["centre"]
+    half = max(2, round(_STRIP * height / 2))
+    out = {}
+    for k in (-1.0, -0.5, 0.0, 0.5, 1.0):
+        x = round(width / 2 + k * _PITCH * height)
+        out[k] = (x - half, y, 2 * half, h)
+    return out
+
+
+def card_count_from_fractions(teal: dict[float, float]) -> int | None:
+    """3 or 4 cards from card-background fractions in the probe strips."""
+    on = lambda k: teal.get(k, 0.0) >= 0.5   # noqa: E731
+    off = lambda k: teal.get(k, 1.0) < 0.3   # noqa: E731
+    if on(-0.5) and on(0.5) and off(0.0) and off(-1.0) and off(1.0):
+        return 4
+    if on(0.0) and on(-1.0) and on(1.0) and off(-0.5) and off(0.5):
+        return 3
+    return None
+
+
+FOUR_SLOTS = ("c1", "c2", "c3", "c4")
+_FOUR_OFFSETS = (-1.5, -0.5, 0.5, 1.5)
+
+
+def four_title_bands(
+    client_rect: tuple[int, int, int, int],
+) -> dict[str, tuple[int, int, int, int]] | None:
+    """Title rectangles (client-relative x,y,w,h) of a FOUR-card offer.
+
+    Same title height and band size as the three-card layout; the centres sit
+    at +-0.5 and +-1.5 pitches (measured on the owner's 2546x1385 window
+    screenshots, 24/11). Fails closed like the three-card bands.
+    """
+    bands = title_bands_from_client_rect(client_rect)
+    if bands is None:
+        return None
+    left, top, right, bottom = client_rect
+    width, height = right - left, bottom - top
+    _, y, w, h = bands["centre"]
+    out = {}
+    for slot, k in zip(FOUR_SLOTS, _FOUR_OFFSETS):
+        x = round(width / 2 + k * _PITCH * height - w / 2)
+        if x < 0 or x + w > width:
+            return None
+        out[slot] = (x, y, w, h)
+    return out
