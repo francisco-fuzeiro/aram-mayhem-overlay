@@ -1,5 +1,11 @@
 # Overlay LoL — Development Log
 
+## 2026-11-24 — Popular, slightly negative augments no longer sink
+
+- Owner 24/11: ARAM is played for performance and fun, win rate alone can mislead (players stall games to scale). Until damage data exists (MayhemMeta permission or LCU history), the base stays on win rate with one exception: an augment in the top 20% of the champion's games within its rarity and with effect in [-1.0, 0) pp ranks as neutral (effect 0). Thresholds are Proposta.
+- Measured: out-of-sample 16.22→16.23 Spearman 0.915 → 0.914, top-10 ΔWR unchanged (+4.73 pp); in the 16.23 list 677 augments move up, 10.5 positions on average. Clearly negative popular augments (e.g. Trusty Weapon on Ezreal, −2.4 pp) still sink.
+- `effect_pp` in the export is the ranking effect, so the in-match situational score uses the same scale as the list.
+
 ## 2026-11-24 — Champion tiers pool the previous patch
 
 - Owner decision 24/11 ("16.22 nos campeões, augments iguais"): the champion tier list sums the champion games of the newest older patch from the same source with the current patch. Measured against OP.GG's champion order (analysis only, nothing copied): Spearman 0.838 → 0.855 over 173 champions. Augment tiers, leverage and potential stay on the current patch only (export identical).

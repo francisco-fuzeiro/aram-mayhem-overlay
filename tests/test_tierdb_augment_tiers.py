@@ -167,3 +167,21 @@ def test_same_inputs_same_output():
     first, th1 = _world(pairs)
     second, th2 = _world(pairs)
     assert first == second and th1 == th2
+
+
+def test_popular_slightly_negative_augment_ranks_as_neutral():
+    """Owner 24/11: popular and only slightly negative does not sink to the bottom."""
+    from backend.tierdb.augment_tiers import AugmentTierConfig, _popular_floor
+    effect = {("c", "pop"): -0.5 / 25, ("c", "rare"): -0.5 / 25,
+              ("c", "bad"): -3.0 / 25, ("c", "good"): 1.0 / 25, ("c", "x"): -0.1 / 25}
+    pairs = {("c", "pop"): (480, 50000), ("c", "bad"): (400, 40000),
+             ("c", "rare"): (10, 200), ("c", "good"): (60, 100), ("c", "x"): (5, 100)}
+    rarity = {a: "gold" for _c, a in effect}
+    cfg = AugmentTierConfig(popular_top_share=0.4)   # top 2 of 5 by games
+    out = _popular_floor("c", [a for _c, a in effect], effect, pairs, rarity, cfg)
+    assert out["pop"] == 0.0                      # popular + slightly negative
+    assert out["rare"] == -0.5 / 25               # same effect, not popular
+    assert out["bad"] == -3.0 / 25                # popular but clearly negative
+    off = _popular_floor("c", [a for _c, a in effect], effect, pairs, rarity,
+                         AugmentTierConfig(popular_floor_pp=0.0))
+    assert off["pop"] == -0.5 / 25

@@ -49,6 +49,13 @@ class AugmentTierConfig:
     weights: dict = field(default_factory=lambda: {
         "win": 50, "combat": 15, "participation": 12,
         "duration": 8, "context": 8, "consistency": 7})
+    # Owner 24/11: ARAM is played for performance and fun, so win rate alone
+    # can mislead. An augment that is popular on the champion (top share of
+    # its games within the rarity) and only slightly negative (>= -floor pp)
+    # ranks as neutral instead of sinking. Out-of-sample cost 16.22->16.23:
+    # Spearman 0.915 -> 0.914, top-10 ΔWR unchanged (Proposta thresholds).
+    popular_floor_pp: float = 1.0
+    popular_top_share: float = 0.2
 
 
 @dataclass(frozen=True)
@@ -125,6 +132,24 @@ def _tier_for(score: float, p20: float, thresholds: dict, level: str) -> str:
             break
     cap = LEVEL_CAP[level]
     return TIER_ORDER[max(TIER_ORDER.index(tier), TIER_ORDER.index(cap))]
+
+
+def _popular_floor(champion, augment_ids, effect, pairs, rarity, config) -> dict:
+    """Effects (logit) used for the list order, with the popular-floor rule."""
+    out = {a: float(effect[(champion, a)]) for a in augment_ids}
+    floor = config.popular_floor_pp / 25.0
+    if floor <= 0 or config.popular_top_share <= 0:
+        return out
+    by_rarity: dict[str, list[str]] = {}
+    for a in augment_ids:
+        if (champion, a) in pairs:
+            by_rarity.setdefault(rarity.get(a, ""), []).append(a)
+    for augs in by_rarity.values():
+        augs.sort(key=lambda a: (-pairs[(champion, a)][1], a))
+        for a in augs[:max(1, round(config.popular_top_share * len(augs)))]:
+            if -floor <= out[a] < 0:
+                out[a] = 0.0
+    return out
 
 
 def build_augment_tiers(
@@ -284,9 +309,13 @@ def build_augment_tiers(
         if row.rank is not None and (row.champion_id, row.augment_id) in effect:
             by_champ.setdefault(row.champion_id, []).append(idx)
     for c, idxs in by_champ.items():
+        ranked = _popular_floor(c, [rows[i_].augment_id for i_ in idxs], effect, pairs,
+                                rarity, config)
         idxs.sort(key=lambda i_: (rows[i_].level == "borrowed",
-                                  -effect[(c, rows[i_].augment_id)], rows[i_].augment_id))
+                                  -ranked[rows[i_].augment_id], rows[i_].augment_id))
         for pos, idx in enumerate(idxs, start=1):
+            # effect_pp is the ranking effect, so the in-match situational
+            # score places augments on the same scale as the list.
             rows[idx] = _replace(rows[idx], rank_all=pos, effect_pp=round(
-                25.0 * float(effect[(c, rows[idx].augment_id)]), 3))
+                25.0 * float(ranked[rows[idx].augment_id]), 3))
     return rows, thresholds
