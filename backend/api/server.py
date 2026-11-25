@@ -2833,8 +2833,9 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
         # read (and the recommendation drawn after this tick).
         feature_diagnostics.record("anvil.popup_watch", "skipped", "augment_verifying")
         return
+    blank_titles = getattr(watcher, "last_scan_stage", None) == "titles_unidentified"
     if (state.scan_window_open and state.anvil_offer is None
-            and not _anvil_attention(state, now)
+            and not _anvil_attention(state, now) and not blank_titles
             and now - state.anvil_last_check < ANVIL_CHECK_IN_AUGMENT_WINDOW_S):
         # Field 23/11: an unread augment window may last minutes, so the Anvil
         # watcher must look then too, but it runs in the same tick as the
@@ -2875,6 +2876,7 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
                     state.anvil_epoch += 1
                     feature_diagnostics.record(
                         "anvil.offer_detected", "ok", "verified_offer", len(res.shards))
+                    _close_unread_augment_window(state)
                 state.anvil_offer = res
             else:
                 state.anvil_offer = None
@@ -2889,6 +2891,22 @@ async def _anvil_popup_tick(state: GameState, deps: SimpleNamespace, now: float)
                     state.anvil_followup_until = now + ANVIL_FOLLOWUP_S
                     state.anvil_voucher_tier = None
                     state.anvil_absent_ticks = 0
+
+
+def _close_unread_augment_window(state: GameState) -> None:
+    """Field 25/11 (level 9, 37 s 'unidentified'): the cards that opened an
+    augment window were a Stat Anvil popup. With no augment title read in it,
+    close that window instead of counting the Anvil as a slow augment read;
+    the card probe reopens one when real augment cards show."""
+    if not state.scan_window_open or _augment_titles_read(state) or _four_offer_read(state):
+        return
+    event_log.emit("ocr_window", state="closed", reason="anvil_instead",
+                   level=state.scan_window_level)
+    state.scan_window_open = False
+    state.offer_lifecycle.close()
+    state.ocr_slot_choices = None
+    state.augment_choices.clear()
+    state.presence_trail.clear()
 
 
 def _presence_armed(state: GameState) -> str | None:

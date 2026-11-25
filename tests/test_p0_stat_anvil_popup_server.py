@@ -329,3 +329,14 @@ def test_audit_2411_popup_shows_tier_estimate_not_old_score(monkeypatch):
     cards = payload["cards"]
     assert len(cards) == 3 and all(c["est_tier"] in ("A", "B", "C", "D", "E") for c in cards)
     assert cards[0]["anvil_name"] == "Move Speed Shard"
+
+
+def test_anvil_closes_an_unread_augment_window_but_not_a_read_one():
+    state = GameState()
+    state.scan_window_open = True
+    server._close_unread_augment_window(state)
+    assert state.scan_window_open is False
+    state.scan_window_open = True
+    state.ocr_slot_choices = {"left": "1", "centre": None, "right": None}
+    server._close_unread_augment_window(state)
+    assert state.scan_window_open is True

@@ -38,7 +38,7 @@ SCHEMA: dict[str, dict[str, object]] = {
     },
     "ocr_window": {
         "state": frozenset(("opened", "closed")),
-        "reason": frozenset(("level_due", "cards_seen", "damage", "manual_choice", "confirmed", "offer_disappeared", "anvil_cards_gone", "cursor_pick", "reset", "unknown")),
+        "reason": frozenset(("level_due", "cards_seen", "damage", "manual_choice", "confirmed", "offer_disappeared", "anvil_cards_gone", "anvil_instead", "cursor_pick", "reset", "unknown")),
         "level": "int",
     },
     "ocr_scan_stage": {
