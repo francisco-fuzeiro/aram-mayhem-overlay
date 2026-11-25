@@ -2758,6 +2758,15 @@ ANVIL_FORCED_OCR_INTERVAL_S = 4.0
 # Field 23/11: offers took 23 s to minutes to show. While an augment window is
 # open and its cards are not read yet, poll every second instead of every 2 s.
 FAST_POLL_INTERVAL_S = 1.0
+# Field 25/11: with cards already on screen but not read yet (fading in, or a
+# first unverified read), a 1 s tick cost 1-2 s per window (OCR after cards
+# shown: 2.7 s and 5.5 s, above the 5 s rule). Ticks take ~0.1-0.15 s, so look
+# again quickly until the read is verified; cards_absent keeps the 1 s pace.
+CARDS_SEEN_POLL_INTERVAL_S = 0.3
+_CARDS_SEEN_STAGES = frozenset((
+    "titles_unidentified", "titles_verifying", "titles_transition",
+    "four_titles_verifying",
+))
 
 
 def _latency_bucket(seconds: float) -> str:
@@ -2766,8 +2775,12 @@ def _latency_bucket(seconds: float) -> str:
             else "10_to_30s" if seconds < 30 else "over_30s")
 
 
-def _poll_interval(state: GameState, base: float) -> float:
+def _poll_interval(state: GameState, base: float, stage: str | None = None) -> float:
     if state.scan_window_open and not _augment_cards_verified(state):
+        if stage is None:
+            stage = getattr(screen_watcher, "last_scan_stage", None)
+        if stage in _CARDS_SEEN_STAGES:
+            return min(base, CARDS_SEEN_POLL_INTERVAL_S)
         return min(base, FAST_POLL_INTERVAL_S)
     return base
 

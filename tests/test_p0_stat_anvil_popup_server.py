@@ -262,9 +262,13 @@ def test_poll_is_faster_only_while_an_unread_augment_window_is_open():
     state = GameState()
     assert server._poll_interval(state, 2.0) == 2.0
     state.scan_window_open = True
-    assert server._poll_interval(state, 2.0) == 1.0
+    assert server._poll_interval(state, 2.0, "cards_absent") == 1.0
+    # Cards on screen but not read yet: look again quickly (field 25/11).
+    assert server._poll_interval(state, 2.0, "titles_unidentified") == 0.3
+    assert server._poll_interval(state, 2.0, "titles_verifying") == 0.3
     state.ocr_slot_choices = {"left": "1", "centre": "2", "right": "3"}
     assert server._poll_interval(state, 2.0) == 2.0
+    assert server._poll_interval(state, 2.0, "titles_verifying") == 2.0
     assert server._latency_bucket(2.0) == "under_3s"
     assert server._latency_bucket(45) == "over_30s"
 
