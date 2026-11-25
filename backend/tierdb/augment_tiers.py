@@ -53,7 +53,7 @@ class AugmentTierConfig:
     # can mislead. An augment that is popular on the champion (top share of
     # its games within the rarity) and only slightly negative (>= -floor pp)
     # ranks as neutral instead of sinking. Out-of-sample cost 16.22->16.23:
-    # Spearman 0.915 -> 0.914, top-10 ΔWR unchanged (Proposta thresholds).
+    # Spearman 0.915 -> 0.914, top-10 ΔWR unchanged. Thresholds decided 24/11 (adjustable after the test).
     popular_floor_pp: float = 1.0
     popular_top_share: float = 0.2
 

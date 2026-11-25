@@ -4,7 +4,7 @@ final = base effect (blended ΔWR in pp, per champion, from the tier export)
       + sum over signals of vote (-1..1) x pp_per_vote, total capped at ±3 pp.
 
 The shown tier comes from where ``final`` would sit in the champion's own list
-(OP 1-5, S 6-15, ...). Starting weights are hand-set (Proposta) in
+(OP 1-5, S 6-15, ...). Starting weights are hand-set (decided 24/11) in
 ``data/augments/situational_weights.json``; a calibration from the player's
 own games replaces them only after >= 200 games and a better temporal holdout
 (``backend.tierdb.situational_calibration``). Missing data never moves a score.

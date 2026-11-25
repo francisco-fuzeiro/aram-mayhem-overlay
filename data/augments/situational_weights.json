@@ -1,5 +1,5 @@
 {
-  "status": "Proposta 24/11 — hand-set starting weights (owner decision 24/11). Recalibrated from the player's own games only with >= 200 games AND a better temporal holdout (latest 30%).",
+  "status": "Decidido 24/11 (adjustable after the match test) — hand-set starting weights (owner decision 24/11). Recalibrated from the player's own games only with >= 200 games AND a better temporal holdout (latest 30%).",
   "unit": "percentage points of win rate per full vote (-1..1)",
   "pp_per_vote": {
     "build": 1.5,

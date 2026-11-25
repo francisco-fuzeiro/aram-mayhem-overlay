@@ -2,7 +2,7 @@
 
 ## 2026-11-24 — Popular, slightly negative augments no longer sink
 
-- Owner 24/11: ARAM is played for performance and fun, win rate alone can mislead (players stall games to scale). Until damage data exists (MayhemMeta permission or LCU history), the base stays on win rate with one exception: an augment in the top 20% of the champion's games within its rarity and with effect in [-1.0, 0) pp ranks as neutral (effect 0). Thresholds are Proposta.
+- Owner 24/11: ARAM is played for performance and fun, win rate alone can mislead (players stall games to scale). Until damage data exists (MayhemMeta permission or LCU history), the base stays on win rate with one exception: an augment in the top 20% of the champion's games within its rarity and with effect in [-1.0, 0) pp ranks as neutral (effect 0). Thresholds decided by the owner 24/11 (adjustable after the match test), as are the situational item thresholds and the situational weights.
 - Measured: out-of-sample 16.22→16.23 Spearman 0.915 → 0.914, top-10 ΔWR unchanged (+4.73 pp); in the 16.23 list 677 augments move up, 10.5 positions on average. Clearly negative popular augments (e.g. Trusty Weapon on Ezreal, −2.4 pp) still sink.
 - `effect_pp` in the export is the ranking effect, so the in-match situational score uses the same scale as the list.
 

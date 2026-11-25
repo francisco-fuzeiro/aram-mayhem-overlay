@@ -2,8 +2,8 @@
 
 Original rule table distilled from public mechanics (League wiki item
 effects, ARAM rules). It assumes normal ARAM: Mayhem-specific item changes
-were not verified. Thresholds and priorities are PROPOSALS awaiting the
-owner's approval and live in THRESHOLDS so they can be tuned in one place.
+were not verified. Thresholds and priorities were decided by the owner on
+24/11 (adjustable after the match test) and live in THRESHOLDS.
 
 Items are resolved by name against the recommendable (available) shop pool,
 so an item missing from the ARAM map is never suggested (fail closed).
@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# Proposal 24/11 (not yet approved by the owner).
+# Decided 24/11 by the owner; adjustable after the match test.
 THRESHOLDS = {
     "magic_heavy": 0.6,      # team magic share
     "physical_heavy": 0.4,
