@@ -1734,12 +1734,13 @@
       ],
       "effect": 1,
       "reason": "more range for your attacks",
-      "confidence": "provavel",
+      "confidence": "certo",
       "when": {
         "champ": [
           "Rengar"
         ]
-      }
+      },
+      "evidence": "AramHex 16.23 Rengar: Scopier +1,2 pp acima do global (z 5,6), Scopiest +1,9 (z 6,3)"
     },
     {
       "id": "S51n",
