@@ -175,11 +175,10 @@ def test_swaps_are_capped_at_three_and_slot_one_is_locked():
     ref = ["a", "b", "c", "d", "e", "f"]
     strength = _strength(ref + ["w", "x", "y", "z"])
     boost = {"w": 9, "x": 9, "y": 9, "z": 9, "a": -9}
-    out = adapt_build(ref, strength, context=lambda i: (boost.get(i, 0.0), "enemies heal")
+    out = adapt_build(ref, strength, context=lambda i: (boost.get(i, 0.0), "reason " + i)
                       if i in boost else (0.0, None))
     assert out.items[0] == "a"
     assert len(out.swaps) == 3
-    assert all(s["reason"] == "enemies heal" for s in out.swaps)
 
 
 def test_small_gains_below_threshold_do_not_swap():

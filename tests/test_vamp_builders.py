@@ -41,3 +41,21 @@ def test_vamp_items_get_a_reason_for_sustain_champions():
                            properties=frozenset({"lifesteal"}))
     bonus = server._item_context(item, None, {}, {}, set(), own_sustain=1.0)
     assert "more vamp for your sustain" in str(bonus)
+
+
+def test_vamp_bonus_off_when_the_measured_build_has_vamp():
+    from backend.api import server
+    item = SimpleNamespace(id="3074", name="Ravenous Hydra", stats=StatVector(ad=0.6),
+                           properties=frozenset({"lifesteal"}))
+    assert server._item_context(item, None, {}, {}, set(), own_sustain=1.0,
+                                vamp_covered=True) == (0.0, None)
+
+
+def test_one_swap_per_reason():
+    from backend.tierdb.build_adapt import adapt_build
+    strength = {"core": 8.0, "a": 8.0, "b": 8.0, "v1": 8.0, "v2": 8.0, "lead": 9.0}
+
+    def context(iid):
+        return (1.0, "more vamp for your sustain") if iid.startswith("v") else (0.0, None)
+    out = adapt_build(["lead", "core", "a", "b"], strength, context=context)
+    assert len(out.swaps) == 1

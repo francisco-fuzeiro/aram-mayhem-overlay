@@ -65,6 +65,10 @@ def adapt_build(
                     continue
                 cand_value, reason = value(cand)
                 gain = cand_value - current_value
+                # One swap per reason (owner 24/11: one item per reason), so a
+                # single axis such as vamp never takes over the build.
+                if any(s["reason"] == reason for s in swaps):
+                    continue
                 if gain >= config.threshold and reason and (best is None or gain > best[0]):
                     best = (gain, slot, current, cand, reason)
         if best is None:

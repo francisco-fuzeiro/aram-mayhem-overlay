@@ -60,7 +60,7 @@ def _add_spans(entries: list[dict]) -> None:
 # E after. Ranking order is unchanged; evidence caps (e.g. curated-only
 # augments at most A) still apply so a guess is never shown as OP.
 RANK_BANDS = (("OP", 5), ("S", 15), ("A", 30), ("B", 50), ("C", 75), ("D", 100))
-# Proposal 25/11 (field: 237 augments in one list put 58% in E): the same
+# Owner decision 25/11 (field: 237 augments in one list put 58% in E): the same
 # bands as shares of the list with champion data. E is then only what has no
 # games on the champion (borrowed), which ranks after all of them.
 RANK_SHARES = (("OP", 0.05), ("S", 0.15), ("A", 0.30), ("B", 0.50), ("C", 0.75), ("D", 1.0))

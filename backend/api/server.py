@@ -882,7 +882,7 @@ _AUGMENT_TO_ANVIL = {"ap": "ap", "ad": "ad", "attack_speed": "as", "hp": "hp",
 
 
 def _item_context(item, champion, enemy: dict, allies: dict, fate: set,
-                  own_sustain: float = 0.0):
+                  own_sustain: float = 0.0, vamp_covered: bool = False):
     """Bounded 0-3 match bonus for an item and the first reason (heuristic,
     except Weapon of Fate picks which AramHex measures)."""
     props = getattr(item, "properties", frozenset()) or frozenset()
@@ -896,8 +896,10 @@ def _item_context(item, champion, enemy: dict, allies: dict, fate: set,
     from backend.engine.situational_items import HEAL_AMP_ITEMS, _norm
     amp = (stats is not None and float(stats.heal_power or 0) > 0) or (
         item is not None and _norm(getattr(item, "name", "")) in HEAL_AMP_ITEMS)
-    if own_sustain >= 0.4 and props & {"lifesteal", "omnivamp"}:
-        # Owner 24/11: more vamp for champions that heal or already build vamp.
+    if own_sustain >= 0.4 and not vamp_covered and props & {"lifesteal", "omnivamp"}:
+        # Owner 24/11: more vamp for champions that heal. Field 25/11 (Rengar,
+        # Kha'Zix): when the measured build already has vamp (Endless Hunger)
+        # the axis is covered; more vamp replaced Collector/lethality items.
         cut = int(e.get("anti_heal_items") or 0) >= 2
         reasons.append((0.5 if cut else 1.0, "more vamp for your sustain"))
     if own_sustain >= 0.4 and amp:
@@ -1030,8 +1032,13 @@ def _mayhem_build_payload(champion_id, chosen_augments, owned_ids, enemy, allies
         if vec_ is not None:
             own_sustain += float(vec_.heal_power or 0) + float(vec_.shield or 0)
 
+    vamp_covered = any(
+        getattr(sd.get_item(i), "properties", frozenset()) & {"lifesteal", "omnivamp"}
+        for i in data.get("reference") or [])
+
     def context(iid):
-        return _item_context(sd.get_item(iid), champion, enemy, allies, fate, own_sustain)
+        return _item_context(sd.get_item(iid), champion, enemy, allies, fate, own_sustain,
+                             vamp_covered)
 
     canonical = getattr(sd, "canonical_item_id", lambda x: str(x))
     owned = {canonical(i) for i in (owned_ids or [])}
