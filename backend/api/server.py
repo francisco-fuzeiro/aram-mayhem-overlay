@@ -497,6 +497,7 @@ async def lifespan(app: FastAPI):
         tier_service.start_update(static_data)
     else:
         feature_diagnostics.record("tierdb.update", "skipped", "fresh")
+    _arammeta_snapshot(None)
 
     asyncio.create_task(_refresh_impact_gate())
     poll_task = asyncio.create_task(_poll_game_loop())
@@ -560,6 +561,24 @@ async def _postgame_reconcile(ledger, champion_id, delays=POSTGAME_RECONCILE_DEL
         await _refresh_impact_gate()
     except Exception:
         logger.exception("Post-game history import failed")
+
+
+_ARAMMETA_ASKED: set = set()
+
+
+def _arammeta_snapshot(champion) -> None:
+    """Owner 25/11 (step 1): local AramMeta snapshot per patch, a few requests
+    per patch (tier list daily at most, one file per champion played). It does
+    not feed the tiers yet. Off with ARAM_ORACLE_ARAMMETA_SNAPSHOT=0."""
+    if (os.environ.get("ARAM_ORACLE_ARAMMETA_SNAPSHOT", "1") != "1"
+            or "PYTEST_CURRENT_TEST" in os.environ):
+        return
+    key = str(champion or "")
+    if key in _ARAMMETA_ASKED:
+        return
+    _ARAMMETA_ASKED.add(key)
+    from backend.tierdb import arammeta
+    arammeta.snapshot_in_background(champion or None)
 
 
 async def _refresh_impact_gate() -> None:
@@ -2587,6 +2606,8 @@ def _begin_or_continue_match(
         state.match_id = authoritative
 
     state._last_game_time = game_time if game_time is not None else state._last_game_time
+    if champion and champion != state._last_champion_id:
+        _arammeta_snapshot(champion)
     state._last_champion_id = champion or state._last_champion_id
     state._last_player_key = player_key or state._last_player_key
     state.lcda_misses = 0
