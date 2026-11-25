@@ -310,7 +310,8 @@ def ingest_aramhex(
     return snapshot_id
 
 
-def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None) -> Path:
+def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None,
+                     progress=None) -> Path:
     """Download one dataset directory pinned to a git ref (e.g. ``data-v20``).
 
     ``fetch(url) -> bytes`` is injectable for tests; checksums are verified by
@@ -320,7 +321,7 @@ def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None) -> P
         import requests
 
         def fetch(url: str) -> bytes:
-            response = requests.get(url, timeout=30)
+            response = requests.get(url, timeout=(10, 60))
             response.raise_for_status()
             return response.content
 
@@ -332,7 +333,9 @@ def download_dataset(ref: str, dataset_path: str, target: Path, fetch=None) -> P
     except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
         listed = {}
     names = list(REQUIRED_FILES) + [n for n in ITEM_FILES if n in listed]
-    for name in names:
+    for i, name in enumerate(names, start=1):
         data = fetch(RAW_URL.format(ref=ref, path=f"{dataset_path}/{name}"))
         (target / name).write_bytes(data)
+        if progress:
+            progress(f"  {dataset_path}: {i}/{len(names)} {name} ({len(data) // 1024} KB)")
     return target

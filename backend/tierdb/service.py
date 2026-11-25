@@ -84,7 +84,8 @@ def previous_dataset(ref: str, patch: str, fetch_index=None) -> str | None:
     return best[1] if best else None
 
 
-def ingest_previous_patch(store, ref: str, patch: str, aliases: dict) -> int | None:
+def ingest_previous_patch(store, ref: str, patch: str, aliases: dict,
+                          progress=None) -> int | None:
     """Best effort: store the previous patch once; None when absent or failing."""
     try:
         path = previous_dataset(ref, patch)
@@ -92,9 +93,15 @@ def ingest_previous_patch(store, ref: str, patch: str, aliases: dict) -> int | N
             return None
         prev = path.split("/")[1] if path.count("/") >= 2 else None
         if prev and store.snapshot_ids(prev):
+            if progress:
+                progress(f"previous patch {prev} already stored")
             return None
+        if progress:
+            progress(f"downloading previous patch {prev or path} (champion pool)")
         directory = aramhex.download_dataset(
-            ref, path, Path(tempfile.mkdtemp(prefix="aramhex-prev-")))
+            ref, path, Path(tempfile.mkdtemp(prefix="aramhex-prev-")), progress=progress)
+        if progress:
+            progress(f"storing previous patch {prev or path}")
         return aramhex.ingest_aramhex(store, directory, aliases)
     except Exception as exc:  # the current patch alone still builds
         logger.warning("Previous AramHex patch not ingested: %s", exc)

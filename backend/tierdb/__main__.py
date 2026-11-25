@@ -36,6 +36,12 @@ def _static_inputs(with_heuristic: bool):
     return static_inputs(sd, with_heuristic)
 
 
+def _say(message: str) -> None:
+    """Progress on the console: the update downloads ~25 MB and builds for minutes."""
+    import time
+    print(f"{time.strftime('%H:%M:%S')} {message}", flush=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m backend.tierdb")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
@@ -61,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd in ("ingest-aramhex", "update"):
             alias_file = getattr(args, "aliases", None)
+            _say("fetching champion names (Data Dragon)")
             aliases = (json.loads(alias_file.read_text(encoding="utf-8"))
                        if alias_file else riot_champion_aliases())
             if getattr(args, "dir", None):
@@ -68,19 +75,24 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 ref, dataset = _latest_dataset(getattr(args, "ref", "main"))
                 dataset = getattr(args, "dataset", None) or dataset
+                _say(f"downloading AramHex {dataset} ({ref})")
                 directory = aramhex.download_dataset(
-                    ref, dataset, Path(tempfile.mkdtemp(prefix="aramhex-")))
+                    ref, dataset, Path(tempfile.mkdtemp(prefix="aramhex-")), progress=_say)
+            _say("storing the dataset")
             snap_id = aramhex.ingest_aramhex(store, directory, aliases)
             patch = store.snapshot(snap_id).patch
             print(f"ingested snapshot {snap_id} (patch {patch})")
             if not getattr(args, "dir", None):
                 from backend.tierdb.service import ingest_previous_patch
-                prev = ingest_previous_patch(store, ref, patch, aliases)
+                prev = ingest_previous_patch(store, ref, patch, aliases, progress=_say)
                 if prev:
                     print(f"ingested previous patch snapshot {prev} (champion pool)")
             if args.cmd == "update":
+                _say("loading champion/item data")
                 roles, heuristic = _static_inputs(not args.no_heuristic)
+                _say("building the tier lists (about 1 minute)")
                 run_id = run_build(store, patch, roles, heuristic)
+                _say("exporting")
                 export_run(store, run_id, args.out)
                 print(f"built run {run_id}; exported to {args.out}")
         elif args.cmd == "build":
